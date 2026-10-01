@@ -1,6 +1,6 @@
 # The Claude Code Development Loop
 
-Open two terminals. In the first, run `ikon app run`. In the second, start Claude Code. That is the entire development environment. No IDE required. No build step. No restart cycle. You describe what you want, the AI writes it, the running app hot-reloads, and you see the result immediately. Then you describe what to change, and the loop repeats.
+Open two terminals. In the first, run `ikon run`. In the second, start Claude Code. That is the entire development environment. No IDE required. No build step. No restart cycle. You describe what you want, the AI writes it, the running app hot-reloads, and you see the result immediately. Then you describe what to change, and the loop repeats.
 
 This is not a hypothetical workflow. It is how several of the apps in this series were built -- and it changes the economics of what one person can build in an afternoon.
 
@@ -9,7 +9,7 @@ This is not a hypothetical workflow. It is how several of the apps in this serie
 Everything starts with one command:
 
 ```bash
-cd platform-dotnet && CI=true ikon app new Ikon.App.MyProject
+cd platform-dotnet && CI=true ikon new Ikon.App.MyProject
 ```
 
 This creates a complete project: a C# application file, a frontend shell, configuration, and a solution file. The scaffolded app compiles and runs immediately -- a blank canvas with the full Ikon runtime available. Reactive state, server-driven UI, AI orchestration, audio, video, multiplayer -- all accessible from the first line of code you write.
@@ -58,7 +58,7 @@ One file. One class. A heading on screen. Everything else is available when you 
 Terminal one runs the app:
 
 ```bash
-cd platform-dotnet/Ikon.App.MyProject && ikon app run
+cd platform-dotnet/Ikon.App.MyProject && ikon run
 ```
 
 This starts the .NET server and the Vite frontend dev server together. The app is accessible at `http://localhost:5000`. Both processes watch for file changes.
@@ -106,7 +106,7 @@ Each iteration takes seconds. The feedback loop is: describe, write, reload, see
 
 The traditional version of this workflow involves an IDE, a terminal for the dev server, a browser, and frequent context switches between them. The AI assistant generates code, you paste it into the right file, the dev server rebuilds, you switch to the browser, you check the result, you switch back to the chat, you describe the next change.
 
-With Claude Code and `ikon app run`, the loop collapses. Claude writes directly to the files. The server reloads automatically. You stay in one place -- the terminal -- and check the browser when you want to see the result. The AI handles the editing. The platform handles the reloading. You handle the direction.
+With Claude Code and `ikon run`, the loop collapses. Claude writes directly to the files. The server reloads automatically. You stay in one place -- the terminal -- and check the browser when you want to see the result. The AI handles the editing. The platform handles the reloading. You handle the direction.
 
 The other factor is that Ikon apps are server-driven. The UI is declared in the same C# file as the logic. There is no separate frontend to modify, no API endpoints to wire up, no client-side state to synchronize. When Claude changes the app file, it changes everything -- the interface, the logic, the AI orchestration, the data model. One file, one reload, one result.
 
@@ -116,15 +116,15 @@ Claude Code is not just a code generator pasting snippets. It reads the existing
 
 It also reads the Ikon platform documentation when it needs to understand an API. How to call an AI model with structured output. How to add speech recognition. How to use the Emergence patterns for multi-agent orchestration. The documentation is available as context, so Claude can use APIs correctly on the first try rather than guessing and iterating.
 
-When something goes wrong -- a compilation error, a runtime exception -- the error appears in the terminal where `ikon app run` is running. Claude can read the server logs, diagnose the issue, and fix it. The loop continues.
+When something goes wrong -- a compilation error, a runtime exception -- the error appears in the terminal where `ikon run` is running. Claude can read the server logs, diagnose the issue, and fix it. The loop continues.
 
 ## From prototype to production
 
 The app you build in this loop is not a throwaway prototype. It is the production app. The same code, the same reactive state model, the same AI orchestration runs when you deploy:
 
 ```bash
-ikon app config    # connect to your cloud environment
-ikon app deploy    # bundle and deploy
+ikon link    # connect to your cloud environment
+ikon deploy    # bundle and deploy
 ```
 
 The deployed app runs as a persistent process on Ikon's infrastructure. It handles multiplayer automatically. It scales. The hot reload state mechanism is replaced by proper server lifecycle management, but the reactive state model is identical. What worked on localhost works in production.

@@ -1,5 +1,5 @@
 # Ikon.App.Sso Guide
-<!-- checked-against: 073241f32ec78e5a -->
+<!-- checked-against: 8f54770bc040574f -->
 Let your business customers sign in to your app through their own directory — Microsoft Entra ID,
 Google Workspace, or any OpenID Connect provider (Okta, Auth0, Keycloak, PingFederate). Their users
 then authenticate under their own conditional-access rules, MFA and offboarding: someone their IT
@@ -7,9 +7,9 @@ disables cannot start a new session. `app.SsoConnections` (an `SsoConnectionsSer
 entry point, so an app's own tenant-admin screen can configure it without anyone touching the
 Portal.
 
-A connection belongs to the app's space. An app that runs many customers in one space holds one
+A connection belongs to the app. An app that serves many customers holds one
 connection per customer and decides for itself which connection belongs to which of its tenants.
-Creating one needs the space's `sso-connection.per-space` quota, which the plans that include SSO
+Creating one needs the app's `sso-connection.per-space` quota, which the plans that include SSO
 raise.
 
 ## Turn on the sign-in UI
@@ -24,7 +24,7 @@ Methods = ["sso", "google", "email"]
 The sign-in screen then offers the customer's IdP in two ways: a "Continue with …" button on a host
 bound to a connection (`SsoConnectionsService.SetHostsAsync`), and an email field that routes an
 address to its company's IdP once that company's domain is proven by DNS. The auth service refuses a
-method the app has not declared, so a space that lists only `sso` cannot be entered with a consumer
+method the app has not declared, so an app that lists only `sso` cannot be entered with a consumer
 account through any URL.
 
 ## Which domains a connection may speak for
@@ -53,9 +53,11 @@ means the registration stopped sending it.
 ## Microsoft Entra ID
 
 The quickest setup uses the platform's own registration: the customer's admin consents once, and no
-client secret changes hands.
+client secret changes hands. Creating the connection, or adding a domain to it, is refused when
+Microsoft maps an email domain to a directory other than `EntraTenantId`; a domain Microsoft does not
+know is allowed.
 
-<!-- ikon-code: sso-create-entra -->
+<!-- ikon-example: sso-create-entra -->
 ```csharp
 // The customer's admin consents to the platform's registration in their directory, so
 // there is no client secret to collect — only the directory id.
@@ -95,7 +97,7 @@ URI as above.
 Create a web application in the IdP with the redirect URI above and the scopes `openid email profile`,
 then:
 
-<!-- ikon-code: sso-create-oidc -->
+<!-- ikon-example: sso-create-oidc -->
 ```csharp
 var connection = await app.SsoConnections.CreateAsync(new SsoConnectionOptions
 {
@@ -121,7 +123,7 @@ it is.
 
 ## Proving a domain and binding a host
 
-<!-- ikon-code: sso-verify-domain -->
+<!-- ikon-example: sso-verify-domain -->
 ```csharp
 // Once the TXT record is published. The platform keeps looking for about two hours.
 connection = await app.SsoConnections.VerifyDomainAsync(connection.Id, "lawfirm.example");
@@ -131,17 +133,19 @@ connection = await app.SsoConnections.SetHostsAsync(connection.Id, ["lawfirm.you
 ```
 
 `SsoEmailDomain.State`, an `SsoDomainState`, moves from `Pending` to `DnsPending` to `Verified` (or `Failed`, when the
-record was not found in time — publish it and call `VerifyDomainAsync` again). A host must be one the
-app's space serves. `RemoveDomainVerificationAsync` withdraws a proof no longer wanted: the domain
+record was not found in time — publish it and call `VerifyDomainAsync` again). A `Verified` domain
+whose record the daily re-check finds missing stays `Verified` for 72 hours, then moves to `Failed`
+too. A host must be one the app serves. `RemoveDomainVerificationAsync` withdraws a proof no longer wanted: the domain
 returns to `Pending` and is not looked up again, and where the connection `AttestsDomains` its users
-keep signing in.
+keep signing in. Losing the connection's last DNS-proven domain this way, by removal or by the re-check
+revoking it, also sets `RequiredMode` back to `Off`.
 
 ## Requiring SSO
 
 Once a domain is proven by DNS, a connection can require its users to come in through it. Move in two
 steps, so nobody is surprised:
 
-<!-- ikon-code: sso-require -->
+<!-- ikon-example: sso-require -->
 ```csharp
 // Admit everyone, but record who still signs in some other way…
 await app.SsoConnections.UpdateAsync(connection.Id, new SsoConnectionUpdate { RequiredMode = SsoRequiredMode.Warn });
@@ -161,10 +165,10 @@ code, a passkey — is refused when it enters the app, and the sign-in screen se
 IdP. If the directory asserts the same address the person's existing account already holds, that
 account is kept and joined to the connection, so their data in the app follows them.
 
-The requirement covers the whole space: every hostname the app answers on, every route, and MCP
+The requirement covers the whole app: every hostname the app answers on, every route, and MCP
 clients authorizing against it. It knows nothing of the app's own tenants, so use it when everyone on
 the domain must use the IdP everywhere in the app — an internal tool, or an app one organisation owns.
-An app serving several organisations from one space, where only one of them requires SSO, keeps
+An app serving several organisations, where only one of them requires SSO, keeps
 `RequiredMode` at `Off` and enforces per tenant itself (below).
 
 ## Reading how a user signed in
@@ -173,7 +177,7 @@ An app serving several organisations from one space, where only one of them requ
 `Context.SsoConnectionId` names the connection. Both come from the platform's signed token, so a
 policy finer than `Enforce` — one tenant requiring SSO, another not — is the app's to decide:
 
-<!-- ikon-code: sso-read-context -->
+<!-- ikon-example: sso-read-context -->
 ```csharp
 // A softer policy than `Enforce`, decided per tenant by the app itself.
 if (context.AuthProvider != "sso" || context.SsoConnectionId != tenantConnectionId)

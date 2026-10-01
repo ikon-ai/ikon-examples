@@ -1,10 +1,10 @@
 # Ikon Persistent State Guide
-<!-- checked-against: bbc26c361c836aa8 -->
+<!-- checked-against: b6156040aa843eec -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
 
-<!-- ikon-code: persistent-default -->
+<!-- ikon-example: persistent-default -->
 ```csharp
 // Default for almost everything you want to persist:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
@@ -12,7 +12,7 @@ private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
 
 Then from any method:
 
-<!-- ikon-code: persistent-read-write -->
+<!-- ikon-example: persistent-read-write -->
 ```csharp
 // Read and write like any reactive:
 _state.Value = next;
@@ -25,7 +25,7 @@ That's it. The framework loads from cloud storage before `Main()` runs and saves
 
 | Class | Same value seen by | When to pick |
 |---|---|---|
-| `PersistentReactive<T>` | All session identities, all users (app-wide within space) | Truly app-wide config. Rare — most apps don't need this. |
+| `PersistentReactive<T>` | All session identities, all users (app-wide) | Truly app-wide config. Rare — most apps don't need this. |
 | **`PersistentSessionReactive<T>`** | The same SessionIdentity (the app's routing key) | **Default.** One app instance = one bucket of state. |
 | `PersistentUserReactive<T>` | The same UserId, across all of their sessions | State that follows a user (preferences, history, profile). |
 
@@ -49,7 +49,7 @@ The initial value or items you pass to the constructor are what every user, sess
 until it has state of its own; a partition that was persisted keeps its own. That is the whole
 seeding mechanism — there is no "seed if empty" step to write:
 
-<!-- ikon-code: persistent-starting-values -->
+<!-- ikon-example: persistent-starting-values -->
 ```csharp
 // Every new user starts with two example recipes; a returning user sees their own list.
 private readonly PersistentUserReactiveList<Recipe> _recipes = new(
@@ -66,13 +66,13 @@ handlers run with **no** user active, so reading or adding to a user-scoped valu
 active`). To touch one user's partition from such a place, capture the id where the scope exists
 (`var userId = ReactiveScope.UserId;` inside the callback) and use the per-user accessors —
 `ValueFor(userId)` / `SetFor(userId, …)` / `UpdateFor(userId, …)` on a `PersistentUserReactive<T>`,
-`AddFor(userId, …)` / `RemoveFor` / `ClearFor` / `UpdateFor` on the collection variants. Session-scoped
+`AddFor(userId, …)` (`SetFor(userId, key, value)` on the dictionary) / `RemoveFor` / `ClearFor` / `UpdateFor` on the collection variants. Session-scoped
 and global values need no scope: the session is the app instance itself, so they read and write
 like any other reactive from anywhere, `Main()` included.
 
 ## Backends — the default does the right thing
 
-<!-- ikon-code: persistent-backends -->
+<!-- ikon-example: persistent-backends -->
 ```csharp
 // Default — structured state lands in the app's built-in postgres database
 private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
@@ -91,9 +91,9 @@ private readonly PersistentSessionReactive<long> _counter
 
 Read the public URL from a method, once a save has happened:
 
-<!-- ikon-code: persistent-public-url -->
+<!-- ikon-example: persistent-public-url -->
 ```csharp
-var url = _logo.PublicUrl;  // null until first save completes
+var url = _logo.PublicUrl;  // null until a value is stored; loaded before Main() once one is
 ```
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to
@@ -102,17 +102,22 @@ quota-free. The default backend routes on the storage doctrine — structured st
 Postgres, asset storage is for binaries and public files:
 
 - `Default` (what you get when you name no backend) — structured values (`T` is not `byte[]`) are
-  stored as one row in the `ikon_reactive_storage` table of the built-in `app` database.
-  `byte[]` payloads go to private asset storage. If the session has no database (older backend,
-  degraded provisioning, plain local run), everything falls back to asset storage — same behavior,
-  different shelf — and the app logs one warning naming the fallback.
+  stored as one row in the `ikon_reactive_storage` table of the app's state database: the
+  built-in `app` database when the app has one, otherwise its only platform-created database.
+  Persistence never provisions `app` itself — it exists once the app has asked for a database.
+  `byte[]` payloads go to private asset storage. If the session has no state database (no database
+  yet, several created ones and no `app`, plain local run), everything falls back to asset storage —
+  same behavior, different shelf. The app warns once only when `StateDatabase` in its `ikon-config`
+  names a database it was not given.
 - `Private` — S3-backed private cloud file, explicitly. Pick it only when a structured value must
   stay on asset storage despite the default.
 - `Public` — asset storage with a public URL on `PublicUrl`. **Only** when the value will be
   linked to from the open web. Don't use for anything sensitive.
 - `Postgres` — a row in a postgres DB of the app's own, created with
-  `ikon app db create --name <name>`. If the space holds only one such database, omit
-  `postgresDatabase`; with several, name the one you want.
+  `ikon db create --name <name>`. If the app holds only one such database, omit
+  `postgresDatabase`; with several, name the one you want. Omitted, the first postgres database is
+  used, which can be the built-in `app`; a named database the app lacks logs one error and that
+  value is never saved.
 
 Existing data migrates by itself: when a structured value first loads from the `app` database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits
@@ -128,30 +133,30 @@ Backend ≠ scope. Scope decides who sees the value; backend decides where it li
 
 Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
 `dedicated-small` — which decides how densely it is packed onto an instance and how many
-connections it gets. Your plan maps the default tier; you never pick one at declaration time.
+connections it gets. `ikon app db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database has a fixed tier.
 
 A live database can move to another tier without redeploying:
 
 ```
-ikon app db tier set dedicated-small
+ikon db tier dedicated-small
 ```
 
 With several declared databases, name the one to move with `--name <name>`. The platform
 copies the data to an instance of the new tier, verifies it, and switches connections over —
 the database keeps its name and credentials, but expect open connections to drop briefly while
 the data moves (sessions reconnect automatically). Writes are refused while the data is copied;
-reads keep working. `ikon app db list` shows each database's tier and the state of an in-flight
+reads keep working. `ikon db list` shows each database's tier and the state of an in-flight
 migration.
 
 A move that cannot finish is undone: the database stays on its current tier, unchanged and
-writable again (unless it is over its storage quota), and `ikon app db list` shows the move as
+writable again (unless it is over its storage quota), and `ikon db list` shows the move as
 `failed` with the reason. Nothing needs cleaning up before you try again, to the same tier or
 another. A database holding a single row too large to move — tens of megabytes as text on the
 shared tiers — is refused before anything changes.
 
 ## The `key:` parameter — only for loops
 
-<!-- ikon-code: persistent-dynamic-keys -->
+<!-- ikon-example: persistent-dynamic-keys -->
 ```csharp
 // WRONG — every loop iteration creates a reactive with the SAME stable id.
 foreach (var camera in cameras)
@@ -174,7 +179,7 @@ You almost never need `key:` for fields. Field names are already stable. Only re
 
 ## Save semantics
 
-- **Load**: parallel for all persistent reactives, finishes before `Main()` runs. Your code sees persisted values from the start. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
+- **Load**: parallel for all persistent reactives, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
 - **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown).
 - **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.Databases`.
 
@@ -184,7 +189,7 @@ You almost never need `key:` for fields. Field names are already stable. Only re
 
 To erase everything the app has persisted about a user — a user-data-erasure (GDPR) request — use the app-level helper:
 
-<!-- ikon-code: persistent-erase-user -->
+<!-- ikon-example: persistent-erase-user -->
 ```csharp
 await app.EraseUserStateAsync(userId);
 ```
@@ -216,7 +221,7 @@ Nickname = "string"
 Bumping `version` obliges you to say what the old data means — the generated code calls a
 migration you write in your partial class, so forgetting it is a compile error, not a data loss:
 
-<!-- ikon-code: persistent-schema-migration -->
+<!-- ikon-example: persistent-schema-migration -->
 ```csharp
 public sealed partial class PlayerProfile
 {

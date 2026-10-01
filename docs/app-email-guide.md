@@ -1,13 +1,14 @@
 # Ikon.App.Email Guide
-<!-- checked-against: a60849497aedd0ed -->
-Send transactional email from your app and read the mail delivered to your app's space — through the
+<!-- checked-against: 2840bea738bd8ae3 -->
+Send transactional email from your app and read the mail delivered to your app — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
-`app.Email` (an `EmailService`) is the entry point, available to every space. Each message sent is
-billed to the space's organisation.
+`app.Email` (an `EmailService`) is the entry point, available to every app. Each message sent is
+billed to the app's organisation. `EmailSendRequest`, `InboxQuery` and the other email types live in
+`Ikon.Common.Core.Email`, which the scaffold's global usings do not cover.
 
 ## Send an email
 
-<!-- ikon-code: email-send -->
+<!-- ikon-example: email-send -->
 ```csharp
 await app.Email.SendAsync(new EmailSendRequest(
     To: "customer@example.com",
@@ -20,10 +21,13 @@ await app.Email.SendAsync(new EmailSendRequest(
 ```
 
 The send is **accepted, not delivered**: a successful return means the platform queued the message,
-and transient delivery failures are retried server-side. Invalid input throws `ArgumentException`
-locally, before anything is sent.
+and transient delivery failures are retried server-side. A recipient that is undeliverable or
+suppressed (it bounced or complained before) is refused at send time with a request failure. Missing
+fields and the limits below, except the metadata key count, throw `ArgumentException` locally, before
+anything is sent; a malformed `To` or `ReplyTo` address and too many metadata keys are rejected by the
+backend and surface as a `UserException`.
 
-Limits, enforced identically in the client and the backend:
+Limits, enforced by the backend and, except the metadata key count, also checked in the client:
 
 | What | Limit |
 | --- | --- |
@@ -43,37 +47,37 @@ stay under 0.3% spam complaints and 5% hard bounces (addresses that do not exist
 not paused for fewer than 3 complaints or 10 hard bounces, whatever the rate. An app that crosses a
 line has its email paused, and its owners are told why. Sign-in codes do not count toward it.
 
-While paused, every `SendAsync` throws `EmailSendingRestrictedException` — nothing is queued, and
-retrying does not help — until Ikon support reviews the sending and restores it. Sign-in codes and
+While paused, every `SendAsync` throws `EmailSendingRestrictedException` — nothing is queued, mail
+already queued is dropped, and retrying does not help — until Ikon support reviews the sending and restores it. Sign-in codes and
 other account mail keep working. Send only to people who asked for the mail, and never to a list
 bought or scraped from elsewhere.
 
 ## The From address and sender identity
 
-The platform owns the From **domain** — it only ever sends from a domain the space has verified for
-sending, so an app cannot impersonate an address it does not control. Within that, the request
+The platform owns the From **domain** — it only ever sends from a domain the app has verified for
+sending, or from its own default address, so an app cannot impersonate an address it does not control. Within that, the request
 chooses the identity:
 
 - **`SenderLocalPart`** — the part before the `@`. Lowercase letters, digits, dot, underscore and
   hyphen, starting and ending alphanumeric, at most 64 characters. Names that belong to the mail
   infrastructure (`postmaster`, `abuse`, `security`, `mailer-daemon`, …) are rejected.
 - **`SenderDisplayName`** — the name shown beside the address, at most 64 characters (measured in
-  code points). Defaults to the space's own name.
-- **`SenderDomain`** — for a space with more than one verified sending domain: name the one to send
-  from. It must be a verified sending domain of the space.
+  code points). Defaults to the app's own name.
+- **`SenderDomain`** — for an app with more than one verified sending domain: name the one to send
+  from. It must be a verified sending domain of the app.
 
-With no `SenderDomain`, the platform picks the space's sending domain deterministically: the domain
-designated as the space's **email sender** — chosen when the domain is set up — wins; without a
+With no `SenderDomain`, the platform picks the app's sending domain deterministically: the domain
+designated as the app's **email sender** — chosen when the domain is set up — wins; without a
 designation, a domain of your own beats the platform-provided one, then the earliest verified one.
 
 ### When the sender identity cannot be honoured
 
-A request that names any sender identity needs a verified sending domain behind it. When the space
-has none — or the requested `SenderDomain` is not a verified sending domain of the space — the send
+A request that names any sender identity needs a verified sending domain behind it. When the app
+has none — or the requested `SenderDomain` is not a verified sending domain of the app — the send
 fails with `EmailSenderNotAvailableException`. Nothing is sent in that case, so decide what matters
 more, the identity or the delivery:
 
-<!-- ikon-code: email-sender-fallback -->
+<!-- ikon-example: email-sender-fallback -->
 ```csharp
 try
 {
@@ -86,15 +90,15 @@ catch (EmailSenderNotAvailableException)
 }
 ```
 
-A request with **no** sender identity fields never hits this: it sends from the space's verified
+A request with **no** sender identity fields never hits this: it sends from the app's verified
 domain when one exists and from the platform's default address otherwise.
 
 ## Sending from your own domain
 
-Out of the box a space sends from a platform-provided domain, so the examples above work with no DNS
-setup at all. Sending from a domain of your own — so the From address reads `reports@yourfirm.com` —
+Out of the box an app with no verified sending domain sends from the platform's default address, so
+the examples above work with no DNS setup at all. Sending from a domain of your own — so the From address reads `reports@yourfirm.com` —
 is arranged with Ikon rather than configured in the app: ask your Ikon contact to add the domain to
-your space, and you will be given the records to publish.
+your app, and you will be given the records to publish.
 
 They come in two rounds:
 
@@ -109,8 +113,8 @@ rounds wait on your DNS provider to propagate, so expect the setup to span hours
 and keep the records in place afterwards: they are re-checked periodically, and a domain whose
 records disappear stops being a valid sender.
 
-If your domain publishes no `DMARC` policy, the platform supplies `v=DMARC1; p=none` so mail is not
-treated as unauthenticated by the mailbox providers that now require a record. Tightening it to
+If the sending records you are given include no `DMARC` policy, a `_dmarc.<your-domain>` `TXT` record
+`v=DMARC1; p=none` is added to them for you to publish, so mail is not treated as unauthenticated by the mailbox providers that now require a record. Tightening it to
 `quarantine` or `reject` is yours to do once your reports are clean — publish a stricter record of
 your own and it takes precedence.
 
@@ -120,9 +124,9 @@ platform default sender.
 
 ## Read the inbox
 
-Inbound email delivered to the app's space is available as pages or as a lazy stream:
+Inbound email delivered to the app is available as pages or as a lazy stream:
 
-<!-- ikon-code: email-inbox -->
+<!-- ikon-example: email-inbox -->
 ```csharp
 // One page at a time
 var page = await app.Email.GetInboxPageAsync(new InboxQuery { Limit = 50 });
@@ -151,7 +155,7 @@ Instead of sweeping the inbox on a schedule, listen for the platform's `EmailRec
 backend delivers every stored message to the app's userless instance — starting one when none is
 running — and keeps the event until the handler returns.
 
-<!-- ikon-code: email-trigger -->
+<!-- ikon-example: email-trigger -->
 ```csharp
 [Trigger(TriggerEventType.EmailReceived, MaxParallelism = 4)]
 internal async Task OnEmailReceivedAsync(TriggerContext context, CancellationToken ct)

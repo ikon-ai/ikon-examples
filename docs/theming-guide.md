@@ -1,12 +1,12 @@
 # Ikon Theming Guide
-<!-- checked-against: d459a79054590c25 -->
+<!-- checked-against: 0bb72a9b4ed7d3ee -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
 
 ## TL;DR
 
-<!-- ikon-code: theming-committed-palette -->
+<!-- ikon-example: theming-committed-palette -->
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {
@@ -32,7 +32,7 @@ private UI UI { get; } = new(app, new IkonTheme
 });
 ```
 
-That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, and its two aliases: `Dark` is the same property under a second name, and `Light` takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks.
+That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, its alias `Dark` (the same property under a second name), and `Light`, which takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks.
 
 ## Two-tier styling
 
@@ -60,7 +60,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 |---|---|---|
 | Theme key from the reference table (`primary`, `card`, `border`, `radius`, `density`, ...) | its canonical variables (one key can commit a whole cluster) | per the key's value kind |
 | Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also Ikon scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
-| Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | color |
+| Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | smart sniff |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
 | `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
 | `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
@@ -76,7 +76,7 @@ Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warni
 
 ## What's NOT in the system
 
-- **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode` and its two spellings `Dark` and `Light` are the only non-indexer members.
+- **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode`, its second spelling `Dark`, and `Light` are the only non-indexer members.
 - **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. The one exception is the label on brand fills: `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]`.
 - **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
 
@@ -95,7 +95,7 @@ There is ONE contract:
 
 Adaptive app — author both palettes in one block:
 
-<!-- ikon-code: theming-how-dark-mode-works -->
+<!-- ikon-example: theming-how-dark-mode-works -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -118,7 +118,7 @@ The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `p
 
 Fixed app — one palette, no flip:
 
-<!-- ikon-code: theming-how-dark-mode-works-2 -->
+<!-- ikon-example: theming-how-dark-mode-works-2 -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -190,7 +190,7 @@ The platform consumes exactly two accent steps: `["accent-300"]` is the light-sc
 
 ### Color palette overrides (re-skin a step app-wide)
 
-<!-- ikon-code: theming-palette-steps -->
+<!-- ikon-example: theming-palette-steps -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -203,7 +203,7 @@ Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-am
 
 ### Per-rung radius overrides
 
-<!-- ikon-code: theming-radius-rungs -->
+<!-- ikon-example: theming-radius-rungs -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -242,7 +242,7 @@ port and diff computed styles on matched elements. Everything else ports verbati
 
 ### Custom variables (expressive-layer escape hatch)
 
-<!-- ikon-code: theming-custom-variable -->
+<!-- ikon-example: theming-custom-variable -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -283,7 +283,7 @@ For coherent themes, follow these rules (the StylingOracle's internal taxonomy):
 - **Pick one palette family.** Warm-bedtime → amber/rose/stone. Fintech minimal → emerald/zinc. Cyberpunk neon → violet/cyan/zinc. Don't mix amber + cyan + lime in one app — the eye reads it as random.
 - **Contrast the page.** Dark background (`zinc-950`, `slate-900`) → light foreground (`zinc-50`, `amber-50`). Light background (`zinc-50`, `stone-100`) → dark foreground (`zinc-950`, `stone-950`).
 - **Step conventions.** Dark palettes use 900s/950 for `background`, 50s for `foreground`. Light palettes reverse: 50s/100s for `background`, 950s for `foreground`.
-- **Brand contrast:** `["primary"]` picks white or near-black text for its fills by contrast. Light brand step (≤ 500) → state `["primary-foreground"] = "#0A0A0A"` anyway, so the label is the one you chose. Dark brand step (≥ 600) → the white it picks is right.
+- **Brand contrast:** `["primary"]` picks white or near-black text for its fills by contrast. Light brand step (≤ 500) → state `["primary-foreground"] = "#0A0A0A"` anyway, so the label is the one you chose. Dark brand step (≥ 600) → the label it picks reads (white from 700 up; near-black on some 600s, such as `emerald-600`).
 - **Match radius to mood.** Sharp / brutalist → `rounded-none`. Modest / SaaS → `rounded-md`. Friendly / bedtime → `rounded-2xl` or higher.
 - **Match density to mood.** Editorial / calm / luxury → `airy`. Terminal / data-dense → `compact`.
 - **Decide the dark story.** One committed scheme → `Mode = ThemeMode.Fixed`. Adaptive → a `DarkMode` block restating the surface/text/brand keys.
@@ -294,7 +294,7 @@ Copy-paste blocks for common moods. Each is mood-coherent — palette, fonts, ra
 
 ### warm-bedtime — cozy, low-stakes, evening reading
 
-<!-- ikon-code: theming-warm-bedtime-cozy-low-stakes-evening-reading -->
+<!-- ikon-example: theming-warm-bedtime-cozy-low-stakes-evening-reading -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -319,7 +319,7 @@ var theme = new IkonTheme
 
 ### cyberpunk-neon — hacker terminal, high contrast, glow
 
-<!-- ikon-code: theming-cyberpunk-neon-hacker-terminal-high-contrast-glow -->
+<!-- ikon-example: theming-cyberpunk-neon-hacker-terminal-high-contrast-glow -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -349,7 +349,7 @@ Scanlines are expressive-layer — concrete at the use point, e.g. a full-bleed 
 
 ### editorial-vintage — paper-and-ink, serif, generous margins
 
-<!-- ikon-code: theming-editorial-vintage-paper-and-ink-serif-generous-margins -->
+<!-- ikon-example: theming-editorial-vintage-paper-and-ink-serif-generous-margins -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -373,7 +373,7 @@ var theme = new IkonTheme
 
 ### brutalist — high contrast, sharp corners, mono type
 
-<!-- ikon-code: theming-brutalist-high-contrast-sharp-corners-mono-type -->
+<!-- ikon-example: theming-brutalist-high-contrast-sharp-corners-mono-type -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -399,7 +399,7 @@ var theme = new IkonTheme
 
 ### glassmorphism — soft, translucent, light pastels
 
-<!-- ikon-code: theming-glassmorphism-soft-translucent-light-pastels -->
+<!-- ikon-example: theming-glassmorphism-soft-translucent-light-pastels -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -424,7 +424,7 @@ The blur is expressive-layer — put `backdrop-blur-md` (or `backdrop-blur-[12px
 
 ### pastel — soft, friendly, kids / wellness
 
-<!-- ikon-code: theming-pastel-soft-friendly-kids-wellness -->
+<!-- ikon-example: theming-pastel-soft-friendly-kids-wellness -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -450,7 +450,7 @@ var theme = new IkonTheme
 
 ### noir-contrast — dark, cinematic, single accent
 
-<!-- ikon-code: theming-noir-contrast-dark-cinematic-single-accent -->
+<!-- ikon-example: theming-noir-contrast-dark-cinematic-single-accent -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -472,7 +472,7 @@ var theme = new IkonTheme
 
 ### solarpunk — natural, optimistic, earthy
 
-<!-- ikon-code: theming-solarpunk-natural-optimistic-earthy -->
+<!-- ikon-example: theming-solarpunk-natural-optimistic-earthy -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -496,7 +496,7 @@ var theme = new IkonTheme
 
 ### clean-saas — neutral, professional, default-ish
 
-<!-- ikon-code: theming-clean-saas-neutral-professional-default-ish -->
+<!-- ikon-example: theming-clean-saas-neutral-professional-default-ish -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -518,7 +518,7 @@ var theme = new IkonTheme
 
 ### dark-pro — modern dark, neutral, productivity
 
-<!-- ikon-code: theming-dark-pro-modern-dark-neutral-productivity -->
+<!-- ikon-example: theming-dark-pro-modern-dark-neutral-productivity -->
 ```csharp
 var theme = new IkonTheme
 {
@@ -542,7 +542,7 @@ var theme = new IkonTheme
 
 Once your theme is committed, components consume it via semantic Crosswind utilities:
 
-<!-- ikon-code: theming-using-tokens -->
+<!-- ikon-example: theming-using-tokens -->
 ```csharp
 // Brand button — follows ["primary"] and ["primary-foreground"].
 view.Button(["bg-brand-solid hover:bg-brand-solid-hover text-primary-on-brand px-6 py-3 rounded-lg font-semibold"],
@@ -568,10 +568,10 @@ Expressive styling — the full color palette (`bg-amber-400`), gradients, arbit
 
 ## Common pitfalls
 
-- **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — neutral light and dark schemes with the stock violet brand, following the OS preference. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source — both are provided by `Ikon.Parallax`.
+- **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — neutral light and dark schemes with the stock violet brand, following the OS preference. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` in the app source — `Ikon.Parallax` provides it.
 - **Don't try `Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)`.** Those factories were retired. The only configurable surface is `new IkonTheme { ... }`.
 - **Name the label on a light brand step.** `["primary"] = "amber-400"` gets near-black text from the contrast pick, but a fill it cannot measure (a `var()`, a gradient) gets white; `["primary-foreground"] = "#0A0A0A"` makes the choice explicit. Dark brand steps (≥ 600) need nothing.
-- **Don't strand text on the wrong background.** `["background"] = "zinc-950"` does not auto-set `["foreground"]`. If you skip it, the platform default (which assumes a light background) renders dark text on your dark background — invisible.
+- **Don't strand text on the wrong background.** `["background"] = "zinc-950"` does not auto-set `["foreground"]`. In `ThemeMode.Adaptive`, if you skip it, the light scheme's default text renders dark on your dark background — invisible. (`Fixed` pins the dark baseline, whose text reads.)
 - **Don't repeat brand colors in component class arrays.** Hand-rolling `bg-amber-400` per button instead of `bg-brand-solid` defeats the theme commitment AND breaks dark mode. Semantic classes for structure; concrete values only for expressive decoration.
 - **Don't write `bg-primary` / `text-primary` / `border-primary` in new code.** Legacy neutral tiers whose names collide with the shadcn brand reading — write `bg-background` for the page or `bg-card` for a card surface (not a like-for-like swap: see the legacy note above), `text-foreground`, `border-secondary`.
 - **`["font-body"] = "font-sans"` is a no-op** (the baseline already points `font-sans` at `font-body`; the circular alias is silently skipped). Omit such lines; set a font role only to change it.
@@ -585,12 +585,12 @@ Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme 
 1. **Read the user brief** — extract mood (warm / cyberpunk / editorial / brutalist / etc.) and any user-named colors / fonts.
 2. **Pick a mood from the cookbook** — match the brief to one of the 10 named moods above (warm-bedtime, cyberpunk-neon, editorial-vintage, brutalist, glassmorphism, pastel, noir-contrast, solarpunk, clean-saas, dark-pro). If none fit, build a fresh palette using the rules in *Mood rules* above.
 3. **Copy the cookbook block as-is** — paste it as the second arg to `new(app, ...)` at the App's UI declaration site.
-4. **Adjust the brand** if the user named a specific color — replace the `["primary"]` value (one line commits the whole brand cluster) and the two `-hover` refinements. Keep `["primary-foreground"]` consistent: light step (≤ 500) → `"#0A0A0A"`; dark step (≥ 600) → omit (white is picked).
+4. **Adjust the brand** if the user named a specific color — replace the `["primary"]` value (one line commits the whole brand cluster) and the two `-hover` refinements. Keep `["primary-foreground"]` consistent: light step (≤ 500) → `"#0A0A0A"`; dark step (≥ 600) → omit (the readable label is picked by contrast).
 5. **Verify** — the output has ONE `new IkonTheme { ... }` block with an explicit dark story (`Mode = ThemeMode.Fixed` OR a `DarkMode` block, never both), no `Theming.Apply(...)`, no hex beyond what the chosen cookbook block already carries unless the user asked for one, a coherent palette family, and no `["font-body"] = "font-sans"` no-op lines.
 
 The generated code goes at the top of the App class, replacing the default bare `new IkonTheme()`:
 
-<!-- ikon-code: theming-whole-app -->
+<!-- ikon-example: theming-whole-app -->
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {

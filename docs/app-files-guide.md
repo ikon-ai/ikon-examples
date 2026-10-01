@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: e07597d3959de9b9 -->
+<!-- checked-against: 98b2b9d481cb5e85 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -17,7 +17,7 @@ One law and two folders cover everything:
 
 At runtime, `app.Files` (an `AppFiles`) is the one API over both folders, each side an `AppFileTree`:
 
-<!-- ikon-code: app-files -->
+<!-- ikon-example: app-files -->
 ```csharp
 // Read a shipped (or previously written) private file.
 var rules = await app.Files.Data.ReadTextAsync("rules.md");
@@ -28,8 +28,9 @@ var url = await app.Files.Public.GetUrlAsync($"thumbnails/{id}.png");
 ```
 
 Files your app **writes at runtime** go to cloud storage and persist across deploys and restarts.
-Files **shipped in the repo** redeploy with the app. On a read, a runtime-written file wins over a
-shipped file at the same path.
+Files **shipped in the repo** redeploy with the app. On a read through `app.Files.Data`, a runtime-written file wins over a
+shipped file at the same path; `app.Files.Public` cannot read shipped `public/` files, which are
+reachable only by their URL path.
 
 ## Referencing files
 
@@ -51,16 +52,16 @@ every natural boundary.
 
 | You run | What happens to binaries |
 |---|---|
-| `ikon app save`, `app bundle`, `app deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
-| `ikon app run`, `app clone`, `app pull`, `app restore` | Pointers without their real file download it back. |
+| `ikon save`, `bundle`, `deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
+| `ikon run`, `clone`, `pull`, `restore` | Pointers without their real file download it back. |
 
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that
 repository's files alone.
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
-`ikon app asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
-development never needs them. `ikon app copy` re-homes stored binaries to the copy's own space.
+`ikon asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
+development never needs them. `ikon duplicate` re-homes stored binaries under the copy.
 
 ## A shared app's node_modules
 
@@ -70,18 +71,18 @@ in the tree says which one it was. Zip an app folder with Finder's **Compress** 
 **Send to > Zip** — neither reads `.gitignore` — and the tree travels to a machine it cannot run on,
 where every presence check passes and the first native call fails inside the bundler.
 
-`ikon app run` detects this and reinstalls: the platform stamps the tree with the machine that
+`ikon run` detects this and reinstalls: the platform stamps the tree with the machine that
 installed it and compares that stamp on the way up. The repair is a deletion, not an install: npm treats
 a populated tree's optional dependencies as already resolved and never fetches the missing binary
 ([npm/cli#4828](https://github.com/npm/cli/issues/4828)).
 
-Share an app with `ikon app share` or `ikon app copy --to zip` and none of this arises — they
+Share an app with `ikon share` or `ikon share --package` and none of this arises — they
 package the app without carrying one machine's install to another.
 
 ## Older apps
 
 Apps created before this layout keep files in `frontend-node/public/` and `app/<Project>/Data/`.
-Run `ikon app update` — it moves both folders to the root layout, repoints the project files, and
+Run `ikon update` — it moves both folders to the root layout, repoints the project files, and
 leaves everything referenced the same way (`/hero.png` URLs don't change).
 
 `app.DataDirectory` remains as an escape hatch when a library needs a real filesystem path for the
@@ -92,16 +93,16 @@ shipped data files. It is read-only in the cloud — anything written at runtime
 
 ## Uploads from users
 
-The `view.FileUpload` component streams a user's file wherever you point it — return an `AssetUri`
-from `onUploadStart` to land it in asset storage (see the
-[asset system guide](asset-system-developer-guide.md)), then serve or process it from there. For
+The `view.FileUpload` component streams a user's file wherever you point it — return a `FileUploadResult`
+with an `AssetUri` from `onUploadStart` to land it in asset storage (see the
+[asset system guide](asset-system-guide.md)), then serve or process it from there. For
 files that should become part of the app's own tree, write them through `app.Files`.
 
 ## Under the hood
 
 `app.Files` and the `.ikonasset` scheme are built on the Ikon asset system — `Asset.Instance`,
 `AssetUri`, and the storage classes. The
-[Asset System Developer Guide](asset-system-developer-guide.md) documents that layer for advanced
+[Asset System Developer Guide](asset-system-guide.md) documents that layer for advanced
 use (optimistic concurrency, metadata, streams, custom storage paths).
 
 The pointer scheme itself is `AssetLinkManager`, which the tooling drives over a repository:

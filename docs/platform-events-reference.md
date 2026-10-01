@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 7d2b71029b2b2a08 -->
+<!-- checked-against: 72975b320a332e0b -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -9,22 +9,22 @@ TalkToData, …) and from vertical extensions are out of scope.
 
 ## Reading your events
 
-Events are scoped to a space, and you can read your own three ways:
+Events are scoped to an app, and you can read your own three ways:
 
 | | |
 |---|---|
-| `ikon` CLI | `ikon app events` — defaults to the current app project's space and the last 7 days. `--days` or `--start`/`--end`, `--all` to page through everything, `--format table\|json\|csv`, `--output <file>` |
-| Portal | the space's **Events** page — a range picker (24 hours to 90 days), a name filter, per-event detail, and CSV export of the whole filtered range rather than just the page on screen |
-| REST | `GET /spaces/:id/events` — `days` (default 7) or `start`/`end`, `eventName` substring filter, `limit`, cursor-paginated |
+| `ikon` CLI | `ikon events` — defaults to the app in the current directory and the last 7 days. `--days` or `--start`/`--end`, `--event-name` substring filter, `--limit` page size (1-10000, default 1000), `--all` to page through everything, `--format table\|json\|csv`, `--output <file>` |
+| Portal | the app's **Events** page — a range picker (24 hours to 90 days), a name filter, per-event detail, and CSV export of the whole filtered range rather than just the page on screen, capped at the first 10000 events |
+| REST | `GET /spaces/:id/events`, the id being the app's — `days` (default 7) or `start`/`end`, `eventName` substring filter, `limit`, cursor-paginated |
 
-Every event carries a timestamp, its name, the space and session it belongs to, and a `parameters`
+Every event carries a timestamp, its name, the app and session it belongs to, and a `parameters`
 object. Every payload field named below is a key inside `parameters`.
 
-The space and session are taken from your auth token, never from the request body, so an event
-cannot claim to belong to a space that did not emit it.
+The app and session are taken from your auth token, never from the request body, so an event
+cannot claim to belong to an app that did not emit it.
 
-**Parameters that look like personal data are withheld.** Any parameter whose key resembles an
-email, phone number, national id, date of birth, password, token, API key, card number, bank account
+**Parameters that look like personal data are withheld.** Any top-level parameter whose key has a
+`.`/`_`/`-`-delimited segment naming an email, phone number, national id, date of birth, password, token, API key, card number, bank account
 or postal address — or that you explicitly tag `{ sensitive: true, value }` — is stripped from the
 event you read back and retained separately under restricted access for a short period. Tagging a
 value can only add protection, never remove it: a key matching the pattern is withheld whether you
@@ -64,7 +64,7 @@ A model-operation failure event also carries `failureKind`, which says the same 
 Your own events can join the same taxonomy — `Ikon.Common.Core.EventFailureClass` holds the
 values as constants, so a failure your app records reads the same way as one the platform did:
 
-<!-- ikon-code: platform-events-own-failure -->
+<!-- ikon-example: platform-events-own-failure -->
 ```csharp
 Log.Instance.Event("invoice_export_failed", new
 {
@@ -89,8 +89,9 @@ Log.Instance.Event("invoice_export_failed", new
 
 | Event | When | Payload |
 |---|---|---|
-| `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `limit` |
-| `client_authentication_failed` | Connect token rejected | `user`, `clientSessionId` |
+| `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `pending`, `limit` |
+| `client_rejected_memory` | An external client connect was rejected (HTTP 429) because admitting it would exceed the memory budget for clients | `clientMb`, `clientBudgetMb`, `settlingClients`, `usedMb`, `baselineMb`, `limitMb`, `thresholdPercent` |
+| `client_authentication_failed` | The connect token was valid but the server's `OnAuthenticateAsync` refused the client (a rejected token gets a 401 and no event) | `user`, `clientSessionId` |
 | `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `firstSessionOfUser` (no other live session of this user existed), `clientContext` (see below) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
 | `client_soft_disconnected` | A session is soft-disconnected on transport loss (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
@@ -140,7 +141,7 @@ Crawlers are excluded — a large share of what reaches the router is vulnerabil
 counting them would inflate the denominator of any completion rate built on this.
 
 `country` is resolved at the network edge from the connection, never from an IP address, and is
-`unknown` when the edge could not place the client. `tenant` is your app's domain; the space is on
+`unknown` when the edge could not place the client. `tenant` is your app's domain; the app's id is on
 the row itself.
 
 ## Client placement
@@ -203,7 +204,7 @@ supplied a trace id, so an event with no trace id produces no rows at all.
 |---|---|---|
 | `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, `snapshotSeeded`, plus the asset fields below |
 | `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
-| `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `mountsOrStageMs`, `totalMs` |
+| `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
 | `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `mainMs` |
 
@@ -241,16 +242,17 @@ zero of them. Successful calls are not tracked individually.
 | Event | When | Payload |
 |---|---|---|
 | `rpc_server_call_failed` | A function call was rejected at validation, or threw while executing | `class`, `callId`, `functionName`, `version` (requested), `versionResolution`, `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
-| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or exhausted its retries and threw. Not emitted on first-attempt success. | `class`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
-| `rpc_server_version_resolved` | A hosted function version served a call for the first time, once per version and calling space. Hosts that register no versions stay silent, so an ordinary app emits none. | `functionName`, `version` (requested), `hostedVersion`, `versionResolution`, `callerSpaceId`, `callerSessionId` |
+| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or exhausted its retries and threw. Not emitted on first-attempt success. | `class`, `callId`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
+| `rpc_server_version_resolved` | A hosted function version served a call for the first time, once per version and calling app. Hosts that register no versions stay silent, so an ordinary app emits none. | `functionName`, `version` (requested), `hostedVersion`, `versionResolution`, `callerSpaceId`, `callerSessionId` |
 
 `versionResolution` taxonomy: `None`, `Exact`, `Floor`, `Greatest`, `Current`, `Unversioned`,
 `Other`. `Floor` means the caller asked for something older than anything hosted.
 
-`errorKind` taxonomy (server side): `Timeout`, `NotFound`, `VersionMismatch`, `PolicyDenied`,
-`ArgumentBinding`, `Execution`, `InvalidArgument`. `class` follows from it: the four kinds that mean
-the caller asked wrongly are `user_error`, `PolicyDenied` is `expected` (a limit enforced on
-purpose), and the rest are `dependency`.
+`errorKind` taxonomy (server side): `Timeout`, `Cancelled`, `NotFound`, `LocalVisibility`,
+`VersionMismatch`, `PolicyDenied`, `PolicyError`, `ArgumentBinding`, `Execution`, `InvalidArgument`.
+`class` follows from it: the four kinds that mean the caller asked wrongly are `user_error`,
+`PolicyDenied` (a limit enforced on purpose) and `Cancelled` (the caller cancelled its own call) are
+`expected`, and the rest are `dependency`.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
 `RemoteError`, `IOError`, `Other`.
@@ -262,7 +264,7 @@ purpose), and the rest are `dependency`.
 | `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes`, `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
 | `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
-| `legacy_usage_observed` | A deprecated code path was reached. Deduplicated per feature, detail and calling space, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId` |
+| `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
 
 ## AI and model operations — `EventLogHelper`
 
@@ -273,8 +275,9 @@ a fixed set of events, derived from the `eventName` argument the caller supplies
 - `{eventName}_cancelled`
 - `{eventName}_failed`
 
-Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined
-`additionalFields` object, the completion details, the exception (`class`, `failureKind`,
+Payload (same for all three): `modelName`, `elapsedSeconds`, `callId` when the operation ran inside a
+function call (it joins the `rpc_*_call_failed` rows), plus caller-defined additional fields as
+top-level keys, the completion details, the exception (`class`, `failureKind`,
 `errorType`, `errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For
 LLM calls the completion details carry the token counts (`InputTokens`, `OutputTokens`,
 `InputCachedTokens`, `OutputReasoningTokens`, `FinishReason`, …).
@@ -300,11 +303,12 @@ is one `expected` row and not a failure at all.
 type, unwrapped from the transport exception that carried it, and `stackTrace` is the remote stack —
 the wrapper's own type and stack name the RPC layer, never the cause.
 
-The prefixes in use are `llm`, `classification`, `embedding_generation`, `reranking`,
+The prefixes in use are `llm`, `decision`, `classification`, `embedding_generation`, `reranking`,
 `image_generation`, `image_segmentation`, `image_upscaling`, `depth_estimation`, `mesh_generation`,
-`music_generation`, `sound_effect_generation`, `speech_generation`, `speech_recognition`, `ocr`,
-`video_generation`, `video_enhancement`, `file_conversion`, `web_scraping` and `web_searching` — so
-57 concrete event names.
+`mesh_texturing`, `mesh_splitting`, `mesh_rigging`, `mesh_animation`, `music_generation`,
+`sound_effect_generation`, `speech_generation`, `speech_recognition`, `ocr`, `video_generation`,
+`video_enhancement`, `video_segmentation`, `file_conversion`, `web_scraping` and `web_searching` —
+so 75 concrete event names.
 
 ## Users and authentication
 
@@ -316,13 +320,15 @@ Emitted by the backend, not by the server.
 | `user_login` | A user authenticated | `authSession`, `user`, `provider` |
 | `user_logout` | A user logged out | `user` |
 | `user_removed` | A user account was removed | `user` |
-| `user_token_delegated` | A user token was delegated to another space | `authSession`, `user`, `role`, `sourceSpace` |
+| `user_token_delegated` | A user token was delegated to another app | `authSession`, `user`, `role`, `sourceSpace` |
 | `login_email_request` | A magic-link login email was requested. No payload — the address would be personal data. | — |
 | `anonymous_user_created` | An anonymous user was created | `user` |
 | `anonymous_user_login` | An anonymous user authenticated | `authSession`, `user` |
 | `anonymous_user_removed` | An anonymous user was removed | `user` |
 
-`provider` on `user_login`: `username`, `google`, `email`, `passkey`, `api-key`, `space-token`.
+`provider` on `user_login`: `username`, `google`, `apple`, `microsoft`, `facebook`, `signicat`,
+`sso`, `email`, `passkey`, `api-key`, `space-token`. OAuth and Signicat logins also carry `space` when
+one is known, and `sso` logins carry `space` and `ssoConnection`.
 
 `authSession` is what ties a login to the sessions that follow it — it is also on `client_joined`'s
 `clientContext.AuthSessionId`.
@@ -331,18 +337,18 @@ Emitted by the backend, not by the server.
 
 | Event | When | Payload |
 |---|---|---|
-| `profile_created` | A profile was created in a space | `user`, `role` |
+| `profile_created` | A profile was created in an app | `user`, `role` |
 | `profile_updated` | A profile changed | `user`, `role` |
 | `profile_removed` | A profile was removed | `user` |
 | `lead_created` | A profile was forwarded to a CRM integration | `user`, `integration` |
 
 ## Session issue analysis
 
-Space-scoped, emitted by the backend for spaces with session analysis enabled.
+App-scoped, emitted by the backend for apps with session analysis enabled.
 
 | Event | When | Payload |
 |---|---|---|
-| `session_issue_opened` | The analysis opened a new issue from this space's session logs | `issue`, `fingerprint`, `severity`, and `title` when the issue was classified |
+| `session_issue_opened` | The analysis opened a new issue from this app's session logs | `issue`, `fingerprint`, `severity`, and `title` when the issue was classified |
 
 ## Billing
 
@@ -353,6 +359,7 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 | `billing_checkout_created` | A checkout session was opened | `paymentProvider`, `session`, `customer`, `planType`, `mode` |
 | `billing_checkout_completed` | Checkout completed | `paymentProvider`, `session`, `customer`, `paymentIntent`, `amountPaid`, `currency`, `product`, `price`, `planType`, `tier`, `paymentStatus` |
 | `billing_checkout_failed` | Payment failed | `paymentProvider`, and the failure details |
+| `billing_invoice_payment_failed` | A subscription invoice payment failed | `paymentProvider`, `subscription`, `invoice`, `amountDue`, `currency` |
 | `billing_async_payment_completed` | A deferred payment method settled later | `paymentProvider`, and the settlement details |
 | `billing_invoice_paid` | An invoice was paid | the invoice and period details |
 | `billing_credits_added` | Credits were added to an organisation | `source`, `credits`, `subscriptionRemaining`, `purchasedRemaining` |
@@ -363,8 +370,9 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 
 ## Tool errors
 
-Top-level crash markers for the platform's CLI / utility processes. All carry `class` (always
-`defect` — an unhandled exception reached the entry point), `type`, `message`, `stackTrace`.
+Top-level crash markers for the platform's CLI / utility processes. All carry `class` (`defect` — an
+unhandled exception reached the entry point; `tool_failed` also uses `dependency`, below), `type`,
+`message`, `stackTrace`.
 
 | Event | Source |
 |---|---|
@@ -382,16 +390,16 @@ wrong is not a command that broke:
 
 | Event | When | `class` |
 |---|---|---|
-| `tool_failed` | An unhandled exception, or a backend request that failed | `defect`, or `dependency` for the backend case |
-| `tool_rejected` | The command refused the input and said why | `user_error` |
+| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build) | `defect`, or `dependency` for the backend and environment cases |
+| `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
-| `app_run_stopped` | `ikon app run`'s app was killed by a signal — which is what `ikon app stop` does | `expected` |
+| `app_run_stopped` | `ikon run`'s app was killed by a signal — which is what `ikon stop` does | `expected` |
 
 Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
 without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it
 failed before one was picked), `toolVersion`, `os`, `isCi` and `isInteractive`.
 
-When the backend is what failed, `tool_failed` also carries `statusCode`, `requestId`, and `route` —
+When the backend is what failed or refused, `tool_failed` or `tool_rejected` also carries `statusCode`, `requestId`, and `route` —
 the path with its ids replaced by `:id`, so every caller of one broken endpoint groups into one row
 rather than into as many rows as there were ids.
 
@@ -401,15 +409,15 @@ Consumption — tokens spent, images generated, database seconds, egress — is 
 is what billing and cost reporting are based on. It does not appear in your events, so an event
 query is the wrong place to look for it. Use the cost and usage views in the Portal instead.
 
-The AI events below are the nearest equivalent: `llm_succeeded` and its siblings record that a model
+The AI events above are the nearest equivalent: `llm_succeeded` and its siblings record that a model
 call happened and how long it took, and carry token counts in their completion details. Treat those
 as diagnostics, not as a billing record.
 
 ## User data erasure
 
-When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure event once to every affected space whose app declares a listener for it:
+When a user's data is erased (GDPR erasure — see [User Data Erasure](user-data-erasure-guide.md)), the backend delivers a durable erasure event once to every affected app that declares a listener for it:
 
-<!-- ikon-code: user-data-erasure -->
+<!-- ikon-example: user-data-erasure -->
 ```csharp
 [Trigger(TriggerEventType.UserErased)]
 internal Task EraseAsync(UserDataErasureEventArgs args)
@@ -423,11 +431,11 @@ internal Task EraseAsync(UserDataErasureEventArgs args)
 Semantics:
 
 - **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
-- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: gated on the listener your bundle declares, once per space to your app's shared userless instance — the one `[Cron]` ticks in — cold-started if none is running, retried on a widening backoff until your handler returns.
+- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: gated on the listener your deployment declares, once per app to its shared userless instance — the one `[Cron]` ticks in — cold-started if none is running, retried on a widening backoff until your handler returns.
 - **It is dispatched unlike one** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` stays 1. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
-- **Once per space, in one instance** — however many instances of your app are live, the handler runs once per erasure per space. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
-- **At-least-once delivery** — the event is stored per space on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
+- **Once per app, in one instance** — however many instances of your app are live, the handler runs once per erasure. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
+- **At-least-once delivery** — the event is stored per app on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
 - **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).
 - **Failure handling** — let exceptions propagate. A throwing handler leaves the event unanswered and it is redelivered after its backoff; swallowing the exception would report an incomplete erasure as done.
 - **However long it takes** — the session is held open for the whole run, so a handler slower than the idle limit is not stopped mid-erasure.
-- **No listener declared** — nothing is delivered, and the erasure report records the space as skipped for want of a listener. The platform erases the user's platform-managed state centrally whether or not your app ever runs; app-owned data is the app's documented responsibility either way.
+- **No listener declared** — nothing is delivered, and the erasure report records the app as skipped for want of a listener. The platform erases the user's platform-managed state centrally whether or not your app ever runs; app-owned data is the app's documented responsibility either way.

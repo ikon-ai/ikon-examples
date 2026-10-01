@@ -1,5 +1,5 @@
 # Connecting your computer to an Ikon app
-<!-- checked-against: 8c5bab1b0a023cef -->
+<!-- checked-against: b4f135a0af116887 -->
 How to connect a computer of yours to an Ikon app with Ikon Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
 the computer's own browser. For app developers; everything here works
@@ -23,7 +23,7 @@ Install the ikon tool and sign in with the same account you use on the board:
 
 ```bash
 ikon login
-ikon connect install
+ikon service install
 ```
 
 `install` checks which coding agents the machine has and sets up what they need — including tmux,
@@ -40,7 +40,7 @@ ikon connect https://your-app.example.com
 ```
 
 The argument is the app — its name, its URL, or its id — and defaults to the app project in the
-current directory. The first time, you confirm the app's space id, organisation and what it may do
+current directory. The first time, you confirm the app's id, organisation and what it may do
 on your computer. Leave it running: **one** `ikon connect` serves every app you connect, so run the
 same command for a second app in another terminal and the running process picks it up within
 seconds, then that command returns.
@@ -49,7 +49,7 @@ What an app may do is a set of **grants**, checked on your computer:
 
 | Grant | What it lets the app do |
 |---|---|
-| `repo` | Work in the repository: worktrees of it, landing and pushing, its local agent sessions |
+| `repo` | Work in the repository: worktrees of it, landing and pushing, its local agent sessions, and reading and committing its files on branches nobody has checked out |
 | `agents` | Run the coding agents installed on the computer |
 | `files` | Put files into, and read files from, the app's folder |
 | `devices` | See and control phones and simulators |
@@ -65,12 +65,12 @@ grant the app lacks is refused on the computer, and the app is told which grant 
 | `--grant <grant>` | Give the app one more grant; repeatable. Adds to what a connected app already has |
 | `--no-grant <grant>` | Take a grant away, or leave a default out; repeatable |
 | `--repo <path>` | The repository the app may work in; defaults to the git root of the current directory |
-| `--space-id <id>` | The precise form of the app argument |
+| `--app-id <id>` | The precise form of the app argument |
 | `--name <label>` | How the computer appears in the apps; defaults to the host name |
-| `--local-url <url>` | Connect to an app running locally with `ikon app run` instead of the cloud |
-| `--trust <space-id>` | Skip the interactive confirmation, for scripts and CI |
+| `--local-url <url>` | Connect to an app running locally with `ikon run` instead of the cloud |
+| `--trust <app-id>` | Skip the interactive confirmation, for scripts and CI |
 
-Running the app locally with `ikon app run`? Plain `ikon connect` from the app folder finds the
+Running the app locally with `ikon run`? Plain `ikon connect` from the app folder finds the
 local instance on its own. Each app gets a folder of its own on your computer, `~/Ikon/Apps/<app>/`,
 where it keeps its sessions' files and, without a repository, its checkouts.
 

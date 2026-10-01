@@ -1,7 +1,7 @@
 # User Data Erasure
-<!-- checked-against: 3017c409715e7d28 -->
+<!-- checked-against: c0bbecaafc253617 -->
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
-erases the user's personal data centrally, across every space and organisation the user touched. This
+erases the user's personal data centrally, across every app and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.
 
 ## Self-service deletion and the grace period
@@ -24,13 +24,15 @@ merged into the account, the previous ids are erased together with it.
 
 - **The user account** — the user document with its credentials, plus passkeys, profiles, and
   organisation memberships (the existing removal cascade).
-- **Per-user app state** — rows in every space database whose reactive-storage scope belongs to the
+- **Per-user app state** — rows in every app's databases whose reactive-storage scope belongs to the
   user (`UserScope` values persisted by apps).
 - **User asset folders** — `user/{id}` folders (and their storage blobs) in the asset hub of every
-  affected space and organisation.
+  affected app and organisation.
 - **Push subscriptions** — web push and FCM registrations for the user's devices.
-- **Pending invitations** — space and organisation invitations addressed to the account's email.
+- **Pending invitations** — app and organisation invitations addressed to the account's email.
 - **Session participation** — the user's id is removed from app-session participant lists.
+- **Feedback** — every feedback report the user filed, in any app, with its attachments, and the
+  user's feedback button preferences.
 - **Payment customer PII** — the name and email on the app-payments customer records are cleared in
   place. The customer record itself, its provider linkage, and the financial documents (payments,
   invoices, refunds, subscriptions) are retained under legal (bookkeeping) retention.
@@ -39,7 +41,7 @@ merged into the account, the previous ids are erased together with it.
   what leaves those ids pseudonymous — after erasure nothing on the platform can map them back to a
   person.
 
-Every erasure writes a persisted report (per-space and per-step outcomes and counts). Every step is
+Every erasure writes a persisted report (per-app and per-step outcomes and counts). Every step is
 idempotent, so a partial failure is retried on a widening backoff and each retry only has to finish
 what is left. The retries are bounded: once they are spent — or when what is left cannot be retried
 at all — the erasure is marked as needing a person, and a platform administrator resolves it by hand
@@ -57,7 +59,9 @@ differs.
   Portal resolves the id to a live name at view time — for an erased user the views fall back to the
   bare id, which the erasure has left unlinkable. The request IP on an event is a short-lived
   operational value bounded by the same TTL. Invitation events keep the invited email: that address
-  is the audited fact itself, and it may never correspond to a user account.
+  is the audited fact itself, and it may never correspond to a user account. Account-change events
+  keep the changed value as well: `user.email_updated` records the previous and the new email, and
+  `user.profile_updated` the new name.
 - **Financial records** — kept under statutory bookkeeping retention, with the customer PII cleared
   as described above.
 - **BigQuery analytics** — event rows are kept but pseudonymized by destroying the id linkage (see
@@ -92,10 +96,10 @@ erase:
 
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
 `[Trigger(TriggerEventType.UserErased)]` method on your app class, and it is what makes the platform
-ask your app at all — a space whose active bundle declares no listener is never sent the event. (This
+ask your app at all — an app whose active deployment declares no listener is never sent the event. (This
 example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package and `using Dapper;`.)
 
-<!-- ikon-code: user-data-erasure-database -->
+<!-- ikon-example: user-data-erasure-database -->
 ```csharp
 [Trigger(TriggerEventType.UserErased)]
 internal async Task EraseUserDataAsync(UserDataErasureEventArgs args)
@@ -109,10 +113,10 @@ internal async Task EraseUserDataAsync(UserDataErasureEventArgs args)
 what to record if your app keeps an audit trail of its own. The handler runs for every id in the
 erased user's identity closure (merged accounts included). By the time it runs, the platform has
 already re-erased the user's platform-managed state on the app side (`EraseUserStateAsync`), so the
-handler only needs to cover app-owned data. It runs **once per space per erasure**, in the space's
+handler only needs to cover app-owned data. It runs **once per app per erasure**, in the app's
 shared userless instance — the same one `[Cron]` ticks in, cold-started if none is running — however
 many instances of your app are live, and the session stays open for the whole run however long it
-takes. Delivery is durable and at-least-once: it is a platform event stored per space and redelivered
+takes. Delivery is durable and at-least-once: it is a platform event stored per app and redelivered
 until a run completes without throwing — write the handler to be idempotent, and let exceptions
 propagate so an incomplete cleanup is retried instead of being acknowledged.
 
@@ -121,4 +125,4 @@ declared one, but it does not earn delivery on its own: the declaration is what 
 and what the backend reads. Declaring no listener is fine when your app stores no user data outside
 the per-user reactive scope — the platform erases the platform-managed state centrally whether or not
 your app ever runs. See the "User data erasure" section in
-[Ikon Platform Events](ikon-platform-events.md) for the exact delivery semantics.
+[Ikon Platform Events](platform-events-reference.md) for the exact delivery semantics.

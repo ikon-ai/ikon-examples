@@ -1,5 +1,5 @@
 # Teleport message schema specification
-<!-- checked-against: ed337c9540d5c0e0 -->
+<!-- checked-against: f002ba185389f04b -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -52,7 +52,7 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `namespace`      | optional | Root namespace applied to every code generator unless `[namespaces]` overrides it.       |
 | `[namespaces]`   | optional | Code generator specific namespaces.                                                      |
 | `version`        | optional | Integer version for message. Required when `type` is present.                            |
-| `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present, unless `data = true`.  |
+| `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present, unless `data = true`; an app's own schemas may omit it and get an auto-assigned app-local opcode.  |
 | `data`           | optional | If `true`, the schema defines a pure data type instead of a wire message. See below.     |
 | `unreliable`     | optional | If `true`, generated messages of this type get `MessageFlag.Unreliable` set by default.  |
 | `sparse`         | optional | If `true`, writers omit fields holding the zero value instead of emitting them. See below.|
@@ -80,20 +80,20 @@ Version = "string"
 
 Rules and generation behavior:
 
-- `opcode` is forbidden — declaring both `data = true` and `opcode` fails the build. `version` remains required (it will drive config-version migration chains).
+- `opcode` is forbidden — declaring both `data = true` and `opcode` fails the build. `version` remains required: it drives the generated migration chain, which calls an `UpgradeFrom{N}` method the author writes for each step below the current version, so raising `version` without adding that step fails the build.
 - Nested messages inherit data-ness from the root.
 - C# emits `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes, and enums — no `IProtocolMessagePayload`, no serializer registration, no opcode. The result serializes cleanly with System.Text.Json, and every class additionally carries Teleport payload codecs (see "Binary Codecs" below). A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
 - TypeScript emits only `export interface` declarations and enums. Optional fields (`"T?"`) become true optional properties (`Field?: T`). No codecs, no opcode export, no opcode-registry participation.
 - Dart, C++, and Rust generators emit nothing for data schemas — data-schema support is C#/TS-only for now.
 - `string[]` fields may declare a default as a TOML array literal — `Methods = 'string[] = ["google", "email"]'` emits `new List<string> { "google", "email" }` in C#. List defaults are data-schema-only and string-element-only.
 - Every `#` comment line above a field, a `[nested.X]` header, or an `[enums.X]` header is preserved verbatim as that member's doc lines. The XML doc summary is unchanged; the full line list feeds the TOML writer below.
-- The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class. Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, and section-class codecs are `internal`.
+- The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class. Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, as are the root's `GetTeleportSchemaVersion`/`ApplyTeleportLoad`, and the `WriteToTeleport`/`ReadFromTeleport` codecs are `internal` on every class. A schema with an `[obsolete]` ledger adds the visible retired-field members of section 5.
 
 #### TOML Writer (`toml = true`)
 
 A data schema may additionally declare `toml = true` (valid only together with `data = true`) when it describes a commented TOML config file such as `ikon-config.toml`. The generated C# root class then also carries:
 
-<!-- ikon-code: teleport-toml-writer -->
+<!-- ikon-example: teleport-toml-writer -->
 ```csharp
 // AppProjectConfig is this repo's own toml-mode schema — the one behind ikon-config.toml.
 var config = new AppProjectConfig();
@@ -115,7 +115,7 @@ The writer supports exactly the flat two-level shape of such configs, enforced a
 
 Every data schema gives every generated C# class — root and nested — Teleport payload codecs without any wire-message machinery (a schema that declares `binary = true` fails the build: binary codecs are always generated for data schemas, so the key does not exist):
 
-<!-- ikon-code: teleport-binary-codecs -->
+<!-- ikon-example: teleport-binary-codecs -->
 ```csharp
 // PlayerProfile is a data schema; every data schema's root class gets these.
 var profile = new PlayerProfile { DisplayName = "Ada", Score = 12 };
@@ -124,11 +124,11 @@ byte[] bytes = profile.ToTeleportBytes();
 PlayerProfile roundTripped = PlayerProfile.FromTeleportBytes(bytes);
 ```
 
-Every class also carries the scope-level pair the nested case uses — `WriteToTeleport(TeleportWriter.TeleportObjectScope scope)` and `ReadFromTeleport(ReadOnlySpan<byte>)` — which is what the root pair is built on.
+Every class also carries the `internal` scope-level pair the nested case uses — `WriteToTeleport(TeleportWriter.TeleportObjectScope scope)` and `ReadFromTeleport(TeleportObjectReader)` — which is what the root pair is built on.
 
 `ToTeleportBytes`/`FromTeleportBytes` wrap a standalone root object — no opcode, no `ProtocolMessage` attribute, no serializer registration, no version consts (nested object scopes inline the schema version), and no reset path: reads always populate a fresh instance. Field ids are the same xxHash32-of-name computation the wire generator uses, so the binary form of a config is an ordinary Teleport object.
 
-Because the TOML writer and the binary codecs hang off the same object, a `toml = true` schema gives a lossless TOML ↔ binary conversion path for free: `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
+Because the TOML writer and the binary codecs hang off the same object, a `toml = true` schema whose type has a TOML reader gives a lossless TOML ↔ binary conversion path (the generator emits no `FromToml`; `AppProjectConfig` has a hand-written one): `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
 
 Restrictions: external type references (`Foo:type`) are rejected in data schemas at generation time — their codecs and versions live in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
 
@@ -217,7 +217,7 @@ The `[namespaces]` table is optional and may contain only the `csharp`, `typescr
 | `int`, `uint`, `long`, `ulong`, `float`, `double`, `number`, `boolean`, `bytes` | Accepted aliases for the sized primitives above (`int` → `int32`, `float` → `float32`, `double`/`number` → `float64`, `bytes` → `binary`) |
 | `TypeName`                                                                                     | Reference to another defined message or enum |
 | `TypeName[]`                                                                                   | Array of homogeneous elements                |
-| `{K:V}`                                                                                        | Dictionary from key type K to value type V   |
+| `{K:V}`                                                                                        | Dictionary from key type K to value type V; K must be a primitive type |
 | `string?`                                                                                      | Optional field                               |
 | `int32 = 16`                                                                                   | Default value                                |
 | `EnumType = Variant`                                                                           | Enum default                                 |
@@ -286,24 +286,25 @@ Entry values are the data-mode scalar set: `string`, `bool`, `int32`, `int64`, `
 
 Generated C# per class with ledger entries:
 
-<!-- ikon-code: teleport-retired-ledger -->
+<!-- ikon-example: teleport-retired-ledger -->
 ```csharp
 IReadOnlyList<string> names = PlayerProfile.RetiredKeys;   // the ledger's names
 
 var loaded = PlayerProfile.FromTeleportBytes(stored);
 PlayerProfile.RetiredFields? captured = loaded.GetRetiredFields();   // null when the payload carried none
 
-// Populate before writing, and carry the bag across a clone the codec did not make.
+// Carry the bag across a clone the codec did not make, then populate before writing:
+// the copy replaces the whole bag, so anything set before it is lost.
 var next = new PlayerProfile { DisplayName = captured?.Nickname ?? loaded.DisplayName };
-next.GetOrCreateRetiredFields().Nickname = captured?.Nickname;
 next.CopyRetiredFieldsFrom(loaded);
+next.GetOrCreateRetiredFields().Nickname = captured?.Nickname;
 ```
 
 Every bag member is nullable — absent means the source carried no value. `GetRetiredFields` is a
 method rather than a property so TOML mapping and JSON serialization never treat the bag as data.
 That invisibility cuts both ways: a clone made by any route other than Teleport — a JSON round trip,
 a hand-written copy — silently arrives with an empty bag and stops emitting the retired fields, which
-is what `CopyRetiredFieldsFrom` is for. Call it on the clone whenever an origin writer's outbound
+is what `CopyRetiredFieldsFrom` is for. It replaces the whole bag (clearing it when the source has none), so populate after copying. Call it on the clone whenever an origin writer's outbound
 value is a copy rather than the instance it populated.
 Data schemas additionally get `public static RetiredFields ReadRetired(Func<string, object?>
 valueLookup)`, a dependency-free typed extractor a TOML loader uses to fill the bag from the raw
@@ -325,14 +326,12 @@ Every SDK carries the same bag on wire messages, shaped to the language:
 | TypeScript | `retiredFields?: {Name}RetiredFields`                  | yes     | yes     |
 | C++        | `std::optional<RetiredFields> Retired`                 | yes     | yes     |
 | Rust       | `retired_fields: Option<{Name}RetiredFields>`          | yes     | yes     |
-| Dart       | `{Name}RetiredFields? retiredFields`                   | yes     | n/a     |
+| Dart       | `{Name}RetiredFields? retiredFields`                   | yes     | yes     |
 
 A schema with no `[obsolete]` section emits none of this in any target. Decode captures retired ids
 into the bag instead of skipping; encode emits every set member under its original id, so a writer
 in any of those languages can keep sending a removed field during its sunset window. An unset bag
-emits nothing. Dart has no generated writers at all — its call sites hand-roll a
-`TeleportObjectWriter` — so it captures on read and exposes `retiredFieldId{Name}` constants, but
-has no write half to extend.
+emits nothing.
 
 Naming is per-language: TypeScript rejects a field literally named `retiredFields`; C++ nests the
 type as `RetiredFields` and names the member `Retired` (a member cannot share its nested type's
@@ -367,7 +366,7 @@ OPUS  = 2
 - Every member within the same enum must use the same value kind (all integers or all strings).
 - References appear as `AudioCodec` field types.
 - Defaults: `AudioCodec = PCM16`.
-- Numeric enums generate real enums in every target language.
+- Numeric enums generate real enums in every target language except Dart, which emits an int-backed `extension type` so values outside the declared members (flags) survive a round trip.
 - String enums generate TypeScript enums with string initializers, and `public static class` declarations with `const string` fields in C#.
 - Fields that use string enums are serialized as strings on the wire while still exposing strongly typed constants in each target language.
 
@@ -484,7 +483,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 | Enum values    | Integers or strings (single kind per enum) |
 | Version        | Must increase monotonically                |
 | Transforms     | Must chain (vN → vN+1)                     |
-| Layout hash    | Must be updated on edit                    |
+| Layout hash    | Derived by the compiler; never hand-written |
 | Non-zero flags | Invalid                                    |
 | Depth >128     | Invalid                                    |
 | Optional defaults | An optional field may not declare a non-null default — the null would decode as the default |
@@ -506,7 +505,7 @@ ikon teleport generate --input ./messages/*.tp --type csharp --output ./generate
 ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generated
 ```
 
-The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For Ikon AI apps, `ikon app teleport build` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
+The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For Ikon AI apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
 
 ### Language Targets
 
@@ -587,8 +586,8 @@ The compiler emits these enums directly into the namespace without generating a 
 | Runtime        | None                   | None                          |
 | Purpose        | Wire encoding          | Build-time layout definition  |
 
-Together they form a closed, reversible system:
-`.tp` (schema) → `.tpx` (binary) ↔ `.json` (mirror)
+Together they form a closed system:
+`.tp` (schema) → `.tpx` (binary) → `.json` (mirror)
 
 ## 16. Serializing Hand-Written C# Types
 
@@ -597,7 +596,7 @@ between .NET peers can skip the schema entirely and carry the `Ikon.Teleport` at
 source generator emits the same binary codecs and registers them, so the type serializes through the
 same runtime as a generated one.
 
-<!-- ikon-code: teleport-attribute-type -->
+<!-- ikon-example: teleport-attribute-type -->
 ```csharp
 [Teleport]
 public sealed partial class SavedLayout
@@ -634,7 +633,7 @@ leaves the property at its default.
 
 `TeleportSerializer` is the runtime entry point for any `[Teleport]` type:
 
-<!-- ikon-code: teleport-serializer-roundtrip -->
+<!-- ikon-example: teleport-serializer-roundtrip -->
 ```csharp
 public static SavedLayout RoundTrip(SavedLayout layout)
 {
@@ -649,7 +648,7 @@ disposal** — the next serialization overwrites it, so a captured `ReadOnlyMemo
 yields another message's bytes with no exception at all. Consume it inside the `using`, or copy with
 `ToArray()`:
 
-<!-- ikon-code: teleport-serialized-buffer -->
+<!-- ikon-example: teleport-serialized-buffer -->
 ```csharp
 public static void SendPooled(SavedLayout layout, Action<ReadOnlySpan<byte>> send)
 {
@@ -660,8 +659,8 @@ public static void SendPooled(SavedLayout layout, Action<ReadOnlySpan<byte>> sen
 ```
 
 A malformed or truncated payload throws `TeleportException`, whose `Error` property is a
-`TeleportError` naming the failure (`BadType`, `InvalidUtf8`, `DepthOverflow`, and so on) so a
-handler can distinguish a corrupt frame from a version mismatch.
+`TeleportError` naming the failure (`BadType`, `InvalidUtf8`, `DepthOverflow`, and so on). A version
+mismatch never throws: an unknown field is skipped and a missing one keeps its default.
 
 ### Reading a Payload Directly
 
@@ -680,7 +679,7 @@ write them by hand only when reading a payload whose type you do not have.
 | `TeleportValue`            | A decoded value with the typed `As*` accessors                        |
 | `TeleportType`             | The wire type tag that precedes every value                           |
 
-All four readers are `ref struct`s that borrow the source buffer, so they cannot outlive it, be
+Every type above except `TeleportType` is a `ref struct` that borrows the source buffer, so they cannot outlive it, be
 captured in a lambda, or cross an `await`. The `As*` accessors require the wire `TeleportType` to
 match exactly — there is no numeric widening, and a mismatch throws `TeleportError.BadType` — so
 check `Value.Type` first. `AsString` additionally validates UTF-8 and throws on malformed bytes;

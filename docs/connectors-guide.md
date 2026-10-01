@@ -1,14 +1,14 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: eb235f413c2660f9 -->
+<!-- checked-against: 871ba7e4267cbddd -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
 
-Each connector is a **raw** client for one external service: a thin, typed wrapper over the service's API with no agent coupling. For agent tool use, each connector has a matching `Skill` (`SlackSkill`, `GitHubSkill`, `DriveSkill`, `GmailSkill`, `BrowserSkill`) that wraps it — construct the connector, pass it to the skill, and register the skill on a persona. This guide focuses on the raw connectors; each skill exposes a curated SUBSET of its connector's operations as tools (for example `SlackSkill` offers post + history only, `GmailSkill` send + list without message bodies) — check the skill's `Tools()` before relying on a capability, and note that registering `GitHubSkill` grants the agent authority to create issues, comment, and merge pull requests with no confirmation gate.
+Each connector is a **raw** client for one external service: a thin, typed wrapper over the service's API with no agent coupling. The connectors' agent skills are internal, so an app cannot construct them or register them on a persona of its own; the one public route to one is `BrowserOperatorPersona.Create()`, which builds a persona around the browser skill. This guide focuses on the raw connectors.
 
 All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying (GitHub `403` needs one more check — see below):
 
-<!-- ikon-code: connectors-errors -->
+<!-- ikon-example: connectors-errors -->
 ```csharp
 try
 {
@@ -32,16 +32,16 @@ One more exception type exists, and it is not a failure: the paged reads (`Slack
 
 ## Slack
 
-Construct `Slack` with a **bot token** (`xoxb-...`). An optional `HttpClient` can be injected; otherwise a shared one is used.
+Construct `Slack` with a **bot token** (`xoxb-...`); an empty or whitespace token throws `ArgumentException` at construction. An optional `HttpClient` can be injected; otherwise a shared one is used.
 
-<!-- ikon-code: connectors-slack-client -->
+<!-- ikon-example: connectors-slack-client -->
 ```csharp
 var slack = new Slack(botToken);
 ```
 
 ### Posting
 
-<!-- ikon-code: connectors-slack-post -->
+<!-- ikon-example: connectors-slack-post -->
 ```csharp
 var posted = await slack.PostAsync("C0123456789", "Deploy finished", threadTs: rootTs);
 ```
@@ -54,7 +54,7 @@ Slack timestamps (`Ts`, `ThreadTs`, `oldestTs`) are **raw Slack `ts` strings** (
 
 `HistoryAsync(channel, limit)` fetches one page of recent messages. `HistorySinceAsync(channel, oldestTs)` fetches every **top-level** message with `ts > oldestTs`, following pagination to completion and returning the result **oldest-first**, so a caller that advances a cursor per message never leaves a gap in the channel's own timeline:
 
-<!-- ikon-code: connectors-slack-history -->
+<!-- ikon-example: connectors-slack-history -->
 ```csharp
 var messages = await slack.HistorySinceAsync(channelId, oldestTs: lastSeenTs);
 
@@ -75,9 +75,9 @@ Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200), and the b
 
 ### Socket Mode
 
-`OpenSocketUrlAsync` requests a Socket Mode URL (`apps.connections.open`) and returns it — the library ships no Socket Mode client, so the WebSocket handshake, envelope acknowledgements, hello/disconnect handling, and reconnection on the URL's short expiry are yours to implement. It requires an **app-level token** (`xapp-...`) passed as its argument — the bot token compiles fine here but fails at runtime with `invalid_auth`. These are two different credentials from the same Slack app:
+`OpenSocketUrlAsync` requests a Socket Mode URL (`apps.connections.open`) and returns it — the library ships no Socket Mode client, so the WebSocket handshake, envelope acknowledgements, hello/disconnect handling, and reconnection on the URL's short expiry are yours to implement. It requires an **app-level token** (`xapp-...`) passed as its argument — an empty token or one without the `xapp-` prefix, such as the bot token, throws `ArgumentException` before any request. These are two different credentials from the same Slack app:
 
-<!-- ikon-code: connectors-slack-socket -->
+<!-- ikon-example: connectors-slack-socket -->
 ```csharp
 var wsUrl = await slack.OpenSocketUrlAsync(appToken);   // xapp-..., not the xoxb- bot token
 ```
@@ -88,7 +88,7 @@ var wsUrl = await slack.OpenSocketUrlAsync(appToken);   // xapp-..., not the xox
 
 Construct `GitHub` with a token. The constructor **throws `ArgumentException` on an empty or whitespace token** — an empty token would otherwise degrade silently to unauthenticated requests, where private repositories answer 404 instead of 401. Every `repo` parameter is the `"owner/name"` form:
 
-<!-- ikon-code: connectors-github -->
+<!-- ikon-example: connectors-github -->
 ```csharp
 var gitHub = new GitHub(token);
 var issue = await gitHub.GetIssueAsync("ikon-ai/examples", 42);
@@ -103,7 +103,7 @@ var commentUrl = await gitHub.CommentAsync("ikon-ai/examples", 42, "Reproduced o
 
 `since` is boundary-**inclusive** (it returns items updated at-or-after it), so resuming with the last item's `UpdatedAt` re-returns every item that shares that exact second. Dedupe on `GitHubIssue.Number` across calls — do not assume the resumed page is all new. (This differs from Slack's `HistorySinceAsync`, whose `oldestTs` is exclusive.)
 
-<!-- ikon-code: connectors-github-since -->
+<!-- ikon-example: connectors-github-since -->
 ```csharp
 var updated = await gitHub.ListIssuesSinceAsync("ikon-ai/examples", since: cursor);
 
@@ -127,7 +127,7 @@ if (updated.Count > 0)
 
 `MergePullRequestAsync` treats a refused merge (HTTP 405/409 — not mergeable, head changed) as an **answer, not an error**: it returns `GitHubMergeResult` with `Merged: false` and GitHub's reason in `Message` instead of throwing. Always branch on `.Merged`; other HTTP failures still throw `ConnectorException`.
 
-<!-- ikon-code: connectors-github-merge -->
+<!-- ikon-example: connectors-github-merge -->
 ```csharp
 var result = await gitHub.MergePullRequestAsync("ikon-ai/examples", 42, commitTitle: "Add retry policy");
 
@@ -145,18 +145,18 @@ Both connectors authenticate with `GoogleCredentials(ClientId, ClientSecret, Ref
 
 `Drive` and `Gmail` are **`IDisposable` and own an `HttpClient`**: construct one instance per credential and reuse it for the credential's lifetime, rather than constructing per call.
 
-<!-- ikon-code: connectors-google-clients -->
+<!-- ikon-example: connectors-google-clients -->
 ```csharp
 var credentials = new GoogleCredentials(clientId, clientSecret, refreshToken);
 using var drive = new Drive(credentials);
 using var gmail = new Gmail(credentials);
 ```
 
-Google failures surface two ways: a failed upload, download, or Gmail metadata fetch throws `ConnectorException` (with provider `"drive"`/`"gmail"`), while lower-level API errors surface as the Google client library's own exceptions — so catch both. Use `GoogleAuth.IsAuthFailure(ex)` on the latter to decide whether to stop retrying: it is `true` only for permanent auth failures (revoked or expired refresh token, bad client), never for transient or network errors.
+Google failures surface two ways: a failed upload, download, or Gmail metadata fetch throws `ConnectorException` (with provider `"drive"`/`"gmail"`), while lower-level API errors surface as the Google client library's own exceptions — so catch both. Use `GoogleAuth.IsAuthFailure(ex)` on the latter to decide whether to stop retrying: it is `true` only for permanent auth failures (revoked or expired refresh token, bad client), never for transient or network errors. Listing with a `folderId` first probes the folder, so an unknown or unreadable folder throws `ConnectorException` rather than returning an empty listing; `Gmail.SendAsync` throws `ConnectorException` for a malformed recipient and `ArgumentException` for an empty `to`.
 
 ### Drive
 
-<!-- ikon-code: connectors-drive-transfer -->
+<!-- ikon-example: connectors-drive-transfer -->
 ```csharp
 await using var content = File.OpenRead("./report.pdf");
 var uploaded = await drive.UploadAsync("report.pdf", "application/pdf", content, folderId);
@@ -164,9 +164,11 @@ var uploaded = await drive.UploadAsync("report.pdf", "application/pdf", content,
 await using var download = await drive.DownloadAsync(uploaded.Id);
 ```
 
+`DownloadAsync` buffers the whole file in memory and works only for files with binary content: Google-native Docs, Sheets and Slides are rejected with HTTP 403 as a `ConnectorException`, and the connector has no export.
+
 `ListAsync(folderId, limit)` fetches a **single page**: `limit` is a per-page maximum, not a guarantee that everything under the folder is returned, and the results **include trashed files**. Use it only for a bounded "recent files" peek. For a complete or filtered listing use `ListAllAsync`, which pages through the entire result set and accepts an extra Drive query clause:
 
-<!-- ikon-code: connectors-drive-list -->
+<!-- ikon-example: connectors-drive-list -->
 ```csharp
 await foreach (var file in drive.ListAllAsync(folderId, extraQuery: "trashed = false"))
 {
@@ -178,7 +180,7 @@ Either listing yields `DriveFile` records: `Id`, `Name`, `MimeType`, an optional
 
 ### Gmail
 
-<!-- ikon-code: connectors-gmail -->
+<!-- ikon-example: connectors-gmail -->
 ```csharp
 var unread = await gmail.ListAsync("is:unread", limit: 10);
 
@@ -200,19 +202,18 @@ Two field contracts to respect:
 
 ## Browser
 
-`Ikon.Connectors.Browser` operates a real (Playwright-driven) browser. There are three entry points; pick by who is driving:
+`Ikon.Connectors.Browser` operates a real (Playwright-driven) browser. There are two entry points; pick by who is driving:
 
 | Entry point | Who drives | Use when |
 |---|---|---|
 | `WebAgent.OperateAsync` | An LLM agent subthread | You have an objective in natural language and want the agent to figure out the clicks. Needs an `AgentThread` (from `Ikon.Agent`) and a registered browser-operator persona. |
 | `BrowserSession` | Your code | You know the exact actions — scripted navigation, screenshots, page evaluation. No LLM involved. |
-| `BrowserSkill` | An agent, as tools | You are composing your own persona and want browser actions available as tools alongside other skills. |
 
 ### Agentic operation
 
 Register the persona `BrowserOperatorPersona.Create()` returns on your app's orchestrator (its default name, `"browser-operator"`, matches `OperateAsync`'s default `personaName`). Then hand the agent an objective:
 
-<!-- ikon-code: connectors-web-agent -->
+<!-- ikon-example: connectors-web-agent -->
 ```csharp
 var run = await WebAgent.OperateAsync(
     thread,                                    // an AgentThread from Ikon.Agent
@@ -236,7 +237,7 @@ A site that is not your own app decides what the browser loads next, and the age
 - `ReviewWrite` is asked before every action that could change something on the site — a click on a submit, send, pay or delete control, Enter outside a search field, and anything the classifier does not recognise. The action runs only on `WebApproval.Allow`; `WebApproval.Deny(reason)` is reported to the agent, which does not try it again. The `WebActionReview` carries a one-line `Description` and a JPEG `Screenshot` of the page. Nobody answering must be a refusal, so bound the wait.
 - `OnProgress` hands you a `WebProgress` — step number, URL, what just happened, and a JPEG `Screenshot` — after every observation, for a live view.
 
-<!-- ikon-code: connectors-web-agent-review -->
+<!-- ikon-example: connectors-web-agent-review -->
 ```csharp
 var run = await WebAgent.OperateAsync(
     thread,
@@ -261,7 +262,7 @@ Typing into a field is not a write, because on most sites nothing is committed u
 
 `BrowserSession` owns the browser lifecycle: start once, dispose to release the process. `WebTarget` resolution tries the perception mark first, then accessibility role + name, then a CSS/XPath selector — populate whichever you know.
 
-<!-- ikon-code: connectors-browser-session -->
+<!-- ikon-example: connectors-browser-session -->
 ```csharp
 await using var session = new BrowserSession();
 await session.StartAsync(headless: true);
@@ -278,11 +279,11 @@ if (!result.Ok)
 }
 ```
 
-The action vocabulary is a tagged union: `Navigate`, `Click`, `Fill`, `Press`, `Scroll`, and `Extract` (which records the target's inner text under an output name). `ScreenshotAsync` returns a PNG; prefer `ScreenshotJpegAsync` when the image goes into an LLM context. `ConsoleTail` holds the last ~40 console messages, page errors, and failed requests — the first place to look when a page that "should" render stays blank.
+The action vocabulary is a tagged union: `Navigate`, `Click`, `Fill`, `FillLogin`, `FillDetail`, `UsePasskey`, `Press`, `Scroll`, `Extract` (which records the target's inner text under an output name), `Upload`, `Select`, `Hover`, `Back`, `ClickAt`, `AnswerDialog` and `ReadVisible`. `ScreenshotAsync` returns a PNG; prefer `ScreenshotJpegAsync` when the image goes into an LLM context. `ConsoleTail` holds the last ~40 console messages, page errors, and failed requests — the first place to look when a page that "should" render stays blank.
 
 ### A browser somewhere else
 
-The agent needs only an `IWebPage` — navigate, screenshot, mark the elements, execute an action, and the current URL — and `BrowserSession` is the one in your process. `WebAgentOptions.OpenPage` hands a run a page that lives elsewhere instead, such as a browser on a person's own computer driven over a connection of your own; the run disposes the page it opened, and `Headless` and `PublicInternetOnly` are then for the opener to honour. A page reached over a network should also implement `IWebPage.ObserveAsync`, which returns the marks and a screenshot as one `WebObservation`: the agent observes after every step, and the default asks for each in turn.
+The agent needs only an `IWebPage` — navigate, screenshot (PNG and JPEG), mark the elements, execute an action, the current URL, stage files and take downloads, report saved logins, and dispose — and `BrowserSession` is the one in your process. `WebAgentOptions.OpenPage` hands a run a page that lives elsewhere instead, such as a browser on a person's own computer driven over a connection of your own; the run disposes the page it opened, and `Headless` and `PublicInternetOnly` are then for the opener to honour. A page reached over a network should also implement `IWebPage.ObserveAsync`, which returns the marks and a screenshot as one `WebObservation`: the agent observes after every step, and the default asks for each in turn.
 
 `BrowserSession.StartPersistentAsync(profileDirectory, headless)` starts on a profile kept in a directory, so its cookies, saved passwords and sign-ins survive from one session to the next: a person signs in to a site once in that profile and every later run is signed in. Only one session can hold a profile at a time; `NewTabAsync` opens another tab on the same profile, so several agents can work at once on one set of sign-ins, and disposing a tab closes only that tab. `Closed` is raised when the person closes the window, or the tab. `AddCookiesAsync` puts `BrowserCookie`s into the session's jar — into the profile, for a persistent session — which is how a host brings in the sign-ins of the browser the person already uses.
 
@@ -310,7 +311,7 @@ For a tab a person signs in on themselves, `BrowserSession.OfferToSavePasskeysAs
 
 The same holds for a payment card and for the person's name and address. Give the page an `IDetailVault` — `BrowserSession.Details` — and an observation of a page with a form lists each `SavedDetail` by id, kind (`SavedDetail.Card` or `SavedDetail.Identity`), label and the names of its fields, never a value. The agent calls `use_detail`, which is `WebAction.FillDetail(target, detailId, field)`, and the browser asks the vault for that one field as it fills it.
 
-<!-- ikon-code: connectors-saved-detail -->
+<!-- ikon-example: connectors-saved-detail -->
 ```csharp
 await using var session = new BrowserSession { Details = detailVault };
 await session.StartAsync(headless: true);
@@ -326,7 +327,7 @@ A detail fills only where `SavedDetail.MayFill` holds both for the page and for 
 
 A successful `WebRun` can be **distilled** into a `WebFlow` — a deterministic, replayable integration — and replayed **without an LLM**:
 
-<!-- ikon-code: connectors-replay -->
+<!-- ikon-example: connectors-replay -->
 ```csharp
 var flow = WebAgent.Distill(run, name: "portal-balance");
 // ... persist flow (it serializes losslessly), later:

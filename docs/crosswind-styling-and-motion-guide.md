@@ -1,5 +1,5 @@
 # Crosswind Styling and Motion Guide
-<!-- checked-against: 3b50894eb7fc0f01 -->
+<!-- checked-against: e56fcfb61e3884a5 -->
 ## Overview
 
 Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
@@ -28,7 +28,7 @@ When you pass style strings to UI components, Crosswind processes them through a
 
 In Ikon AI Apps, styles are passed as string arrays to UI components. The `Ikon.Parallax` UI system handles the integration with Crosswind automatically.
 
-<!-- ikon-code: cw-usage-in-applications -->
+<!-- ikon-example: cw-usage-in-applications -->
 ```csharp
 view.Button(
     style: ["px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition"],
@@ -39,7 +39,7 @@ view.Button(
 
 Multiple style strings can be combined:
 
-<!-- ikon-code: cw-usage-in-applications-2 -->
+<!-- ikon-example: cw-usage-in-applications-2 -->
 ```csharp
 private const string BaseButton = "px-4 py-2 rounded-lg font-medium transition-colors";
 private const string PrimaryColors = "bg-blue-500 hover:bg-blue-600 text-white";
@@ -47,7 +47,7 @@ private const string PrimaryColors = "bg-blue-500 hover:bg-blue-600 text-white";
 
 Then from the UI lambda:
 
-<!-- ikon-code: cw-usage-in-applications-3 -->
+<!-- ikon-example: cw-usage-in-applications-3 -->
 ```csharp
 view.Button(
     style: [BaseButton, PrimaryColors],
@@ -60,7 +60,7 @@ view.Button(
 
 Applications typically organize styles into static classes with constants:
 
-<!-- ikon-code: cw-organizing-styles -->
+<!-- ikon-example: cw-organizing-styles -->
 ```csharp
 public static class AppStyles
 {
@@ -96,7 +96,7 @@ Crosswind supports three ways to style a component. They compose freely in the s
 
 **1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
 
-<!-- ikon-code: cw-three-styling-layers-all-valid-in-the-same-style-array -->
+<!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array -->
 ```csharp
 view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { });
 ```
@@ -107,7 +107,7 @@ Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier n
 
 Needs the `Ikon.Parallax.Theming` using directive.
 
-<!-- ikon-code: cw-three-styling-layers-all-valid-in-the-same-style-array-2 -->
+<!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array-2 -->
 ```csharp
 view.Button(style: [Button.PrimaryMd], text: "Submit");
 view.TextField(style: [Input.Default], defaultValue: "");
@@ -116,7 +116,7 @@ view.Box(style: [Card.Default], content: view => { });
 
 **3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
 
-<!-- ikon-code: cw-three-styling-layers-all-valid-in-the-same-style-array-3 -->
+<!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array-3 -->
 ```csharp
 view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], text: "Submit");
 view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { });
@@ -133,7 +133,7 @@ This split is deliberate — Ikon styling is two-tier. The structural core (surf
 - Hover styles are an *enhancement*, never the only path to something. A control revealed purely by hover (`opacity-0 group-hover:opacity-100`) is invisible on phones and tablets.
 - For reveal patterns, pair the hover rule with a touch-visible fallback: `pointer-coarse:opacity-100` keeps the control always visible on touch devices, or use `focus-within:opacity-100` so tapping reveals it.
 
-<!-- ikon-code: cw-hover-only-applies-on-devices-that-can-hover -->
+<!-- ikon-example: cw-hover-only-applies-on-devices-that-can-hover -->
 ```csharp
 // Nav arrows: hover-revealed on desktop, always visible on touch
 view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"], content: view => { });
@@ -149,29 +149,29 @@ Two ways to avoid this:
 
 1. **Use semantic background tokens** that follow the theme: `bg-background`, `bg-card`, `bg-muted`, `bg-tertiary`. These flip automatically with the theme, so `text-primary` always contrasts.
 2. **Set the theme explicitly** to match the UI you're rendering. The canonical form is one `UI.UseTheme()` call in `Main`:
-<!-- ikon-code: cw-theme-activation -->
+<!-- ikon-example: cw-theme-activation -->
 ```csharp
 private ThemeControl _theme = null!;
 
 public async Task Main()
 {
-    _theme = UI.UseTheme(); // defaults: dark, and follows a client's own saved theme
+    _theme = UI.UseTheme(); // defaults: dark, but follows the theme each browser client reports
 }
 ```
-   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
-<!-- ikon-code: cw-theme-activation-2 -->
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that reports a theme keeps it and clients without one get `defaultTheme` — a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`); with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+<!-- ikon-example: cw-theme-activation-2 -->
 ```csharp
 view.Button([Button.GhostMd, Button.Icon],
     onClick: _theme.ToggleAsync,
     content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
 ```
-   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
+   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme.
 
 The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
 
 ### Customizing the Theme
 
-For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](ikon-theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory and no auto-contrast).
+For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory, and the only auto-contrast is the `primary-foreground` label picked for `["primary"]` or `["brand"]` when no label is set).
 
 ## Utility Classes
 
@@ -195,7 +195,7 @@ Crosswind supports the standard Tailwind utility classes:
 
 Standard Crosswind variants are supported:
 
-<!-- ikon-code: cw-variants -->
+<!-- ikon-example: cw-variants -->
 ```csharp
 string[] Classes =
 [
@@ -222,7 +222,7 @@ Apply one variant to several classes at once with the parenthesised group form
 `variant:(class class …)`. The variant is applied to every space-separated class inside,
 so you write the prefix once instead of repeating it:
 
-<!-- ikon-code: cw-variant-groups -->
+<!-- ikon-example: cw-variant-groups -->
 ```csharp
 string[] Classes =
 [
@@ -234,7 +234,7 @@ string[] Classes =
 
 Groups nest — a class inside a group keeps any further variant of its own:
 
-<!-- ikon-code: cw-variant-groups-2 -->
+<!-- ikon-example: cw-variant-groups-2 -->
 ```csharp
 string[] Classes =
 [
@@ -252,7 +252,7 @@ scope it with a target variant:
 - `flutter:` — applies only on the Flutter renderer
 - unprefixed — applies to both
 
-<!-- ikon-code: cw-target-variants-web-vs-flutter -->
+<!-- ikon-example: cw-target-variants-web-vs-flutter -->
 ```csharp
 // Shared layout, per-target colours. Use the group form so the target prefix is written once:
 string[] Classes =
@@ -274,7 +274,7 @@ target prefix at all.
 
 Use brackets for custom values:
 
-<!-- ikon-code: cw-arbitrary-values -->
+<!-- ikon-example: cw-arbitrary-values -->
 ```csharp
 string[] Classes =
 [
@@ -295,11 +295,11 @@ Crosswind extends Tailwind with a motion system for declarative animations. Moti
 
 ### Keyframe Timelines
 
-Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs.
+Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs. A track also needs a `motion-duration-*`: without one it compiles to `animation-duration: 0s` and plays nothing visible.
 
 Within `motion-[...]`, keyframe steps are comma-separated. Within each step, multiple utilities are separated by underscores (`_`). Underscores outside of brackets and parentheses are converted to spaces during parsing, so `opacity-0_translate-y-[12px]` is equivalent to `opacity-0 translate-y-[12px]`.
 
-<!-- ikon-code: cw-keyframe-timelines -->
+<!-- ikon-example: cw-keyframe-timelines -->
 ```csharp
 string[] Classes =
 [
@@ -318,7 +318,7 @@ string[] Classes =
 
 Control animation timing with dedicated utilities:
 
-<!-- ikon-code: cw-timing-controls -->
+<!-- ikon-example: cw-timing-controls -->
 ```csharp
 string[] Classes =
 [
@@ -347,7 +347,7 @@ string[] Classes =
 
 Animate text character by character, word by word, or line by line:
 
-<!-- ikon-code: cw-staggered-text-animations -->
+<!-- ikon-example: cw-staggered-text-animations -->
 ```csharp
 string[] Classes =
 [
@@ -386,7 +386,7 @@ Each base mode supports compound suffixes that combine the split with a playback
 
 These compound variants are available for `per-letter`, `per-word`, and `per-line`.
 
-<!-- ikon-code: cw-per-element-modes-and-compound-variants -->
+<!-- ikon-example: cw-per-element-modes-and-compound-variants -->
 ```csharp
 string[] Classes =
 [
@@ -408,7 +408,7 @@ string[] Classes =
 
 Scope motion parameters to named tracks for independent control:
 
-<!-- ikon-code: cw-track-prefixes -->
+<!-- ikon-example: cw-track-prefixes -->
 ```csharp
 string[] Classes =
 [
@@ -422,7 +422,7 @@ string[] Classes =
 
 Combine motion with data attribute variants for state-driven animations:
 
-<!-- ikon-code: cw-state-based-animations -->
+<!-- ikon-example: cw-state-based-animations -->
 ```csharp
 string[] Classes =
 [
@@ -438,7 +438,7 @@ string[] Classes =
 
 Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates a single category, or a composed `transform` function list when categories are mixed — so they interpolate smoothly on the compositor.
 
-<!-- ikon-code: cw-3d-transforms-in-keyframes -->
+<!-- ikon-example: cw-3d-transforms-in-keyframes -->
 ```csharp
 string[] Classes =
 [
@@ -464,11 +464,11 @@ string[] Classes =
 
 ### Filter Animations in Keyframes
 
-Filter functions animate smoothly inside `motion-[...]` keyframes. Crosswind auto-registers `@property` rules for filter-related custom properties, enabling proper interpolation.
+Filter functions animate smoothly inside `motion-[...]` keyframes. Crosswind auto-registers `@property` rules for filter-related custom properties, enabling proper interpolation. A `blur` track takes its `@property` syntax from its first keyframe value, so start it at a length (`blur-[0px]`): `blur-0` registers a number and the blur does not animate.
 
 Supported filter utilities: `blur`, `brightness`, `contrast`, `hue-rotate`, `saturate`, `grayscale`, `sepia`, `invert`.
 
-<!-- ikon-code: cw-filter-animations-in-keyframes -->
+<!-- ikon-example: cw-filter-animations-in-keyframes -->
 ```csharp
 string[] Classes =
 [
@@ -477,11 +477,11 @@ string[] Classes =
     "motion-duration-3000ms motion-loop motion-ease-linear",
 
     // Brightness flash
-    "motion-[0:brightness-100,15:brightness-[2],30:brightness-100,100:brightness-100] " +
+    "motion-[0:brightness-100,15:brightness-200,30:brightness-100,100:brightness-100] " +
     "motion-duration-2000ms motion-loop",
 
     // Saturate pulse
-    "motion-[0:saturate-100,50:saturate-[2],100:saturate-100] " +
+    "motion-[0:saturate-100,50:saturate-200,100:saturate-100] " +
     "motion-duration-1500ms motion-loop motion-ease-ease-in-out",
 
     // Grayscale fade
@@ -489,7 +489,7 @@ string[] Classes =
     "motion-duration-4000ms motion-loop motion-ease-ease-in-out",
 
     // Combined filters (blur + brightness + hue-rotate)
-    "motion-[0:blur-0_brightness-100_hue-rotate-0," +
+    "motion-[0:blur-[0px]_brightness-100_hue-rotate-0," +
     "25:blur-[2px]_brightness-[1.2]_hue-rotate-[45deg]," +
     "50:blur-[4px]_brightness-[1.5]_hue-rotate-[90deg]," +
     "75:blur-[2px]_brightness-[1.2]_hue-rotate-[135deg]," +
@@ -500,9 +500,9 @@ string[] Classes =
 
 ### Text Shadow Animations in Keyframes
 
-`text-shadow-[...]` can be used inside keyframe steps for chromatic aberration and glow effects. Since text-shadow values are arbitrary, they use `'*'` syntax in `@property` and interpolate as whole values.
+`text-shadow-[...]` can be used inside keyframe steps for chromatic aberration and glow effects. They compile to a direct `text-shadow` declaration in each keyframe, which the browser interpolates as a shadow list.
 
-<!-- ikon-code: cw-text-shadow-animations-in-keyframes -->
+<!-- ikon-example: cw-text-shadow-animations-in-keyframes -->
 ```csharp
 string[] Classes =
 [
@@ -529,7 +529,7 @@ string[] Classes =
 
 Entry animations:
 
-<!-- ikon-code: cw-common-animation-patterns -->
+<!-- ikon-example: cw-common-animation-patterns -->
 ```csharp
 public static class Enter
 {
@@ -545,7 +545,7 @@ public static class Enter
 
 Hover effects (CSS transitions are often better for hover states):
 
-<!-- ikon-code: cw-common-animation-patterns-2 -->
+<!-- ikon-example: cw-common-animation-patterns-2 -->
 ```csharp
 public static class Hover
 {
@@ -562,7 +562,7 @@ public static class Hover
 
 Looping effects:
 
-<!-- ikon-code: cw-common-animation-patterns-3 -->
+<!-- ikon-example: cw-common-animation-patterns-3 -->
 ```csharp
 public static class Loop
 {
@@ -587,28 +587,27 @@ The following properties animate smoothly in `motion-[...]` keyframe animations:
 - **Colors**: `text-*`, `bg-*`, `border-*` (color values)
 - **Text shadow**: `text-shadow-[...]` (arbitrary values)
 - **Border properties**: `border-{n}` (width), `border-{color}`, `rounded-*` (border-radius)
-- **Ring and outline**: `ring-{n}`, `outline-offset-{n}`
-- **Box shadow**: `shadow-[...]` (arbitrary values)
+- **Outline**: `outline-offset-{n}` (`ring-{n}` and `shadow-[...]` swap discretely instead — see the caveat below)
 
 Crosswind auto-registers `@property` rules for filter functions and typed custom properties (colors, lengths, angles, numbers), and compiles transform keyframes to direct `translate` / `rotate` / `scale` / `transform` declarations. This enables smooth CSS interpolation without manual setup.
 
 #### Caveat: `box-shadow` doesn't interpolate smoothly across keyframes
 
-Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `text-shadow-[...]` (also `'*'` syntax) and to `ring-*`, which feeds the same composed `box-shadow` via `--tw-ring-shadow`.
+Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `ring-*`, which feeds the same composed `box-shadow` via `--tw-ring-shadow`.
 
 For a smooth glow/halo effect, animate `scale` and `opacity` on a child layer (e.g. a transparent ring or radial-gradient overlay) instead of animating the shadow itself.
 
-#### Caveat: bare `outline` leaves `outline-style: none`
+#### Bare `outline` renders solid
 
-In Tailwind v4 (and Crosswind), bare `outline` only sets `outline-width` — it does **not** set `outline-style: solid`. Because the default `outline-style` is `none`, the outline is invisible until you also specify a style. Always pair `outline` with `outline-solid` (or `outline-dashed`, `outline-dotted`, etc.) when you want it to render.
+In Tailwind v4 (and Crosswind), bare `outline` and the width utilities (`outline-2`, `outline-[3px]`) set `outline-style: var(--tw-outline-style, solid)` alongside `outline-width`, so the outline renders solid on its own. Add `outline-dashed`, `outline-dotted`, etc. only for another style; it wins regardless of class order.
 
-<!-- ikon-code: cw-caveat-bare-outline-leaves-outline-style-none -->
+<!-- ikon-example: cw-caveat-bare-outline-leaves-outline-style-none -->
 ```csharp
-// WRONG — outline-style stays `none`, nothing renders
+// 2px solid blue outline, no style class needed
 view.Box(style: ["outline outline-2 outline-blue-500"]);
 
-// CORRECT — explicit style
-view.Box(style: ["outline outline-solid outline-2 outline-blue-500"]);
+// explicit style overrides the solid default
+view.Box(style: ["outline outline-dashed outline-2 outline-blue-500"]);
 ```
 
 ### Advanced Motion Utilities
@@ -619,7 +618,7 @@ Crosswind supports CSS Animations Level 2 properties for scroll-driven animation
 
 Declare a scroll timeline on a scroll container, then bind an animation track to it:
 
-<!-- ikon-code: cw-scroll-timelines -->
+<!-- ikon-example: cw-scroll-timelines -->
 ```csharp
 string[] Classes =
 [
@@ -635,7 +634,7 @@ string[] Classes =
 
 Control how multiple animations combine on the same element:
 
-<!-- ikon-code: cw-animation-composition -->
+<!-- ikon-example: cw-animation-composition -->
 ```csharp
 string[] Classes =
 [
@@ -644,13 +643,13 @@ string[] Classes =
 ];
 ```
 
-Values: `replace` (default), `add`, `accumulate`.
+Values: `replace` (default, except `add` for a track that compiles to a `transform` function list — mixed transform categories, skew, or `rotate-x` with `rotate-y`), `add`, `accumulate`.
 
 #### Play State Control
 
 Pause and resume animations programmatically:
 
-<!-- ikon-code: cw-play-state-control -->
+<!-- ikon-example: cw-play-state-control -->
 ```csharp
 string[] Classes =
 [
@@ -663,7 +662,7 @@ string[] Classes =
 
 Clamp animation playback to a portion of a scroll timeline:
 
-<!-- ikon-code: cw-animation-range -->
+<!-- ikon-example: cw-animation-range -->
 ```csharp
 string[] Classes =
 [
@@ -675,14 +674,14 @@ string[] Classes =
 
 #### Motion Priority
 
-Control stagger ordering with a priority hint (0–999):
+Order an element's motion tracks with a priority hint (0–999): tracks are listed in the `animation-*` lists by descending priority, ties in source order, which decides which track wins where they animate the same property. It does not change stagger order:
 
-<!-- ikon-code: cw-motion-priority -->
+<!-- ikon-example: cw-motion-priority -->
 ```csharp
 string[] Classes =
 [
     "motion-priority-0",     // default
-    "motion-priority-100",   // higher priority staggers first
+    "motion-priority-100",   // listed ahead of lower-priority tracks
 ];
 ```
 
@@ -690,7 +689,7 @@ string[] Classes =
 
 Crosswind auto-emits `will-change: <props>` for continuous motion tracks (loop / ping-pong / scroll-bound) so the first frame doesn't hitch while the browser promotes the element to its own GPU layer. Override the heuristic explicitly when needed:
 
-<!-- ikon-code: cw-gpu-promotion-will-change -->
+<!-- ikon-example: cw-gpu-promotion-will-change -->
 ```csharp
 string[] Classes =
 [
@@ -707,7 +706,7 @@ string[] Classes =
 
 A button component combining multiple style aspects:
 
-<!-- ikon-code: cw-complete-example -->
+<!-- ikon-example: cw-complete-example -->
 ```csharp
 public static class Button
 {
@@ -732,7 +731,7 @@ public static class Button
 
 Then from the UI lambda:
 
-<!-- ikon-code: cw-complete-example-2 -->
+<!-- ikon-example: cw-complete-example-2 -->
 ```csharp
 view.Button(style: [Button.Primary], text: "Submit", onClick: async () => { });
 ```
@@ -743,7 +742,7 @@ view.Button(style: [Button.Primary], text: "Submit", onClick: async () => { });
 
 Both approaches work correctly because Crosswind includes `box-sizing: border-box` in its preflight (like Tailwind):
 
-<!-- ikon-code: cw-full-screen-layouts-with-padding -->
+<!-- ikon-example: cw-full-screen-layouts-with-padding -->
 ```csharp
 // Option 1: Padding on Root (preferred for semantic clarity)
 UI.Root(style: ["h-screen bg-slate-950 p-4"], content: view =>
@@ -766,7 +765,7 @@ Design width with padding, alignment, and flex proportions — never hardcoded p
 
 **Percentage widths need context:** Classes like `w-1/4` or `w-1/3` resolve against the parent's computed width. If the parent is `position: absolute` with no explicit width, or has `width: auto` without flex constraints, the percentage resolves to zero. The element with the percentage class must be a direct child of a flex/grid container or a parent with an explicit width.
 
-<!-- ikon-code: cw-width-and-sizing-context -->
+<!-- ikon-example: cw-width-and-sizing-context -->
 ```csharp
 // WRONG — percentage on child of auto-width absolute element
 view.Box(["absolute"], content: view =>
@@ -798,7 +797,7 @@ view.Row(["flex-1 min-w-0"], content: view =>
 
 Icons automatically size and center their SVG content. Just set width and height:
 
-<!-- ikon-code: cw-icon-sizing -->
+<!-- ikon-example: cw-icon-sizing -->
 ```csharp
 row.Icon(style: ["w-4 h-4"], name: "message-circle");  // 16x16
 row.Icon(style: ["w-5 h-5"], name: "settings");        // 20x20
@@ -810,7 +809,7 @@ Note: The Icon component internally uses `display: inline-flex` to ensure width/
 
 This is the robust, clean pattern that works everywhere:
 
-<!-- ikon-code: cw-canonical-icon-text-pattern -->
+<!-- ikon-example: cw-canonical-icon-text-pattern -->
 ```csharp
 // Button with icon and text
 view.Button(
@@ -833,7 +832,7 @@ view.Button(
 
 ### Common Mistakes
 
-<!-- ikon-code: cw-common-mistakes -->
+<!-- ikon-example: cw-common-mistakes -->
 ```csharp
 // WRONG: Missing text color = black/invisible icons
 view.Icon(style: ["bg-blue-600"], name: "check");
@@ -860,7 +859,7 @@ Common gaps: `gap-2` (tight), `gap-3` (normal), `gap-4` (spacious)
 
 Animations that translate elements outside their container bounds (e.g. a sweep band animating `translate-y` from `-100px` to `900px`) will trigger unwanted scrollbars. Always add `overflow-hidden` to the container that holds such overlay elements:
 
-<!-- ikon-code: cw-fullscreen-effects-and-overflow -->
+<!-- ikon-example: cw-fullscreen-effects-and-overflow -->
 ```csharp
 // WRONG: sweep band moves outside bounds, creates scrollbar
 view.Column(style: ["absolute inset-0 pointer-events-none"], content: overlay =>
@@ -883,7 +882,7 @@ This applies to any fullscreen overlay effect: scan lines, sweep bands, CRT over
 
 **All UIs must be built responsively using breakpoint prefixes.** Never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
 
-<!-- ikon-code: cw-responsive-breakpoints -->
+<!-- ikon-example: cw-responsive-breakpoints -->
 ```csharp
 // Padding: 12px on mobile, 16px on sm+, 24px on md+
 view.Column(style: ["p-3 sm:p-4 md:p-6"], content: col => { });
@@ -909,7 +908,7 @@ Never hardcode sizes on content elements. Use responsive grids (`grid-cols-[repe
 
 Use gradients for primary actions and solid colors for secondary actions:
 
-<!-- ikon-code: cw-visual-hierarchy-with-gradients -->
+<!-- ikon-example: cw-visual-hierarchy-with-gradients -->
 ```csharp
 // Primary button - gradient with shadow
 view.Button(
@@ -928,7 +927,7 @@ view.Button(
 
 Wrap icons in styled containers for visual weight:
 
-<!-- ikon-code: cw-icon-containers-with-gradient-backgrounds -->
+<!-- ikon-example: cw-icon-containers-with-gradient-backgrounds -->
 ```csharp
 container.Column(style: ["w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0 border border-slate-600/30"], content: iconWrap =>
 {
@@ -940,7 +939,7 @@ container.Column(style: ["w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 
 
 Use semi-transparent backgrounds with subtle borders:
 
-<!-- ikon-code: cw-cards-and-containers -->
+<!-- ikon-example: cw-cards-and-containers -->
 ```csharp
 // Card with hover state
 list.Column(style: [
@@ -956,7 +955,7 @@ details.Row(style: ["flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl borde
 
 Use rounded-full for pill-shaped badges:
 
-<!-- ikon-code: cw-badges-and-pills -->
+<!-- ikon-example: cw-badges-and-pills -->
 ```csharp
 // Status badge with gradient
 titleRow.Text(text: "● ACTIVE", style: ["text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 font-medium shadow-sm"]);
@@ -994,7 +993,7 @@ Maintain a cohesive color palette throughout the app:
 
 Use consistent spacing throughout:
 
-<!-- ikon-code: cw-spacing-scale -->
+<!-- ikon-example: cw-spacing-scale -->
 ```csharp
 string[] Classes =
 [
@@ -1017,7 +1016,7 @@ string[] Classes =
 
 Add subtle transitions for polished interactions:
 
-<!-- ikon-code: cw-transitions-and-interactions -->
+<!-- ikon-example: cw-transitions-and-interactions -->
 ```csharp
 string[] Classes =
 [

@@ -1,4 +1,4 @@
-<!-- checked-against: fce0f40e157245d7 -->
+<!-- checked-against: 96835f85bf371f84 -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
@@ -38,12 +38,14 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Group/peer scopes: `group-<state>` and `peer-<state>` where `<state>` is a pseudo-class, pseudo-element, or explicit selector in brackets `[selector]`.
   * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
   * Theme scoping: `theme-<name>` (if theme variants are enabled).
+  * Other selector forms: `in-<...>`, `nth-<...>`, `not-<...>` (unless it negates a media context), `*`, `**`, `flutter`, `web`, any prefix containing `&`, and the container-query variants `@container`, `@<size>`, `@[<width>]`.
 * **Track prefix:** any identifier **not** matching a reserved variant. Tracks may refer to:
   * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `pointer-coarse`, `pointer-fine`, `any-pointer-hover`, `any-pointer-none`, `any-pointer-coarse`, `any-pointer-fine`, `contrast-more`, `contrast-less`, `forced-colors`, `inverted-colors`, `noscript`. A `not-` prefix on a media context (`not-print`, `not-sm`, `not-supports-[<condition>]`) negates the condition.
-  * Container queries: `min-<breakpoint>` / `max-<breakpoint>` (Tailwind breakpoint tokens) and `supports-[<condition>]` (underscores → spaces; appends `: var(--tw)` if missing a colon).
+  * Width and feature queries: `min-<breakpoint>` / `max-<breakpoint>` (Tailwind breakpoint tokens, emitted as `@media` width bounds) and `supports-[<condition>]` (an `@supports` query; underscores → spaces; appends `: var(--tw)` if missing a colon).
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
   Zero or more track prefixes are allowed; the innermost (closest to the directive) owns that directive.
+  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities.
 
 Examples:
 
@@ -87,7 +89,7 @@ All may be prefixed by variants and/or a track.
 * `motion-duration-<dur>` or `motion-duration-[<dur>]`
   `<dur>` is a duration literal (`250ms`, `0.6s`).
 * `motion-rate-<pct>` or `motion-rate-[<number>]`
-  Playback rate multiplier (e.g., `150` = 150%). **Syntax only**; semantics are impl-defined.
+  Playback rate. The dash form is a percentage (`motion-rate-150` plays at 1.5× speed), the bracket form a multiplier (`motion-rate-[1.5]`); a rate of zero or below, or one that is not a number (`motion-rate-fast`, `motion-rate-[2x]`), drops the class with a warning. A bracketed `var(...)` or `calc(...)` (`motion-rate-[var(--speed)]`) passes through unchecked and must resolve to a positive number, or the browser drops the element's whole `animation-duration`. Every track duration on the element that carries the class is divided by the rate, including under a variant (`hover:motion-rate-200`). The rate never comes from an ancestor: an element whose rate is set only under a variant plays at rate 1 when the variant does not match. Delays and the per-item stagger offset are not scaled. The Flutter renderer does not play `motion-*` animations, so there the rate has no effect.
 * `motion-ease-<keyword>` or `motion-ease-[cubic-bezier(...)]`
 * `motion-delay-<dur>` or `motion-delay-[<dur>]` (alias: `motion-track-delay-<dur>`)
   Delay applied to the entire track before playback starts.
@@ -131,7 +133,11 @@ The per-item stagger is emitted as one `nth-child` rule per position (`nth-last-
 `-reverse` variants) for 256 positions. Items past that, counted from whichever end the stagger runs
 from, carry the index-0 delay and animate in unison rather than continuing the stagger. Nothing at
 compile time can see the item count, so a longer run gets no warning — split it, or stagger a
-wrapper instead.
+wrapper instead. The web renderer's Text, Heading and Button split their own text and set each
+letter, word, line and paragraph index inline, counted across the whole text (backwards for a
+`-reverse` variant), so text they split has no such cap. They count backwards only for an
+unconditional `-reverse` class; a variant-scoped one (`hover:motion-per-letter-reverse`,
+`dark:motion-per-word-reverse`) is not supported there and staggers forward.
 
 Examples:
 
@@ -143,7 +149,7 @@ title:motion-per-letter title:motion-letter-delay-60ms
 
 **Per-track semantics.** Each Level 2 utility stores its value on the addressed track. During compilation Crosswind emits
 comma-separated longhands only when a track overrides that property and fills in defaults (`auto`, `replace`, `running`,
-`normal`) for tracks that omit them, so you can pause or retarget one layer without affecting the others.
+`normal`) for tracks that omit them (`animation-composition` is also emitted when any track animates a mixed `transform` function list, and such a track defaults to `add`), so you can pause or retarget one layer without affecting the others.
 
 Concrete patterns:
 
@@ -312,7 +318,7 @@ sfx:source-[<uri>] <variant>:sfx:play
 
   A macro token that expands (outside this spec’s scope) into one or more `motion-*` and/or `motion-[...]` directives.
 
-  > **Note:** Like the audio directives, preset expansion is not currently processed by the Crosswind compiler; only the syntax is reserved (`motion-track-delay-*` is the exception — it is a real timing utility, see §2.2).
+  > **Note:** Like the audio directives, preset expansion is not currently processed by the Crosswind compiler; the compiler reads `motion-track-<name>` as `motion-[track-<name>]`, logs a dropped-step warning and emits an empty animation on the default track (`motion-track-delay-*` is the exception — it is a real timing utility, see §2.2).
 
 * **Named track timelines (inline)**
 
@@ -358,7 +364,8 @@ motion-[0:opacity-0 -translate-y-[8px], 100:opacity-100 translate-y-0]
 The following identifiers are **reserved** as variants when used as a prefix ending with `:`:
 
 * Element pseudo-classes and pseudo-elements listed in §1.
-* `group-<state>`, `peer-<state>`, `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`, `theme-<name>`.
+* `group-<state>`, `peer-<state>`, `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`, `theme-<name>` (only while theme variants are enabled).
+* The other selector forms listed in §1 (`in-*`, `nth-*`, `not-*`, `*`, `**`, `flutter`, `web`, `&` selectors, container-query variants).
 
 > Any other prefix is treated as a **track** label (see §1).
 
@@ -544,7 +551,7 @@ These are minimal rules code generators MAY enforce during parse; they do not pr
 3. **Easing function text** inside `[...]` MUST be fully contained (balanced parentheses) and may include commas and spaces.
 4. **Bracket payloads** MUST close; `\]` is the only way to include a literal `]`.
 5. **Variant collisions:** multiple variants are allowed; order is preserved as written (left-to-right).
-6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer track prefixes are inert for that directive.
+6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is AND-combined into that track, and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`).
 7. **Alias `sound-[...]`:** purely syntactic; parsers MAY normalize it to `sfx:source-[...] <same-prefixes>:sfx:play`.
 
 ---

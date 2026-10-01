@@ -1,4 +1,4 @@
-<!-- checked-against: 3cff27bd6a5a8635 -->
+<!-- checked-against: b66b7f95fb79d71b -->
 ﻿# Crosswind Tailwind Spec
 
 Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.
@@ -219,5 +219,5 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Composable gradient masks** (v4.1): `mask-linear-{angle}`, `mask-radial`, `mask-radial-at-{position}`, `mask-conic-{angle}`, with stops `mask-{linear|radial|conic}-{from|to}-{value}` and edge fades `mask-{t|r|b|l|x|y}-{from|to}-{value}`; layers combine via `mask-composite: intersect`
 * **Mask mode / type**: `mask-mode-{alpha|luminance|match-source}`; `mask-type-{alpha|luminance}` (targets SVG `<mask>` elements, no `-webkit-` prefix)
 
-> All mask utilities automatically emit both standard `mask-*` and vendor-prefixed `-webkit-mask-*` declarations for cross-browser compatibility (except `mask-type-*`, which is SVG-only).
+> All mask utilities automatically emit both standard `mask-*` and vendor-prefixed `-webkit-mask-*` declarations for cross-browser compatibility (except `mask-type-*`, which is SVG-only, and `mask-mode-*`, which emits only `mask-mode`).
 

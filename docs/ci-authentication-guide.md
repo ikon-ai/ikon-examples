@@ -1,5 +1,5 @@
 # Authenticating the Ikon tool in CI
-<!-- checked-against: b30d9328aacbe846 -->
+<!-- checked-against: 0ee4e88af22d03f8 -->
 How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
 
 ## The short version
@@ -10,10 +10,10 @@ ikon auth token create my-pipeline
 
 # In CI, as a secret:
 IKON_SERVICE_TOKEN=ikon_svc_...
-IKON_SPACE_ID=<the space you deploy to>
+IKON_SPACE_ID=<the id of the app you deploy to>
 
 # Then the usual commands work with no browser:
-ikon app deploy
+ikon deploy
 ```
 
 ## Why there is a separate credential for this
@@ -65,14 +65,14 @@ Set three environment variables in your CI configuration:
 | Variable | Value |
 |---|---|
 | `IKON_SERVICE_TOKEN` | The token you just created. **Store it as a secret**, never in a committed file. |
-| `IKON_SPACE_ID` | The space to act on. |
+| `IKON_SPACE_ID` | The id of the app to act on. The variable keeps the platform's own word for a cloud app, a space. |
 | `IKON_BACKEND_ENV` | `dev` or `prod` — which platform the pipeline runs against. |
 
-`IKON_SPACE_ID` is needed because the organisation and space defaults that `ikon defaults` sets live in the login file on your own machine, and a CI runner has no login file. You can pass `--space-id` on each command instead.
+`IKON_SPACE_ID` is needed because the organisation and app defaults that `ikon default set` sets live in the login file on your own machine, and a CI runner has no login file. You can pass `--app-id` on each command instead.
 
-`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. On your own machine that choice comes from your login or `ikon defaults`; a CI runner has neither. The tool then looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
+`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. On your own machine that choice comes from your login or `ikon default set`; a CI runner has neither. The tool then looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
 
-Every command then works as usual — `ikon app deploy`, `ikon app bundle`, and so on. No browser, no prompts.
+Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on. No browser, no prompts.
 
 The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV` must name that same environment.
 
@@ -84,7 +84,7 @@ The token is only valid for the environment it was created against, so `IKON_BAC
     IKON_SERVICE_TOKEN: ${{ secrets.IKON_SERVICE_TOKEN }}
     IKON_SPACE_ID: ${{ vars.IKON_SPACE_ID }}
     IKON_BACKEND_ENV: prod
-  run: ikon app deploy
+  run: ikon deploy
 ```
 
 ## Managing them
@@ -107,10 +107,10 @@ ikon auth session revoke <id>
 
 ## What a service token can do, and what to watch
 
-A service token acts as **you**. It carries the same access to the platform your own account has, for as long as it is valid. There is currently no way to narrow one to a single space or a single operation, so treat it exactly as you would treat your password:
+A service token acts as **you**. It carries the same access to the platform your own account has, for as long as it is valid. There is currently no way to narrow one to a single app or a single operation, so treat it exactly as you would treat your password:
 
 - Store it in your CI provider's secret store, never in a committed file. It starts with `ikon_svc_` so that secret scanners — including GitHub's push protection — can recognise it if it ever reaches a repository.
-- Give each pipeline its own token, named for that pipeline. Then revoking one does not break the others, and the last-used column tells you which is which.
+- Give each pipeline its own token, named for that pipeline. Then revoking one does not break the others, and the last-used column tells you which is which. One account can hold at most 25 live service tokens; revoke one before creating more.
 - Revoke it when the pipeline that used it goes away, and when anyone with access to the secret store leaves.
 - It cannot create or manage other service tokens. That is deliberate: a leaked token cannot mint itself a replacement to outlive your revoking it.
 
@@ -118,7 +118,7 @@ A service token acts as **you**. It carries the same access to the platform your
 
 ## Troubleshooting
 
-**`The service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, or has passed its expiry. Create a new one and update the secret.
+**`The ... service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, has passed its expiry, or its account no longer exists. Create a new one and update the secret. The same warning follows a `429` from the exchange's rate limit (300 a minute per caller), which many runners behind one address can hit while the token is still valid; a new token does not help there.
 
 **`The ... service token in IKON_SERVICE_TOKEN expires on ...`** — advisory, printed once per run inside the token's last 14 days. Nothing is wrong yet: create the replacement and update the secret before that date.
 
@@ -128,6 +128,6 @@ A service token acts as **you**. It carries the same access to the platform your
 
 **`NU1101: Unable to find package Ikon.…`** — the build could not authenticate to the private package feed. Almost always the same cause as above: without an environment the tool cannot exchange your service token, so it has no feed credential to pass on. Check `IKON_BACKEND_ENV` is set and reaching the step.
 
-**`This command needs a target space ...`** — set `IKON_SPACE_ID`, or pass `--space-id`.
+**`This command needs a target app ...`** — set `IKON_SPACE_ID`, or pass `--app-id`.
 
 **`A service token cannot manage service tokens`** — `ikon auth token create` was run in a job that authenticates with a service token. Mint tokens from a terminal where a person is signed in.

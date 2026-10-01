@@ -1,5 +1,5 @@
 # Crosswind ↔ Tailwind v4: deliberate divergences
-<!-- checked-against: 14a152a64249618d -->
+<!-- checked-against: c1f4d4ad56503335 -->
 Crosswind's Tailwind compatibility is measured by a differential conformance
 harness (`Ikon.Crosswind.Test/Conformance/`, run with
 `IKON_RUN_TAILWIND_CONFORMANCE=1`) that compiles a ~1030-class corpus through
@@ -35,14 +35,14 @@ so the value form is what actually works with platform components. This
 extends, rather than contradicts, Tailwind's `data-*` handling (plain
 `data-foo:` presence semantics match Tailwind exactly).
 
-**4. Opacity modifiers → single `color-mix(in oklch)` rule** — 6 classes
+**4. Opacity modifiers → single `color-mix(in oklab)` rule** — 6 classes
 (`bg-red-500/50` and kin). Tailwind emits an sRGB `color-mix` fallback plus an
-`@supports` oklab upgrade rule per use. Every browser in the platform floor
-(Chrome 111+, Safari 16.4+, Firefox 113+ — all 2023) supports the single rule;
-the pair exists for older browsers. **Known failure mode:** on an ancient
-WebView the declaration is ignored entirely (e.g. `bg-black/50` renders no
-background). This is a conscious browser-floor decision — revisit if a
-customer platform predates 2023 engines. (Note: where the *composed* systems
+`@supports` oklab upgrade rule per use. `color-mix` is Chromium 111 and a 2022
+smart television (Tizen, webOS) runs 85, so a literal colour (white, black,
+hex) with a numeric alpha emits plain `rgba()` instead (`bg-black/50` →
+`rgba(0,0,0,0.5)`). **Known failure mode:** on such an engine a theme-colour
+modifier is ignored entirely (e.g. `bg-red-500/50` renders no background),
+because its value is only known at runtime. (Note: where the *composed* systems
 need it — ring/shadow color vars — Crosswind emits Tailwind's exact
 srgb+oklab pair; this entry covers only the direct opacity-modifier rules.)
 

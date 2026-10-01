@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: b1872d79bcd199ea -->
+<!-- checked-against: b29a185e246a9e19 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -10,7 +10,7 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 
 Needs the `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
-<!-- ikon-code: ai-object-generation -->
+<!-- ikon-example: ai-object-generation -->
 ```csharp
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
@@ -28,7 +28,7 @@ Log.Instance.Info($"Result: {Json.To(result)}");
 
 with the result type declared alongside:
 
-<!-- ikon-code: ai-object-generation-2 -->
+<!-- ikon-example: ai-object-generation-2 -->
 ```csharp
 public class PersonDetails
 {
@@ -42,7 +42,7 @@ Emergence supports multi-agent patterns: `BestOf`, `Refine`, `MapReduce`, `TreeS
 
 Region support is available via `pass.Regions`:
 
-<!-- ikon-code: air-object-generation -->
+<!-- ikon-example: air-object-generation -->
 ```csharp
 var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 {
@@ -59,11 +59,11 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global` — no restriction, the platform picks the serving region.
+Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global` — no restriction, the platform picks the serving region — unless the organisation's AI region policy is EU-only, where an omitted or `Global` region means the EU and a requested non-EU region throws `AIRegionPolicyViolationException`.
 
 Needs the `Ikon.AI`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
-<!-- ikon-code: aid-llm -->
+<!-- ikon-example: aid-llm -->
 ```csharp
 var context = new KernelContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
@@ -80,11 +80,11 @@ Log.Instance.Info($"String result: {stringResult}");
 
 ## Custom Model Endpoints
 
-Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted:
+Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted. A custom model declares no region, so under an EU-only AI region policy calling it throws `AIRegionPolicyViolationException`:
 
 Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.LLM` using directives.
 
-<!-- ikon-code: aid-custom-model-endpoints -->
+<!-- ikon-example: aid-custom-model-endpoints -->
 ```csharp
 CustomModels.Instance.Register(new CustomLLMModel
 {
@@ -106,7 +106,7 @@ await foreach (var llmEvent in Emerge.Generate("my-model", new KernelContext()))
 }
 ```
 
-Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), and classification (`CustomClassificationModel`); each picks one of the category's existing HTTP request formats via its `Api` enum. Other categories (image generation, speech) are not yet supported.
+Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), classification (`CustomClassificationModel`), and decisions (`CustomDecisionModel`); each picks one of the category's existing HTTP request formats via its `Api` enum. Other categories (image generation, speech) are not yet supported.
 
 Key behaviors:
 
@@ -127,7 +127,7 @@ One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never 
 
 Needs the `Ikon.AI.ImageGeneration` using directive.
 
-<!-- ikon-code: ai-imagegeneration -->
+<!-- ikon-example: ai-imagegeneration -->
 ```csharp
 var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
 await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
@@ -139,7 +139,7 @@ Use the constructor + config form for negative prompts, resolution, seeding, bat
 
 Needs the `Ikon.AI.ImageGeneration` using directive.
 
-<!-- ikon-code: ai-imagegeneration-2 -->
+<!-- ikon-example: ai-imagegeneration-2 -->
 ```csharp
 using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
 
@@ -156,22 +156,22 @@ await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
 A size the model cannot render is refused rather than clamped or bucketed to a nearby one, so the
-picture you get back is the one you asked for or an exception naming what the model accepts. Leave
-`Width` and `Height` at `0` to take the provider's own default. Either way the result reports the
+picture you get back is the one you asked for or an exception naming what the model accepts. `Width`
+and `Height` default to 1024; set both to `0` to take the provider's own default. Either way the result reports the
 size that was actually delivered, measured from the returned bytes, since models snap to their own
 grids and tiers within what they accept.
 
 ## Provenance and Watermarking
 
-`Ikon.AI.ImageProvenance` is what marks a generated image as generated. The image generators and the
+`Ikon.AI.Provenance.ImageProvenance` is what marks a generated image as generated. The image generators and the
 upscaler apply it themselves — `InvisibleWatermark` and `VisibleWatermark` on the config control it —
 so app code normally only *reads* the marks.
 
 - `ImageProvenance.GetMarkingSupport(data)` returns a `ProvenanceMarking` for the format: `Full` when
   the pixel watermark survives a re-encode, `MetadataOnly` when the mark is machine-readable and
   standards-compliant but strippable by anything that rewrites the file's metadata, and `None` when
-  the format carries neither. The upscaler checks this before re-marking.
-- `ImageProvenance.ReadMetadataMark(data)` returns the recorded model name, or null.
+  the format carries neither.
+- `ImageProvenance.ReadMetadataMark(data)` returns the embedded XMP packet, or null.
 - `ImageProvenance.MeasureInvisibleMark(data)` scores the pixel watermark. Scores are
   normal-deviates: an unmarked image scores |z| ≲ 3, a marked one in the tens to hundreds depending
   on size and recompression. At or above `ImageProvenance.DetectionThreshold` (12.0) the image
@@ -179,7 +179,7 @@ so app code normally only *reads* the marks.
 - `ImageProvenance.Apply(data, model, invisibleWatermark, visibleWatermark)` marks an image yourself,
   for a path the platform generators did not produce.
 
-`Ikon.AI.MediaProvenance` is the same layer for generated video and audio, writing the identical XMP
+`Ikon.AI.Provenance.MediaProvenance` is the same layer for generated video and audio, writing the identical XMP
 packet into the container's standard metadata slot: an XMP `uuid` box for MP4/MOV/M4A, an ID3v2
 `PRIV` frame with owner `XMP` for MP3, and a `_PMX` RIFF chunk for WAV. There is no audio or video
 watermark, so `MetadataOnly` is the best outcome and `Full` never occurs; Ogg/Opus, WebM and raw PCM
@@ -198,11 +198,12 @@ interaction level instead, with Parallax's `AiDisclosure`.
 
 ## Image Utilities
 
-`Ikon.AI.ImageUtils` holds the pixel chores the AI calls keep needing. `GetImageDimensions` reads
+`Ikon.AI.Utils.ImageUtils` holds the pixel chores the AI calls keep needing. `GetImageDimensions` reads
 width and height without decoding the whole image; `IsWebP` sniffs the format. `EncodeJpegCapped`
-caps both dimensions (aspect preserved) and re-encodes as JPEG, returning the source bytes unchanged
+caps both dimensions (aspect preserved, `maxDimension` 1568 px by default) and re-encodes as JPEG, returning the source bytes unchanged
 only when the image already fits the dimension cap *and* is at most `maxBytes` (200 KB by default) —
-this is how an image is brought under a model's input limit before it is sent. The mask helpers convert between the two conventions models disagree on:
+this is how an image is brought under a model's input limit before it is sent. A WebP source it has
+to re-encode throws, since the decoder reads no WebP. The mask helpers convert between the two conventions models disagree on:
 `ConvertAlphaMaskToBlackWhiteMask`, `ConvertBlackWhiteMaskToAlphaMask` and `InvertMask`.
 
 
@@ -218,7 +219,7 @@ One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 
 Needs the `Ikon.AI.ImageSegmentation` using directive.
 
-<!-- ikon-code: ai-imagesegmentation -->
+<!-- ikon-example: ai-imagesegmentation -->
 ```csharp
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
 await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
@@ -228,7 +229,7 @@ Use the constructor + config form for URL input, point/box prompts, or multiple 
 
 Needs the `Ikon.AI.ImageSegmentation` using directive.
 
-<!-- ikon-code: ai-imagesegmentation-2 -->
+<!-- ikon-example: ai-imagesegmentation-2 -->
 ```csharp
 using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam3);
 
@@ -253,7 +254,7 @@ await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataA
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns WebP; Crystal is the one model that will invent detail.
 
-Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input size and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills.
+Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider.
 
 **Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. No model is `Creative` today, so nothing hallucinates unless you raise `Creativity` on a `Tunable` model — and asking a `Faithful` model for `Creativity` above 0 throws rather than being quietly ignored. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
 
@@ -261,7 +262,7 @@ One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scal
 
 Needs the `Ikon.AI.ImageUpscaling` using directive.
 
-<!-- ikon-code: ai-imageupscaling -->
+<!-- ikon-example: ai-imageupscaling -->
 ```csharp
 var result = await ImageUpscaler.UpscaleAsync(imageBytes, "image/png", scaleFactor: 4);
 await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
@@ -271,7 +272,7 @@ Use the constructor + config form for URL input, a target resolution, or creativ
 
 Needs the `Ikon.AI.ImageUpscaling` using directive.
 
-<!-- ikon-code: ai-imageupscaling-2 -->
+<!-- ikon-example: ai-imageupscaling-2 -->
 ```csharp
 using var imageUpscaler = new ImageUpscaler(ImageUpscalerModel.SeedVr2);
 
@@ -296,7 +297,7 @@ One-shot from image bytes — defaults to `DepthAnythingV2` (cheap+fast):
 
 Needs the `Ikon.AI.DepthEstimation` using directive.
 
-<!-- ikon-code: ai-depthestimation -->
+<!-- ikon-example: ai-depthestimation -->
 ```csharp
 var result = await DepthEstimator.EstimateAsync(imageBytes, "image/png");
 await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
@@ -306,7 +307,7 @@ Use the constructor + config form for URL input or the Marigold tuning fields:
 
 Needs the `Ikon.AI.DepthEstimation` using directive.
 
-<!-- ikon-code: ai-depthestimation-2 -->
+<!-- ikon-example: ai-depthestimation-2 -->
 ```csharp
 using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV2);
 
@@ -322,7 +323,7 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 `Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or several images of the same object (up to 4 on Meshy, 5 on Rodin). The result contains signed URLs for the generated model — Meshy returns GLB, FBX, OBJ and USDZ at once and expires them after roughly three days; Rodin returns the one format `OutputFormat` asks for and expires it after seven. Download the files promptly.
 
-Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Neither provider rigs or skins a mesh; Rodin's `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
+Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Rodin does not rig or skin a mesh; its `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -330,7 +331,7 @@ One-shot text-to-mesh — defaults to `Meshy6` (the current Meshy generation):
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
-<!-- ikon-code: ai-meshgeneration -->
+<!-- ikon-example: ai-meshgeneration -->
 ```csharp
 var mesh = await MeshGenerator.GenerateAsync("A small wooden treasure chest with brass fittings");
 Log.Instance.Info($"GLB URL: {mesh.GlbUrl}");
@@ -340,7 +341,7 @@ Use the constructor + config form for image-to-mesh, PBR textures, or polycount/
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
-<!-- ikon-code: ai-meshgeneration-2 -->
+<!-- ikon-example: ai-meshgeneration-2 -->
 ```csharp
 using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Meshy6);
 
@@ -355,11 +356,11 @@ Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 
 A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. The same read off a `MeshGeneratorCapabilities` without constructing a generator.
 
-Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Set on a Meshy model, any of them throws rather than being dropped:
+Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Set on a Meshy model, any of them throws rather than being dropped, except a `Material` of `Auto` or `Pbr` and an `OutputFormat` other than `Stl`, which Meshy takes:
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
-<!-- ikon-code: ai-meshgeneration-3 -->
+<!-- ikon-example: ai-meshgeneration-3 -->
 ```csharp
 using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Rodin25Medium);
 
@@ -378,11 +379,11 @@ var character = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 Log.Instance.Info($"FBX URL: {character.FbxUrl}");
 ```
 
-The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well:
+The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well, delivered as GLB (Rodin delivers only the `OutputFormat` asked for):
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
-<!-- ikon-code: ai-meshgeneration-5 -->
+<!-- ikon-example: ai-meshgeneration-5 -->
 ```csharp
 using var meshy = new MeshGenerator(MeshGeneratorModel.Meshy6);
 
@@ -407,7 +408,7 @@ Log.Instance.Info($"Animated character: {animated.GlbUrl}");
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
-<!-- ikon-code: ai-meshgeneration-4 -->
+<!-- ikon-example: ai-meshgeneration-4 -->
 ```csharp
 using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Rodin25Medium);
 
@@ -438,7 +439,7 @@ One-shot text-to-video — defaults to `Veo31Fast` (cheap+fast):
 
 Needs the `Ikon.AI.VideoGeneration` using directive.
 
-<!-- ikon-code: ai-videogeneration -->
+<!-- ikon-example: ai-videogeneration -->
 ```csharp
 var video = await VideoGenerator.GenerateAsync("A santa dancing in the snow");
 Log.Instance.Info($"Video URL: {video.Url}");
@@ -448,7 +449,7 @@ Use the constructor + config form for input images (image-to-video), length, res
 
 Needs the `Ikon.AI.VideoGeneration` using directive.
 
-<!-- ikon-code: ai-videogeneration-2 -->
+<!-- ikon-example: ai-videogeneration-2 -->
 ```csharp
 using var generator = new VideoGenerator(VideoGeneratorModel.Pollo20);
 
@@ -473,7 +474,7 @@ One-shot — defaults to `TensorPixUpscale2xUltra41` (the current 2x upscale gen
 
 Needs the `Ikon.AI.VideoEnhancement` using directive.
 
-<!-- ikon-code: ai-videoenhancement -->
+<!-- ikon-example: ai-videoenhancement -->
 ```csharp
 var enhanced = await VideoEnhancer.EnhanceAsync("https://example.com/input.mp4");
 Log.Instance.Info($"Enhanced video URL: {enhanced.Url}");
@@ -483,7 +484,7 @@ Use the constructor + config form for raw video bytes, frame ranges, or a target
 
 Needs the `Ikon.AI.VideoEnhancement` using directive.
 
-<!-- ikon-code: ai-videoenhancement-2 -->
+<!-- ikon-example: ai-videoenhancement-2 -->
 ```csharp
 using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale4xUltra4);
 
@@ -509,7 +510,7 @@ One-shot from a video URL — defaults to `Sam3`:
 
 Needs the `Ikon.AI.VideoSegmentation` using directive.
 
-<!-- ikon-code: ai-videosegmentation -->
+<!-- ikon-example: ai-videosegmentation -->
 ```csharp
 var result = await VideoSegmenter.SegmentAsync("https://example.com/race.mp4", "swimmer");
 Log.Instance.Info($"Segmented video: {result.Url}");
@@ -519,7 +520,7 @@ Use the constructor + config form for an asset input, several concepts at once, 
 
 Needs the `Ikon.AI.VideoSegmentation` using directive.
 
-<!-- ikon-code: ai-videosegmentation-2 -->
+<!-- ikon-example: ai-videosegmentation-2 -->
 ```csharp
 using var videoSegmenter = new VideoSegmenter(VideoSegmenterModel.Sam3);
 
@@ -539,11 +540,11 @@ Log.Instance.Info($"Segmented video: {result.Url} ({result.SizeBytes} bytes)");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws `RetryableAIException` on failure or empty output):
+One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws an `AIException` — `RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request — so catch `AIException` to continue without the clip):
 
 Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
-<!-- ikon-code: ai-speechgeneration -->
+<!-- ikon-example: ai-speechgeneration -->
 ```csharp
 var audio = await SpeechGenerator.GenerateAsync("There once was a ship that put to sea.");
 
@@ -556,7 +557,7 @@ Use the constructor + config form for chunk-by-chunk streaming, voice discovery,
 
 Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
-<!-- ikon-code: ai-speechgeneration-2 -->
+<!-- ikon-example: ai-speechgeneration-2 -->
 ```csharp
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gpt4OmniMiniTts);
 
@@ -598,7 +599,7 @@ One-shot batch transcription — defaults to `WhisperLarge3Turbo` (cheap+fast):
 
 Needs the `Ikon.AI.SpeechRecognition` using directive.
 
-<!-- ikon-code: ai-speechrecognition -->
+<!-- ikon-example: ai-speechrecognition -->
 ```csharp
 string text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
 ```
@@ -608,7 +609,7 @@ continuous recognition. `RecognizeBatchSpeechAsync` returns a `Transcript`, not 
 
 Needs the `Ikon.AI.SpeechRecognition`, `Ikon.Resonance` using directives.
 
-<!-- ikon-code: ai-speechrecognition-2 -->
+<!-- ikon-example: ai-speechrecognition-2 -->
 ```csharp
 var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.Whisper2);
 
@@ -633,7 +634,7 @@ provider reports one, and — when you ask for them — `Words` (a list of `Spee
 `Speaker`. Timings are always `TimeSpan` relative to the start of the submitted audio, whatever units
 the provider reported.
 
-<!-- ikon-code: ai-timestamps-speakers-and-confidence -->
+<!-- ikon-example: ai-timestamps-speakers-and-confidence -->
 ```csharp
 var transcript = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
 {
@@ -670,7 +671,7 @@ provider's revisable interim hypothesis from text it will not change, and only f
 start of the stream, so they keep growing for the life of the recognition. Interim events are off
 unless `InterimResults` asks for them:
 
-<!-- ikon-code: ai-timestamps-speakers-and-confidence-2 -->
+<!-- ikon-example: ai-timestamps-speakers-and-confidence-2 -->
 ```csharp
 var config = new RecognizeContinuousSpeechConfig
 {
@@ -701,10 +702,16 @@ says what that judgement can be made from:
 - `Semantic` — a model that weighs the words as well as the pause.
 
 Ask for one on `RecognizeContinuousSpeechConfig.TurnDetection`; leaving it at `None` takes whatever
-the model does by default, and no `IsEndOfTurn` is claimed. `Endpointing` says which of
-`EndOfTurnSilence`, `MaxTurnSilence` and `EndOfTurnConfidenceThreshold` that model takes from you —
+the model does by default — Azure then claims no `IsEndOfTurn`, while the other models still set it
+from their own endpointing. `Endpointing` says which of the tuning fields — `EndOfTurnSilence`,
+`MaxTurnSilence`, `EndOfTurnConfidenceThreshold`, `EndpointingSensitivity`, `VoiceActivityThreshold`,
+`MinSpeechDuration`, `MinSilenceDuration` and `SpeechStartPadding` — that model takes from you
+(Azure takes no silence bounds under `Semantic`) —
 **setting one it does not take throws**, because a threshold the service never received leaves a
 stream that still transcribes and a conversation that feels wrong for reasons nothing reports.
+A value outside the model's range throws too (Azure's `EndOfTurnSilence` is 100–5000 ms, and its
+`MaxTurnSilence` is 20000–70000 ms and only accepted alongside `EndOfTurnSilence`); `RangeOf(control)`
+on the capabilities reports the range before the call.
 `EndOfTurnConfidence` is 0 on every event of a model whose `ReportsEndOfTurnConfidence` is false,
 which is not a confidence of zero.
 
@@ -713,19 +720,22 @@ empty where it is not — empty means undeclared, never "none", so `SupportsLang
 there. It matters more than it looks: a streaming model given a language outside its set returns
 fluent-looking nonsense rather than an error.
 
-<!-- ikon-code: ai-turn-taking -->
+<!-- ikon-example: ai-turn-taking -->
 ```csharp
 var capabilities = SpeechRecognizer.GetCapabilities(SpeechRecognizerModel.AzureSpeechService);
+
+var turnDetection = capabilities.TurnDetection.HasFlag(SpeechTurnDetection.Semantic)
+    ? SpeechTurnDetection.Semantic
+    : SpeechTurnDetection.Silence;
 
 var config = new RecognizeContinuousSpeechConfig
 {
     SampleRate = 16000,
     ChannelCount = 1,
     Language = "fi-FI",
-    TurnDetection = capabilities.TurnDetection.HasFlag(SpeechTurnDetection.Semantic)
-        ? SpeechTurnDetection.Semantic
-        : SpeechTurnDetection.Silence,
-    EndOfTurnSilence = capabilities.Endpointing.HasFlag(SpeechEndpointing.Silence)
+    TurnDetection = turnDetection,
+    // Azure takes no silence bounds under semantic segmentation
+    EndOfTurnSilence = turnDetection == SpeechTurnDetection.Silence && capabilities.Endpointing.HasFlag(SpeechEndpointing.Silence)
         ? TimeSpan.FromMilliseconds(400)
         : TimeSpan.Zero
 };
@@ -749,7 +759,7 @@ One-shot — returns a buffered WAV file:
 
 Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
-<!-- ikon-code: ai-soundeffectgeneration -->
+<!-- ikon-example: ai-soundeffectgeneration -->
 ```csharp
 var effect = await SoundEffectGenerator.GenerateAsync("A thunderstorm with heavy rain");
 await File.WriteAllBytesAsync("thunder.wav", await effect.GetDataAsync());
@@ -759,7 +769,7 @@ Use the constructor + config form for duration, looping, prompt influence, or st
 
 Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
-<!-- ikon-code: ai-soundeffectgeneration-2 -->
+<!-- ikon-example: ai-soundeffectgeneration-2 -->
 ```csharp
 using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
 
@@ -782,7 +792,7 @@ One-shot — defaults to `ElevenLabsMusicV2` (supports duration control and edit
 
 Needs the `Ikon.AI.MusicGeneration` using directive.
 
-<!-- ikon-code: ai-musicgeneration -->
+<!-- ikon-example: ai-musicgeneration -->
 ```csharp
 var music = await MusicGenerator.GenerateAsync("An upbeat 8-bit chiptune loop");
 await File.WriteAllBytesAsync("music.mp3", await music.GetDataAsync());
@@ -792,7 +802,7 @@ Use the constructor + config form for duration control, input audio (editing), s
 
 Needs the `Ikon.AI.MusicGeneration` using directive.
 
-<!-- ikon-code: ai-musicgeneration-2 -->
+<!-- ikon-example: ai-musicgeneration-2 -->
 ```csharp
 using var musicGenerator = new MusicGenerator(MusicGeneratorModel.ElevenLabsMusicV2);
 
@@ -813,23 +823,23 @@ The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
+**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it the speech models resolve through the Ikon AI service as usual, while the local browser models throw a `UserException` naming the package.
 
 One-shot single page scrape — defaults to `Jina` (cheap+fast hosted reader) and returns the page as Markdown:
 
 Needs the `Ikon.AI.WebScraping` using directive.
 
-<!-- ikon-code: ai-webscraping -->
+<!-- ikon-example: ai-webscraping -->
 ```csharp
 var page = await WebScraper.ScrapeAsync("https://example.com");
 Log.Instance.Info($"{page.Title}: {page.Content}...");
 ```
 
-Use the constructor + config form for output formats, cookies, custom JavaScript, multi-page crawling, screenshots, and file downloads:
+Use the constructor + config form for output formats, cookies, custom JavaScript, multi-page crawling, screenshots, and file downloads. Jina, used below, does neither crawling nor downloads (they throw `NotImplementedException`); pick a model whose `WebScraper.GetCapabilities(model)` reports them, such as Spider:
 
 Needs the `Ikon.AI.WebScraping` using directive.
 
-<!-- ikon-code: ai-webscraping-2 -->
+<!-- ikon-example: ai-webscraping-2 -->
 ```csharp
 var scraper = new WebScraper(WebScraperModel.Jina);
 
@@ -861,7 +871,7 @@ One-shot page search — defaults to `Google` (cheap+fast general web search):
 
 Needs the `Ikon.AI.WebSearching` using directive.
 
-<!-- ikon-code: ai-websearching -->
+<!-- ikon-example: ai-websearching -->
 ```csharp
 var results = await WebSearcher.SearchAsync("Finnish ice hockey teams", maxResults: 5);
 
@@ -875,7 +885,7 @@ Use the constructor + config form for site-restricted search, country/language t
 
 Needs the `Ikon.AI.WebSearching` using directive.
 
-<!-- ikon-code: ai-websearching-2 -->
+<!-- ikon-example: ai-websearching-2 -->
 ```csharp
 var pageSearcher = new WebSearcher(WebSearcherModel.Google);
 
@@ -906,7 +916,7 @@ foreach (var result in imageResults)
 
 ## FileConversion
 
-`Ikon.AI.FileConversion.FileConverter` batches binary document conversions and handles long-running jobs transparently.
+`Ikon.AI.FileConversion.FileConverter` converts one binary document to PDF per call and handles long-running jobs transparently.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -914,7 +924,7 @@ One-shot from raw file bytes (the file name carries the source format):
 
 Needs the `Ikon.AI.FileConversion` using directive.
 
-<!-- ikon-code: ai-fileconversion -->
+<!-- ikon-example: ai-fileconversion -->
 ```csharp
 var pdf = await FileConverter.ConvertToPdfAsync(await File.ReadAllBytesAsync("brochure.docx"), "brochure.docx");
 await File.WriteAllBytesAsync("brochure.pdf", await pdf.GetDataAsync());
@@ -924,7 +934,7 @@ Use the constructor + config form when the source is a URL or `AssetUri`, or whe
 
 Needs the `Ikon.AI.FileConversion` using directive.
 
-<!-- ikon-code: ai-fileconversion-2 -->
+<!-- ikon-example: ai-fileconversion-2 -->
 ```csharp
 var fileConverter = new FileConverter(FileConverterModel.ConvertApi);
 var convertedFile = await fileConverter.ConvertToPdfAsync(new FileConverterConfig
@@ -945,7 +955,7 @@ One-shot from raw file bytes — defaults to `AzureDocumentIntelligence` (cheap+
 
 Needs the `Ikon.AI.OCR` using directive.
 
-<!-- ikon-code: ai-ocr -->
+<!-- ikon-example: ai-ocr -->
 ```csharp
 var result = await OCR.AnalyzeAsync(await File.ReadAllBytesAsync("invoice.pdf"));
 Log.Instance.Info(result.Text);
@@ -955,7 +965,7 @@ Use the constructor + config form when the document is a URL or `AssetUri`, or w
 
 Needs the `Ikon.AI.OCR` using directive.
 
-<!-- ikon-code: ai-ocr-2 -->
+<!-- ikon-example: ai-ocr-2 -->
 ```csharp
 var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
 var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
@@ -991,7 +1001,7 @@ One-shot — defaults to `CohereRerank4Fast` (cheap+fast):
 
 Needs the `Ikon.AI.Reranking` using directive.
 
-<!-- ikon-code: ai-reranking -->
+<!-- ikon-example: ai-reranking -->
 ```csharp
 var items = await Reranker.RerankAsync(
     ["Document about AI", "Document about cooking", "Document about space exploration"],
@@ -1008,7 +1018,7 @@ Use the constructor + instance `RerankAsync` for a custom timeout or when rerank
 
 Needs the `Ikon.AI.Reranking` using directive.
 
-<!-- ikon-code: ai-reranking-2 -->
+<!-- ikon-example: ai-reranking-2 -->
 ```csharp
 using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
 var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = query, TopN = 5 });
@@ -1024,7 +1034,7 @@ One-shot text moderation — defaults to `OpenAIOmniModeration` (free to use):
 
 Needs the `Ikon.AI.Classification` using directive.
 
-<!-- ikon-code: ai-classification -->
+<!-- ikon-example: ai-classification -->
 ```csharp
 var result = await Classifier.ClassifyAsync("How to kill kittens? (not really!)");
 Log.Instance.Info($"Flagged: {result.IsFlagged}");
@@ -1042,7 +1052,7 @@ Use the constructor + the instance `ClassifyAsync` overloads for image/message-p
 
 Needs the `Ikon.AI.Classification` using directive.
 
-<!-- ikon-code: ai-classification-2 -->
+<!-- ikon-example: ai-classification-2 -->
 ```csharp
 using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
 
@@ -1052,19 +1062,19 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 ## Decisions
 
-`Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each answer carries calibrated probabilities and a confidence, so routing, triage and gating inside a flow need no parsing step and cannot come back off-shape.
+`Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each `Choice` and `Score` answer carries calibrated probabilities and a confidence (a `Noul` answer carries its uncertainty in the probability itself), so routing, triage and gating inside a flow need no parsing step and cannot come back off-shape.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
 `Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
-Decision models always run in-process — the hosted model routing resolves nothing in this category. To reach TypeSafe directly with your own key instead, register a `CustomDecisionModel` pointing at `https://api.typesafe.ai/v1/systemone`.
+A registered custom decision model always runs in-process; `Jev` resolves through the hosted model routing like every other category. To reach TypeSafe directly with your own key instead, register a `CustomDecisionModel` pointing at `https://api.typesafe.ai/v1/systemone`.
 
 Several questions about one state cost one request, and the state is charged once. Read each answer through `AsChoice`, `AsScore` or `AsNoul`, which refuse an answer of the wrong type rather than returning a default.
 
 Needs the `Ikon.AI.Decisions` using directive.
 
-<!-- ikon-code: typed-decisions -->
+<!-- ikon-example: typed-decisions -->
 ```csharp
 using var decider = new Decider(DecisionModel.Jev);
 
@@ -1094,7 +1104,7 @@ One-shot — defaults to `OpenAI3Small` (cheap+fast) with `EmbeddingType.Generic
 
 Needs the `Ikon.AI.Embeddings` using directive.
 
-<!-- ikon-code: ai-embeddings -->
+<!-- ikon-example: ai-embeddings -->
 ```csharp
 var embeddings = await EmbeddingGenerator.EmbedAsync(
     ["Example sentence 1", "Example sentence 2", "Example sentence 3"]);
@@ -1109,7 +1119,7 @@ Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom t
 
 Needs the `Ikon.AI.Embeddings` using directive.
 
-<!-- ikon-code: ai-embeddings-2 -->
+<!-- ikon-example: ai-embeddings-2 -->
 ```csharp
 using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
 
@@ -1119,6 +1129,8 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
     Type = EmbeddingType.Document
 });
 ```
+
+`EmbeddingGeneratorConfig.OutputDimensions` asks for a shorter vector from a model that can produce one: `EmbeddingGenerator.GetCapabilities(model).MinOutputDimensions` is its shortest length, and 0 there means the length is fixed and any other value is refused. The Gemini embedding models take 128 to 3072; a shortened vector costs storage and search time in proportion, and is only comparable with vectors of the same length.
 
 ## Kernel
 
@@ -1130,7 +1142,7 @@ For large media that lives in the Ikon asset system, pass an `AssetUri` directly
 
 Needs the `Ikon.AI.Kernel`, `Ikon.Common.Core.Assets` using directives.
 
-<!-- ikon-code: ai-attaching-media-from-the-asset-system -->
+<!-- ikon-example: ai-attaching-media-from-the-asset-system -->
 ```csharp
 var assetUri = new AssetUri("assets://space/abc123/cloud-file/clips/demo.mp4");
 
@@ -1142,7 +1154,7 @@ context = context.Add(new MessageBlock(MessageBlockRole.User, new IMessagePart[]
 }));
 ```
 
-When the target model runs on Google Vertex (current Gemini models) and the asset is backed by GCS-aware cloud-file storage, the request references the video by its native `gs://bucket/object` URI — the bytes never transit the client. For other backends, a small video is inlined; videos above the inline ceiling throw so you can move them to cloud-file storage. Other providers (Anthropic, OpenAI) do not accept video parts and ignore `VideoAssetPart` with a warning, matching how they handle `VideoUrlPart` today.
+When the target model runs on Google Vertex (current Gemini models) and the asset is backed by GCS-aware cloud-file storage, the request references the video by its native `gs://bucket/object` URI — the bytes never transit the client. For other backends, a small video is inlined; videos above the inline ceiling throw so you can move them to cloud-file storage. Other providers (Anthropic, OpenAI) do not accept video parts and replace `VideoAssetPart`, as they do `VideoUrlPart`, with a `[video omitted: model does not accept video]` text stub in the same position.
 
 ## Chat
 
@@ -1154,4 +1166,4 @@ Multi-turn assistant conversations are built with the Emerge API in `Ikon.AI.Eme
 
 ## Database
 
-`Ikon.AI.Database` connects to SQL databases (PostgreSQL, SQLite, BigQuery, Trino) and extracts schema metadata for text-to-SQL workflows. Use the typed factory methods on `DatabaseConnection` (`Trino`, `Postgres`, `Sqlite`, `BigQuery`) to open connections, and `DatabaseInfoExtractor` to discover tables and columns.
+`Ikon.AI.Database` connects to SQL databases (PostgreSQL, SQLite, BigQuery, Trino) and extracts schema metadata for text-to-SQL workflows. Use the typed factory methods on `DatabaseConnection` (`Trino`, `Postgres`, `Sqlite`, `BigQuery`) to open connections, and `DatabaseInfoExtractor` to discover tables and columns. The drivers ship in the separate `Ikon.AI.Database` package; without a reference to it these factories throw a `UserException` naming the package.

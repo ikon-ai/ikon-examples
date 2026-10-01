@@ -1,5 +1,5 @@
 # Custom Map Component Guide
-<!-- checked-against: f0a1788b0ce35493 -->
+<!-- checked-against: 1a67878735646aef -->
 This guide shows how to add an interactive map component to an Ikon AI App using Leaflet. The pattern covers creating a custom frontend React component, a C# extension method to drive it, and bidirectional communication between the two.
 
 ## Architecture Overview
@@ -357,7 +357,7 @@ const app = useIkonApp({
 
 Create a file in your C# app (e.g. `MyMapExtensions.cs`):
 
-<!-- ikon-code: custom-map-csharp -->
+<!-- ikon-example: custom-map-csharp -->
 ```csharp
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -485,7 +485,7 @@ public static class MyMapExtensions
 
 On the app class:
 
-<!-- ikon-code: custom-map-usage -->
+<!-- ikon-example: custom-map-usage -->
 ```csharp
 private readonly ReactiveList<MapPin> _pins = new();
 private readonly Reactive<string?> _selectedPinId = new(null);
@@ -584,7 +584,7 @@ marker.on('click', (e: L.LeafletMouseEvent) => {
 
 **C#** — add the corresponding data class, parameter, and action wiring:
 
-<!-- ikon-code: custom-map-pin-drag-data -->
+<!-- ikon-example: custom-map-pin-drag-data -->
 ```csharp
 public class PinDragData
 {
@@ -597,7 +597,7 @@ public class PinDragData
 The extension method gains the parameter, the action wiring and the prop — the same three steps every
 new callback needs:
 
-<!-- ikon-code: custom-map-pin-drag-wiring -->
+<!-- ikon-example: custom-map-pin-drag-wiring -->
 ```csharp
 public static void MyMapWithDrag(
     this UIView view,
@@ -649,7 +649,7 @@ if (area.vertices && area.vertices.length >= 3) {
 }
 ```
 
-<!-- ikon-code: custom-map-polygon-overlay -->
+<!-- ikon-example: custom-map-polygon-overlay -->
 ```csharp
 public class PolygonOverlay
 {
@@ -659,7 +659,7 @@ public class PolygonOverlay
 
 Building the vertex data from a list of points:
 
-<!-- ikon-code: custom-map-polygon-vertices -->
+<!-- ikon-example: custom-map-polygon-vertices -->
 ```csharp
 var overlay = new PolygonOverlay
 {

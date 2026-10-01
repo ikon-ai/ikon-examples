@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: 37444dae81040313 -->
+<!-- checked-against: e64cf5b54b417fac -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -12,7 +12,7 @@ The name "Parallax" reflects the library's core capability: different clients ca
 
 Ikon.Parallax uses the reactive system from `Ikon.Common.Core.Reactive`. When a reactive value changes, only the UI components that depend on that value are re-rendered. The framework tracks dependencies automatically during rendering — reading `_count.Value` inside a UI lambda registers the dependency; there is no explicit subscription API.
 
-<!-- ikon-code: px-reactive-ui-updates -->
+<!-- ikon-example: px-reactive-ui-updates -->
 ```csharp
 private readonly Reactive<int> _count = new(0);
 private readonly Reactive<string> _message = new("Hello");
@@ -36,7 +36,7 @@ This architecture means clients can be thin renderers with minimal logic.
 
 Styling uses Crosswind, a Tailwind-compatible utility class system, written as `string[]` style arrays. Every styled component ships a themed default, so the minimal call renders a complete, themed control. A `style:` array *replaces* that default — it renders exactly what you passed — unless it asks for the merge with the `"default"` marker (see [Styling](#styling-with-crosswind) below).
 
-<!-- ikon-code: px-themed-components-and-crosswind-styling -->
+<!-- ikon-example: px-themed-components-and-crosswind-styling -->
 ```csharp
 view.Button(text: "Save", onClick: SaveAsync);                  // fully themed as-is
 view.Button([Button.PrimaryMd, "w-full"], text: "Save", onClick: SaveAsync);
@@ -47,7 +47,7 @@ view.Button(["default", "w-full"], text: "Save", onClick: SaveAsync);   // same:
 
 Create a `UI` instance with the app host and a theme, and call `Root` to define the UI tree:
 
-<!-- ikon-code: px-setting-up-a-ui -->
+<!-- ikon-example: px-setting-up-a-ui -->
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme());
 
@@ -68,11 +68,11 @@ public async Task Main()
 }
 ```
 
-When `_counter.Value` changes, only the Text displaying the count re-renders, and only that diff is sent to clients.
+When `_counter.Value` changes, the Column whose content reads it re-renders (unchanged containers elsewhere are reused from cache), and only the diff — the Text's new text — is sent to clients.
 
 Committing to a brand happens in the `IkonTheme` initializer — an indexer-keyed object initializer where each entry sets one theme token:
 
-<!-- ikon-code: px-setting-up-a-ui-2 -->
+<!-- ikon-example: px-setting-up-a-ui-2 -->
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {
@@ -81,13 +81,13 @@ private UI UI { get; } = new(app, new IkonTheme
 });
 ```
 
-The full theme key vocabulary, dark-mode pairing (`IkonTheme.DarkMode`), and `ThemeMode.Fixed` for brand-locked looks are covered in the **Ikon Theming Guide** (`ikon-theming-guide.md`).
+The full theme key vocabulary, dark-mode pairing (`IkonTheme.DarkMode`), and `ThemeMode.Fixed` for brand-locked looks are covered in the **Ikon Theming Guide** (`theming-guide.md`).
 
 ### Light/Dark Switching with UseTheme
 
 `UI.UseTheme()` wires per-client theme state in one call, replacing the hand-rolled ClientJoined + toggle plumbing apps used to repeat:
 
-<!-- ikon-code: px-light-dark-switching-with-usetheme -->
+<!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp
 private ThemeControl _theme = null!;
 
@@ -111,7 +111,7 @@ public async Task Main()
 
 An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one:
 
-<!-- ikon-code: px-when-an-action-handler-throws -->
+<!-- ikon-example: px-when-an-action-handler-throws -->
 ```csharp
 private readonly ClientReactive<string?> _actionFailed = new(null);
 
@@ -149,7 +149,7 @@ Reactive values are `private readonly` fields. The scope is picked by type:
 | `UserReactive<T>` | user (shared across their sessions) | Preferences, cart |
 | `MountReactive<T>` | Parallax mount | Per-mount chat history |
 
-<!-- ikon-code: px-shared-per-client-per-user-per-mount -->
+<!-- ikon-example: px-shared-per-client-per-user-per-mount -->
 ```csharp
 private readonly Reactive<int> _sharedCounter = new(0);
 private readonly ClientReactive<string> _draft = new("");
@@ -160,7 +160,7 @@ In UI lambdas and action handlers you just read and write `.Value` — the activ
 
 To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory, and `UserReactive` and `UserReactiveList` a seeding constructor (`ClientReactiveList` and `MountReactiveList` take only a fixed initial list):
 
-<!-- ikon-code: px-shared-per-client-per-user-per-mount-2 -->
+<!-- ikon-example: px-shared-per-client-per-user-per-mount-2 -->
 ```csharp
 private readonly ClientReactive<string> _welcome =
     ClientReactive.Create(sessionId => $"Welcome, session {sessionId}!");
@@ -173,7 +173,7 @@ private readonly UserReactiveList<string> _cart =
 
 List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build error IKON002 in an app project: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
 
-<!-- ikon-code: px-reactive-collections-reactivelist-and-reactivedictionary -->
+<!-- ikon-example: px-reactive-collections-reactivelist-and-reactivedictionary -->
 ```csharp
 private readonly ReactiveList<TodoItem> _todos = new();
 private readonly ReactiveDictionary<string, int> _scores = new();
@@ -181,7 +181,7 @@ private readonly ReactiveDictionary<string, int> _scores = new();
 
 Every mutation notifies once, from anywhere in the app:
 
-<!-- ikon-code: px-reactive-collections-reactivelist-and-reactivedictionary-2 -->
+<!-- ikon-example: px-reactive-collections-reactivelist-and-reactivedictionary-2 -->
 ```csharp
 _todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
 _todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
@@ -199,7 +199,7 @@ Both come in the same scoped variants as the scalars: `ClientReactiveList<T>` / 
 
 `.Value` works wherever the scope is active — inside `UI.Root()`, an action callback, or a `ReactiveScope.Use(new ClientScope(...))` block. Background work (a `Task.Run` loop, a timer, an endpoint handler) carries no client scope, so `.Value` there throws rather than writing to nowhere. Name the target instead with the `*For` methods, capturing the id while the scope is still active:
 
-<!-- ikon-code: px-background-work-the-for-methods -->
+<!-- ikon-example: px-background-work-the-for-methods -->
 ```csharp
 var clientSessionId = ReactiveScope.ClientId;   // capture inside the callback
 
@@ -217,7 +217,7 @@ _ = Task.Run(async () =>
 
 Async handlers that flip a busy flag and surface failures in the UI use the helpers instead of hand-rolled try/catch/finally:
 
-<!-- ikon-code: px-the-busy-status-pattern -->
+<!-- ikon-example: px-the-busy-status-pattern -->
 ```csharp
 private readonly Reactive<bool> _busy = new(false);
 private readonly Reactive<string?> _status = new(null);
@@ -231,15 +231,15 @@ private async Task RefreshAsync()
 }
 ```
 
-`RunAsync` clears the status, holds the busy flag for the duration of the work (it always returns to false, even on failure), routes an exception's message into the status reactive, and returns whether the work completed. For a busy flag alone, `using var _ = _busy.AsToken();` covers the flag-with-guaranteed-reset half of the pattern.
+`RunAsync` clears the status, holds the busy flag for the duration of the work (it always returns to false, even on failure), routes an exception's message into the status reactive, and returns whether the work completed. An `OperationCanceledException` is not routed: it is rethrown to the caller after the busy flag resets. For a busy flag alone, `using var _ = _busy.AsToken();` covers the flag-with-guaranteed-reset half of the pattern.
 
 ### Persistent State
 
-Durable variants — `PersistentSessionReactive<T>` (the default choice), `PersistentUserReactive<T>`, `PersistentReactive<T>`, and the matching `...ReactiveList` / `...ReactiveDictionary` families — persist across app restarts with the same reactive API. See the **Ikon Persistent State Guide** (`ikon-persistent-state.md`).
+Durable variants — `PersistentSessionReactive<T>` (the default choice), `PersistentUserReactive<T>`, `PersistentReactive<T>`, and the matching `...ReactiveList` / `...ReactiveDictionary` families — persist across app restarts with the same reactive API. See the **Ikon Persistent State Guide** (`persistent-state-guide.md`).
 
 ## Components
 
-The `UIView` class provides extension methods for UI components. One shape for every call: the leading `string[]` style array is the only positional argument, everything else is named (`view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first).
+The `UIView` class provides extension methods for UI components. One shape for most calls: the leading `string[]` style array is the only positional argument, everything else is named. Components built around required data take that first and the style after it (`view.Badge(text, tone, …)`, `view.Alert(title, tone, …)`, `view.StatCard(label, value, …)`, `view.DataTable(columns, rows, …)`, `view.CommandPalette(groups, …)` and the like — check the signature). `view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first.
 
 **Layout:**
 - `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers
@@ -289,7 +289,7 @@ The `UIView` class provides extension methods for UI components. One shape for e
 - `view.ShadertoyCanvas()` - A GLSL fragment shader as a live surface, with named `ShaderUniform` values and optional pointer input
 
 **Command and menus:**
-- `view.CommandPalette()` - ⌘K palette over `SelectOptionGroup` groups, with its own search field and empty state; prefer it over hand-building a `Dialog` for jump-to menus
+- `view.CommandPalette()` - ⌘K palette over `SelectOptionGroup` groups, with its own search field and empty state. It binds no shortcut and narrows only by the `searchValue:` it is given: the app drives `open:`/`onOpenChange:` (wire ⌘K yourself, e.g. with a `KeyboardListener`) and feeds `searchValue:`/`onSearchChange:`; prefer it over hand-building a `Dialog` for jump-to menus
 - `view.Kbd()` - Keycap glyphs, from `text` or a `keys` list
 - `view.Menubar()` - Application menu bar, built from `MenubarMenu` / `MenubarTrigger` / `MenubarContent` / `MenubarItem`, plus `MenubarCheckboxItem`, `MenubarRadioGroup` / `MenubarRadioItem`, `MenubarSub` / `MenubarSubTrigger` / `MenubarSubContent`, `MenubarSeparator` and `MenubarItemIndicator`
 - `view.ToolbarButton()` / `view.ToolbarLink()` / `view.ToolbarSeparator()` / `view.ToolbarToggleGroupSingle()` / `view.ToolbarToggleGroupMultiple()` / `view.ToolbarToggleItem()` - Toolbar parts
@@ -323,19 +323,19 @@ The `UIView` class provides extension methods for UI components. One shape for e
 
 Form controls take a `bind:` parameter as the two-way form — TextField/TextArea/Select/RadioGroup bind a `Reactive<string>`, Checkbox/Switch a `Reactive<bool>`:
 
-<!-- ikon-code: px-two-way-binding -->
+<!-- ikon-example: px-two-way-binding -->
 ```csharp
 view.TextField(["flex-1"], label: "Name", bind: _name);
 view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
 ```
 
-Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins.
+Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written.
 
 ### App Chrome and SemanticTone
 
 The chrome composites — Badge, Alert, Toasts, StatCard's icon box — share the `SemanticTone` enum (`Neutral`, `Brand`, `Success`, `Warning`, `Error`, `Info`). Tones map to the theme's semantic color tokens, so they are correct in both light and dark mode:
 
-<!-- ikon-code: px-app-chrome-and-semantictone -->
+<!-- ikon-example: px-app-chrome-and-semantictone -->
 ```csharp
 view.Badge("Live", SemanticTone.Success);
 view.Alert("Import failed", SemanticTone.Error, description: "The file is not valid CSV");
@@ -345,12 +345,12 @@ view.StatCard("Revenue", "$12,400", delta: "+8%", trend: StatTrend.Up, icon: "tr
 
 Toasts are a per-client queue rendered by a single `ToastHost` in the root UI:
 
-<!-- ikon-code: px-app-chrome-and-semantictone-2 -->
+<!-- ikon-example: px-app-chrome-and-semantictone-2 -->
 ```csharp
 private readonly Toasts _toasts = new();
 ```
 
-<!-- ikon-code: px-app-chrome-and-semantictone-3 -->
+<!-- ikon-example: px-app-chrome-and-semantictone-3 -->
 ```csharp
 // In UI.Root, mount exactly once:
 view.ToastHost(_toasts);
@@ -373,7 +373,7 @@ where it sits: `Note` is one muted caption line for under a composer, `Banner` a
 the top of a conversation or a page of generated content, and `Pill` a compact badge with its own
 scrim for laying over generated media.
 
-<!-- ikon-code: px-ai-disclosure -->
+<!-- ikon-example: px-ai-disclosure -->
 ```csharp
 // Under a chat composer
 view.AiDisclosure(AiDisclosureKind.Interaction);
@@ -396,13 +396,13 @@ rather than as the app's own output.
 
 `FormState<T>` holds everything one editing form needs per client — open, busy, dirty, the draft, and form-level and field-level errors — so a dialog is one declared field rather than a hand-written set of `ClientReactive` flags. Declare it as an app field with a factory for a fresh draft; the composites `FormDialog`, `FormField`, `FormError` and `FormSubmit` bind Dialog, Form, FormField and a submit Button to it:
 
-<!-- ikon-code: px-forms-and-dialogs-with-formstate -->
+<!-- ikon-example: px-forms-and-dialogs-with-formstate -->
 ```csharp
 private sealed record PresetDraft(string Name = "", bool Public = false);
 private readonly FormState<PresetDraft> _preset = new(() => new PresetDraft());
 ```
 
-<!-- ikon-code: px-forms-and-dialogs-with-formstate-2 -->
+<!-- ikon-example: px-forms-and-dialogs-with-formstate-2 -->
 ```csharp
 // Open on a fresh draft, or on a copy of the record being edited:
 _preset.Show();
@@ -430,7 +430,7 @@ Three layers compose freely in the same style array:
 2. **`Ikon.Parallax.Theming` token classes** (`Button.PrimaryMd`, `Card.Default`, `Text.H1`, `Layout.Page`, `Tone.Solid`, …) — pre-composed bundles of the semantic classes with tested defaults.
 3. **Hardcoded palette classes** (`bg-amber-400`) and raw hex — for looks that intentionally should not change with the theme. These bypass the theme system entirely.
 
-<!-- ikon-code: px-styling-with-crosswind -->
+<!-- ikon-example: px-styling-with-crosswind -->
 ```csharp
 view.Button([Button.PrimaryMd, "mt-4 self-center"], text: "Submit", onClick: SubmitAsync);
 view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { });
@@ -441,7 +441,7 @@ view.Text([Text.Caption], text: "Updated just now");
 
 **The merge is opt-in.** A `style:` array is *exactly* what renders — the themed default is **not** added underneath it. Omit `style:` entirely and you get the full themed control; pass `["w-full"]` and you get an element whose only class is `w-full`.
 
-<!-- ikon-code: px-merge-semantics-the-default-marker -->
+<!-- ikon-example: px-merge-semantics-the-default-marker -->
 ```csharp
 view.TextField(bind: _name);                        // fully themed input
 view.TextField(["default", "w-full"], bind: _name); // themed input, full width  ← what you usually want
@@ -454,7 +454,7 @@ The marker is what asks for the theme — with it the base merges *under* what y
 
 - **Theme token composites** (`Button.PrimaryMd`, `Input.Default`, `Card.Interactive`, `Badge.SuccessMd`, …) are already complete component styles, so they need no marker: `[Button.OutlineMd]` renders exactly the outline button, and `[Button.OutlineMd, "mt-2 w-full"]` layers on top of it. Fragments (`Button.Base`, `Layout.*`, `Text.*`) are partial and are meant to be combined.
 
-**Order inside the array decides conflicts.** The whole array compiles to a single CSS declaration block in array order, and a repeated property keeps its last value — no specificity, no stylesheet ordering, just "later wins". So `[Button.GhostMd, Button.IconSm]` is a 32px square (the size token's `px-4`/`min-h-10` is overridden by the square's `p-0`/`min-h-0`), and the same two tokens the other way round are a 40px-high button with 32px of side padding.
+**Order inside the array decides conflicts.** The whole array compiles to a single CSS declaration block in array order, and a repeated property keeps its last value — no specificity, no stylesheet ordering, just "later wins". So `[Button.GhostMd, Button.IconSm]` is a 32px square (the size token's `px-5`/`min-h-10` is overridden by the square's `p-0`/`min-h-0`), and the same two tokens the other way round are a 40px-high button with 40px of side padding.
 
 **What a bare array costs you.** Writing `view.Button(["px-3 py-1 rounded bg-card"], …)` is legal and sometimes exactly right — but it is the whole style, so the button loses every affordance the base carried:
 
@@ -475,7 +475,7 @@ The rule of thumb: **adding to a control → start the array with `"default"`; r
 themed default, each renders exactly what you pass, and each takes `"default"` to merge the theme back under it.
 Style one part and the rest stay themed:
 
-<!-- ikon-code: px-merge-semantics-the-default-marker-2 -->
+<!-- ikon-example: px-merge-semantics-the-default-marker-2 -->
 ```csharp
 view.DatePicker();                                        // fully themed trigger + popover + calendar
 view.DatePicker(triggerStyle: ["default", "w-full"]);     // themed trigger, full width; popover untouched
@@ -493,7 +493,7 @@ primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scr
 `ResizableSplit`, and size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`).
 There your array is *appended* to that base rather than replacing it, and later classes win:
 
-<!-- ikon-code: px-merge-semantics-the-default-marker-3 -->
+<!-- ikon-example: px-merge-semantics-the-default-marker-3 -->
 ```csharp
 view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
 view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full px-8 — the viewport still fills, and scrolls
@@ -508,7 +508,7 @@ the base's `min-h-0` by coming later). The distinction is what the base *is*: a 
 
 `style:` is optional. When it is omitted, interactive and input controls fall back to their default theme token, so the minimal call renders a complete, themed control:
 
-<!-- ikon-code: px-default-styling-and-auto-composed-indicators -->
+<!-- ikon-example: px-default-styling-and-auto-composed-indicators -->
 ```csharp
 view.Checkbox(bind: _done);
 view.Switch(bind: _on);
@@ -516,13 +516,13 @@ view.TextField(bind: _text);
 view.Button(text: "Submit", onClick: async () => { });
 ```
 
-Controls that have a visible inner part also compose it automatically when no `content:` is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/thumb, Select its trigger and items. You only pass `content:` to customise the inner part. To render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) carry no *themed* default — no colours, no spacing, no chrome — so "no style" is the normal usage there. They are not blank, though: all but `Box` keep the display class that makes them what they are (`Column` is `flex flex-col`), and that base is not droppable — see [Some bases always apply](#merge-semantics-the-default-marker).
+Controls that have a visible inner part also compose it automatically when no `content:` is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/thumb. You only pass `content:` to customise the inner part. Select takes no `content:`: it always composes its trigger and items from `options:`/`groups:`, styled through `triggerStyle:`/`contentStyle:`/`itemStyle:`/`itemIndicatorStyle:`. To render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) carry no *themed* default — no colours, no spacing, no chrome — so "no style" is the normal usage there. They are not blank, though: all but `Box` keep the base class that makes them what they are (`Column` is `flex flex-col`, `Stack` is `relative`), and that base is not droppable — see [Some bases always apply](#merge-semantics-the-default-marker).
 
 ### Icon Buttons
 
-An icon-only button is a square, and squares are where the padding arithmetic bites. A size token brings `px-4` and `min-h-10`, so `["default", "w-7 h-7"]` renders **32×40** — the height wins, the width is padded out, and the row it sits in gets taller than asked. Use a square token, **after** the variant:
+An icon-only button is a square, and squares are where the padding arithmetic bites. A size token brings `px-5` and `min-h-10`, so `["default", "w-7 h-7"]` renders **40×40** — the height wins, the width is padded out, and the row it sits in gets taller than asked. Use a square token, **after** the variant:
 
-<!-- ikon-code: px-icon-buttons -->
+<!-- ikon-example: px-icon-buttons -->
 ```csharp
 view.Button([Button.GhostMd, Button.IconSm],   // h-8 w-8 p-0 min-h-0 — last wins
     icon: "refresh-cw",
@@ -534,14 +534,13 @@ view.Button([Button.GhostMd, Button.IconSm],   // h-8 w-8 p-0 min-h-0 — last w
 
 ### Tooltips and Naming Controls
 
-An icon has no text, so an icon-only control needs a name given to it — twice over, because a sighted mouse user and a screen-reader user read different things:
+An icon has no text, so an icon-only control needs a name given to it, for a sighted mouse user and a screen-reader user alike. With no `text:` (which would render visibly beside the icon), `tooltip:` serves both — it also becomes the aria-label; `ariaLabel:` sets the name explicitly:
 
-<!-- ikon-code: px-tooltips-and-naming-controls -->
+<!-- ikon-example: px-tooltips-and-naming-controls -->
 ```csharp
 view.Button([Button.GhostMd, Button.Icon],
     icon: "trash-2",
-    text: "Delete",       // the accessible name (aria-label in icon mode)
-    tooltip: "Delete",    // the visible hover bubble
+    tooltip: "Delete",    // the hover bubble, and the aria-label since there is no text:
     onClick: DeleteAsync);
 ```
 
@@ -552,13 +551,13 @@ view.Button([Button.GhostMd, Button.Icon],
 
 Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` is the odd one: `role="slider"` lives on the thumb, so its `label:` (or an `ariaLabel:`) is routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch` and `Slider` warn at dev time when they render with no name at all — `Toggle` does not, because its `content:` is usually a label of its own.
 
-The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **Ikon Theming Guide** (`ikon-theming-guide.md`).
+The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **Ikon Theming Guide** (`theming-guide.md`).
 
 ## ScrollArea and Auto-Scroll
 
 ScrollArea provides a scrollable container with smart auto-scroll support, ideal for chat interfaces and live feeds:
 
-<!-- ikon-code: px-scrollarea-and-auto-scroll -->
+<!-- ikon-example: px-scrollarea-and-auto-scroll -->
 ```csharp
 view.ScrollArea(
     rootStyle: ["h-[400px]"],
@@ -582,7 +581,7 @@ view.ScrollArea(
 
 For forced scrolling (always scroll regardless of position), use `FocusHint` with `FocusPriority.Assertive`:
 
-<!-- ikon-code: px-scrollarea-and-auto-scroll-2 -->
+<!-- ikon-example: px-scrollarea-and-auto-scroll-2 -->
 ```csharp
 anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
     key: $"scroll-{version}");
@@ -598,7 +597,7 @@ The canonical dialog / side-panel pattern is a `Column` with a fixed height, a h
 
 **Canonical recipe — `ScrollArea` inside a flex column:**
 
-<!-- ikon-code: px-scrolling-inside-a-flex-parent -->
+<!-- ikon-example: px-scrolling-inside-a-flex-parent -->
 ```csharp
 view.Column(["h-[82vh] flex flex-col"], content: dialog =>
 {
@@ -615,7 +614,7 @@ view.Column(["h-[82vh] flex flex-col"], content: dialog =>
 
 **Or use the `ScrollColumn` primitive** that wraps the header/body/footer pattern in a single call, so the shape can't be misused:
 
-<!-- ikon-code: px-scrolling-inside-a-flex-parent-2 -->
+<!-- ikon-example: px-scrolling-inside-a-flex-parent-2 -->
 ```csharp
 view.ScrollColumn(
     style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-card"],
@@ -628,7 +627,7 @@ For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly 
 
 **Raw `Column`/`Row` with overflow-auto.** If you're not using `ScrollArea`, you still need `min-h-0` (or a fixed height) yourself — the framework fix only applies to the `ScrollArea` component:
 
-<!-- ikon-code: px-scrolling-inside-a-flex-parent-3 -->
+<!-- ikon-example: px-scrolling-inside-a-flex-parent-3 -->
 ```csharp
 view.Column(["flex-1 min-h-0 overflow-y-auto", Scrollbar.Thin], content: rows => { });
 ```
@@ -637,7 +636,7 @@ Dev warnings are on by default (`IKON_DEV_WARNINGS=0` opts out): a single `Log.I
 
 **Theme the native scrollbar when you scroll a container yourself.** A bare `overflow-auto` shows the OS scrollbar — on Windows a wide grey slab that matches no theme and shifts the layout when it appears. `Theming.Scrollbar.Thin` is the themed thin bar (`Scrollbar.Hidden` removes it entirely, for a strip whose overflow is visually obvious):
 
-<!-- ikon-code: px-scrolling-inside-a-flex-parent-4 -->
+<!-- ikon-example: px-scrolling-inside-a-flex-parent-4 -->
 ```csharp
 view.Row(["overflow-x-auto gap-2", Scrollbar.Thin], content: chips => { });
 ```
@@ -648,7 +647,7 @@ It sizes both axes on purpose. Styling only the width leaves a *horizontal* bar 
 
 `view.PanZoom()` (`PanZoomExtensions`) is a clipped viewport whose content the user moves and scales in the client: scrolling pans, Ctrl/⌘+scroll or a pinch zooms about the pointer, dragging pans. The pan offset and every in-gesture frame stay in the browser; the app hears only the scale at the end of a gesture, so a wheel burst or a pinch costs one round trip rather than one per event. Use it for a floor plan, a board of cards, a diagram, a large image — anything laid out at its natural size that has to be *looked at* rather than edited.
 
-<!-- ikon-code: px-panzoom-viewing-something-larger-than-the-screen -->
+<!-- ikon-example: px-panzoom-viewing-something-larger-than-the-screen -->
 ```csharp
 view.PanZoom(
     ["h-96 w-full rounded-lg border border-secondary bg-secondary"],
@@ -672,7 +671,7 @@ What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled
 
 ## Example: Interactive Form
 
-<!-- ikon-code: px-example-interactive-form -->
+<!-- ikon-example: px-example-interactive-form -->
 ```csharp
 private readonly ClientReactive<string> _name = new("");
 private readonly ClientReactive<bool> _subscribed = new(false);
@@ -714,7 +713,7 @@ Each client edits its own `_name`/`_subscribed` (they are `ClientReactive`), the
 
 ## Boot Snapshot and Privacy
 
-The platform captures an app's **initial UI at build time** and ships it as a static snapshot asset, so the first paint appears instantly — before the WebSocket connects. Capture is **on by default**: `[BootSnapshot] Routes` lists the routes to snapshot (scaffolded as `["/"]`), and `ikon app bundle` / `ikon app deploy` renders the app once per route for a synthetic snapshot client and serializes the resulting UI tree. An empty list disables boot snapshotting.
+The platform captures an app's **initial UI at build time** and ships it as a static snapshot asset, so the first paint appears instantly — before the WebSocket connects. Capture is **on by default**: `[BootSnapshot] Routes` lists the routes to snapshot (scaffolded as `["/"]`), and `ikon bundle` / `ikon deploy` renders the app once per route for a synthetic snapshot client and serializes the resulting UI tree. An empty list, with no `GuestSeeds` / `SignedInSeeds` seed rules either (below), disables boot snapshotting.
 
 ```toml
 [BootSnapshot]
@@ -725,7 +724,7 @@ Because that snapshot is a **public asset served to everyone**, anything in your
 
 During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `false` on the normal live render). You only need to act when some content is **safe to show** in the public snapshot — your logo, static chrome, marketing copy — and you want it to appear for real instead of as a skeleton. Wrap it in `SnapshotReveal`:
 
-<!-- ikon-code: px-boot-snapshot-and-privacy -->
+<!-- ikon-example: px-boot-snapshot-and-privacy -->
 ```csharp
 // Live: real content. Snapshot: real content too (opted out of skeletonization).
 view.SnapshotReveal(v =>
@@ -749,7 +748,7 @@ view.SnapshotOnly(v => v.Text([Text.Caption], text: "Loading your dashboard…")
 
 A public landing-type page — marketing copy, docs, pricing — has nothing to protect, and skeletons only cost it SEO content. There is deliberately no config switch for this (the privacy decision belongs next to the content it exposes): wrap the **page root** in a single `SnapshotReveal` and the whole page renders for real in the snapshot. The proven shape is a per-page wrapper, as in Studio's guest pages:
 
-<!-- ikon-code: px-public-pages-opting-a-whole-page-out-of-skeletonization -->
+<!-- ikon-example: px-public-pages-opting-a-whole-page-out-of-skeletonization -->
 ```csharp
 private static void RenderGuestPage(UIView view, Action<UIView> content)
 {
@@ -763,24 +762,24 @@ Everything routed through the wrapper is real HTML for crawlers and an instant r
 
 ### Hand-built skeletons
 
-The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI:
+The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI. `SkeletonSize` sets only the height, so a circle needs its width and height in the style, or it fills the row as a pill:
 
-<!-- ikon-code: px-hand-built-skeletons -->
+<!-- ikon-example: px-hand-built-skeletons -->
 ```csharp
 view.Skeleton(["w-1/3"], size: SkeletonSize.Xl);
-view.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Lg);
+view.Skeleton(["w-10 h-10 shrink-0"], shape: SkeletonShape.Circle);
 ```
 
 **`Tabs` stays snapshot-aware automatically:** in snapshot mode only the **active** tab's content panel is rendered (its content skeletonized like everything else), while **every** tab trigger still renders. The snapshot therefore carries just the active tab — yet the tab row is identical to the live UI, so nothing pops into place when the live UI takes over.
 
 Automatic skeletonization is a **one-off build-time render**, so it can afford to be thorough. On the **live path it is zero-cost**: the snapshot branch is gated on `IsSnapshot`, which is `false`, so it short-circuits on a single boolean read with no per-element metadata and no effect on the diff/serialize hot path. For finer control you can read the flag directly:
 
-<!-- ikon-code: px-hand-built-skeletons-2 -->
+<!-- ikon-example: px-hand-built-skeletons-2 -->
 ```csharp
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
-**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
+**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
 
 ### Per-route snapshots and SEO
 
@@ -794,7 +793,7 @@ SignedInSeeds = ["/**:shell"]            # optional seed rules; see below
 
 Content-driven routes (one per store listing, article, …) are declared in app code and unioned with the static list at capture time:
 
-<!-- ikon-code: px-per-route-snapshots-and-seo -->
+<!-- ikon-example: px-per-route-snapshots-and-seo -->
 ```csharp
 app.OnSnapshotRoutes(async () => (await store.GetListingsAsync()).Select(l => $"/listing/{l.Id}"));
 ```
@@ -804,7 +803,7 @@ Two capture-quality tools:
 - **Settle signal** — capture treats a quiet UI stream as "settled" and additionally listens for an explicit ready signal; whichever arrives first wins, and everything is bounded by a per-route cap. A route whose content loads asynchronously after a silent gap could quiesce too early and bake its loading skeleton into the snapshot — call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded and capture snapshots at exactly that moment. Nothing to configure; the call is a harmless no-op for normal browser clients.
 - **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled, and the bundle/deploy fails with it. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
 
-Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without login (`[Auth]` disabled, or `guest` among the methods) — serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern, so for login-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without login (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern, so for login-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
 
 #### How to use it
 
@@ -819,9 +818,9 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, then capped at 50 routes per bundle:
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated; more than 50 routes in all fails the bundle:
 
-<!-- ikon-code: px-how-to-use-it -->
+<!-- ikon-example: px-how-to-use-it -->
 ```csharp
 app.OnSnapshotRoutes(async () =>
     (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
@@ -835,9 +834,9 @@ app.OnSnapshotRoutes(async () =>
 
    If the app registers **custom UI modules** (`useIkonApp({ modules })`), the prerender needs them too or those elements render as skeletons in the static HTML: create `src/prerender-modules.ts` in the frontend exporting `prerenderModules: IkonUiModuleRegistration[]` with the same registrations, and the prerender build picks it up automatically.
 
-6. **Bundle and verify.** Run `ikon app bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
+6. **Bundle and verify.** Run `ikon bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
 
-7. **Deploy.** `ikon app deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
+7. **Deploy.** `ikon deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
 
@@ -848,7 +847,7 @@ Route snapshots cover concrete paths that exist at deploy time. Two situations n
 - **Identity-split pages** — the deferred-login pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots.
 - **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
 
-Seed rules cover both. Each entry is `"pattern:variantId"` (the same colon-separated shape as `Databases`), listed per login state, **first match wins** in array order:
+Seed rules cover both. Each entry is `"pattern:variantId"` (the same colon-separated shape as `Databases`), listed per login state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
 
 ```toml
 [BootSnapshot]
@@ -861,9 +860,9 @@ A pattern segment is a literal (exact match), `*` (exactly one segment, any cont
 
 On load, the SDK picks the array from the stored-session heuristic (a non-anonymous localStorage session, or an OAuth callback token), then resolves per axis: **guests** seed an exact route snapshot first — real public content beats a generic fallback skeleton — and consult `GuestSeeds` for everything unmapped; **signed-in** visitors consult `SignedInSeeds` first — the rules exist precisely to override the public route snapshots — and fall back to the exact route snapshot, so an app with no rules still paints (route snapshots are skeletonized and identity-free).
 
-Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton — no magic paths, the toml ids are the `case` labels:
+Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton (the seed rules may name at most 16 distinct variant ids; more fails the bundle) — no magic paths, the toml ids are the `case` labels:
 
-<!-- ikon-code: px-seed-rules-and-snapshot-variants-guestseeds-signedinseeds -->
+<!-- ikon-example: px-seed-rules-and-snapshot-variants-guestseeds-signedinseeds -->
 ```csharp
 if (view.IsSnapshot)
 {
@@ -893,11 +892,11 @@ RequireSignIn = false            # the default — no sign-in wall
 Methods = ["google", "guest"]    # "guest" is what visitors connect as
 ```
 
-The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one space-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
+The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one app-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
 
 The frontend establishes the session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes not-signed-in visitors from signed-in users — the authoritative flag; a guest still carries a valid device-scoped `UserId`. `Context.IsGlobal` tells you which flavor you are serving. The typical shape is a branch at the top of the UI root:
 
-<!-- ikon-code: px-open-as-guest-the-default -->
+<!-- ikon-example: px-open-as-guest-the-default -->
 ```csharp
 UI.Root([Page.Default], content: view =>
 {
@@ -912,7 +911,7 @@ UI.Root([Page.Default], content: view =>
 
 Trigger sign-in from the server-drawn landing with the client login primitive:
 
-<!-- ikon-code: px-open-as-guest-the-default-2 -->
+<!-- ikon-example: px-open-as-guest-the-default-2 -->
 ```csharp
 view.Button([Button.PrimaryMd], text: "Sign in with Google",
     onClick: async () => await ClientFunctions.LoginAsync("google"));
@@ -926,7 +925,7 @@ Guard your authed-only paths: skip user-backend calls, per-user persistence, and
 
 ## In-App Feedback
 
-The platform can offer the people using an app a feedback sheet: they pick a kind (something's wrong, an idea, confusing, praise), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app's space, where its members read them in Studio and with `ikon app feedback`. The platform draws the sheet above the app; the app writes no UI for it.
+The platform can offer the people using an app a feedback sheet: they pick a kind (something's wrong, an idea, confusing, praise), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
 
 Switch it on in `ikon-config.toml`:
 
@@ -937,13 +936,13 @@ Audience = "testers"   # "testers" | "signed-in" | "everyone"
 Button = "overlay"     # "overlay" | "none"
 ```
 
-- **`Audience`** decides who is offered it. The app's own team, the members of its space, always is.
+- **`Audience`** decides who is offered it. The app's own team, its members, always is; a visitor on the shared `global` identity never is, whatever the audience.
 - **`Button = "overlay"`** has the platform draw a floating feedback button. Testers see it by default and the other audiences do not; each person can show or hide it from the feedback sheet, and the choice is kept for their next visit.
 - **`Button = "none"`** draws no button at all: the app's own controls are the way in.
 
 Either way the app can place its own "Send feedback" control wherever it fits, such as an account menu or a help page:
 
-<!-- ikon-code: px-in-app-feedback -->
+<!-- ikon-example: px-in-app-feedback -->
 ```csharp
 if (view.CanOpenFeedback())
 {

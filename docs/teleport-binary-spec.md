@@ -1,5 +1,5 @@
 # Teleport message binary specification
-<!-- checked-against: 6265e19e675e6bab -->
+<!-- checked-against: 51e3998e8f3c98a6 -->
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
@@ -189,7 +189,8 @@ Example: `00112233-4455-6677-8899-aabbccddeeff` encodes as
 ## 5. JSON Mirror
 
 Binary → JSON mapping is direct. The runtime ships the binary→JSON direction only
-(`TeleportJsonMirror.ToJson`); there is no JSON→binary entry point.
+(`TeleportJsonMirror.ToJson`, the schema being the JSON IR from `ikon teleport generate --type
+json-ir`); there is no JSON→binary entry point.
 
 | Teleport type | JSON form                                              |
 |---------------|--------------------------------------------------------|
@@ -239,15 +240,32 @@ one that implementation materializes — a language whose struct is zero-initial
 reconstruct a schema-declared non-zero default, which is why the schema spec restricts omission to
 fields whose default is the zero value.
 
-Example:
+Example — the reader takes its default from the object's version, overrides it only with a field that
+is present, and matches fields by id (computed as in §8.1). `TryReadField` steps past every field's
+payload whether or not the caller looks at it, so an unknown field needs no skip code:
 
-```
-uint version = reader.BeginObject();   // read version
-int timeout = version < 2 ? 1000 : 1500;
-while (reader.ReadNextField(out id, out type, out len)) {
-    // process known fields, skip unknown
+<!-- ikon-example: teleport-binary-versioning -->
+```csharp
+public static int ReadTimeout(ReadOnlySpan<byte> bytes)
+{
+    TeleportObjectReader reader = TeleportObjectReader.Create(bytes);
+
+    // Start from the default of the version that wrote the object; a field present overrides it.
+    int timeout = reader.Version < 2 ? 1000 : 1500;
+
+    while (reader.TryReadField(out TeleportField field))
+    {
+        if (field.FieldId == TimeoutId && field.Type == TeleportType.Int32)
+        {
+            timeout = field.AsInt32();
+        }
+
+        // Any other id, including one only a newer writer knows, needs no code: TryReadField has
+        // already stepped past its payload.
+    }
+
+    return timeout;
 }
-reader.EndObject();
 ```
 
 Evolution rules:
@@ -261,47 +279,110 @@ Evolution rules:
 
 ### 8.1 Write (Binary)
 
-```
-writer.BeginObject(1);
-writer.WriteInt("Timeout", 1500);
-writer.WriteBool("UseCache", true);
+The .NET `TeleportWriter` is scope-based: `BeginObject`, `BeginArrayField` and `BeginObjectElement`
+each return a scope that, when disposed, writes the object's end marker or the array's element count,
+and back-patches the length prefix in front of it, if it has one. Fields are keyed by their 32-bit id
+(§2), not by name.
 
-writer.BeginArray("Peers", ObjectType, 2);
-  writer.BeginObjectElement(1);
-    writer.WriteString("Host", "a");
-    writer.WriteUInt("Port", 1234);
-  writer.EndObjectElement();
+<!-- ikon-example: teleport-binary-write -->
+```csharp
+// A field id is the xxHash32 (seed 0) of the field name's UTF-8 bytes.
+private static readonly uint TimeoutId = FieldId("Timeout");
+private static readonly uint UseCacheId = FieldId("UseCache");
+private static readonly uint PeersId = FieldId("Peers");
+private static readonly uint HostId = FieldId("Host");
+private static readonly uint PortId = FieldId("Port");
 
-  writer.BeginObjectElement(1);
-    writer.WriteString("Host", "b");
-    writer.WriteUInt("Port", 5678);
-  writer.EndObjectElement();
-writer.EndArray();
+private static uint FieldId(string name) => XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(name));
 
-writer.EndObject();
+public static byte[] WriteConfig()
+{
+    using var writer = new TeleportWriter();
+
+    using (TeleportWriter.TeleportObjectScope config = writer.BeginObject(version: 1))
+    {
+        config.WriteInt32Field(TimeoutId, 1500);
+        config.WriteBoolField(UseCacheId, true);
+
+        // No element count is passed: disposing the array scope patches it into the header.
+        using (TeleportWriter.TeleportArrayScope peers = config.BeginArrayField(PeersId, TeleportType.Object))
+        {
+            using (TeleportWriter.TeleportObjectScope peer = peers.BeginObjectElement(version: 1))
+            {
+                peer.WriteStringField(HostId, "a");
+                peer.WriteUInt32Field(PortId, 1234);
+            }
+
+            using (TeleportWriter.TeleportObjectScope peer = peers.BeginObjectElement(version: 1))
+            {
+                peer.WriteStringField(HostId, "b");
+                peer.WriteUInt32Field(PortId, 5678);
+            }
+        }
+    }
+
+    return writer.ToArray();
+}
 ```
 
 ### 8.2 Read (Binary)
 
-```
-uint v = reader.BeginObject(); // version 1
-while (reader.ReadNextField(out id, out type, out len)) {
-    if (id == Hash("Timeout")) timeout = reader.ReadInt32();
-    else if (id == Hash("UseCache")) useCache = reader.ReadBool();
-    else if (id == Hash("Peers")) {
-        reader.BeginArray(out elemType, out count);
-        for (int i = 0; i < count; i++) {
-            reader.BeginObject();
-            string host = reader.ReadStringField("Host");
-            int port = reader.ReadUIntField("Port");
-            reader.EndObject();
+`TeleportObjectReader.Create` checks the root object's markers and exposes its `Version`;
+`TryReadField` yields each field's id and typed value in wire order. Nested arrays and objects are read
+through `AsArray()` and `AsObject()`. A field whose id the reader does not match needs no handling —
+its payload has already been stepped over.
+
+<!-- ikon-example: teleport-binary-read -->
+```csharp
+public static (int Timeout, bool UseCache, List<(string Host, uint Port)> Peers) ReadConfig(ReadOnlySpan<byte> bytes)
+{
+    TeleportObjectReader config = TeleportObjectReader.Create(bytes);   // config.Version == 1
+    int timeout = 0;
+    bool useCache = false;
+    var peers = new List<(string Host, uint Port)>();
+
+    while (config.TryReadField(out TeleportField field))
+    {
+        if (field.FieldId == TimeoutId)
+        {
+            timeout = field.AsInt32();
         }
-        reader.EndArray();
-    } else {
-        reader.Skip(len);
+        else if (field.FieldId == UseCacheId)
+        {
+            useCache = field.AsBool();
+        }
+        else if (field.FieldId == PeersId)
+        {
+            // The element type and count come from the array header (array.ElementType, array.Count).
+            TeleportArrayReader array = field.AsArray();
+
+            while (array.TryReadElement(out TeleportArrayElement element))
+            {
+                TeleportObjectReader peer = element.AsObject();
+                string host = "";
+                uint port = 0;
+
+                while (peer.TryReadField(out TeleportField peerField))
+                {
+                    if (peerField.FieldId == HostId)
+                    {
+                        host = peerField.AsString();
+                    }
+                    else if (peerField.FieldId == PortId)
+                    {
+                        port = peerField.AsUInt32();
+                    }
+                }
+
+                peers.Add((host, port));
+            }
+        }
+
+        // An unknown field id falls through here: its payload is already skipped.
     }
+
+    return (timeout, useCache, peers);
 }
-reader.EndObject();
 ```
 
 ### 8.3 Equivalent JSON
@@ -322,16 +403,16 @@ reader.EndObject();
 
 ## 9. Error Handling
 
-| Code                | Meaning                  |
-|---------------------|--------------------------|
-| ERR_UNDERFLOW       | not enough bytes         |
-| ERR_BAD_MARKER      | missing 0xA1 / 0xA2      |
-| ERR_BAD_TYPE        | unknown type code        |
-| ERR_INVALID_LENGTH  | payload length mismatch  |
-| ERR_DEPTH_OVERFLOW  | nesting too deep         |
-| ERR_UTF8            | invalid UTF-8 sequence   |
-| ERR_ARRAY_MALFORMED | bad array header/payload |
-| ERR_DICT_MALFORMED  | bad dict structure       |
+| `TeleportError` | Meaning                  |
+|-----------------|--------------------------|
+| Underflow       | not enough bytes         |
+| BadMarker       | missing 0xA1             |
+| BadType         | unknown type code        |
+| InvalidLength   | payload length mismatch, missing 0xA2, non-zero field flags |
+| DepthOverflow   | nesting too deep         |
+| InvalidUtf8     | invalid UTF-8 sequence   |
+| ArrayMalformed  | bad array header/payload |
+| DictMalformed   | bad dict structure       |
 
 Readers must validate bounds, enforce max lengths and depth, and reject malformed UTF-8 or over-sized payloads.
 
@@ -344,7 +425,7 @@ Readers must validate bounds, enforce max lengths and depth, and reject malforme
 - Readers: use span/slice cursors, no virtual calls on hot paths.
 - Avoid per-field allocations; decode strings lazily.
 - Keep migration logic local; avoid global schema registries.
-- Object field counts are unbounded by the format itself; readers loop until the closing `0xA2` marker (subject only to the enclosing length field, which is a varuint capped at 4 294 967 295 bytes).
+- Object field counts are unbounded by the format itself; readers loop until the closing `0xA2` marker (subject only to the enclosing length field, a varuint the .NET reader rejects above 2 147 483 647 bytes).
 - Encode every varuint canonically (no redundant high-bit continuation).
 - Provide bulk writers (e.g., WriteSpan<T>, WriteStruct<T>) for blittable data paths.
 - Reject any non-zero low-nibble flags for forward-compat safety.

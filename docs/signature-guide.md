@@ -1,12 +1,12 @@
 # Ikon Signature Guide
-<!-- checked-against: e36843c78cdeed37 -->
+<!-- checked-against: 496e1f1c5801905f -->
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
 
 The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings do not carry — add `using Ikon.Common.Core.Signing;` to the file.
 
-<!-- ikon-code: signature-order -->
+<!-- ikon-example: signature-order -->
 ```csharp
 // In an app method that has the signer's client session id (int)
 var pdfBytes = File.ReadAllBytes("contract.pdf");
@@ -29,7 +29,7 @@ var signer = signed.Signatories[0].Signer;
 // signer?.FullName, signer?.DateOfBirth, signer?.IdentityScheme, signer?.NationalIdHash
 ```
 
-The platform's session retention for signed documents is short. Persist the document bytes yourself if you need them long-term.
+The platform keeps the signed documents as the app's private files, with no expiry. Persist the document bytes in your own storage if they are your system of record.
 
 ## Supported document types
 
@@ -44,7 +44,7 @@ All documents in a single signing session must share the same MIME type — a mi
 ## How the flow works
 
 ```
-┌──────────────┐  1. POST /signatures/orders (space token)
+┌──────────────┐  1. POST /signatures/orders (app token)  
 │   Ikon app   │ ────────────────────────────────────────────────►  ┌──────────────────┐
 │    server    │                                                    │  Ikon backend    │
 │              │  2. { orderId, signatureUrl, expiresAt }            │  (NestJS)        │
@@ -71,13 +71,13 @@ All documents in a single signing session must share the same MIME type — a mi
 
 ## Endpoint surface
 
-The signature flow is always **server-initiated**: only an Ikon app server holding a space token can create, fetch, or cancel an order. The recipient's browser only ever lands on the public redirect/webhook endpoints.
+The signature flow is always **server-initiated**: only an Ikon app server holding the app's own platform token (a space token, in the API's words) can create, fetch, or cancel an order. Creating one requires the app's organisation to have the `document_signature` feature, which is off by default. The recipient's browser only ever lands on the public redirect/webhook endpoints.
 
 | Endpoint | Auth | Caller |
 |---|---|---|
-| `POST /signatures/orders` | space token | Ikon app server |
-| `GET /signatures/orders/:orderId` | space token | Ikon app server |
-| `POST /signatures/orders/:orderId/cancel` | space token | Ikon app server |
+| `POST /signatures/orders` | app token | Ikon app server |
+| `GET /signatures/orders/:orderId` | app token | Ikon app server |
+| `POST /signatures/orders/:orderId/cancel` | app token | Ikon app server |
 | `GET /signatures/redirect-landing` | public | recipient browser (post-ceremony) |
 | `POST /webhooks/<provider>` | HMAC-verified | the signing provider |
 
@@ -125,16 +125,16 @@ Apps don't need to re-verify; the helper has done it by the time `CreateSignatur
 
 | `SignaturePolicy` | Wire value | What it means |
 |---|---|---|
-| `PkiSigning` | `pki-signing` | Server-side PKI signing under the platform's own key. No eID step required of the recipient. |
+| `PkiSigning` | `pki-signing` | Server-side PKI signing under the certificate vendor the platform deployment configures. Refused (503) where none is configured. |
 | `EidHub` | `eid-hub` | The recipient authenticates with a national eID (BankID, MitID, FTN, …) and the resulting evidence is bound to the signature. |
 
-For most "user signs a document" flows, `EidHub` is the right policy. `PkiSigning` is for unattended / pre-authorized signing.
+For most "user signs a document" flows, `EidHub` is the right policy. `PkiSigning` still sends the recipient through the ceremony.
 
 ## Cost attribution
 
 `CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and stamps the key verbatim as that row's `TenantScope` id — so the cost lands in the same per-tenant bucket as the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further wiring. Nothing reinterprets the value: pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost simply belongs to the space rather than to anything inside it.
 
-An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](ikon-app-payments-guide.md) for the broader monetization model.
+An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
 
 ## Field reference
 
@@ -147,7 +147,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 | `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported in this iteration. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony. Defaults to `Signature {Purpose}`. |
-| `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. When unset, the landing page shows a plain "you may close this window" page instead. |
+| `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. Must be an allowed redirect target on the platform, or order creation is refused (400); the landing page re-checks it. When unset or no longer allowed, the landing page shows a plain "you may close this window" page instead. |
 
 ### `SignatureResult` (returned to app)
 
@@ -163,7 +163,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 | Field | Description |
 |---|---|
 | `Filename` | Name the platform stored the artefact under. |
-| `MimeType` | `application/pdf` for PAdES, or the input MIME type for XAdES (`text/plain`, `text/markdown`). |
+| `MimeType` | The content type the provider returned the signed artefact with: `application/pdf` for PAdES, the provider's type for an XAdES signature, `application/octet-stream` when it gave none. |
 | `Bytes` | Signed document bytes — PAdES container for PDF input (long-term-validation when the scheme produces it), XAdES signature for text/Markdown input. |
 | `Hash` | SHA-256 (base64url) of `Bytes`, already verified by the helper. |
 
@@ -190,7 +190,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 
 `IdentityScheme` and `AssuranceLevel` describe *how strongly* somebody authenticated, never *who*. If your app hands out a link that anyone holding the URL can complete, compare `FullName` against the party you addressed it to — otherwise a completed ceremony proves only that some real identity signed, not that it was the intended one.
 
-The hashes are keyed by a platform secret, so an app can compare two ceremonies for the same person but cannot recompute one from a national identity number it already holds. Platform retention for the identity matches the session retention above; persist what you need long-term yourself.
+The hashes are keyed by a platform secret, so an app can compare two ceremonies for the same person but cannot recompute one from a national identity number it already holds. The platform keeps the identity on the order; persist what you need long-term yourself.
 
 ## Webhook configuration
 
@@ -200,7 +200,7 @@ Each signing provider calls its own platform-side webhook route when an order tr
 
 The helper throws on every terminal failure:
 
-<!-- ikon-code: signature-failures -->
+<!-- ikon-example: signature-failures -->
 ```csharp
 try
 {
@@ -231,5 +231,5 @@ catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
 
 ## Related
 
-- [Asset System Developer Guide](asset-system-developer-guide.md) — how to persist the signed bytes in app storage.
-- [Ikon.App Payments Guide](ikon-app-payments-guide.md) — cost attribution and monetization context.
+- [Asset System Developer Guide](asset-system-guide.md) — how to persist the signed bytes in app storage.
+- [Ikon.App Payments Guide](app-payments-guide.md) — cost attribution and monetization context.

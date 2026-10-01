@@ -1,6 +1,6 @@
 # Ikon AI C++ SDK
 
-The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17.
+The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17. The config examples below use C++20 designated initializers; under C++17, assign the members one by one.
 
 ## Features
 
@@ -40,7 +40,7 @@ int main()
     IkonClientConfig config;
     config.apiKey = ApiKeyConfig{
         .apiKey = "ikon-xxxxx",           // API key from portal
-        .spaceId = "your-space-id",
+        .spaceId = "your-app-id",
         .externalUserId = "user-123"
     };
     config.description = "My App";
@@ -77,7 +77,7 @@ Use this for programmatic access to Ikon AI App. Get your API key from the Ikon 
 IkonClientConfig config;
 config.apiKey = ApiKeyConfig{
     .apiKey = "ikon-xxxxx",           // API key from portal
-    .spaceId = "...",                  // Space ID
+    .spaceId = "...",                  // The app's id (ikon app list)
     .externalUserId = "user-123",      // Your user identifier
     .sessionId = "session-xyz",        // Optional: target a precomputed session
     .backendType = BackendType::Production,
@@ -211,24 +211,22 @@ if (ctx)
 ### Typed Payloads
 
 ```cpp
-// Send a typed payload (creates ProtocolMessage automatically)
-MyCustomPayload payload;
-payload.someField = "value";
+// Send a generated protocol class from ikon_protocol.h
+// (creates a Teleport-encoded ProtocolMessage automatically)
+ActionCustomUserMessage payload;
+payload.TypeName = "value";
 client.SendMessage(payload);
 ```
 
 ## Shared Functions
 
-`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. Attach it to a connected client (e.g. in the `Ready` callback); it intercepts `MessageReceived` to handle function-related protocol messages automatically.
+`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. The client owns one and attaches it itself on connect; get it with `client.Functions()`. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
 ```cpp
-FunctionRegistry registry;
+auto& registry = client.Functions();
 
 client.Ready = [&]()
 {
-    // Attach after the client is connected
-    registry.Attach(client);
-
     // Register a function that other clients can call
     registry.RegisterFunction(
         "Echo",                                       // name
@@ -256,8 +254,7 @@ if (registry.WaitForFunction("Add", std::chrono::seconds(15)))
     std::future<nlohmann::json> future = registry.CallRemoteAsync("Add", nlohmann::json::array({5, 3}));
 }
 
-// Detach before disconnecting (restores the original MessageReceived callback)
-registry.Detach();
+// Disconnect detaches the registry
 client.Disconnect();
 ```
 

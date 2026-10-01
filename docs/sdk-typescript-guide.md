@@ -37,7 +37,7 @@ import { IkonClient } from '@ikonai/sdk';
 const client = new IkonClient({
   apiKey: {
     apiKey: process.env.IKON_API_KEY!,
-    spaceId: 'your-space-id',
+    spaceId: 'your-app-id',
     externalUserId: 'user-123',
   },
   onConnectionStateChange: (state) => {
@@ -68,7 +68,7 @@ import { IkonClient, UserType, ClientType } from '@ikonai/sdk';
 const client = new IkonClient({
   apiKey: {
     apiKey: 'ikon-xxxxx',              // API key from portal
-    spaceId: '...',                     // Space ID
+    spaceId: '...',                     // The app's id (ikon app list)
     externalUserId: 'user-123',         // Your user identifier
     backendType: 'production',          // 'production' | 'development'
     userType: UserType.Human,           // Optional: UserType enum
@@ -99,7 +99,7 @@ Use this when the session token was obtained from OAuth flow or anonymous authen
 const client = new IkonClient({
   sessionToken: {
     token: 'eyJhbGc...',       // JWT token
-    spaceId: '...',             // Space ID
+    spaceId: '...',             // The app's id (ikon app list)
     backendType: 'production',  // Optional: backend environment
   },
 });
@@ -200,7 +200,8 @@ const client = new IkonClient({
 ### Connecting and Disconnecting
 
 ```typescript
-// Connect (returns Promise, throws on failure)
+// Connect (throws on an authentication or protocol failure; a connection timeout or an
+// unsupported browser resolves with the client offline instead)
 await client.connect();
 
 // Check connection state
@@ -212,7 +213,7 @@ console.log(client.sessionId);
 // Access GlobalState after connection
 console.log(client.globalState);
 
-// Disconnect
+// Disconnect (connect() runs once per client; to connect again, build a new client)
 client.disconnect();
 
 // Access the last error (carried alongside `offline` when a disconnect had an error)
@@ -239,7 +240,7 @@ const client = new IkonClient({
     slowConnectionThresholdMs: 5000,   // Slow-connection threshold (drives isConnectingSlow in the React layer)
     connectionTimeoutMs: 180000,        // Connection timeout (3 minutes)
     reconnectBackoffMs: 2000,          // Fixed delay between reconnect attempts
-    maxReconnectAttempts: 2,           // Max attempts before going offline
+    maxReconnectAttempts: 2,           // Attempts before falling back to full re-authentication
   },
 });
 ```
@@ -452,12 +453,12 @@ The SDK provides built-in audio and video playback/capture pipelines.
 ### Accessing Media
 
 ```typescript
-// Audio and video are enabled by default
-const audio = client.media.audio;
-const video = client.media.video;
+// Backup (non-WebRTC) playback pipeline: null while WebRTC carries media (the default)
+const audio = client.media?.audio;
+const video = client.media?.video;
 
-// Media capture (browser only)
-const capture = client.mediaCapture;
+// Media capture (browser only; null until built)
+const capture = await client.ensureMediaCapture();
 ```
 
 ### Configuration
@@ -471,7 +472,7 @@ const client = new IkonClient({
     diagnostics: { enabled: true, statusIntervalMs: 1000 },
   },
   video: {
-    performance: { preferWebCodecs: true },
+    performance: { preferOffscreenCanvas: true },
   },
   webRtc: {
     enabled: true,  // WebRTC for audio/video transport (enabled by default)
@@ -483,7 +484,7 @@ const client = new IkonClient({
 });
 ```
 
-Media pipelines automatically process audio and video protocol messages.
+When WebRTC is disabled or its signaling fails, the playback pipelines process audio and video protocol messages instead.
 
 ### WebRTC
 
@@ -495,8 +496,11 @@ const client = new IkonClient({
   webRtc: { enabled: false },  // disable WebRTC; default is true
 });
 
-// Check if WebRTC is active (false if both audio and video are disabled)
+// Check if WebRTC is enabled by config (false if both audio and video are disabled)
 console.log(client.isWebRtcEnabled);
+
+// Check if WebRTC is actually carrying media (false after a fallback to the protocol channel)
+console.log(client.isWebRtcMediaActive);
 
 // Access video streams keyed by track index
 const streams: Map<number, MediaStream> = client.webRtcVideoStreams;
@@ -650,7 +654,7 @@ const client = new IkonClient({
 
 ### Debug Mode
 
-Enable debug mode by adding `?ikon-debug=true` to the URL, or programmatically:
+Enable debug mode by adding `?ikon-debug=true` to the URL, and read it programmatically:
 
 ```typescript
 import { initializeDebugMode, isDebugModeEnabled } from '@ikonai/sdk';
@@ -809,21 +813,28 @@ The SDK provides typed errors for different failure scenarios:
 | `AuthRejectedError` | Server closed the transport immediately after handshake (e.g. cached auth ticket expired) |
 | `MaxRetriesExceededError` | Maximum reconnection attempts exhausted |
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
-| `SpaceNotFoundError` | Space not found for given domain |
+| `SpaceNotFoundError` | No app found for the given domain |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
 | `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
 | `NoMatchingEndpointTypeError` | `?ikon-transport` / `?ikon-proxy` pin a combination the server did not offer (terminal, exposes `pinnedTransport`, `pinnedTier`, `offeredTypes`) |
+| `AppStartupFailedError` | The app's server failed during startup (terminal) |
+| `SsoRequiredError` | The app requires signing in through the organisation's SSO (extends `AccessDeniedError`, exposes `connectionId`) |
+| `CredentialRejectedError` | Backend rejected the presented credential, HTTP 401 (terminal) |
+| `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
+| `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
+
+In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` with only `name` set, so identify transport-level errors by `error.name` rather than `instanceof`.
 
 ```typescript
-import { AuthenticationError, MaxRetriesExceededError } from '@ikonai/sdk';
+import { AuthenticationError } from '@ikonai/sdk';
 
 const client = new IkonClient({
   // ...
   onError: (error) => {
     if (error instanceof AuthenticationError) {
       console.error('Authentication failed:', error.message);
-    } else if (error instanceof MaxRetriesExceededError) {
+    } else if (error.name === 'MaxRetriesExceededError') {
       console.error('Connection lost, max retries exceeded');
     }
   },
@@ -901,10 +912,16 @@ const client = new IkonClient({
 | `AuthRejectedError` | Server closed transport immediately after handshake (auth-rejection signal) |
 | `MaxRetriesExceededError` | Max retries exceeded |
 | `ProvisioningTimeoutError` | Provisioning timeout |
-| `SpaceNotFoundError` | Space not found |
+| `SpaceNotFoundError` | No app found |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
 | `ServerFullError` | Server at capacity (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |
+| `NoMatchingEndpointTypeError` | Pinned transport/tier not offered by the server (terminal) |
+| `AppStartupFailedError` | App server failed during startup (terminal) |
+| `SsoRequiredError` | Organisation SSO sign-in required |
+| `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |
+| `SessionNotFoundError` | `?ikon-session` names no live session (terminal) |
+| `ServerUnavailableError` | Backend HTTP 5xx (retried) |
 | `FunctionCallError` | Remote function call failure with error type and stack trace |
 
 ### Utility Functions
@@ -925,7 +942,7 @@ const client = new IkonClient({
 
 ## License
 
-This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
+This SDK is licensed under the Ikon AI SDK License.
 
 ## Support
 

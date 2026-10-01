@@ -1,6 +1,6 @@
 # Ikon Dev Channel Guide
-<!-- checked-against: 7fe055fd66b24ec0 -->
-Get a platform library fix into your app without waiting for a release.
+<!-- checked-against: 6eca0f33354e84b0 -->
+Get a platform library or ikon tool fix without waiting for a release.
 
 Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed
 CI is unreachable to an app that builds against published packages. The **dev channel** publishes those
@@ -14,13 +14,13 @@ that has not been through a release.
 ## Switching an app to the dev channel
 
 ```bash
-ikon app update dev        # move to the newest dev builds
-ikon app update              # stay on your current channel, take what is newest on it
-ikon app update stable     # return to released packages
+ikon update dev        # move to the newest dev builds
+ikon update              # stay on your current channel, take what is newest on it
+ikon update stable     # return to released packages
 ```
 
 The channel is not stored anywhere — it is read back from what your project is pinned to. A plain
-`ikon app update` therefore keeps a dev app on dev and a stable app on stable, and the two can never
+`ikon update` therefore keeps a dev app on dev and a stable app on stable, and the two can never
 disagree about which channel you are really on.
 
 `stable` **lowers** your pinned versions. That is expected: a dev build is a prerelease of the *next*
@@ -45,7 +45,7 @@ Your imports do **not** change. npm installs an alias to `node_modules/@ikonai/s
 `import { … } from '@ikonai/sdk'` keeps resolving exactly as before, and no tsconfig path or vite alias
 has to know the dev channel exists.
 
-`ikon app update dev` also adds one line to `frontend-node/.npmrc`:
+`ikon update dev` also adds one line to `frontend-node/.npmrc`:
 
 ```
 @ikon-ai:registry=https://npm.pkg.github.com
@@ -65,15 +65,16 @@ own `~/.npmrc` and is written by `ikon login`.
 
 A dev build always sorts **above** the release before it and **below** the release it is heading
 towards, so `dev` always moves forward and `stable` always walks back. When `3.2.40` is finally
-released it outranks every `3.2.40-dev.*`, and a dev app rolls onto the release automatically at the
-next update.
+released it outranks every `3.2.40-dev.*`, and a dev app's .NET packages roll onto the release
+automatically at the next update; its TypeScript SDK stays on the newest dev build until you run
+`ikon update stable`.
 
 ## The seven-day window
 
 A new dev build is published on **every push to main that touches it** — the .NET libraries when the
 push changed .NET sources, the TypeScript SDK when it changed TypeScript sources — so a fix is on the
-feed as soon as it lands, which is the whole point of the channel. A push that changes neither leaves
-the version counter where it is, so dev ordinals skip numbers; the newest version on the feed is
+feed as soon as it lands, which is the whole point of the channel. The version counter counts every
+commit, including ones that touch neither half, so dev ordinals skip numbers; the newest version on the feed is
 always the newest state of that half, whatever its ordinal.
 
 A nightly retention job then deletes dev versions older than seven days, always keeping the newest few
@@ -82,26 +83,61 @@ is no retention beyond that and no way to recover a deleted version.
 
 What this means in practice:
 
-- **Re-run `ikon app update` at least weekly** while you are on the channel, or move back with `ikon app update stable`.
-- **A fix landed for you is one `ikon app update` away** — you do not have to wait for a nightly or a
+- **Re-run `ikon update` at least weekly** while you are on the channel, or move back with `ikon update stable`.
+- **A fix landed for you is one `ikon update` away** — you do not have to wait for a nightly or a
   release, only for the build that publishes it.
 - **Already-deployed apps keep running.** A deployed bundle carries its own copies of the Ikon
   libraries and the built frontend, so deleting the package it was built from does not affect it. Only
   *rebuilding* breaks.
 - **A restore failing with a 404 on an `Ikon.*` package almost always means an expired dev pin.** Run
-  `ikon app update` to move to a current build, or `ikon app update stable` to leave the channel.
+  `ikon update` to move to a current build, or `ikon update stable` to leave the channel.
+
+## The ikon tool on the dev channel
+
+The tool has a dev channel of its own, published with the .NET libraries on every push to main that
+touches them, so a fix to the tool itself is also one command away:
+
+```bash
+ikon self update dev        # move the tool to the newest dev build
+ikon self update            # stay on your current channel, take what is newest on it
+ikon self update stable     # return to the released tool
+```
+
+A dev build is the `ikon-dev` package on the Ikon package feed rather than `ikon` on nuget.org, which
+is why moving onto it and updating it need you signed in (`ikon login`); going back to stable does not. It still installs as the `ikon` command, and the two
+packages cannot be installed side by side — switching replaces one with the other, and puts the old one
+back if the new one fails to install. Your tool packages, sign-in and settings carry over either way.
+
+A dev build **stops working seven days after it was published**, matching the feed's retention. In its
+last day it warns on every command; once expired it refuses everything except `ikon self update`, `ikon self reset`,
+`ikon login`, `ikon logout` and `ikon --version`. Auto-update keeps an interactive dev install at most a day behind, and
+an expired build run in a terminal while you are signed in updates itself, so you normally never see
+either. If no newer dev build has been published, `ikon self update` says so and points you at
+`ikon self update stable`. `ikon --version` prints the build's expiry on stderr.
+
+If a dev build is ever too broken to update itself, leave the channel by hand:
+
+```bash
+dotnet tool uninstall ikon-dev --global
+dotnet tool install ikon --global
+```
+
+The installer scripts and Ikon Desktop always install the released tool. Re-running an installer
+replaces a dev build with it; Ikon Desktop leaves a dev build alone and does not update it.
 
 ## CI for a dev-channel app
 
 Your pipeline needs credentials for both private feeds, because dev packages are never published to
 nuget.org or npmjs. `ikon login` configures a developer machine; for CI, set the same GitHub Packages
-token in the environment and make sure the `@ikon-ai` scope mapping in `frontend-node/.npmrc` is
-committed.
+token in `IKON_GITHUB_IKON_PACKAGES_READ_ACCESS_TOKEN` (or set `IKON_SERVICE_TOKEN` so the tool fetches
+it) and make sure the `@ikon-ai` scope mapping in `frontend-node/.npmrc` is committed. The ikon tool
+passes that token only to the `dotnet` and `npm` processes it starts itself, so restore through
+`ikon build` rather than a bare `dotnet restore` or `npm ci`.
 
 ## What the dev channel cannot fix
 
 It carries **libraries** — the .NET packages and the TypeScript SDK, which ship together so their
-protocol bindings stay in step. It does **not** carry the backend, Canvas, or the servers, all of which
+protocol bindings stay in step — and the ikon tool. It does **not** carry the backend, Canvas, or the servers, all of which
 release on their own schedule. A fix that needs a change on those still waits for that component's
 release, and a dev library that depends on such a change will not work against production until then.
 

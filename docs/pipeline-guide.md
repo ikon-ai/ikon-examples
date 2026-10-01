@@ -1,12 +1,12 @@
 # Ikon Pipeline Guide
-<!-- checked-against: 0211f32ac857eebf -->
+<!-- checked-against: 81f49fee964eb6d5 -->
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
 
 Key capabilities:
 
-- **Reactive scheduling**: The pipeline run specifies the structure of the processing graph. When executed, the caching system determines what needs to be re-processed based on what has changed since the last run (code, configuration, or input changes).
+- **Reactive scheduling**: The pipeline run specifies the structure of the processing graph. When executed, the caching system determines what needs to be re-processed based on what has changed since the last run (a processor's id or version, the values its call captures, or input changes; an edit to a processor's body alone is not detected until its version is bumped).
 - **Fully asynchronous**: Every aspect of the pipeline operates asynchronously, from pipeline definition to runtime execution.
 - **Parallel processing**: Processors run in parallel where dependencies allow, fully utilizing the processing power of the host machine.
 - **Step-level caching**: Every processing step is cached with automatic invalidation based on processor identity, version, configuration, and input state. This avoids unnecessary re-processing and significantly speeds up subsequent runs.
@@ -17,7 +17,7 @@ Key capabilities:
 
 Create a pipeline class and annotate it with `[Pipeline]`. Implement a `Run` method with the required signature and compose processing steps using branch operations. Annotate processor methods with `[Processor]`.
 
-<!-- ikon-code: pipeline-simple -->
+<!-- ikon-example: pipeline-simple -->
 ```csharp
 using Ikon.Common;
 using Ikon.Common.Core;
@@ -56,7 +56,7 @@ internal class SimplePipeline
 Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
 (the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too).
 
-<!-- ikon-code: pipeline-run -->
+<!-- ikon-example: pipeline-run -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
@@ -82,7 +82,7 @@ foreach (var outputItem in outputItems)
 
 `RunAsEnumerable` streams results as soon as processors emit them, which is useful for long-running workflows.
 
-<!-- ikon-code: pipeline-run-enumerable -->
+<!-- ikon-example: pipeline-run-enumerable -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
@@ -106,7 +106,7 @@ await foreach (var outputItem in pipelineRunner.RunAsEnumerable(inputItems))
 
 `PipelineRunner.Initialize` accepts a `PipelineRunner.Config` object for fine-grained control over processor retry limits, metadata output, type discovery, and more.
 
-<!-- ikon-code: pipeline-run-config -->
+<!-- ikon-example: pipeline-run-config -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 
@@ -115,7 +115,8 @@ var pipelineRunnerConfig = new PipelineRunner.Config
     TypeName = typeof(SimplePipeline).FullName!,
     ProcessFailureThreshold = 2,
     DisableMetadataOutput = true
-    // Additional options available, such as cache paths, default retry configuration, and remote execution toggles
+    // Additional options available, such as cache paths and default retry configuration
+    // EnableRemoteHost and EnableRemoteClient make Initialize(Config) throw PipelineException: they run through PipelineRunner.RunRemote
 };
 
 await pipelineRunner.Initialize(pipelineRunnerConfig);
@@ -138,23 +139,29 @@ foreach (var outputItem in outputItems)
 ```
 
 `Config.ContentCacheType` takes a `CacheType`: `FileSystem` (the default) keeps item content on
-disk between runs, `InMemory` discards it with the process. State and content cache must agree —
-an in-memory run cannot point at a persistent content cache.
+disk between runs, `InMemory` discards it with the process. Nothing checks that it agrees with
+`StateType`: the default persistent state with an `InMemory` content cache keeps state across runs
+while discarding the content it refers to.
 
 ### Reading What a Run Did
 
 A run reports through `PipelineStatus`: item counts in, processed and out; per-stage cache hits and
 misses; `ProcessFailureCount` and `ProcessRetryCount`; `ErrorLogCount` and `WarningLogCount`;
 `Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; and the accumulated `Usages` map that
-carries whatever the processors metered. A pipeline that fails structurally — a malformed graph, a
-processor that cannot be constructed — throws `PipelineException` rather than reporting through the
-status.
+carries whatever the processors metered. Once `TotalFailureCount` (input, process and output
+failures) exceeds `Config.ProcessFailureThreshold` (default 0) the run throws `PipelineException` at
+completion, and a failed item's output is dropped. A pipeline that fails structurally — a malformed
+graph, a pipeline class or config that cannot be constructed — publishes a faulted status and then
+rethrows the original exception: `PipelineException` for the runner's own checks (no public
+constructor, a missing config file, no `Run` method, no terminal step), but a pipeline constructor
+that throws surfaces as `TargetInvocationException` and a config file that does not parse as
+`JsonException`.
 
 ### Cancellation Support
 
 Pass a `CancellationToken` when invoking the pipeline to halt execution cooperatively.
 
-<!-- ikon-code: pipeline-run-cancel -->
+<!-- ikon-example: pipeline-run-cancel -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
@@ -194,7 +201,7 @@ Pipelines operate on immutable `Item` instances that carry content, metadata, an
 
 Initial items are created outside a pipeline run (but after pipeline initialization) and are meant to be given as input to a pipeline. Initial items do not have any parent item(s) and must not be created inside a processor.
 
-<!-- ikon-code: pipeline-create-initial-items -->
+<!-- ikon-example: pipeline-create-initial-items -->
 ```csharp
 List<Item> inputItems = [];
 
@@ -221,7 +228,7 @@ inputItems.Add(await Item.CreateInitialFromObject("object_item_name", exampleDat
 
 The examples rely on a simple data transfer object for object-based items:
 
-<!-- ikon-code: pipeline-example-data -->
+<!-- ikon-example: pipeline-example-data -->
 ```csharp
 internal class ExampleData
 {
@@ -235,7 +242,7 @@ internal class ExampleData
 
 Non-`Item.CreateInitial*` functions are meant to be used inside processors and (almost) always take in a parent item. The `name` parameter specifies the full item name. Use string interpolation to derive names from parent items. It is also possible, though uncommon, to create items without parents.
 
-<!-- ikon-code: pipeline-create-items -->
+<!-- ikon-example: pipeline-create-items -->
 ```csharp
 List<Item> outputItems = [];
 
@@ -269,7 +276,7 @@ outputItems.Add(await Item.CreateFromObject(parentItem, $"{parentItem.Name}.name
 
 Items provide asynchronous helpers for working with content in multiple representations.
 
-<!-- ikon-code: pipeline-read-content -->
+<!-- ikon-example: pipeline-read-content -->
 ```csharp
 var stringItem = await Item.Create(parentItem, $"{parentItem.Name}.string", "This is a string content", mimeTypeOverride: MimeTypes.TextPlain);
 var byteItem = await Item.Create(parentItem, $"{parentItem.Name}.bytes", new byte[1024]);
@@ -312,7 +319,7 @@ Because `Item` is a struct, `FirstOrDefault` on a sequence of items yields a def
 null check cannot detect. `ItemExtensions.FirstOrNull` — with or without a predicate — returns a
 genuine `Item?` instead, and is what to reach for:
 
-<!-- ikon-code: pipeline-first-or-null -->
+<!-- ikon-example: pipeline-first-or-null -->
 ```csharp
 Item? match = outputItems.FirstOrNull(item => item.MimeType == MimeTypes.ApplicationJson);
 
@@ -326,13 +333,14 @@ if (match is { } found)
 
 Use `LocalFile` to interoperate with APIs that require filesystem access. Temporary files are cleaned up automatically when the `LocalFile` is disposed.
 
-<!-- ikon-code: pipeline-local-file -->
+<!-- ikon-example: pipeline-local-file -->
 ```csharp
 var sourceItem = await Item.Create(parentItem, $"{parentItem.Name}.bytes", new byte[1024]);
 
-// Copy any item to a temporary local file system file
+// Get any item as a local file system file
 // Useful for external libraries that can only read from a file path
-// The local file will be automatically deleted when disposed
+// Whatever the cache type, this is a fresh temporary copy, deleted when disposed: writing to it
+// changes neither the cached content nor the original input file
 using (var localFile = await sourceItem.GetLocalFile())
 {
     Log.Instance.Info($"Local file, Path={localFile.Path}, MimeType={localFile.MimeType}");
@@ -353,7 +361,7 @@ using (var localFile = new LocalFile(MimeTypes.TextPlain))
 
 Pipelines can accept strongly typed configuration through dependency injection of `IPipelineHost<TConfig>` and provide rich branching primitives for filtering, batching, streaming, grouping, and observation.
 
-<!-- ikon-code: pipeline-advanced -->
+<!-- ikon-example: pipeline-advanced -->
 ```csharp
 // If a config object is desired, the pipeline class can take in an IPipelineHost<TConfig> parameter
 // The user supplies the config either as an object or JSON when running the pipeline
@@ -390,8 +398,8 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // Process each item separately but in parallel
         evenItems = evenItems.Transform(item => MyProcessor(item, host.Config.ConfigValue2, cancellationToken));
 
-        // Gather items into batches and process each batch in parallel
-        // Batch size can be set with maxBatchSize parameter
+        // Without maxBatchSize every item is collected until the branch completes and processed in one call
+        // maxBatchSize > 0 splits them into batches of that size, processed in parallel
         oddItems = oddItems.TransformBatch(items => MyBatchProcessor(items, host.Config.ConfigValue2, cancellationToken));
 
         // Process each item and produce multiple output items as a stream
@@ -489,7 +497,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
 
 Supply a configuration instance, enable persistent caching, and provide rich input collections including tagged items and binary payloads.
 
-<!-- ikon-code: pipeline-run-advanced -->
+<!-- ikon-example: pipeline-run-advanced -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 
@@ -525,19 +533,22 @@ foreach (var outputItem in outputItems)
 }
 ```
 
-## Reading Secrets and Space Context from a Pipeline
+## Reading Secrets and App Context from a Pipeline
 
 A pipeline that takes an `IPipelineHost<TConfig>` constructor parameter exposes three accessors
 alongside `host.Config`:
 
-- `host.Secrets` — secrets (API keys, tokens, passwords) for the current space. Manage values
-  with `ikon app secret set/list/delete`.
+- `host.Secrets` — secrets (API keys, tokens, passwords) for the app the pipeline runs in. Manage values
+  with `ikon secret set/list/delete`. They are fetched only when the tool is logged in with an
+  app; otherwise `host.Secrets` is empty and the two ids below are empty strings. Only
+  `Initialize<TPipeline>` logs in; `Initialize(PipelineRunner.Config)` does not, so a pipeline
+  started that way gets empty secrets unless the caller logged in first.
 - `host.OrganisationId` — id of the current organisation.
-- `host.SpaceId` — id of the current space.
+- `host.SpaceId` — id of the app the pipeline runs in. The platform's own word for a cloud app is a space, and the API keeps it.
 
 Use `EmptyPipelineConfig` when the pipeline has no user-defined configuration:
 
-<!-- ikon-code: pipeline-secret -->
+<!-- ikon-example: pipeline-secret -->
 ```csharp
 [Pipeline]
 public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
@@ -561,7 +572,7 @@ public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
 
 Pipelines that already have a config type get the same accessors:
 
-<!-- ikon-code: pipeline-config-secret -->
+<!-- ikon-example: pipeline-config-secret -->
 ```csharp
 [Pipeline]
 public class TranscribeAudio(IPipelineHost<TranscribeAudio.Config> host)
@@ -582,11 +593,11 @@ public class TranscribeAudio(IPipelineHost<TranscribeAudio.Config> host)
 ```
 
 Indexer access throws if a secret is not set; use `TryGet` for optional secrets. Rotating a
-value with `ikon app secret set` takes effect on the next pipeline run.
+value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline run` to execute a pipeline outside your application code, or `ikon app pipeline run` from inside an Ikon AI app project for the common case where the DLL and space ID can be auto-resolved from the project.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere.
 
 ## Reading PDFs
 
@@ -594,8 +605,8 @@ Use `ikon pipeline run` to execute a pipeline outside your application code, or 
 on its own. `PdfDocument.Load(bytes, password)` returns an `IPdfDocument` — a `PageCount` and
 `GetPage(index)` — and each `IPdfPage` gives `Index`, `Width`, `Height`, `GetText()`, `CreateCopy`
 to split one page into its own file, and two `GetPixels` overloads that render it as a row-major
-RGBA buffer: one caps the longest side and preserves aspect ratio, the other renders at an exact
-size. Both the document and the pages are `IDisposable` and hold native handles, so dispose them.
+RGBA buffer: one scales the page so its longest side is exactly `maxDimension` pixels (upscaling a
+small page) and preserves aspect ratio, the other renders at an exact size. Both the document and the pages are `IDisposable` and hold native handles, so dispose them.
 
 ### Exposing a Pipeline You Did Not Write
 
@@ -610,16 +621,16 @@ Run from the app project root:
 
 ```bash
 # Short name resolves to the matching [Pipeline] class in the app's DLL
-ikon app pipeline run MyPipeline --input ./data/ --output ./output/
+ikon pipeline MyPipeline --input ./data/ --output ./output/
 
 # Skip the rebuild step and reuse the previous build output
-ikon app pipeline run MyPipeline --no-build
+ikon pipeline MyPipeline --no-build
 
 # Pick a non-default target config (e.g. ikon-config.production.toml)
-ikon app pipeline run MyPipeline --target production
+ikon pipeline MyPipeline --target production
 ```
 
-`ikon app pipeline run` builds the app, locates the output assembly, resolves the pipeline type, reads `Target.SpaceId` from `ikon-config.toml`, and exchanges for a space token automatically. All `ikon pipeline run` flags below pass through.
+`ikon pipeline` reads `Target.SpaceId` from `ikon-config.toml` (failing if it is empty, or if neither a pipeline name nor `--type-name` is given), exchanges it for the app's token, then builds the app, locates the output assembly and resolves the pipeline type. All `ikon pipeline` flags below pass through, except `--dll-path`, which it sets to the app's DLL.
 
 Pipeline runs executed on the Ikon cloud are billed for the CPU time and network traffic their container uses, on the same meters as app sessions.
 
@@ -627,8 +638,8 @@ Pipeline runs executed on the Ikon cloud are billed for the CPU time and network
 
 | Option | Description |
 |--------|-------------|
-| `--type-name` | Fully qualified pipeline type to execute. Required when running from pre-built assemblies or when multiple pipelines exist in the project. |
-| `--dll-path` | Load the pipeline from an external assembly instead of the current project. |
+| `--type-name` | Fully qualified pipeline type to execute. Always required by `ikon pipeline`; `ikon pipeline` needs it only without a pipeline name, or when several pipelines share that short name. |
+| `--dll-path` | Load the pipeline from an external assembly. Without it `ikon pipeline` looks only in the assemblies already loaded in the tool. |
 | `--input` | One or more input files, directories (supports wildcards), or asset URIs. Separate multiple paths with commas. |
 | `--recursive` | Recursively enumerate input directories and wildcards. |
 | `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. |
@@ -638,13 +649,13 @@ Pipeline runs executed on the Ikon cloud are billed for the CPU time and network
 
 ```bash
 # Run a pipeline from a compiled DLL with input files
-ikon pipeline run --dll-path ./bin/Release/MyPipeline.dll --type-name MyNamespace.MyPipeline --input ./data/*.json --output ./output/
+ikon pipeline --dll-path ./bin/Release/MyPipeline.dll --type-name MyNamespace.MyPipeline --input ./data/*.json --output ./output/
 
 # Run with configuration and recursive input scanning
-ikon pipeline run --dll-path ./bin/Release/MyPipeline.dll --type-name MyNamespace.MyPipeline --input ./data/ --recursive --config ./pipeline-config.json --output ./output/
+ikon pipeline --dll-path ./bin/Release/MyPipeline.dll --type-name MyNamespace.MyPipeline --input ./data/ --recursive --config ./pipeline-config.json --output ./output/
 ```
 
-Additional parameters cover cache directories, retry configuration, remote execution flags, and status reporting. Run `ikon pipeline run --help` for a complete listing.
+Additional parameters cover cache directories, retry configuration, remote execution flags, and status reporting. Run `ikon pipeline --help` for a complete listing.
 
 ## Remote Host and Client Modes
 
@@ -664,10 +675,10 @@ Before running distributed pipelines:
 
 Mark processors for remote execution using the `isRemote` parameter in the `[Processor]` attribute.
 A stage can also declare what it needs from the machine that runs it through `ProcessorTags` — `Gpu`
-is the one tag today — passed as `tags:` on the `Transform*` builders, so a client that advertises no
-GPU is never handed that stage.
+is the one tag today — passed as `tags:` on the `Transform*` builders. The tag is recorded on the
+stage, but dispatch does not route by it: any client can be handed a `Gpu` stage.
 
-<!-- ikon-code: pipeline-distributed -->
+<!-- ikon-example: pipeline-distributed -->
 ```csharp
 [Pipeline]
 public class DistributedPipeline(IPipelineHost<DistributedPipeline.Config> host)
@@ -712,7 +723,7 @@ public class DistributedPipeline(IPipelineHost<DistributedPipeline.Config> host)
 
 ### Host Mode
 
-Enable host mode with `PipelineRunner.Config.EnableRemoteHost` or `ikon pipeline run --remote-host`. The host:
+Enable host mode with `PipelineRunner.Config.EnableRemoteHost` or `ikon pipeline --remote-host`. The host:
 
 - Reads input items and orchestrates the pipeline graph
 - Dispatches remote processor calls to clients via the message bus
@@ -721,7 +732,7 @@ Enable host mode with `PipelineRunner.Config.EnableRemoteHost` or `ikon pipeline
 
 ### Client Mode
 
-Enable client mode with `PipelineRunner.Config.EnableRemoteClient` or `ikon pipeline run --remote-client`. The client:
+Enable client mode with `PipelineRunner.Config.EnableRemoteClient` or `ikon pipeline --remote-client`. The client:
 
 - Connects to the message bus and listens for processor calls
 - Executes processors locally using content from the shared cache
@@ -746,6 +757,9 @@ Remote processors are identified by their fully qualified name in the format:
 {Namespace}.{ClassName}.{MethodName}.{Version}
 ```
 
+`{Namespace}.{ClassName}` is the declaring type's `FullName` (a nested class shows as `Outer+Inner`),
+and an `id:` set on `[Processor]` replaces `{MethodName}`.
+
 For example, the `ProcessorA` method above would have the name:
 ```
 MyNamespace.DistributedPipeline.ProcessorA.1
@@ -759,6 +773,7 @@ This name format is used when configuring the client processor whitelist.
 |--------|-------------|
 | `RabbitMQConnectionString` / `--remote-rabbitmq` | RabbitMQ connection string. Format: `host=localhost;port=5672;username=guest;password=guest`. Required for distributed execution. |
 | `MaxRemoteRequestParallelism` / `--max-remote-request-parallelism` | Maximum concurrent remote operations the host processes. Defaults to `ProcessorCount * 100`. |
+| `RemoteCallTimeoutSeconds` (code only, no CLI flag) | Seconds the host waits for the next message of a remote call before failing it with a retryable `TimeoutException`. Default 1800; 0 waits forever. |
 | `RemoteClientProcessorWhiteList` / `--remote-client-processor-whitelist` | Comma-separated list of processor names this client handles. If omitted, the client handles all remote processors. |
 | `CachePath` / `--cache` | Path to the shared content cache directory. Must be the same for host and all clients. |
 
@@ -766,7 +781,7 @@ This name format is used when configuring the client processor whitelist.
 
 ```bash
 # Terminal 1: Start the client first
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --cache ./shared-cache \
@@ -774,7 +789,7 @@ ikon pipeline run \
     --remote-rabbitmq "host=localhost;port=5672;username=guest;password=guest"
 
 # Terminal 2: Start the host after client is ready (wait a few seconds)
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --input ./data/ \
@@ -790,7 +805,7 @@ Distribute different processors to different clients using the whitelist:
 
 ```bash
 # Terminal 1: Client handling only ProcessorA
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --cache ./shared-cache \
@@ -799,7 +814,7 @@ ikon pipeline run \
     --remote-client-processor-whitelist "MyNamespace.DistributedPipeline.ProcessorA.1"
 
 # Terminal 2: Client handling only ProcessorB
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --cache ./shared-cache \
@@ -808,7 +823,7 @@ ikon pipeline run \
     --remote-client-processor-whitelist "MyNamespace.DistributedPipeline.ProcessorB.1"
 
 # Terminal 3: Start the host after clients are ready
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --input ./data/ \
@@ -825,7 +840,7 @@ Run multiple clients handling the same processors to distribute load:
 ```bash
 # Start multiple clients (each in separate terminal)
 # All clients handle all processors - work is distributed via RabbitMQ
-ikon pipeline run \
+ikon pipeline \
     --dll-path ./bin/Release/MyPipeline.dll \
     --type-name MyNamespace.DistributedPipeline \
     --cache ./shared-cache \
@@ -837,7 +852,7 @@ ikon pipeline run \
 
 Use `PipelineRunner.RunRemote` to orchestrate distributed execution from code:
 
-<!-- ikon-code: pipeline-run-remote -->
+<!-- ikon-example: pipeline-run-remote -->
 ```csharp
 var config = new PipelineRunner.Config
 {

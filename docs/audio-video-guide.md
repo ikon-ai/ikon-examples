@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: c0bb507f2fd37880 -->
+<!-- checked-against: dddf8c7764faeace -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -8,7 +8,7 @@ How an Ikon AI app's C# app class plays audio to clients, receives microphone an
 
 On the app class:
 
-<!-- ikon-code: av-accessors -->
+<!-- ikon-example: av-accessors -->
 ```csharp
 private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
@@ -20,7 +20,7 @@ All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.c
 
 ## Sending audio: two lanes, three methods
 
-<!-- ikon-code: av-send -->
+<!-- ikon-example: av-send -->
 ```csharp
 // 1. Speech — real-time paced through the speech mixer; new speech interrupts
 //    current speech with a fade. The default for spoken replies.
@@ -59,9 +59,9 @@ A targeted send whose id list is **empty** transmits nothing at all. An empty ta
 
 The reply below assumes recognition is on: `Audio.SpeechRecognizedAsync` never fires until `Audio.UseSpeechRecognition` or `Audio.UseTurnDetection` has been called once at setup.
 
-**A send with nobody to hear it does nothing, and `SpeakAsync` does not generate the speech.** `Everyone` with no client connected, or a target list naming only clients that have left, is an audience of nobody — every send returns without transmitting, and the speech models are never called. The skip is logged at debug. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
+**An audio send with nobody to hear it does nothing, and `SpeakAsync` does not generate the speech.** `Everyone` with no client connected, or a target list naming only clients that have left, is an audience of nobody — every `Audio` send returns without transmitting, and the speech models are never called. The skip is logged at debug. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
 
-<!-- ikon-code: av-reply-to-speaker -->
+<!-- ikon-example: av-reply-to-speaker -->
 ```csharp
 Audio.SpeechRecognizedAsync += async args =>
 {
@@ -76,7 +76,7 @@ Also note: **interruption is instance-global, not per-target.** All speech flows
 
 `Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and the speech mixer's stream is the app's default output. Stop speech through the mixer:
 
-<!-- ikon-code: av-mixer-control -->
+<!-- ikon-example: av-mixer-control -->
 ```csharp
 Audio.SpeechMixer.FadeOut();   // graceful: fade out the current utterance
 Audio.SpeechMixer.Clear();     // hard reset: discard current, pending, and paused speech
@@ -98,7 +98,7 @@ The separation is what makes push-to-talk work at all. A permission dialog takes
 
 A refusal (or a machine with no microphone) switches the button to a **"Microphone blocked"** state that stays pressable so it can explain itself, and fires `onPermissionChanged`:
 
-<!-- ikon-code: av-push-to-talk -->
+<!-- ikon-example: av-push-to-talk -->
 ```csharp
 view.PushToTalkButton(
     text: "Hold to talk",
@@ -116,7 +116,7 @@ Flutter frontends run the same state machine against the OS permission dialog, s
 
 For transcription, prefer `UseSpeechRecognition` (next section). For raw PCM access:
 
-<!-- ikon-code: av-audio-input -->
+<!-- ikon-example: av-audio-input -->
 ```csharp
 Audio.AudioInputStreamBeginAsync += async args =>
 {
@@ -139,7 +139,7 @@ The event args carry `args.ClientSessionId` / `args.UserId` / `args.ClientContex
 
 One call during app setup wires capture → transcription → routing:
 
-<!-- ikon-code: av-speech-recognition -->
+<!-- ikon-example: av-speech-recognition -->
 ```csharp
 Audio.UseSpeechRecognition(SpeechRecognizerModel.WhisperLarge3Turbo);
 
@@ -171,7 +171,7 @@ per detected turn: a turn that produced no transcript reaches `SpeechNotRecogniz
 
 ### The `requireCorrelatedStream` flag
 
-`UseSpeechRecognition(model, silenceThresholdRms: 0.01f, requireCorrelatedStream: true, language: "", timeout: null)`
+`UseSpeechRecognition(model, silenceThresholdRms: 0.01f, requireCorrelatedStream: true, language: "", timestamps: SpeechTimestamps.None, timeout: null)`
 
 `requireCorrelatedStream` defaults to **true**: recognition fires only for streams started by Parallax capture buttons (`PushToTalkButton`, `MicToggleButton`, `CaptureButton`), which stamp a `CorrelationId` on the stream. A capture started programmatically with `ClientFunctions.StartAudioCaptureAsync` has no correlation id and is **silently ignored** — the classic symptom is "the mic streams but `SpeechRecognizedAsync` never fires". Pass `requireCorrelatedStream: false` to transcribe every audio stream, including ad-hoc ones. `UseTurnDetection` has the same flag with the same default.
 
@@ -179,7 +179,7 @@ per detected turn: a turn that produced no transcript reaches `SpeechNotRecogniz
 
 For an always-listening voice app, `UseTurnDetection` segments a continuous stream into conversational turns instead of transcribing per button press:
 
-<!-- ikon-code: av-turn-detection -->
+<!-- ikon-example: av-turn-detection -->
 ```csharp
 Audio.UseTurnDetection(SpeechRecognizerModel.WhisperLarge3Turbo);
 
@@ -210,7 +210,7 @@ one segments a stream for you, that one reports what the provider concluded.
 
 When feeding your own audio into `SpeakChunk` (or a `SpeechMixer`), **always use the full constructor**:
 
-<!-- ikon-code: av-audio-chunk -->
+<!-- ikon-example: av-audio-chunk -->
 ```csharp
 var chunk = new AudioChunk(
     id: Guid.NewGuid().ToString(),   // one unique id per utterance
@@ -231,18 +231,18 @@ Two traps:
 
 For meetings, huddles, and multiplayer voice, `GroupAudioMixer` (from `Ikon.Resonance`) mixes every participant's microphone into a personalized output per participant — each hears everyone **except themselves**:
 
-<!-- ikon-code: av-group-mixer-fields -->
+<!-- ikon-example: av-group-mixer-fields -->
 ```csharp
 private readonly GroupAudioMixer _mixer = new();
 
-// The frame event carries only StreamId/Samples/IsFirst/IsLast — the format lives on the
+// The frame event carries no SampleRate/ChannelCount — the format lives on the
 // BEGIN event, so stash it per stream:
 private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
 ```
 
 Then from Main:
 
-<!-- ikon-code: av-group-mixer -->
+<!-- ikon-example: av-group-mixer -->
 ```csharp
 // Wire participants and streams:
 app.OnClientJoined(async ctx => _mixer.AddParticipant(ctx.ClientSessionId));
@@ -289,7 +289,7 @@ Rules that bite:
 
 Video is input-driven: clients capture camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), the app receives the stream, and decides any fan-out. Render an outgoing stream on clients with `view.VideoStreamCanvas(streamId: ...)`. The canvas takes an optional `onTap` handler called with `VideoTapArgs` — the tap position normalized to the rendered frame (0..1 on both axes), useful when the stream mirrors an interactive surface such as a device screen.
 
-<!-- ikon-code: av-video-streams-field -->
+<!-- ikon-example: av-video-streams-field -->
 ```csharp
 // The frame event carries no codec or geometry — those arrive once on the BEGIN event,
 // so stash them per stream:
@@ -298,7 +298,7 @@ private readonly Dictionary<string, VideoInputStreamBeginEventArgs> _videoStream
 
 Then from Main:
 
-<!-- ikon-code: av-video-forward -->
+<!-- ikon-example: av-video-forward -->
 ```csharp
 Video.VideoInputStreamBeginAsync += async args => _videoStreams[args.StreamId] = args;
 
@@ -329,4 +329,4 @@ Two hard rules for `SendFrameAsync`:
 
 ## Telephony
 
-Phone calls and SMS — including speaking and listening on a live call via `app.Telephony` and `IVoiceCall` — are a separate surface with their own guide: see `ikon-app-telephony-guide.md`. Telephony audio is G.711 mu-law at 8 kHz on the wire; the platform converts to and from the float PCM used everywhere in this guide.
+Phone calls and SMS — including speaking and listening on a live call via `app.Telephony` and `IVoiceCall` — are a separate surface with their own guide: see `app-telephony-guide.md`. Telephony audio on the wire is 16 kHz linear PCM on 46elks and G.711 mu-law at 8 kHz on Twilio; the platform converts to and from the float PCM used everywhere in this guide.

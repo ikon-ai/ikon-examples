@@ -1,34 +1,33 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: ac8b41f02ce58d9a -->
+<!-- checked-against: 1865b9f0c074b010 -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
-app's space, with no telephony provider account, API key, or contract of your own. `app.Telephony`
-is the entry point; the space's organisation must have the **Telephony** feature enabled (calls
-without it throw `FeatureNotEnabledException`).
+app, with no telephony provider account, API key, or contract of your own. `app.Telephony`
+is the entry point.
 
 ## Give your app a phone number first
 
-Nothing works until the space has a number, because a number is what makes a message replyable and
+Nothing works until the app has a number, because a number is what makes a message replyable and
 what lets calls happen at all. In a terminal, run it bare and choose from menus:
 
 ```
-ikon app telephony create
+ikon phone buy
 ```
 
 It asks for the provider (46elks first), then shows the common markets with what each sells —
 `SMS + voice`, `SMS`, `voice`, `unknown` or `unavailable` — and `review` where a regulator has to
 approve you first, which takes days. You can pass over a market that does not suit before typing
-anything, and it sends you back to the list if one turns out not to. `ikon app telephony markets` prints the same list for every provider side
+anything, and it sends you back to the list if one turns out not to. `ikon phone markets` prints the same list for every provider side
 by side (`--provider` narrows it, `--format json` gives it to a script or an agent):
 
 ```
-ikon app telephony markets
-ikon app telephony create --country se --provider 46elks --yes
+ikon phone markets
+ikon phone buy --country se --provider 46elks --yes
 ```
 
 It picks a number in that market and wires it to your app. A number **rents monthly** for as long as
 the app holds it, charged to the app's credits, so the command asks for confirmation before
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
-when an agent runs it). What it came to shows up in `ikon app costs` like any other usage.
+when an agent runs it). What it came to shows up in `ikon costs` like any other usage.
 
 You choose the market, the provider (`--provider 46elks` or `--provider twilio`) and what the number
 carries (`--capabilities sms,voice`, `sms` or `voice`); a script gets the platform default provider
@@ -41,14 +40,14 @@ the platform last found, and one nobody has tried yet shows as such.
 
 ### Markets that ask who you are
 
-Much of Europe will not sell a number until it knows which organisation holds it. `create` asks the
+Much of Europe will not sell a number until it knows which organisation holds it. `buy` asks the
 provider what the market wants and collects it — **your own details, never the platform's**, because
 this is what a regulator reads to learn who is behind the number.
 
 Interactively it simply prompts. For a script or an agent, pass the fields as flags:
 
 ```
-ikon app telephony create --country fi --provider twilio --yes \
+ikon phone buy --country fi --provider twilio --yes \
   --kyc business_name="Acme Oy" \
   --kyc email=ops@acme.fi \
   --kyc street="Kauppakatu 1" \
@@ -61,18 +60,19 @@ than failing on them one at a time. `region` is optional — most European count
 `email` defaults to your account's.
 
 Where a regulator has to approve the details — on Twilio, most of Europe — the market list says so,
-and `create` asks before collecting anything whether to submit for review or choose another market.
+and `buy` asks before collecting anything whether to submit for review or choose another market.
 Submitting stops there: nothing is bought or charged until the review is approved, which usually
-takes 1-3 business days. `ikon app telephony status` shows the review, and running `create` again
+takes 1-3 business days. A non-interactive run exits with an error once the details are in review,
+so a script that expected a number does not read the review as one. `ikon phone list` shows the review, and running `buy` again
 once it is approved buys the number under it. A review you no longer want is withdrawn with
-`ikon app telephony delete --review fi`.
+`ikon phone release --review fi`.
 
 Some regulators also want a document as a file — Germany, for one, wants an excerpt from the
-commercial register. Interactively `create` asks for the path; in a script pass it with `--kyc-file`,
+commercial register. Interactively `buy` asks for the path; in a script pass it with `--kyc-file`,
 named as the missing-field message names it:
 
 ```
-ikon app telephony create --country de --provider twilio --yes \
+ikon phone buy --country de --provider twilio --yes \
   --kyc business_name="Acme GmbH" \
   --kyc-file commercial_registrar_excerpt=./excerpt.pdf
 ```
@@ -85,7 +85,7 @@ Run it again for a second number: an app may hold several, in different markets 
 providers.
 
 ```
-ikon app telephony status
+ikon phone list
 ```
 
 lists every number the app holds — market, provider, which is the default sender, and where each
@@ -93,14 +93,14 @@ one's incoming traffic goes — and any regulatory review still waiting on a ver
 or `--format csv` gives the numbers to a script.
 
 ```
-ikon app telephony delete +46766861234
+ikon phone release +46766861234
 ```
 
 gives one number up.
 
 ## Send an SMS
 
-<!-- ikon-code: telephony-send-sms -->
+<!-- ikon-example: telephony-send-sms -->
 ```csharp
 // app.Telephony is a TelephonyService — no construction, no provider account of your own.
 var result = await app.Telephony.SendSmsAsync("+358401234567", "Your table is ready.");
@@ -112,7 +112,8 @@ if (!result.Replyable)
 ```
 
 The recipient number is always **bare E.164**: a `+`, the country code, then the number, with no
-spaces, dashes or leading zeroes. `+358401234567`, never `040 123 4567`.
+spaces, dashes or leading zeroes. `+358401234567`, never `040 123 4567`. Premium-rate and satellite
+destinations are refused for messages and calls alike, before the provider is contacted.
 
 `SmsSendResult` reports what happened:
 
@@ -135,11 +136,12 @@ conversation is not possible, and either say so in the message ("do not reply �
 allocate a number in that market:
 
 ```
-ikon app telephony create --country fi
+ikon phone buy --country fi
 ```
 
-The platform picks the number local to each recipient automatically when the app holds more than
-one, so a second number is usually all it takes.
+When no default number is set, the platform picks the number local to each recipient automatically
+when the app holds more than one, so a second number is usually all it takes; a default number wins
+over a local one.
 
 ## Choosing which number to send from
 
@@ -150,7 +152,7 @@ otherwise the first the app holds. That is the right behaviour for reaching peop
 
 Name one when it matters — replying as the same number a user last saw, for instance:
 
-<!-- ikon-code: telephony-numbers -->
+<!-- ikon-example: telephony-numbers -->
 ```csharp
 var numbers = await app.Telephony.GetNumbersAsync();
 
@@ -164,7 +166,7 @@ reaches the recipient as a stranger.
 To pin one number as the app's usual sender:
 
 ```
-ikon app telephony default set +46766861234
+ikon phone default +46766861234
 ```
 
 ## Place a call
@@ -172,7 +174,7 @@ ikon app telephony default set +46766861234
 A call is a live audio stream in both directions from the moment it connects — you listen to the
 caller and speak back, rather than handing the provider a script to play.
 
-<!-- ikon-code: telephony-call -->
+<!-- ikon-example: telephony-call -->
 ```csharp
 await using var call = await app.Telephony.CallAsync("+358401234567");
 
@@ -187,7 +189,12 @@ await call.HangUpAsync();
 `ListenAsync` yields the caller's audio as it is spoken, and `SpeakAsync` takes an
 `IAsyncEnumerable<AudioChunk>` — the same shape `ISpeechGenerator.GenerateSpeechAsync` produces, so a
 speech model plugs straight in with no adapter. `InterruptAsync` abandons audio already sent, which
-is what makes barge-in work, and `WaitForPlaybackAsync` waits for what you sent to actually be heard.
+is what makes barge-in work, and `WaitForPlaybackAsync` waits until the provider has received what you sent — not until it is
+heard, which no provider reports.
+
+`CallAsync` returns once the callee answers, and throws `TimeoutException` if nobody does within
+`ringTimeout` (60 seconds by default). It is refused when the app already has its maximum of
+concurrent calls in progress — 10 by default, counting both directions.
 
 Pass `from:` to choose which of the app's numbers to call from; omit it and the platform picks, the
 same way sending does.
@@ -207,7 +214,7 @@ race the caller hanging up.
 You declare no webhook. The platform owns the endpoints an incoming message and an incoming call
 arrive at, so what you write is a handler:
 
-<!-- ikon-code: telephony-inbound -->
+<!-- ikon-example: telephony-inbound -->
 ```csharp
 app.Telephony.SmsReceived += async message =>
 {
@@ -239,7 +246,7 @@ default inbound goes to the app's **shared instance**, the one an app gets when 
 the caller.
 
 ```
-ikon app telephony bind --identity '{"UserId":"alice"}'
+ikon phone bind --identity '{"UserId":"alice"}'
 ```
 
 points **every** number the app holds at that identity. If the chosen instance is not running, the
@@ -248,24 +255,25 @@ message starts one.
 **Each number can go somewhere different.** Name one and the rest stay where they are:
 
 ```
-ikon app telephony bind +358401234567 --identity '{"UserId":"alice"}'
-ikon app telephony bind +46766861234  --identity '{"UserId":"bob"}'
+ikon phone bind +358401234567 --identity '{"UserId":"alice"}'
+ikon phone bind +46766861234  --identity '{"UserId":"bob"}'
 ```
 
 That is how one app answers as several users: a number per user, each routed to that user's own
-instance. `ikon app telephony status` shows where each number currently points, and
+instance. `ikon phone list` shows where each number currently points, and
 `GetNumbersAsync` reports the same to the app.
 
 A running app can also claim inbound for itself with
 `app.Telephony.BindInboundToThisInstanceAsync()`, which is what a developer uses to receive on their
 own machine; that binding is reverted when the process stops.
 
-**Inbound is free** on both messages and calls; only what you send is charged.
+**Inbound messages are free.** An inbound call is charged like one you place, and counts against
+the same concurrent-call and duration limits.
 
 ## What it costs
 
 Everything is charged in **platform credits**, and credits are the only figure the API and the CLI
-report — read what a space has spent with `ikon app costs`. Metering follows the real cost of each
+report — read what an app has spent with `ikon costs`. Metering follows the real cost of each
 message and call rather than an average, so an expensive destination costs more than a cheap one
 instead of being smoothed into a single rate.
 
@@ -273,30 +281,30 @@ A number is charged **by rental period, in full**: at allocation, and again at e
 one up part-way through a period refunds nothing, so allocating and releasing repeatedly costs a
 full period each time.
 
-A space that runs out of credits is suspended, which stops telephony along with everything else.
+An app that runs out of credits is suspended, which stops telephony along with everything else.
 
 ## Giving a number up
 
 ```
-ikon app telephony delete +46766861234
+ikon phone release +46766861234
 ```
 
 gives up one number. To give up telephony entirely:
 
 ```
-ikon app telephony disable
+ikon phone release --all
 ```
 
 releases every number the app holds and stops the billing. Both confirm first, and for a reason
 worth taking seriously: **the number goes back to the carrier and is never given back**. Anyone who
 saved it, printed it, or published it loses the ability to reach your app, permanently.
 
-Deleting the app's space does the same thing automatically, at the end of the platform's
+Deleting the app from the cloud does the same thing automatically, at the end of the platform's
 normal removal grace period.
 
 ## Checking availability before you offer it
 
-<!-- ikon-code: telephony-status -->
+<!-- ikon-example: telephony-status -->
 ```csharp
 var status = await app.Telephony.GetStatusAsync();
 

@@ -1,10 +1,10 @@
 # Ikon AI C# SDK
-<!-- checked-against: 453499442cbfcc6a -->
+<!-- checked-against: e6fae3dd5581337b -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
 
-- Five authentication modes: API Key, Local Development, Backend, External Connect URL, and UserLogin (developer CLI login, for dev tooling)
+- Six authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI login, for dev tooling), and ResumeAuthResponse (joining another connection's client session)
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -23,7 +23,7 @@ dotnet add package Ikon.Sdk
 
 Add `using Ikon.Sdk;`, then:
 
-<!-- ikon-code: sdk-quickstart -->
+<!-- ikon-example: sdk-quickstart -->
 ```csharp
 // Create configuration with API key authentication
 var config = new IkonClientConfig
@@ -64,17 +64,18 @@ error yet never receives a `ClientScope`.
 
 The SDK opens one reliable connection to the server — TCP with TLS against a hosted app, plain TCP
 against a local one — and, alongside it, an unreliable UDP side channel used for messages the app
-flags unreliable.
+flags unreliable. The .NET Standard 2.1 build uses only a plain UDP entrypoint, which a hosted app does not
+offer, so against a hosted app it runs over the reliable connection alone.
 
 Set `EnableUdpChannel = false` to run over the reliable connection alone. Unreliable-flagged messages
 then fall back to it, so nothing is lost; they just stop being able to overtake a queued reliable
 message. Turn it off when the network between the client and the server drops or blocks UDP outright
-(a corporate egress filter is the usual case, where the SDK would otherwise spend the DTLS handshake
-timeout on every connect before giving up), or when you are connecting many clients from one process
+(a corporate egress filter is the usual case; the connect does not wait for UDP, but every connect
+would otherwise spend up to the 15-second DTLS handshake timeout on a background attempt that cannot succeed), or when you are connecting many clients from one process
 and want each to cost as little server memory as possible — the side channel is a second socket, a
 DTLS session and a second pair of send queues per client on both ends.
 
-<!-- ikon-code: sdk-disable-udp -->
+<!-- ikon-example: sdk-disable-udp -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -85,16 +86,18 @@ var config = new IkonClientConfig
 
 ## Authentication Modes
 
-The SDK supports five authentication modes. Exactly one must be configured:
-`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, or `UserLogin`. `UserLogin` authenticates as the
+The SDK supports six authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
+`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
 developer logged in on this machine (the ikon CLI's stored login) and is intended for dev tooling and
-headless tests; production clients use `ApiKey` or `Backend`.
+headless tests; production clients use `ApiKey` or `Backend`. The constructor also throws `ArgumentException`
+when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
+`SpaceId` and `ExternalUserId`, `UserLogin`'s `SpaceId`, or `Local`'s `Host` and a positive `HttpsPort`.
 
 ### API Key Authentication
 
 Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
 
-<!-- ikon-code: sdk-api-key-config -->
+<!-- ikon-example: sdk-api-key-config -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -115,7 +118,7 @@ var config = new IkonClientConfig
 
 Connect directly to a local Ikon server during development.
 
-<!-- ikon-code: sdk-local-config -->
+<!-- ikon-example: sdk-local-config -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -132,7 +135,7 @@ var config = new IkonClientConfig
 
 Use existing Ikon backend login credentials. This is for applications that have already authenticated to the backend.
 
-<!-- ikon-code: sdk-backend-config -->
+<!-- ikon-example: sdk-backend-config -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -152,9 +155,9 @@ var config = new IkonClientConfig
 Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
 host — for example an embedded in-process app server minting URLs for its own clients. The
 authentication step is skipped entirely and the client connects straight through the URL. This
-mode is mutually exclusive with the other four; a config that combines them is rejected.
+mode is mutually exclusive with the other five; a config that combines them is rejected.
 
-<!-- ikon-code: sdk-external-connect-url -->
+<!-- ikon-example: sdk-external-connect-url -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -166,11 +169,11 @@ var config = new IkonClientConfig
 
 Authenticate as the developer logged in on this machine (the ikon CLI's stored login), connecting
 through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
-tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other four modes.
-`Environment` names the platform the space is on; a platform other than the process's own signs in
+tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other five modes.
+`Environment` names the platform the app is on; a platform other than the process's own signs in
 with that platform's saved login, and otherwise (or left null) the process's own login is used.
 
-<!-- ikon-code: sdk-user-login-config -->
+<!-- ikon-example: sdk-user-login-config -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -205,7 +208,7 @@ Helper extension methods are available:
 
 ### Events
 
-<!-- ikon-code: sdkx-events -->
+<!-- ikon-example: sdkx-events -->
 ```csharp
 // Connection state changes
 client.StateChangedAsync += async e =>
@@ -226,7 +229,11 @@ client.StoppingAsync += async e =>
     Console.WriteLine("Server stopping...");
 };
 
-// Disconnected from server
+// Disconnected: the fast reconnect attempts failed, the server is stopping, or a
+// connection that never fully connected dropped. With BackgroundReconnect on (the default)
+// a failed reconnect keeps retrying from Offline, so this is final only when the server is
+// stopping or BackgroundReconnect is off. Not raised by IkonClient.DisconnectAsync
+// or IkonClient.DisposeAsync, nor by a drop that reconnects
 client.DisconnectedAsync += async e =>
 {
     Console.WriteLine("Disconnected");
@@ -247,7 +254,7 @@ client.MessageReceivedAsync += async e =>
 
 ### Connecting and Disconnecting
 
-<!-- ikon-code: sdk-lifecycle -->
+<!-- ikon-example: sdk-lifecycle -->
 ```csharp
 // Connect (will throw on failure)
 await client.ConnectAsync();
@@ -270,7 +277,7 @@ await client.DisposeAsync();
 
 The SDK automatically attempts to reconnect when the connection is lost unexpectedly. Configure reconnection behavior:
 
-<!-- ikon-code: sdk-timeouts -->
+<!-- ikon-example: sdk-timeouts -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -280,7 +287,7 @@ var config = new IkonClientConfig
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
         MaxReconnectAttempts = 4,                                 // Max attempts (default)
         MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
-        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
@@ -296,7 +303,7 @@ Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500
 `ReadyAsync` has fired (or guard it). The `!` below is safe because a raw send happens
 on a connected client:
 
-<!-- ikon-code: sdk-send-raw -->
+<!-- ikon-example: sdk-send-raw -->
 ```csharp
 // Send a raw protocol message (on a connected client)
 var message = ProtocolMessage.Create(client.ClientContext!.SessionId, payload);
@@ -305,7 +312,7 @@ await client.SendMessageAsync(message);
 
 ### Typed Payloads
 
-<!-- ikon-code: sdkx-typed-payloads -->
+<!-- ikon-example: sdkx-typed-payloads -->
 ```csharp
 // Send a typed payload (creates ProtocolMessage automatically)
 await client.SendMessageAsync(new MyCustomPayload { /* ... */ });
@@ -320,14 +327,14 @@ The SDK provides comprehensive audio support with automatic Opus encoding/decodi
 Send audio to the server. Like every send, it throws `InvalidOperationException` when the client is
 not connected — call it after `ReadyAsync` has fired, never from setup code:
 
-<!-- ikon-code: sdk-send-audio -->
+<!-- ikon-example: sdk-send-audio -->
 ```csharp
 // Default encoder options for every stream that sends no encoderOptions of its own. A
 // stream's encoder is created on its first SendAudioAsync and keeps the options in force
 // then, so set this before the first send — not after.
 client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 
-// Get audio samples (float PCM, range [-1.0, 1.0])
+// Get audio samples (float PCM, range [-1.0, 1.0]) at 8, 12, 16, 24 or 48 kHz; the SDK does not resample
 ReadOnlyMemory<float> samples = GetAudioSamples();
 
 // Send audio
@@ -343,7 +350,9 @@ await client.SendAudioAsync(
 // Send final chunk
 await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
 
-// Optional: specify stream ID, total duration, encoder options, and target clients
+// Optional: specify stream ID, total duration, encoder options, and target clients.
+// A stream's sample rate and channel count are fixed by its first send, and every call
+// without a streamId shares one stream, so audio in another format needs its own streamId
 await client.SendAudioAsync(
     MediaTargets.To(123, 456),                // Target specific session IDs
     samples: samples,
@@ -363,7 +372,7 @@ await client.SendAudioAsync(
 
 Subscribe to audio events to receive incoming audio streams:
 
-<!-- ikon-code: sdk-receive-audio -->
+<!-- ikon-example: sdk-receive-audio -->
 ```csharp
 client.AudioInputStreamBeginAsync += async e =>
 {
@@ -411,7 +420,7 @@ Control how audio frames are delivered:
 
 Set the streaming mode in the `AudioInputStreamBeginAsync` event handler:
 
-<!-- ikon-code: sdk-streaming-mode -->
+<!-- ikon-example: sdk-streaming-mode -->
 ```csharp
 client.AudioInputStreamBeginAsync += async e =>
 {
@@ -428,11 +437,13 @@ The SDK provides a per-client function registry system that allows you to regist
 
 **Attribute-Based Registration (Recommended)**
 
-Mark methods with the `[Function]` attribute and register the containing class:
+Mark methods with the `[Function]` attribute and register the containing class. A method is registered under its
+type's full name plus the method name (`MyNamespace.MyFunctions.Greet`) unless `[Function(Name = "...")]` sets one,
+and calls and lookups must use that name:
 
 Add `using Ikon.Common.Core.Functions;`, then:
 
-<!-- ikon-code: sdk-functions-class -->
+<!-- ikon-example: sdk-functions-class -->
 ```csharp
 public class MyFunctions
 {
@@ -457,7 +468,7 @@ public class MyFunctions
 }
 ```
 
-<!-- ikon-code: sdk-register-functions -->
+<!-- ikon-example: sdk-register-functions -->
 ```csharp
 // Register all [Function] methods from an instance
 var myFuncs = new MyFunctions();
@@ -474,7 +485,7 @@ client.FunctionRegistry.RegisterFromAssembly(typeof(MyFunctions).Assembly);
 
 Register functions directly using lambdas:
 
-<!-- ikon-code: sdk-register-lambdas -->
+<!-- ikon-example: sdk-register-lambdas -->
 ```csharp
 // Simple synchronous function
 client.FunctionRegistry.AddFunction(
@@ -504,10 +515,10 @@ client.FunctionRegistry.AddFunction(
 
 Functions can be either local or external:
 
-- **Local** (default): Function is not advertised. Only callable within this process.
+- **Local** (default): Function is not advertised. In a standalone SDK client a remote caller that names it can still call it; only an Ikon AI App restricts it to its own process.
 - **External**: Function is advertised over the protocol; remote clients can call it.
 
-<!-- ikon-code: sdk-function-visibility -->
+<!-- ikon-example: sdk-function-visibility -->
 ```csharp
 // Local - only available in this process (default)
 [Function(Visibility = FunctionVisibility.Local)]
@@ -527,7 +538,7 @@ such audit.
 
 Visibility can also be overridden where the instance is registered:
 
-<!-- ikon-code: sdkx-function-visibility -->
+<!-- ikon-example: sdkx-function-visibility -->
 ```csharp
 client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.External);
 ```
@@ -536,7 +547,7 @@ client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.Externa
 
 Query the registry to find available functions:
 
-<!-- ikon-code: sdk-inspect-registry -->
+<!-- ikon-example: sdk-inspect-registry -->
 ```csharp
 // Check if a function exists
 if (client.FunctionRegistry.HasFunction("MyFunc"))
@@ -562,7 +573,7 @@ bool available = await client.FunctionRegistry.WaitForFunctionAsync(
 
 Call registered functions locally or remotely:
 
-<!-- ikon-code: sdk-call-functions -->
+<!-- ikon-example: sdk-call-functions -->
 ```csharp
 // Synchronous call
 string result = client.FunctionRegistry.Call<string>("Greet", args: new object?[] { "World" });
@@ -576,8 +587,8 @@ await client.FunctionRegistry.CallAsync("LogMessage", args: new object?[] { "Hel
 // Call a function on a specific remote client (uses targetId parameter)
 int remoteSum = await client.FunctionRegistry.CallAsync<int>("Calculate", targetId: 123, args: new object?[] { 5, 10 });
 
-// Streaming results (async enumerable)
-await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>("CountAsync", args: new object?[] { 10 }))
+// Streaming results (async enumerable). A [Function] with no Name is registered under its type's full name
+await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>($"{typeof(MyFunctions).FullName}.CountAsync", args: new object?[] { 10 }))
 {
     Console.WriteLine(item);
 }
@@ -585,7 +596,7 @@ await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>("Cou
 
 ### Removing Functions
 
-<!-- ikon-code: sdkx-removing-functions -->
+<!-- ikon-example: sdkx-removing-functions -->
 ```csharp
 // Remove a specific function by name (local functions only)
 client.FunctionRegistry.RemoveFunction("MyFunc");
@@ -601,7 +612,7 @@ client.FunctionRegistry.ClearLocalFunctions();
 
 Subscribe to function registration events:
 
-<!-- ikon-code: sdkx-function-events -->
+<!-- ikon-example: sdkx-function-events -->
 ```csharp
 client.FunctionRegistry.FunctionRegistered += func =>
 {
@@ -618,7 +629,7 @@ client.FunctionRegistry.FunctionUnregistered += name =>
 
 ### Timeouts
 
-<!-- ikon-code: sdkx-timeouts -->
+<!-- ikon-example: sdkx-timeouts -->
 ```csharp
 var config = new IkonClientConfig
 {
@@ -628,7 +639,7 @@ var config = new IkonClientConfig
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
         MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
         MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
-        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
@@ -636,15 +647,15 @@ var config = new IkonClientConfig
 
 ### Protocol Options
 
-<!-- ikon-code: sdkx-protocol-options -->
+<!-- ikon-example: sdkx-protocol-options -->
 ```csharp
 var config = new IkonClientConfig
 {
     // ... authentication ...
 
-    // Filter which message types to receive/send
-    OpcodeGroupsFromServer = Opcode.GROUP_ALL,
-    OpcodeGroupsToServer = Opcode.GROUP_ALL,
+    // Filter which message types to receive/send (default; leaving out GROUP_APP_LOCAL drops the app's own schema messages)
+    OpcodeGroupsFromServer = Opcode.GROUP_ALL | Opcode.GROUP_APP_LOCAL,
+    OpcodeGroupsToServer = Opcode.GROUP_ALL | Opcode.GROUP_APP_LOCAL,
 
     // Payload serialization format
     PayloadType = PayloadType.Teleport,  // Default
@@ -658,14 +669,14 @@ var config = new IkonClientConfig
 
 ### Client Identification
 
-<!-- ikon-code: sdkx-client-identification -->
+<!-- ikon-example: sdkx-client-identification -->
 ```csharp
 var config = new IkonClientConfig
 {
     // ... authentication ...
     DeviceId = "unique-device-id",
     ProductId = "my-app",
-    VersionId = "1.0.0",
+    VersionId = "3",                  // a whole number
     InstallId = "install-xyz",
     Locale = "en-US",
     Description = "My Application",

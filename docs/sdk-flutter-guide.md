@@ -90,7 +90,7 @@ When you need styling that differs by renderer, scope it with the **target varia
 `flutter:` applies only on Flutter, `web:` only on the web/CSS renderer, and unprefixed
 applies to both. Use the variant-group form to scope many classes with one prefix:
 
-<!-- ikon-code: flutter-target-variants -->
+<!-- ikon-example: flutter-target-variants -->
 ```csharp
 view.Box(
     style: [
@@ -143,6 +143,7 @@ dependencies:
 import 'package:flutter/material.dart';
 import 'package:ikon_sdk/ikon_sdk.dart';
 
+const _ikonHost = String.fromEnvironment('IKON_SERVER_HOST', defaultValue: 'localhost');
 const _ikonPort = int.fromEnvironment('IKON_PORT', defaultValue: 8443);
 
 void main() => runApp(const MyApp());
@@ -184,7 +185,7 @@ class _IkonScreenState extends State<IkonScreen> {
   Future<void> _connect() async {
     setState(() { _state = IkonConnectionState.connecting; _error = null; });
     try {
-      final client = await IkonClient.connectLocal(host: 'localhost', port: _ikonPort);
+      final client = await IkonClient.connectLocal(host: _ikonHost, port: _ikonPort);
       client.onStateChange.listen((s) { if (mounted) setState(() => _state = s); });
       _client = client;
       _uiCore = IkonUiCore(client);
@@ -223,13 +224,13 @@ class _IkonScreenState extends State<IkonScreen> {
 ```bash
 # Terminal 1: Start the C# server with Flutter support
 cd Ikon.App.MyApp
-ikon app run --flutter            # Flutter app in Chrome
-ikon app run --flutter-ios        # ... on the iOS simulator (macOS)
-ikon app run --flutter-android    # ... on an Android emulator
+ikon run --flutter            # Flutter app in Chrome
+ikon run --flutter-ios        # ... on the iOS simulator (macOS)
+ikon run --flutter-android    # ... on an Android emulator
 
 # Or manually in two terminals:
 # Terminal 1: C# server
-ikon app run
+ikon run
 
 # Terminal 2: Flutter app
 cd frontend-flutter
@@ -238,7 +239,7 @@ flutter run -d chrome --dart-define=IKON_PORT=8446
 
 The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
 `--flutter-android` use the simulator or emulator that is already running, boot one when none is
-(`flutter emulators --launch`), and fall back to a plugged-in phone of that platform. They also pass
+(`xcrun simctl boot` on iOS, `flutter emulators --launch` on Android), and fall back to a plugged-in phone of that platform. They also pass
 the right server host for the device — the Android emulator reaches the host machine at `10.0.2.2`,
 not `localhost`. A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
 skips opening the web frontend in a browser tab; the web frontend still serves.
@@ -264,11 +265,11 @@ flutter run -d macos --dart-define=IKON_PORT=8446
 Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
 
 ```bash
-# Emulator — ikon app run --flutter-android does this for you
+# Emulator — ikon run --flutter-android does this for you
 flutter run -d android --dart-define=IKON_PORT=8446 --dart-define=IKON_SERVER_HOST=10.0.2.2
 
 # Physical device — run server on LAN
-ikon app run --host-lan
+ikon run --host-lan
 # Then use the LAN IP in the Flutter app
 ```
 
@@ -277,11 +278,11 @@ ikon app run --host-lan
 Requires Xcode + Apple Developer account:
 
 ```bash
-# Simulator (localhost works) — ikon app run --flutter-ios does this for you
+# Simulator (localhost works) — ikon run --flutter-ios does this for you
 flutter run -d ios --dart-define=IKON_PORT=8446
 
 # Physical device — run server on LAN
-ikon app run --host-lan
+ikon run --host-lan
 ```
 
 The dev server's certificate is self-signed; `IkonClient.connectLocal` trusts it for the host it
@@ -333,7 +334,7 @@ in with the code the auth service mails. The token is kept in secure storage, so
 connects straight in as that user; a token the server no longer accepts is dropped for a guest
 connect. `sso:` connections and passkeys are not offered on a phone yet.
 
-`ikon app bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
+`ikon bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
 `RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template wires it; the essentials are:
 
 ```dart
@@ -352,7 +353,7 @@ final client = await signIn.connect(); // the stored user, else a guest
 signIn.register(client);               // answers login, loginShow and logout
 ```
 
-An app that requires sign-in shows `IkonSignInChooser(canClose: false, onChosen: signIn.signInWith)`
+An app that requires sign-in shows `IkonSignInChooser(methods: signIn.supportedMethods, canClose: false, onChosen: signIn.signInWith)`
 before connecting when `signIn.storedToken()` is null.
 
 ### Deployed Apps — API Key
@@ -389,7 +390,7 @@ Apps that declare multiple Parallax sub-trees via `IAppBase.Mounts` can be selec
 IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas')
 ```
 
-When `mount` is `null`, the most recently updated tree is rendered (single-mount apps). The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
+When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, or else the only stream other than the platform overlay; with several such streams nothing renders. The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
 
 ## Client Functions
 
@@ -406,15 +407,15 @@ client.functionRegistry.register(
 ```
 
 Built-in Flutter functions (called automatically by the server):
-- `ikon.client.getTheme` / `setTheme` — theme (placeholder; managed by the host app's `ThemeData`)
+- `ikon.client.getTheme` / `setTheme` — `dark` or `light`; `setTheme` drives the renderer's light/dark token variants and returns false for an unrecognised name
 - `ikon.client.getLanguage` — device locale
 - `ikon.client.getTimezone` — device timezone
 - `ikon.client.getViewport` — viewport dimensions
 - `ikon.client.getVisibility` — app lifecycle state
 - `ikon.client.vibrate` — haptic feedback
 - `ikon.client.keepScreenAwake` — wakelock
-- `ikon.client.scrollTo` — scroll (handled by the Parallax view)
-- `ikon.client.getUrl` / `setUrl` — URL placeholders
+- `ikon.client.scrollTo` — a no-op that returns true
+- `ikon.client.getUrl` / `setUrl` — a URL stack that `setUrl` pushes or replaces; the back gesture pops it and reports the path underneath
 - `ikon.client.getLocation` — geolocation (via `geolocator`)
 - `ikon.client.getNotificationPermission` / `showNotification` — local notifications (via `flutter_local_notifications`, permission requested lazily on first send)
 - `ikon.client.getPushSubscription` — FCM token for offline push (returns null unless the app wires `ikonFcmTokenProvider`; Firebase stays opt-in)
@@ -443,8 +444,10 @@ wire the bundled ones:
 // Opus mic capture (bundled OpusAudioEncoder + record-based mic source)
 final capture = enableIkonAudioCapture(client);
 await capture.start(sampleRate: 48000);
-// Or construct manually and feed PCM frames yourself:
+// Or construct manually without a micSource, start it, then feed PCM frames yourself
+// (frames fed before start() are dropped):
 // final capture = IkonAudioCapture(client: client, encoder: OpusAudioEncoder());
+// await capture.start(sampleRate: 48000);
 // await capture.feedPcmFrame(pcmData);
 await capture.stop();
 
@@ -487,7 +490,7 @@ The Flutter SDK renders 105+ registered component types including:
 - **Display:** avatar (image + fallback), image (network), progress bar
 - **Disclosure:** accordion, collapsible, tabs
 - **Overlays:** dialog, alert dialog, tooltip, popover, toast
-- **Media:** Rive animations, charts (bar/line/pie via fl_chart)
+- **Media:** charts (bar/line/pie via fl_chart)
 - **Structure:** form, file upload zone, drag & drop containers, keyboard listener
 
 ## CI/CD

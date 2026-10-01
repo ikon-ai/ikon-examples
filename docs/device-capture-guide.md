@@ -1,5 +1,5 @@
 # Ikon Device Capture Guide
-<!-- checked-against: 043a669ca65cddce -->
+<!-- checked-against: cc1f12fff029e298 -->
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |
@@ -10,16 +10,17 @@ How an Ikon app reads a phone's sensors, keeps a record when the network does no
 | `UploadService` | `app.Uploads` | Uploads no rendered component asked for |
 
 All four are default-implemented on the app interface, so a server-side test double does not have
-to implement any of them. On a host that cannot provide one, the first three throw
-`NotSupportedException`; `LiveActivityService` does not — `StartAsync`, `UpdateAsync` and `EndAsync` answer `false`, and
-`EndEverywhereAsync` swallows a device that is gone, because a lock-screen banner is a nicety and
+to implement any of them. On a host that cannot provide one, all four throw
+`NotSupportedException`. Where the host has `LiveActivityService` but a client cannot show a banner,
+`StartAsync`, `UpdateAsync` and `EndAsync` answer `false`, and `EndEverywhereAsync` swallows a device
+that is gone, because a lock-screen banner is a nicety and
 its absence must never take an app down. Check the bool.
 
 ## Motion — what GPS cannot see
 
 Location answers *where*. Motion answers *how it is moving*, which is the thing a position trace cannot tell you: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride is in the accelerometer, rotation in the gyroscope — ask for both.
 
-<!-- ikon-code: device-motion -->
+<!-- ikon-example: device-motion -->
 ```csharp
 app.Motion.OnBatch(batch =>
 {
@@ -55,9 +56,9 @@ Each `MotionBatch` carries the samples in device order, the session and user it 
 
 ### Motion and location together
 
-Motion answers *how*, location answers *where*, and most captures want both. `app.Location` tracks a
+Motion answers *how*, location answers *where*, and most captures want both. `app.Locations` tracks a
 client with `LocationTrackingOptions` and delivers each fix as a `LocationUpdate`; `ClientLocation`
-is the last known position for a session. Start them together and stop them together — a recording
+is what a one-shot `ClientFunctions.GetLocationAsync` returns, or null when the client cannot say. Start them together and stop them together — a recording
 that keeps reading motion after location stops looks alive while producing a track that stands
 still.
 
@@ -69,9 +70,9 @@ ignore both.
 
 ## Recordings — the track that survives a tunnel
 
-A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the activity ends.
+A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`.
 
-<!-- ikon-code: device-recordings -->
+<!-- ikon-example: device-recordings -->
 ```csharp
 app.Recordings.OnArchive(archive => Repair(archive));
 
@@ -81,7 +82,7 @@ await app.Recordings.StartAsync(sessionId, outingId, new RecordingOptions(
 
 `RecordingOptions` decides what goes in the file: `Fixes` (almost always yes — this is what survives an outage), `Motion` (at the full rate asked of `app.Motion`, independent of any `LiveHertz` decimation), and `MaxBytes`, which is a refusal rather than a target — a device out of space must fail the recording, not the phone.
 
-A `RecordingArchive` arrives with the activity id the app gave it, the uploading session and user, when the device opened the file, the recorded `Fixes` and `Motion` in device order, and an `Asset` pointing at the raw bytes. Each `RecordedFix` is raw on purpose — no smoothing, no auto-pause, no elevation fill — because the app's own recorder is the processor, and re-running it over a complete set beats a track assembled live from whatever the network delivered. `RecordingRecordKind` distinguishes the two record types inside the encoded file if you ever decode it directly.
+A `RecordingArchive` arrives with the activity id the app gave it (cut to ASCII letters, digits, `-` and `_`, at most 128 characters, so choose ids in that set), the uploading session and user, when the device opened the file, the recorded `Fixes` and `Motion` in device order, and an `Asset` pointing at the raw bytes. Each `RecordedFix` is raw on purpose — no smoothing, no auto-pause, no elevation fill — because the app's own recorder is the processor, and re-running it over a complete set beats a track assembled live from whatever the network delivered. `RecordingRecordKind` distinguishes the two record types inside the encoded file if you ever decode it directly.
 
 Three rules make this work:
 
@@ -95,7 +96,7 @@ Archives arrive through the upload transport under the fixed id `RecordingArchiv
 
 `app.LiveActivity` puts a banner on the iOS lock screen and in the Dynamic Island while something is running, updating in place with nobody looking at the app.
 
-<!-- ikon-code: device-live-activity -->
+<!-- ikon-example: device-live-activity -->
 ```csharp
 await app.LiveActivity.StartAsync("Momentum", "#db176e",
     [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
@@ -104,7 +105,7 @@ await app.LiveActivity.UpdateAsync(metrics, status: "Run");
 await app.LiveActivity.EndEverywhereAsync();
 ```
 
-It carries **values, never layout**. One widget draws every app's banner, which is why this needs no per-app native code even though the banner itself cannot be Flutter — iOS renders it through WidgetKit from SwiftUI archived at update time.
+It carries **values, never layout**. One widget draws every app's banner, so the C# call is all an app writes, but the banner itself cannot be Flutter — iOS renders it through WidgetKit from SwiftUI archived at update time. That widget extension and its bridge are native code in the app's own `frontend-flutter/ios` folder, and `ikon new` does not create them yet: copy the `IkonLiveActivity` folder, `Runner/IkonLiveActivityBridge.swift` and its registration in `AppDelegate.swift` from the Momentum example, and add `IkonLiveActivity` to `Runner.xcodeproj` as a widget-extension target that Runner depends on and embeds (Momentum's `project.pbxproj` has the entries, and its `Runner/Info.plist` sets `NSSupportsLiveActivities`). Without them every call answers `false`.
 
 - A `LiveMetric` is a formatted `Value` and a `Label`. The widget does no formatting: units, precision and padding are yours.
 - **Three metrics maximum.** Anything past the third is not shown.
@@ -113,13 +114,13 @@ It carries **values, never layout**. One widget draws every app's banner, which 
 - Prefer `UpdateAsync` to a repeated `StartAsync`. A second start would orphan the first banner with numbers that never move again; the client folds a repeat start into an update, but calling the right one says what you meant.
 - **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said on a screen the person cannot dismiss it from. `EndAsync(sessionId)` is for clearing one client on purpose.
 
-Every call answers `false` rather than throwing where a banner cannot be shown — a browser, an Android device, iOS below 16.2, a shell that predates the bridge. A banner is a nicety and its absence must never take an app down with it.
+`StartAsync`, `UpdateAsync` and `EndAsync` answer `false` rather than throwing where a banner cannot be shown — a browser, an Android device, iOS below 16.2, an iOS build that does not carry the widget extension and its bridge. A banner is a nicety and its absence must never take an app down with it.
 
 ## Uploads — files nothing on screen asked for
 
 `view.FileUpload` covers a person picking a file, and registers itself as it renders. `app.Uploads` is the same transport for the case where nothing is on screen: a client sending what it recorded while the app was in a pocket, a background sync, a device catching up on work it did offline. Both paths share one handler, so an upload behaves identically whichever asked for it.
 
-<!-- ikon-code: device-uploads -->
+<!-- ikon-example: device-uploads -->
 ```csharp
 app.Uploads.Register("my-app.telemetry",
     onStart: args => Task.FromResult(new FileUploadResult

@@ -7,7 +7,7 @@ You do not need to know how to code to build an Ikon app. You need two terminals
 Create your app:
 
 ```
-ikon app new Ikon.App.MyProject
+ikon new Ikon.App.MyProject
 ```
 
 This gives you a working project. It compiles, it runs, it shows up in a browser. A blank canvas with the entire Ikon runtime behind it.
@@ -20,7 +20,7 @@ In the first terminal, start your app:
 
 ```
 cd Ikon.App.MyProject
-ikon app run
+ikon run
 ```
 
 Your app is now running at `localhost:5000`. Open it in a browser. You will see a blank page with the project name. The app is live and watching for changes.
@@ -84,8 +84,8 @@ These are not months-long features. They are single requests. Claude knows the p
 When you are happy with what you have built:
 
 ```
-ikon app config
-ikon app deploy
+ikon link
+ikon deploy
 ```
 
 The app you built locally is the production app. There is no rewrite step. What worked on your machine works when deployed.

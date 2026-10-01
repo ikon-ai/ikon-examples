@@ -1,19 +1,19 @@
 # Ikon.App.Payments Guide
-<!-- checked-against: 225c95d66c06a787 -->
+<!-- checked-against: 40fb6d76d4c8bdba -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
 sends commands and reacts to events: there is no webhook to host and no payment state to persist.
 
-> This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon billing` / the
+> This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon credits` / the
 > Canvas AI-credit system that funds the platform) — different system, different money.
 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable stripe      # Stripe is the generally-available provider
-ikon app payments enable surfboard --corporate-id 0112038-9   # Surfboard also needs the business registration number
-ikon app payments status                        # check onboarding / charges-enabled
+ikon payments enable stripe      # Stripe is the generally-available provider
+ikon payments enable surfboard --corporate-id 0112038-9   # Surfboard also needs the business registration number
+ikon payments status                        # check onboarding / charges-enabled
 ```
 
 `enable` provisions a connected merchant under Ikon's platform account and prints a hosted onboarding link
@@ -28,9 +28,9 @@ the flag. Stripe and Mollie collect the equivalent during their own onboarding, 
 
 Onboarding links are **single-use and short-lived, and always use the newest one** — requesting a new link
 can invalidate older ones. If a link has gone stale (it bounces to an explanatory page instead of the
-provider's form), get a fresh one with `ikon app payments status`, or just re-run
-`ikon app payments enable` — while onboarding is unfinished it prints a fresh link instead of demanding
-`--force`.
+provider's form), get a fresh one with `ikon payments status`, or just re-run
+`ikon payments enable` — while onboarding is unfinished it prints a fresh link instead of demanding
+`--yes`.
 
 > **Mollie and Surfboard are currently admin-only** (in preview) — regular apps enable **Stripe**. Your app
 > code is provider-neutral either way, so nothing changes when they become generally available.
@@ -39,7 +39,7 @@ provider's form), get a fresh one with `ikon app payments status`, or just re-ru
 
 `app.Payments` (a `PaymentsService`) is the entry point — no construction needed.
 
-<!-- ikon-code: payments-setup -->
+<!-- ikon-example: payments-setup -->
 ```csharp
 // 1. No provider setup needed — commands charge with the provider you enabled for the app.
 //    Pin a default ONLY if you enabled more than one and want to skip passing provider: each call:
@@ -105,8 +105,10 @@ entitlements.
 `OnClientJoined` handler — so `CreatePaymentLinkAsync("pro")`, `GetEntitlementAsync("pro")`, and
 `ListSubscriptionsAsync()` all "just work" for the logged-in user. **Pass it explicitly** for another
 user/org, or when there is no current user in scope: a **background task**, or — importantly — the
-**`PaymentEventReceived` handler** (a server-side push, not tied to any client). Omitting it there throws a
-clear error telling you to supply it; the event's `Payload()` carries the customer it concerns.
+**`PaymentEventReceived` handler** (a server-side push, not tied to any client). Omitting it there makes
+`CreatePaymentLinkAsync`, `GetEntitlementAsync`, `ListSubscriptionsAsync` and `ListPaymentsAsync` throw a
+clear error telling you to supply it (`IsEntitled` just reports not entitled, and `ReconcileAsync` falls back
+to the app's recent window); the event's `Payload()` carries the customer it concerns.
 
 ### Anonymous (guest) users — refused by default
 
@@ -115,7 +117,7 @@ later gives them a **different** user id, so a payment taken under the guest id 
 granted — would not follow them. `CreatePaymentLinkAsync` therefore **throws** when the paying customer
 is a connected guest. Either require sign-in before taking the payment, or opt in explicitly:
 
-<!-- ikon-code: payments-anonymous -->
+<!-- ikon-example: payments-anonymous -->
 ```csharp
 app.Payments.AllowAnonymousPayments = true;   // accept guest payments (e.g. anonymous tips)
 ```
@@ -134,7 +136,7 @@ An offer is an **Ikon-level catalog entry** (`offerId` → a price) that custome
 from code or the CLI — no provider dashboard required — and it works the same across Stripe, Mollie, and
 Surfboard:
 
-<!-- ikon-code: payments-create-offer -->
+<!-- ikon-example: payments-create-offer -->
 ```csharp
 await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
     new OfferPriceSpec(AmountMinor: 999, Currency: "eur", Kind: PriceKind.Recurring, Interval: PriceInterval.Month)));
@@ -144,9 +146,9 @@ await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
 or
 
 ```
-ikon app payments offer create pro --name Pro --amount 999 --currency eur --interval month
-ikon app payments offer list
-ikon app payments offer delete pro
+ikon offer create pro --name Pro --amount 999 --currency eur --interval month
+ikon offer list
+ikon offer delete pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
@@ -169,7 +171,7 @@ For **one-time** (permanent-unlock) offers, charge a developer-computed amount w
 offer's entitlement by passing `amountMinorOverride` to the offer payment link. The classic case is
 "upgrade from `level1` to `level2`, crediting what was already paid":
 
-<!-- ikon-code: payments-upgrade-credit -->
+<!-- ikon-example: payments-upgrade-credit -->
 ```csharp
 // The customer already bought level1; charge only the difference for level2.
 var payments = await app.Payments.ListPaymentsAsync();
@@ -190,9 +192,10 @@ premium features on `level2` and hide the buy button with `IsEntitled` as needed
 ### Subscriptions — change plan with proration
 
 Switch an active subscription to another **recurring** offer (same currency and interval) with
-`ChangeSubscriptionOfferAsync`:
+`ChangeSubscriptionOfferAsync`. It is rejected when the subscription is set to cancel at period end (resume
+it first) or is not active, trialing or past due:
 
-<!-- ikon-code: payments-change-offer -->
+<!-- ikon-example: payments-change-offer -->
 ```csharp
 var change = await app.Payments.ChangeSubscriptionOfferAsync(subscriptionId, "level2");
 ```
@@ -205,11 +208,14 @@ var change = await app.Payments.ChangeSubscriptionOfferAsync(subscriptionId, "le
 
 The result's `Changed` is `false` when the subscription was already on that offer; `Direction`,
 `ProrationAmountMinor`, `ProratedChargeRef`, and `Effective` (`"immediate"` for an upgrade, `"next_cycle"`
-for a downgrade) describe what happened. The previous offer's entitlement is left to lapse at its stored
+for a downgrade) describe what happened. `ProrationAmountMinor` is what the platform charged, so it is `0`
+for a trialing subscription and for any Stripe change — Stripe invoices an upgrade's difference itself, and
+`ProratedChargeRef` is then that invoice's id. The previous offer's entitlement is left to lapse at its stored
 expiry — so on a downgrade the higher plan remains usable until the period ends, and on an upgrade the old
 plan lingering alongside the new one is harmless.
 
-The platform computes the proration. To own the pricing yourself (Mollie/Surfboard), pass
+For Mollie/Surfboard the platform computes the proration, and rejects a Mollie/Surfboard upgrade whose stored period is stale
+(reconcile first). To own the pricing yourself (Mollie/Surfboard), pass
 `immediateChargeMinor` to set the exact upgrade charge; it is rejected for Stripe, which prorates natively.
 
 ### Resubscribe (un-cancel)
@@ -217,7 +223,7 @@ The platform computes the proration. To own the pricing yourself (Mollie/Surfboa
 A subscription canceled at period end but whose paid period hasn't lapsed can be re-enabled — no charge,
 billing resumes on the original renewal date:
 
-<!-- ikon-code: payments-resume -->
+<!-- ikon-example: payments-resume -->
 ```csharp
 var resume = await app.Payments.ResumeSubscriptionAsync(subscriptionId);
 // resume.SubscriptionId may differ from the input when the provider recreated the subscription (Mollie).
@@ -230,7 +236,7 @@ An immediately-canceled or fully-ended subscription can't be resumed — start a
 Let customers apply a discount code on the checkout page by passing `allowPromotionCodes: true` when
 creating a payment link — works for one-time and subscription offers, and for ad-hoc charges:
 
-<!-- ikon-code: payments-promotion-codes -->
+<!-- ikon-example: payments-promotion-codes -->
 ```csharp
 var link = await app.Payments.CreatePaymentLinkAsync("pro", allowPromotionCodes: true);
 ```
@@ -248,7 +254,7 @@ Your app does **not** host a webhook. The backend normalizes every provider webh
 `PaymentEventReceived` event over the existing protocol-message channel. Handle the normalized types;
 delivery is deduped on `EventId`:
 
-<!-- ikon-code: payments-route-events -->
+<!-- ikon-example: payments-route-events -->
 ```csharp
 app.Payments.PaymentEventReceived += evt => evt.Type switch
 {
@@ -270,7 +276,8 @@ a delivery is missed or the app is offline when an event is pushed:
    renewal or cancellation event landing.
 3. **`app.Payments.ReconcileAsync(customerKey?, reference?)`** — on-demand re-pull for anything else. Pass
    a `PaymentLink.Reference` (checkout session) or a subscription id to pull one object, a `customerKey`
-   for that customer's recent objects, or nothing (outside a client scope) for the space's recent window.
+   for that customer's recent objects, or nothing (outside a client scope) for the app's recent window. That is Stripe; Mollie and Surfboard ignore
+   `customerKey` and re-pull the app's non-terminal payments, and Mollie accepts only a `tr_…` payment id as `reference`.
    It is eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary
    `PaymentEventReceived` pushes and entitlement refreshes within seconds — the return value only reports
    how many objects were queued.
@@ -284,7 +291,7 @@ as the authority.
 
 Gate a server `[Function]` on an active entitlement declaratively:
 
-<!-- ikon-code: payments-gating -->
+<!-- ikon-example: payments-gating -->
 ```csharp
 [Function(Visibility = FunctionVisibility.External)]
 [PaymentsRequireEntitlement("pro")]   // deny code: payments_entitlement_required
@@ -293,7 +300,7 @@ public string ProOnlyReport() => "the paid-tier report";
 
 The call is denied unless the caller holds an active entitlement for the offer (resolved from the caller's
 id) — access granted by an active subscription **or** a one-time purchase of that offer. Your UI catches the
-deny code and opens a payment link; the next `PaymentEventReceived` flips the entitlement and the user
+deny code and opens a payment link (a call with no user id is denied with `payments_no_user` instead); the next `PaymentEventReceived` flips the entitlement and the user
 retries. `GetEntitlementAsync(offerId).Source` tells you whether the access came from a `Subscription` or a
 `OneTime` purchase.
 
@@ -315,7 +322,7 @@ when that answer failed, it is `false`. `CheckEntitlement(offerId)` returns the 
 `EntitlementState` (`Unknown` / `Entitled` / `NotEntitled`) so a gate can render "checking…" instead
 of a locked feature while the answer is on its way:
 
-<!-- ikon-code: payments-entitlement -->
+<!-- ikon-example: payments-entitlement -->
 ```csharp
 if (app.Payments.IsEntitled("pro"))
 {
@@ -334,7 +341,7 @@ everywhere else.
 Hand a customer a receipt for a completed payment with `RequestReceiptAsync(paymentId)` — the same
 `paymentId` you'd refund with:
 
-<!-- ikon-code: payments-receipt -->
+<!-- ikon-example: payments-receipt -->
 ```csharp
 var receipt = await app.Payments.RequestReceiptAsync(paymentId);
 if (!string.IsNullOrEmpty(receipt.Url))
@@ -351,8 +358,8 @@ else if (receipt.Pdf is { Length: > 0 } pdf)
 ```
 
 `PaymentReceipt.Url` is a provider-hosted receipt page (Stripe and Surfboard both return one); `Pdf` carries
-downloadable PDF bytes only when the provider exposes one (today a hosted URL is the norm, so `Pdf` is
-usually `null`). Return shape is uniform across providers; a provider with no customer-facing receipt at all
+downloadable PDF bytes only when the provider exposes one (no provider does today, so `Pdf` is always
+`null` and the example's `Pdf` branch is for the future). Return shape is uniform across providers; a provider with no customer-facing receipt at all
 (Mollie) returns both fields `null` rather than failing — check for that before showing a receipt button.
 
 ## Providers
@@ -377,12 +384,12 @@ Stripe or Mollie.
 
 - **ikon-connect** (default): the app onboards as a connected merchant under Ikon's platform account;
   Ikon takes a platform fee (see below). Zero setup.
-- **byok** (admin-only): the app uses its own provider account; no Ikon fee. `ikon app payments enable
-  --mode byok --provider stripe|mollie|surfboard` stores the app's own key as a secret.
+- **byok** (admin-only): the app uses its own provider account; no Ikon fee. `ikon payments enable
+  stripe|mollie --mode byok` stores the app's own key as a secret (any other provider falls through to the Stripe keys).
 
 ## Platform fee
 
-On the **ikon-connect** path Ikon takes a percentage cut of each payment (default **10%**), set per space
+On the **ikon-connect** path Ikon takes a percentage cut of each payment (default **10%**), set per app
 by Ikon staff. byok takes no fee (the funds are in your own account). You do not set or see the fee from
 app code — the backend applies it via the provider's native split primitive (Stripe application fees,
 Mollie application fee, Surfboard Flow service-provider split), so the cut settles to Ikon automatically.
@@ -390,8 +397,8 @@ Mollie application fee, Surfboard Flow service-provider split), so the cut settl
 ## Removing a provider
 
 ```bash
-ikon app payments disable                    # remove every provider from the app
-ikon app payments disable mollie  # remove just one
+ikon payments disable                    # remove every provider from the app
+ikon payments disable mollie  # remove just one
 ```
 
 ## How it works (the mental model)
