@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
     : resolvePackageExport('@ikonai/sdk-react-ui-standard/prerender-entry');
 
   if (!entry) {
-    throw new Error('The installed @ikonai/sdk-react-ui-standard has no prerender entry; run `ikon app update` to update the SDK packages');
+    throw new Error('The installed @ikonai/sdk-react-ui-standard has no prerender entry; run `ikon update` to update the SDK packages');
   }
 
   const workerStub = sourceMode
