@@ -5,7 +5,7 @@ ConfigVersion = 6
 # Which of the space's databases backs PersistentReactive state. Empty means the platform picks — the
 # built-in "app" database, or your own when the space holds exactly one — and records the choice so
 # it does not move when databases are added or removed. Name one here only to override that. The name
-# must match a database the space holds ('ikon app db list'); an unknown name is reported and the app
+# must match a database the space holds ('ikon db list'); an unknown name is reported and the app
 # falls back to asset storage rather than provisioning anything.
 StateDatabase = ""
 
@@ -36,7 +36,7 @@ RequireSignIn = false
 
 # The platform's feedback overlay: a sheet for reporting a problem or an idea by text, voice, files
 # and a screenshot. Reports go to the app's space, where its members read them in Studio and with
-# 'ikon app feedback'. The app can open it from its own controls with ClientFunctions.OpenFeedbackAsync.
+# 'ikon issue list --source person'. The app can open it from its own controls with ClientFunctions.OpenFeedbackAsync.
 [Feedback]
 # Whether the overlay is offered at all
 Enabled = false
@@ -103,14 +103,14 @@ PrivacyPath = "/legal/privacy"
 # The path on the app's domain the terms are served at, with the same rules as PrivacyPath.
 TermsPath = "/legal/terms"
 
-# Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
+# Custom packaging steps for 'ikon bundle' and 'ikon deploy'
 [Package]
 # Commands run in the app root after the app + frontend build, before the bundle is zipped. The bundle
 # staging directory is exposed as IKON_BUNDLE_DIR, so a command can write processed output straight
 # into the package (e.g. ["python scripts/pack_assets.py"])
 PrePackage = []
 
-# Target information for deployment (automatically configured with 'ikon app config')
+# Target information for deployment (automatically configured with 'ikon link')
 [Target]
 SpaceId = ""
 Name = ""
