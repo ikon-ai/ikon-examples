@@ -15,7 +15,7 @@ void main() {
 /// the app auto-discovers the local Ikon server (the host launches the Flutter
 /// frontend with `--dart-define=IKON_PORT=<port>`).
 ///
-/// When bundled with `ikon app bundle --flutter-*`, the tool injects the
+/// When bundled with `ikon bundle --flutter-*`, the tool injects the
 /// space identity and server host as dart-defines, so [isDeployed]
 /// is true and the app connects to its deployed space.
 class IkonAppConfig {

@@ -442,7 +442,7 @@ highlights were detected the same way a real one's are.
 
 ## Running it on a real phone
 
-`ikon app run --flutter-ios` boots a **simulator** only; there is no flag for a physical device, so
+`ikon run --flutter-ios` boots a **simulator** only; there is no flag for a physical device, so
 that leg is `flutter run` by hand. Two prerequisites, both at the Xcode GUI and neither scriptable:
 pair the phone in Xcode's Devices window, and sign in with an Apple ID so a signing certificate
 exists (`security find-identity -p codesigning` must report more than zero). A free Apple ID is
@@ -462,7 +462,7 @@ flutter run --release -d <device-id> \
   --dart-define=IKON_AUTH_URL=https://auth.dev.ikonai.com
 ```
 
-Those are the same defines `ikon app bundle --flutter-ios` injects (`FlutterFrontendBuilder.
+Those are the same defines `ikon bundle --flutter-ios` injects (`FlutterFrontendBuilder.
 BuildFlutterDefines`); `flutter run` is used instead because it installs straight onto the phone
 without an export-options plist or a distribution profile.
 
