@@ -1,7 +1,6 @@
 <!-- This file is automatically updated by ikon tool commands. User edits are preserved only below the ikon-user-content-below marker. -->
 
 # Ikon AI App Development Guidelines
-<!-- checked-against: 45aad0ba83200616 -->
 **Detailed API references are in docs/Ikon.Agent.Docs/guides/. See the guide index at the bottom of this document.**
 
 ## Architecture
@@ -377,6 +376,5 @@ Grep that directory by type or member name before guessing a signature — it is
 `docs/Ikon.Agent.Docs/patterns/` holds short, self-contained patterns lifted from production Ikon AI Apps, each one compiled against the real assemblies and render tested, so a pattern cannot drift from the API it uses.
 
 Start at `docs/Ikon.Agent.Docs/patterns/_index.md`, which groups every pattern by the task it solves. Adapting the closest pattern is faster and safer than writing a screen or a flow from scratch.
-
 
 <!-- ikon-user-content-below -->
