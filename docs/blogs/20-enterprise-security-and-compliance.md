@@ -1,5 +1,7 @@
 # Built for the Security Review
 
+*Published 2026-03-30*
+
 Most AI applications are built first and secured later. A team wires up a frontend to an API, gets it working, ships it — and then someone from security asks where the API keys are stored. The answer is usually complicated. Keys in environment variables that get bundled into the client. Tokens in localStorage. Credentials proxied through a thin backend that was added after the prototype. Each question in the security review reveals another layer of improvisation.
 
 Ikon applications do not have this problem. Not because someone went through a hardening checklist, but because the architecture eliminates the conditions that create the vulnerabilities in the first place.

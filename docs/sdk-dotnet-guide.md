@@ -1,5 +1,5 @@
 # Ikon AI C# SDK
-<!-- checked-against: e6fae3dd5581337b -->
+<!-- checked-against: fbcea7261e4995f2 -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -198,13 +198,13 @@ The client tracks its connection state via the `State` property:
 | `Connecting` | Authentication and connection in progress |
 | `Connected` | Fully connected and ready |
 | `Reconnecting` | Lost connection, attempting automatic reconnect |
-| `Offline` | Disconnected (connection failed or max retries exceeded) |
+| `Offline` | Disconnected: the connection failed, the reconnect ladder was exhausted, or the server shut down. Not terminal after an exhausted ladder: with `BackgroundReconnect` on (the default) the client keeps retrying and can return to `Connected` |
 
 Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`
 - `state.IsConnected()` - True if `Connected`
 - `state.IsDisconnected()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
-- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection
+- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection; it is not final, since the background reconnect can still bring the client back
 
 ### Events
 
@@ -229,11 +229,12 @@ client.StoppingAsync += async e =>
     Console.WriteLine("Server stopping...");
 };
 
-// Disconnected: the fast reconnect attempts failed, the server is stopping, or a
-// connection that never fully connected dropped. With BackgroundReconnect on (the default)
-// a failed reconnect keeps retrying from Offline, so this is final only when the server is
-// stopping or BackgroundReconnect is off. Not raised by IkonClient.DisconnectAsync
-// or IkonClient.DisposeAsync, nor by a drop that reconnects
+// Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
+// the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
+// retrying from Offline, so this is final only when the server is stopping or
+// BackgroundReconnect is off. Not raised by a failed IkonClient.ConnectAsync (that is the
+// call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
+// drop that reconnects
 client.DisconnectedAsync += async e =>
 {
     Console.WriteLine("Disconnected");
@@ -311,6 +312,9 @@ await client.SendMessageAsync(message);
 ```
 
 ### Typed Payloads
+
+Like the raw overload, this throws `InvalidOperationException` instead of dropping the
+payload when the client is not connected, so send only after `ReadyAsync` has fired:
 
 <!-- ikon-example: sdkx-typed-payloads -->
 ```csharp

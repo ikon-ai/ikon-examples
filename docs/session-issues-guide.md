@@ -1,5 +1,5 @@
 # Session issues
-<!-- checked-against: 6de7ed9ee3b0c442 -->
+<!-- checked-against: 7a6ff24fe3b0c442 -->
 Session issue analysis turns your app's warning and error logs into a short list of named problems
 you can act on, without reading a log. It is off by default; an admin of the app switches it on with
 `ikon autopilot set --analysis enable`. Analysis runs use AI models billed to your app, and
@@ -26,7 +26,7 @@ leave the analysis.
 
 ## Issue states
 
-```
+```text
 open ──► acknowledged ──► resolved        plus muted, plus likely-fixed
 ```
 

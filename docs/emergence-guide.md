@@ -1,5 +1,5 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: b8a30a2d544482eb -->
+<!-- checked-against: 40deacff56c042d2 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
@@ -170,7 +170,7 @@ var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, cont
 }).FinalAsync();
 ```
 
-The `EmergePass<T>` configure callback is invoked on every iteration, giving access to runtime state:
+The `EmergePass<T>` configure callback is invoked before every iteration on a reset pass — `Tools` emptied and any `Stop` cleared — so set everything the iteration needs on every call, add tools unconditionally, and keep side effects idempotent (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
 
 - `pass.Iteration` — current iteration number
 - `pass.HasFunctionResults` / `pass.HasNewFunctionResults` — whether tool results exist in context
@@ -186,7 +186,8 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
   tokens, capped at half of `MaxOutputTokens` because thinking is spent out of the same ceiling as
   the answer, and never under 1024. `ReasoningTokenBudget` sets an exact budget for a model that reads
   one; an OpenAI model that reads an effort logs a warning and drops it, and ignores it silently
-  when `ReasoningEffort` is also set. Asking a model that cannot reason for either fails the request
+  when `ReasoningEffort` is also set; a Gemini 3 model that reads an effort refuses any non-zero budget
+  and fails the request. Asking a model that cannot reason for either fails the request
   rather than being quietly dropped. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
   which dial a model reads: `ReasoningDial.Effort`, `ReasoningDial.TokenBudget`, or
   `ReasoningDial.None` for a model that takes neither.
@@ -421,7 +422,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 - `ToTableOfContents(maxDepth)` - Generate table of contents
 - `FindById(id)` - Look up a node by ID
 
-`TreeIndexOptions`: `MaxDepth` (default: 4), `MaxSummaryTokens` (default: 100), `GenerateSummaries` (default: true)
+`TreeIndexOptions`: `MaxDepth` (default: 4), `MaxSummaryTokens` (default: 100), `GenerateSummaries` (default: true). `MaxDepth` and `MaxSummaryTokens` are prompt hints to the model, not enforced: the built tree can be deeper and summaries longer.
 
 `TreeNode`: `Id`, `Title`, `Summary`, `Content`, `Page`, `Children`, `Parent`, `Depth`
 
@@ -461,7 +462,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
-**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes with `default(T)`. Enumerating the run and reading the `Completed<T>` event observes the same result, but awaiting a run whose `T` is a reference type then throws `EmergenceStoppedException` (no result was produced).
+**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes with `default(T)` — for a value-type `T` that is `false` or `0`, which the awaited run cannot tell from a real result, so end a value-type run with `EndRun(value)`. Enumerating the run and reading the `Completed<T>` event observes the same result, but awaiting a run whose `T` is a reference type then throws `EmergenceStoppedException` (no result was produced).
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 

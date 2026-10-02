@@ -1,6 +1,7 @@
 # Ikon AI C++ SDK
+<!-- checked-against: 37afd6b377914e78 -->
 
-The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17. The config examples below use C++20 designated initializers; under C++17, assign the members one by one.
+The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17, and every example below compiles as C++17.
 
 ## Features
 
@@ -17,15 +18,18 @@ The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applicatio
 - Implementations of required interfaces:
   - `ILogInterface` - Logging
   - `IHttpInterface` - HTTP client
-  - `INetworkInterface` - TCP client
+  - `INetworkInterface` - TLS client over TCP
 
 ## Quick Start
 
+<!-- ikon-example: cpp-sdk-quick-start -->
 ```cpp
 #include "ikon_sdk.h"
 #include "example_logger.h"
 #include "example_http_client.h"
 #include "example_network_client.h"
+
+#include <iostream>
 
 using namespace ikon;
 
@@ -37,12 +41,13 @@ int main()
     auto networkClient = std::make_shared<ExampleNetworkClient>();
 
     // Create configuration with API key authentication
+    ApiKeyConfig apiKey;
+    apiKey.apiKey = "ikon-xxxxx";             // API key from portal
+    apiKey.spaceId = "your-app-id";
+    apiKey.externalUserId = "user-123";
+
     IkonClientConfig config;
-    config.apiKey = ApiKeyConfig{
-        .apiKey = "ikon-xxxxx",           // API key from portal
-        .spaceId = "your-app-id",
-        .externalUserId = "user-123"
-    };
+    config.apiKey = apiKey;
     config.description = "My App";
 
     // Create and connect the client
@@ -73,30 +78,34 @@ The SDK supports two authentication modes. Exactly one must be configured.
 
 Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
 
+<!-- ikon-example: cpp-sdk-auth-api-key -->
 ```cpp
+ApiKeyConfig apiKey;
+apiKey.apiKey = "ikon-xxxxx";             // API key from portal
+apiKey.spaceId = "...";                   // The app's id (ikon app list)
+apiKey.externalUserId = "user-123";       // Your user identifier
+apiKey.sessionId = "session-xyz";         // Optional: target a precomputed session
+apiKey.backendType = BackendType::Production;
+apiKey.userType = UserType::Human;
+apiKey.clientType = ClientType::DesktopApp;
+
 IkonClientConfig config;
-config.apiKey = ApiKeyConfig{
-    .apiKey = "ikon-xxxxx",           // API key from portal
-    .spaceId = "...",                  // The app's id (ikon app list)
-    .externalUserId = "user-123",      // Your user identifier
-    .sessionId = "session-xyz",        // Optional: target a precomputed session
-    .backendType = BackendType::Production,
-    .userType = UserType::Human,
-    .clientType = ClientType::DesktopApp
-};
+config.apiKey = apiKey;
 ```
 
 ### Local Development
 
 Connect directly to a local Ikon server during development.
 
+<!-- ikon-example: cpp-sdk-auth-local -->
 ```cpp
+LocalConfig local;
+local.host = "localhost";
+local.httpsPort = 8443;
+local.userId = "dev-user";
+
 IkonClientConfig config;
-config.local = LocalConfig{
-    .host = "localhost",
-    .httpsPort = 8443,
-    .userId = "dev-user"
-};
+config.local = local;
 ```
 
 ## Connection Lifecycle
@@ -107,7 +116,7 @@ The client tracks its connection state via `GetState()`:
 
 | State | Description |
 |-------|-------------|
-| `Idle` | Initial state, not connected |
+| `Idle` | Not connected: the initial state, and the state after `Disconnect()` |
 | `Connecting` | Authentication and connection in progress |
 | `Connected` | Fully connected and ready |
 | `Reconnecting` | Lost connection, attempting automatic reconnect |
@@ -115,6 +124,7 @@ The client tracks its connection state via `GetState()`:
 
 ### Callbacks
 
+<!-- ikon-example: cpp-sdk-callbacks -->
 ```cpp
 // Connection state changes
 client.StateChanged = [](ConnectionState state)
@@ -122,7 +132,7 @@ client.StateChanged = [](ConnectionState state)
     std::cout << "State: " << static_cast<int>(state) << std::endl;
 };
 
-// Connection established and ready
+// Connection established and ready, after Connect() and after every reconnect
 client.Ready = [&client]()
 {
     // Perform initialization here
@@ -156,6 +166,7 @@ client.MessageReceived = [](const ProtocolMessage& message)
 
 ### Connecting and Disconnecting
 
+<!-- ikon-example: cpp-sdk-connect-disconnect -->
 ```cpp
 // Connect (throws on failure)
 client.Connect();
@@ -175,6 +186,7 @@ client.Disconnect();
 
 ### Accessing Client State
 
+<!-- ikon-example: cpp-sdk-client-state -->
 ```cpp
 // Access the client configuration
 const IkonClientConfig& config = client.GetConfig();
@@ -198,8 +210,9 @@ std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 
 ### Raw Protocol Messages
 
+<!-- ikon-example: cpp-sdk-send-raw -->
 ```cpp
-// Send a raw protocol message
+// Wrap a payload in a ProtocolMessage yourself and send it as is
 auto* ctx = client.GetClientContext();
 if (ctx)
 {
@@ -210,11 +223,13 @@ if (ctx)
 
 ### Typed Payloads
 
+<!-- ikon-example: cpp-sdk-send-typed -->
 ```cpp
 // Send a generated protocol class from ikon_protocol.h
 // (creates a Teleport-encoded ProtocolMessage automatically)
 ActionCustomUserMessage payload;
-payload.TypeName = "value";
+payload.TypeName = "ChatMessage";
+payload.JsonPayload = R"({"text":"Hello"})";
 client.SendMessage(payload);
 ```
 
@@ -222,6 +237,7 @@ client.SendMessage(payload);
 
 `FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. The client owns one and attaches it itself on connect; get it with `client.Functions()`. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
+<!-- ikon-example: cpp-sdk-shared-functions -->
 ```cpp
 auto& registry = client.Functions();
 
@@ -262,72 +278,88 @@ Additional members: `Call` (invoke a local function), `HasFunction`, `GetFunctio
 
 ## Interface Implementations
 
-The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK.
+The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK: `ExampleLogger`, `ExampleHttpClient` and `ExampleNetworkClient` in `example_logger.h`, `example_http_client.h` and `example_network_client.h`. The two clients need OpenSSL, and outside Windows `ExampleHttpClient` also needs `CPPHTTPLIB_OPENSSL_SUPPORT` defined.
 
 ### ILogInterface
 
-Implement logging functionality:
+Implement every logging method:
 
+<!-- ikon-example: cpp-sdk-log-interface -->
 ```cpp
-class ILogInterface
+class ConsoleLogger : public ILogInterface
 {
 public:
-    virtual ~ILogInterface() = default;
-    virtual void Initialize() = 0;
-    virtual void Trace(const std::string& message) = 0;
-    virtual void Debug(const std::string& message) = 0;
-    virtual void Info(const std::string& message) = 0;
-    virtual void Warning(const std::string& message) = 0;
-    virtual void Error(const std::string& message) = 0;
-    virtual void Critical(const std::string& message) = 0;
+    void Initialize() override {}
+    void Trace(const std::string& message) override { Write("TRACE", message); }
+    void Debug(const std::string& message) override { Write("DEBUG", message); }
+    void Info(const std::string& message) override { Write("INFO", message); }
+    void Warning(const std::string& message) override { Write("WARN", message); }
+    void Error(const std::string& message) override { Write("ERROR", message); }
+    void Critical(const std::string& message) override { Write("CRITICAL", message); }
+
+private:
+    static void Write(const char* level, const std::string& message)
+    {
+        std::cout << "[" << level << "] " << message << std::endl;
+    }
 };
 ```
 
 ### IHttpInterface
 
-Implement HTTP client functionality:
+Implement `Send`, which makes one HTTP request and returns its response:
 
+<!-- ikon-example: cpp-sdk-http-interface -->
 ```cpp
-struct HttpRequest
-{
-    HttpMethod method;
-    std::string url;
-    std::map<std::string, std::string> headers;
-    std::string content;
-    int timeoutMs;
-    bool disableCertificateValidation;
-};
-
-struct HttpResponse
-{
-    int response_code;
-    std::map<std::string, std::string> headers;
-    std::string content;
-};
-
-class IHttpInterface
+class MyHttpClient : public IHttpInterface
 {
 public:
-    virtual ~IHttpInterface() = default;
-    virtual HttpResponse Send(const HttpRequest& request) = 0;
+    HttpResponse Send(const HttpRequest& request) override
+    {
+        // Send request.content to request.url with request.headers, as GET or POST
+        // (request.method), giving up after request.timeoutMs. disableCertificateValidation
+        // is true when connecting to a local Ikon server, whose certificate is self-signed.
+        const char* method = request.method == HttpMethod::Post ? "POST" : "GET";
+        std::cout << method << " " << request.url << std::endl;
+
+        HttpResponse response;
+        response.response_code = 200;  // the HTTP status code
+        response.headers = {};         // the response headers
+        response.content = "";         // the response body
+        return response;
+    }
 };
 ```
 
 ### INetworkInterface
 
-Implement TCP client functionality:
+Implement a TLS connection over TCP. The SDK connects to the server's TLS entrypoint, so a plain TCP socket is not enough:
 
+<!-- ikon-example: cpp-sdk-network-interface -->
 ```cpp
-class INetworkInterface
+class MyNetworkClient : public INetworkInterface
 {
 public:
-    virtual ~INetworkInterface() = default;
-    virtual bool Connect(const std::string& host, int port) = 0;
-    virtual void Disconnect() = 0;
-    virtual void Write(const uint8_t* data, size_t size) = 0;
-    virtual size_t Read(uint8_t* buffer, size_t maxSize) = 0;
-    virtual bool IsConnected() const = 0;
-    virtual void SetConnectionClosedCallback(std::function<void()> callback) = 0;
+    // Open a TLS connection to host:port.
+    bool Connect(const std::string& host, int port) override { return false; }
+
+    // Close the connection, then call the connection-closed callback.
+    void Disconnect() override {}
+
+    void Write(const uint8_t* data, size_t size) override {}
+
+    // Block until data arrives, and return 0 once the connection has closed.
+    size_t Read(uint8_t* buffer, size_t maxSize) override { return 0; }
+
+    bool IsConnected() const override { return false; }
+
+    void SetConnectionClosedCallback(std::function<void()> callback) override
+    {
+        _connectionClosed = std::move(callback);
+    }
+
+private:
+    std::function<void()> _connectionClosed;
 };
 ```
 
@@ -335,24 +367,18 @@ public:
 
 ### Timeouts
 
+<!-- ikon-example: cpp-sdk-timeouts -->
 ```cpp
-IkonClientConfig config;
-// ... authentication ...
-
-config.timeouts = TimeoutConfig{
-    .connectionTimeoutSec = 30,       // Connection timeout
-    .provisioningTimeoutSec = 60,     // Server startup timeout
-    .maxReconnectAttempts = 6,        // Max reconnection attempts
-    .reconnectBackoffMs = 500         // Initial backoff (ms)
-};
+config.timeouts.connectionTimeoutSec = 30;    // Connection timeout
+config.timeouts.provisioningTimeoutSec = 60;  // Server startup timeout
+config.timeouts.maxReconnectAttempts = 6;     // Max reconnection attempts
+config.timeouts.reconnectBackoffMs = 500;     // Initial backoff (ms), doubled on each attempt
 ```
 
 ### Protocol Options
 
+<!-- ikon-example: cpp-sdk-protocol-options -->
 ```cpp
-IkonClientConfig config;
-// ... authentication ...
-
 // Filter which message types to receive/send
 config.opcodeGroupsFromServer = Opcode::GROUP_ALL;
 config.opcodeGroupsToServer = Opcode::GROUP_ALL;
@@ -363,10 +389,8 @@ config.payloadType = PayloadType::Teleport;  // Default
 
 ### Client Identification
 
+<!-- ikon-example: cpp-sdk-client-identification -->
 ```cpp
-IkonClientConfig config;
-// ... authentication ...
-
 config.deviceId = "unique-device-id";
 config.productId = "my-app";
 config.versionId = "1.0.0";

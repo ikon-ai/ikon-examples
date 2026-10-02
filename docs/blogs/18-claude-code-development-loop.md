@@ -1,5 +1,7 @@
 # The Claude Code Development Loop
 
+*Published 2026-03-28*
+
 Open two terminals. In the first, run `ikon run`. In the second, start Claude Code. That is the entire development environment. No IDE required. No build step. No restart cycle. You describe what you want, the AI writes it, the running app hot-reloads, and you see the result immediately. Then you describe what to change, and the loop repeats.
 
 This is not a hypothetical workflow. It is how several of the apps in this series were built -- and it changes the economics of what one person can build in an afternoon.

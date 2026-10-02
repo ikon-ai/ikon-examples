@@ -1,5 +1,7 @@
 # Ambient Cinema From Text
 
+*Published 2026-03-19*
+
 A crackling fireplace fills the screen, flames drifting in slow cinematic motion. The warm glow shifts subtly as embers pulse. Soft pops and crackles play underneath. The video loops endlessly -- you cannot tell where it repeats because there is no seam. You described this scene in a sentence. The app created it from nothing.
 
 This is Ambient Cinema: describe a scene in natural language, and the app generates an infinite, seamlessly looping cinematic video with matching ambient sound. It was built on Ikon in under a thousand lines.

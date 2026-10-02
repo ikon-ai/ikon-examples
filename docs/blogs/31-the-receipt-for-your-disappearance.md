@@ -1,5 +1,7 @@
 # The Receipt for Your Disappearance
 
+*Published 2026-08-02*
+
 Somewhere in your phone right now there's an app you quit two years ago. You pressed "Delete my account," watched a spinner, read "We're sorry to see you go," and moved on with your life.
 
 Here's what actually happened: the login died. You didn't.

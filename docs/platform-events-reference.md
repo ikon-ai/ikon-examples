@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 72975b320a332e0b -->
+<!-- checked-against: 7e2d232ad06267d1 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -24,8 +24,10 @@ The app and session are taken from your auth token, never from the request body,
 cannot claim to belong to an app that did not emit it.
 
 **Parameters that look like personal data are withheld.** Any top-level parameter whose key has a
-`.`/`_`/`-`-delimited segment naming an email, phone number, national id, date of birth, password, token, API key, card number, bank account
-or postal address — or that you explicitly tag `{ sensitive: true, value }` — is stripped from the
+`.`/`_`/`-`-delimited segment naming an email, phone number (`phone`, `msisdn`), national id (`ssn`,
+`nationalid`, `personalid`), date of birth, password, secret, token, API key, card number
+(`cardnumber`, `creditcard`/`credit_card`), IBAN or postal/street address — the segment must be one
+of these spellings whole, so `card_number`, `national_id` or `bank_account` is not matched — or that you explicitly tag `{ sensitive: true, value }` — is stripped from the
 event you read back and retained separately under restricted access for a short period. Tagging a
 value can only add protection, never remove it: a key matching the pattern is withheld whether you
 tag it or not. Keep personal data out of event parameters regardless; this is a backstop, not a

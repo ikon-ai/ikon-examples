@@ -1,5 +1,7 @@
 # Building an AI Game Generator
 
+*Published 2026-03-19*
+
 Describe a game in plain English -- "a space shooter where you dodge asteroids and collect fuel cells" -- and out comes a playable browser game. Not a mockup. Not a wireframe. A finished game with a title screen, a game loop, collision detection, score tracking, particle effects, and neon glow aesthetics. Then the system play-tests the game itself, critiques the result, and iterates until the game meets quality thresholds.
 
 The whole thing is under five thousand lines. One project. No separate backend. No job queue. No cluster of services. Here is what we learned building it, and why this kind of system is now within reach.

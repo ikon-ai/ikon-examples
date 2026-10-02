@@ -1,5 +1,7 @@
 # The Painting That Watches You Back
 
+*Published 2026-03-31*
+
 A digital frame hangs on your wall. Right now it shows a quiet oil landscape — a lake, distant mountains, warm light. The kind of thing you forget is there.
 
 You leave the room. The painting changes.

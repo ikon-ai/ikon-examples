@@ -1,5 +1,7 @@
 # Not an API Wrapper — An AI Orchestration Engine
 
+*Published 2026-03-19*
+
 When someone starts building an AI-powered application, the journey usually begins the same way: pick a provider, wire up some calls, get responses back. It works for a prototype.
 
 Then things get real. You want to try a different model. You need structured data back, not just raw text. You want the AI to use tools, or to run the same task several different ways and pick the best result. Suddenly you're building and maintaining an entire layer of plumbing you never planned for.

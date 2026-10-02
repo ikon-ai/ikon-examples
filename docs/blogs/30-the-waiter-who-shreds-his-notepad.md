@@ -1,5 +1,7 @@
 # The Waiter Who Shreds His Notepad
 
+*Published 2026-07-18*
+
 There's a café where the waiter forgets you between sentences.
 
 You order a coffee. He writes it on his notepad, walks to the kitchen, files the order in a big cabinet, and shreds the notepad. When he comes back, he has no idea who you are. You ask for milk. He doesn't know you ordered a coffee. So he walks back to the cabinet, finds your file, reads it, writes "milk" on a new page, files it, and shreds the notepad again.

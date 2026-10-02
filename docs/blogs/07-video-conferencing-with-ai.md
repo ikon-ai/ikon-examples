@@ -1,5 +1,7 @@
 # Video Conferencing with AI in a Few Thousand Lines
 
+*Published 2026-03-19*
+
 You join a meeting. As people start talking, their names light up smoothly when they speak -- not flickering on and off with every breath, but a natural glow that responds instantly when someone starts talking and lingers through natural pauses. Underneath the video, a live transcript scrolls: each participant's words appearing in real time, attributed to the right speaker. In a side panel, an AI-generated summary updates itself periodically, distilling the key points of the conversation so far. When you join late, you can read the summary and catch up in seconds.
 
 This entire experience -- video conferencing with live transcription and AI-powered meeting summaries -- was built by one person, in under four thousand lines of code.

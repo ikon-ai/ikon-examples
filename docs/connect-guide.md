@@ -1,5 +1,5 @@
 # Connecting your computer to an Ikon app
-<!-- checked-against: b4f135a0af116887 -->
+<!-- checked-against: 81c6264db85d833e -->
 How to connect a computer of yours to an Ikon app with Ikon Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
 the computer's own browser. For app developers; everything here works
@@ -16,6 +16,10 @@ session, not your keys.
 
 A computer belongs to the account that connected it. If Ikon Connect stops, its tasks pause and
 resume when it reconnects.
+
+Connecting lets an app start the coding agents installed on the computer, and they run as you.
+What an agent may do there is that agent's own configuration — its permissions and settings —
+not something Ikon limits; the tool says so and asks before it connects.
 
 ## 1. Prepare the computer
 
@@ -44,6 +48,24 @@ current directory. The first time, you confirm the app's id, organisation and wh
 on your computer. Leave it running: **one** `ikon connect` serves every app you connect, so run the
 same command for a second app in another terminal and the running process picks it up within
 seconds, then that command returns.
+
+An app has to be in one of your organisations, or be one of Ikon's own — Studio and O, which the
+tool names as platform apps on the confirmation.
+
+### The code the computer shows
+
+An app that pairs — Studio and O do — takes a computer only once a person has typed the code the
+computer shows into the app. Once the service has reached the app, `ikon connect` prints the
+six-digit code, the service shows it in a notification, and `ikon connect list` shows it as the
+connection's state until it is typed:
+
+```text
+Studio asks you to pair this computer: type 482 913 into the "Connect a computer" dialog in Studio
+```
+
+The computer appears in that dialog with a box for the code; the right code pairs it, and the
+app remembers the computer, so it is asked once. This is what keeps a service left running from
+connecting a computer on its own: nothing attaches until someone at the app says so.
 
 What an app may do is a set of **grants**, checked on your computer:
 
@@ -93,9 +115,9 @@ ikon connect delete <app>          # disconnect one; its folder stays
 ## Phones, simulators and emulators
 
 If the machine has phone tooling — Xcode's simulators (macOS) or `adb` for Android — the app's
-workspace grows a **Devices** tab listing every phone-shaped run target on every connected
-machine: iOS simulators, Android emulators and plugged-in devices, and emulator images that are
-not running yet. Two verbs per device:
+Preview tab gains a **Phones and simulators** button, opening a Devices view that lists every
+phone-shaped run target on every connected machine: iOS simulators, Android emulators and
+plugged-in devices, and emulator images that are not running yet. Two verbs per device:
 
 - **Open the app** boots the device if needed and opens the running preview's app on it, signed
   in — the same app instance the Preview tab shows, on real phone glass. Android emulators get

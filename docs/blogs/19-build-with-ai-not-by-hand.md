@@ -1,5 +1,7 @@
 # Build With AI, Not by Hand
 
+*Published 2026-03-28*
+
 You do not need to know how to code to build an Ikon app. You need two terminals and the ability to describe what you want.
 
 ## Start

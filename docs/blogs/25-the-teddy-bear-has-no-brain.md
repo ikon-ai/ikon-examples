@@ -1,5 +1,7 @@
 # The Teddy Bear Has No Brain
 
+*Published 2026-03-31*
+
 A four-year-old picks up a teddy bear and says, "Tell me a story about a dragon."
 
 The bear answers. It has a warm, slightly goofy voice. "Okay! So there was this dragon named Pickles, and Pickles had a problem — every time he tried to breathe fire, he sneezed instead." The kid laughs. The bear continues, improvising, reacting to the giggles, weaving in the kid's name and the stuffed animals they mentioned yesterday.

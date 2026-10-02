@@ -1,5 +1,5 @@
 # Ikon Signature Guide
-<!-- checked-against: 496e1f1c5801905f -->
+<!-- checked-against: 4467114643f897aa -->
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
@@ -43,7 +43,7 @@ All documents in a single signing session must share the same MIME type — a mi
 
 ## How the flow works
 
-```
+```text
 ┌──────────────┐  1. POST /signatures/orders (app token)  
 │   Ikon app   │ ────────────────────────────────────────────────►  ┌──────────────────┐
 │    server    │                                                    │  Ikon backend    │
@@ -85,7 +85,7 @@ The signature flow is always **server-initiated**: only an Ikon app server holdi
 
 ## Order status lifecycle
 
-```
+```text
                   ┌──────────────────┐
                   │ pending_signature│  ← initial state after POST /signatures/orders
                   └──────────────────┘
@@ -194,11 +194,11 @@ The hashes are keyed by a platform secret, so an app can compare two ceremonies 
 
 ## Webhook configuration
 
-Each signing provider calls its own platform-side webhook route when an order transitions, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`; a provider whose webhook secret is not configured on the platform is not offered for new orders.
+Each signing provider calls its own platform-side webhook route when an order transitions, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`. Signicat is offered for new orders only when its webhook secret is configured on the platform; Idura generates a fresh webhook secret for each order.
 
 ## Failure handling
 
-The helper throws on every terminal failure:
+The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `HttpRequestException` when the platform rejects the order (400 for unsupported, mixed, empty or oversized documents, more than 10 documents or a disallowed `ClientReturnUrl`; 503 when no configured provider can sign it), and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
 
 <!-- ikon-example: signature-failures -->
 ```csharp

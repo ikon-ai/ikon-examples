@@ -1,5 +1,5 @@
 # Ikon.App.Email Guide
-<!-- checked-against: 2840bea738bd8ae3 -->
+<!-- checked-against: 5d33224b90e08571 -->
 Send transactional email from your app and read the mail delivered to your app — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point, available to every app. Each message sent is
@@ -59,7 +59,8 @@ sending, or from its own default address, so an app cannot impersonate an addres
 chooses the identity:
 
 - **`SenderLocalPart`** — the part before the `@`. Lowercase letters, digits, dot, underscore and
-  hyphen, starting and ending alphanumeric, at most 64 characters. Names that belong to the mail
+  hyphen, starting and ending alphanumeric, with no two dots in a row, at most 64 characters. The
+  value is trimmed and lowercased before it is checked. Names that belong to the mail
   infrastructure (`postmaster`, `abuse`, `security`, `mailer-daemon`, …) are rejected.
 - **`SenderDisplayName`** — the name shown beside the address, at most 64 characters (measured in
   code points). Defaults to the app's own name.

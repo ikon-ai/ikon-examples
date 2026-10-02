@@ -1,5 +1,5 @@
 # Ikon Pipeline Guide
-<!-- checked-against: 81f49fee964eb6d5 -->
+<!-- checked-against: 86465975a647a325 -->
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
@@ -54,7 +54,7 @@ internal class SimplePipeline
 ### Running the Pipeline
 
 Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
-(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too).
+(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache.
 
 <!-- ikon-example: pipeline-run -->
 ```csharp
@@ -304,13 +304,13 @@ Log.Instance.Info($"Object content: Name={objectContent.Name}, Age={objectConten
 
 ### Item Metadata, Lineage and the Item Interface
 
-Alongside its content an item carries an `ItemMetadata` — the document title and type, the title
+Alongside its content an item can carry an `ItemMetadata` (null unless its creator passes one) — the document title and type, the title
 hierarchy, page number and count, original path and name, created/updated timestamps, a free
 `Properties` map and a `CustomJson` escape hatch. It is a `readonly struct` and immutable by design:
 build a derived one by passing the parent to the constructor, which inherits every value you do not
 override — except `PreviousItemName` and `NextItemName`, the new item's own sequence links, which are
-never inherited and stay null unless you pass them. Unless the runner's `DisableMetadataOutput` is set, an item written out is accompanied by
-its metadata as a `.meta.json` sidecar.
+never inherited and stay null unless you pass them. Unless the runner's `DisableMetadataOutput` is set, an item written out with metadata is accompanied by
+it as a `.meta.json` sidecar; an item without metadata gets none.
 
 `Item` implements `IItem<Item>`, which is what a generic helper takes when it needs to work over
 items without binding to the concrete struct.
@@ -432,7 +432,9 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         }, skipCache: true);
 
         // Calling output on any branch outputs those items from the pipeline
+        // Every fork needs its own terminal (Output or ForEach): a fork without one drops its items
         groupProcessedItems.Output();
+        doNotUseTransformLambdaItems.Output();
     }
 
     [Processor]
@@ -597,7 +599,7 @@ value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else `IKON_SPACE_ID`, else the enclosing project's `Target.SpaceId`, else your default app, and it fails if none is found.
 
 ## Reading PDFs
 
@@ -630,7 +632,7 @@ ikon pipeline MyPipeline --no-build
 ikon pipeline MyPipeline --target production
 ```
 
-`ikon pipeline` reads `Target.SpaceId` from `ikon-config.toml` (failing if it is empty, or if neither a pipeline name nor `--type-name` is given), exchanges it for the app's token, then builds the app, locates the output assembly and resolves the pipeline type. All `ikon pipeline` flags below pass through, except `--dll-path`, which it sets to the app's DLL.
+`ikon pipeline` reads `Target.SpaceId` from `ikon-config.toml` unless `--app-id` is given (failing if it is empty, or if neither a pipeline name nor `--type-name` is given), exchanges it for the app's token, then builds the app, locates the output assembly and resolves the pipeline type. Passing `--dll-path` skips the app build and runs that DLL instead.
 
 Pipeline runs executed on the Ikon cloud are billed for the CPU time and network traffic their container uses, on the same meters as app sessions.
 
@@ -638,8 +640,8 @@ Pipeline runs executed on the Ikon cloud are billed for the CPU time and network
 
 | Option | Description |
 |--------|-------------|
-| `--type-name` | Fully qualified pipeline type to execute. Always required by `ikon pipeline`; `ikon pipeline` needs it only without a pipeline name, or when several pipelines share that short name. |
-| `--dll-path` | Load the pipeline from an external assembly. Without it `ikon pipeline` looks only in the assemblies already loaded in the tool. |
+| `--type-name` | Fully qualified pipeline type to execute. Needed only without a pipeline name, or when several pipelines share that short name. |
+| `--dll-path` | Load the pipeline from an external assembly. Without it `ikon pipeline` builds the app in the current directory (unless `--no-build`) and runs its DLL. |
 | `--input` | One or more input files, directories (supports wildcards), or asset URIs. Separate multiple paths with commas. |
 | `--recursive` | Recursively enumerate input directories and wildcards. |
 | `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. |
@@ -753,7 +755,7 @@ Recommended startup sequence:
 
 Remote processors are identified by their fully qualified name in the format:
 
-```
+```text
 {Namespace}.{ClassName}.{MethodName}.{Version}
 ```
 
@@ -761,7 +763,7 @@ Remote processors are identified by their fully qualified name in the format:
 and an `id:` set on `[Processor]` replaces `{MethodName}`.
 
 For example, the `ProcessorA` method above would have the name:
-```
+```text
 MyNamespace.DistributedPipeline.ProcessorA.1
 ```
 
@@ -870,4 +872,4 @@ await PipelineRunner.RunRemote(config, status =>
 }, cancellationToken);
 ```
 
-When remote modes are active, `PipelineRunner.RunRemote` orchestrates the host/client lifecycle, forwards live status updates, and honors cancellation tokens for cooperative shutdown.
+When remote modes are active, `PipelineRunner.RunRemote` orchestrates the host/client lifecycle, forwards live status updates, and honors cancellation tokens for cooperative shutdown. With client mode enabled it never returns on its own, even after the host run finishes: it ends only when the token is cancelled or the client message loop dies (throwing `PipelineException`).

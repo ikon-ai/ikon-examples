@@ -1,4 +1,4 @@
-<!-- checked-against: 96835f85bf371f84 -->
+<!-- checked-against: 6c3b387de6804095 -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
@@ -28,7 +28,7 @@ A Tailwind-inspired, class-based DSL to describe visual motion timelines and aud
 
 A **class token** may be preceded by zero or more prefixes in this order:
 
-```
+```text
 <variant-prefix>:* <track-prefix>:* <core-directive>
 ```
 
@@ -49,7 +49,7 @@ A **class token** may be preceded by zero or more prefixes in this order:
 
 Examples:
 
-```
+```text
 hover:motion-[...]                 // variant only
 glitch:motion-[...]                // track only
 hover:glitch:motion-[...]          // variant + track
@@ -64,7 +64,7 @@ All directives are classes (whitespace-separated items). Many accept **dash para
 
 ### 2.1 Motion Timeline Block
 
-```
+```text
 motion-[ <step>( , <step> )* ]
 ```
 
@@ -76,7 +76,7 @@ motion-[ <step>( , <step> )* ]
 
 Examples:
 
-```
+```text
 motion-[0:opacity-0,100:opacity-100]
 motion-[0:opacity-0 scale-95, 100:opacity-100 scale-100]
 glitch:motion-[0:opacity-100 -translate-x-1,10:opacity-0 translate-x-1,20:opacity-100 translate-x-0]
@@ -141,7 +141,7 @@ unconditional `-reverse` class; a variant-scoped one (`hover:motion-per-letter-r
 
 Examples:
 
-```
+```text
 glow:motion-duration-800ms glow:motion-ease-ease-in-out glow:motion-loop
 motion-delay-[120ms] motion-fill-both
 title:motion-per-letter title:motion-letter-delay-60ms
@@ -182,7 +182,7 @@ Binds a **virtual timeline progress** (0–100) to an input source.
 
 * **Binding source & range**
 
-  ```
+  ```text
   motion-bind-<source>/[<min>-<max>]
   ```
 
@@ -191,7 +191,7 @@ Binds a **virtual timeline progress** (0–100) to an input source.
 
 * **Clamp policy** (empty brackets default to `clamp`)
 
-  ```
+  ```text
   motion-bind-[clamp]           // default
   motion-bind-[freeze-start]
   motion-bind-[freeze-end]
@@ -200,20 +200,20 @@ Binds a **virtual timeline progress** (0–100) to an input source.
 
 * **Direction**
 
-  ```
+  ```text
   motion-bind-reverse
   ```
 
 * **Input easing**
 
-  ```
+  ```text
   motion-bind-ease-<keyword>
   motion-bind-ease-[cubic-bezier(...)]
   ```
 
 * **Output mapping (window remap)**
 
-  ```
+  ```text
   motion-map-[<a>..<b>-><c>..<d>]
   ```
 
@@ -228,14 +228,14 @@ Binds a **virtual timeline progress** (0–100) to an input source.
 
 Examples:
 
-```
+```text
 motion-bind-scrolly/[100-500] motion-bind-ease-[cubic-bezier(0.4,0,0.2,1)] motion-bind-[clamp]
 motion-map-[0..100->10..90] motion-bind-reverse
 ```
 
 ### 2.4 Scroll Timelines
 
-```
+```text
 scroll-timeline-[<value>]
 ```
 
@@ -250,7 +250,7 @@ scroll-timeline-[<value>]
 
 #### 2.5.1 Source Attachment
 
-```
+```text
 sfx:source-[<uri-or-id>]
 ```
 
@@ -259,14 +259,14 @@ sfx:source-[<uri-or-id>]
 
 Optional hints (boolean / identifiers):
 
-```
+```text
 sfx:prime                      // hint to prime/preload a source
 sfx:id-[<identifier>]          // label a source for reuse (syntax)
 ```
 
 #### 2.5.2 Trigger Playback
 
-```
+```text
 <variant>:sfx:play
 <variant>:sfx:play-[<id>]      // target a labeled source
 ```
@@ -277,7 +277,7 @@ sfx:id-[<identifier>]          // label a source for reuse (syntax)
 
 Audio parameters are expressible as utilities inside `motion-[...]` steps:
 
-```
+```text
 volume-[<0..1>]
 pitch-[<number>]               // 1.0 = normal
 pan-[-1..1]
@@ -287,7 +287,7 @@ filter-[<number><unit>?]       // e.g., 800Hz, 1kHz (unit text is free-form)
 
 Examples:
 
-```
+```text
 sfx:source-[/snd/zap.wav] sfx:prime hover:sfx:play
 sfx:motion-[0:volume-[0],10:volume-[1] pan-[-0.3],100:volume-[0]]
 click:sfx:play-[zap]
@@ -296,13 +296,13 @@ sfx:id-[zap] sfx:source-[/snd/zap.wav]
 
 #### 2.5.4 Shorthand Alias (optional)
 
-```
+```text
 <variant>:sound-[<uri>]
 ```
 
 **Purely syntactic sugar** equivalent to:
 
-```
+```text
 sfx:source-[<uri>] <variant>:sfx:play
 ```
 
@@ -312,7 +312,7 @@ sfx:source-[<uri>] <variant>:sfx:play
 
 * **Preset expansion**
 
-  ```
+  ```text
   motion-track-<name>
   ```
 
@@ -322,7 +322,7 @@ sfx:source-[<uri>] <variant>:sfx:play
 
 * **Named track timelines (inline)**
 
-  ```
+  ```text
   <track>:motion-[...]
   <track>:motion-duration-...
   ```
@@ -331,7 +331,7 @@ sfx:source-[<uri>] <variant>:sfx:play
 
 Examples:
 
-```
+```text
 motion-track-glow glitch:motion-[...]
 glitch:motion-duration-300ms glitch:motion-loop
 ```
@@ -353,7 +353,7 @@ Inside a timeline step, **utilities** follow Tailwind forms:
 
 Example (mixed utilities):
 
-```
+```text
 motion-[0:opacity-0 -translate-y-[8px], 100:opacity-100 translate-y-0]
 ```
 
@@ -378,7 +378,7 @@ The following identifiers are **reserved** as variants when used as a prefix end
 > • `_` denotes optional whitespace.
 > • This grammar covers syntax only; semantic constraints are listed after.
 
-```
+```text
 document        ::= ( WS? class-token WS? )*
 
 class-token     ::= (prefix ":")* core-directive
@@ -572,40 +572,40 @@ Parsers MAY normalize input to a canonical form:
 
 **A. Basic fade**
 
-```
+```text
 motion-[0:opacity-0,100:opacity-100]
 ```
 
 **B. Track + timing + loop**
 
-```
+```text
 glow:motion-[0:shadow-sm,50:shadow-xl,100:shadow-sm]
 glow:motion-duration-800ms glow:motion-ease-ease-in-out glow:motion-loop
 ```
 
 **C. Interaction + track + timeline**
 
-```
+```text
 hover:glitch:motion-[0:opacity-100 -translate-x-1,10:opacity-0 translate-x-1,20:opacity-100 translate-x-0]
 ```
 
 **D. Per-letter + stagger**
 
-```
+```text
 title:motion-per-letter title:motion-letter-delay-60ms
 title:motion-[0:opacity-0 translate-y-[8px],100:opacity-100 translate-y-0]
 ```
 
 **E. Input binding + map**
 
-```
+```text
 motion-bind-scrolly/[100-500] motion-bind-ease-[cubic-bezier(0.4,0,0.2,1)] motion-bind-[clamp]
 motion-map-[0..100->10..90]
 ```
 
 **F. Audio with trigger + automation**
 
-```
+```text
 sfx:id-[zap] sfx:source-[/snd/zap.wav] sfx:prime
 hover:sfx:play-[zap]
 sfx:motion-[0:volume-[0],10:volume-[1] pan-[-0.3],100:volume-[0]]
@@ -613,46 +613,46 @@ sfx:motion-[0:volume-[0],10:volume-[1] pan-[-0.3],100:volume-[0]]
 
 **G. Shorthand sound alias**
 
-```
+```text
 active:sound-[tap.mp3]
 ```
 
 **H. State-driven exit animation**
 
-```
+```text
 data-state-closed:motion-[0:opacity-100,100:opacity-0] data-state-closed:motion-duration-200ms
 ```
 
 **I. Preset + inline override**
 
-```
+```text
 motion-track-glow glow:motion-duration-1200ms
 ```
 
 **J. 3D transform (Y-axis card flip)**
 
-```
+```text
 motion-[0:rotate-y-0,50:rotate-y-[180deg],100:rotate-y-[360deg]]
 motion-duration-3000ms motion-loop motion-ease-ease-in-out
 ```
 
 **K. Filter animation (hue rotation cycle)**
 
-```
+```text
 motion-[0:hue-rotate-0,100:hue-rotate-[360deg]]
 motion-duration-3000ms motion-loop motion-ease-linear
 ```
 
 **L. Per-word compound variant (reverse loop)**
 
-```
+```text
 motion-[0:translate-x-0,50:translate-x-[5px],100:translate-x-0]
 motion-duration-400ms motion-stagger-120ms motion-per-word-reverse-loop motion-ease-ease-in-out
 ```
 
 **M. Scroll-driven animation with range**
 
-```
+```text
 scroll-timeline-[--hero y]
 lead:motion-[0:opacity-0,100:opacity-100] lead:motion-timeline-[--hero] lead:motion-range-[entry 10% exit 90%]
 ```

@@ -1,5 +1,7 @@
 # A Creator Discovery Crawler in a Single File
 
+*Published 2026-03-19*
+
 Finding the right social media creators for a marketing campaign is usually a manual grind. Someone opens a search engine, types keywords, scrolls through profiles, copies URLs into a spreadsheet, visits each one to check follower counts and bio relevance, then emails the team a CSV. The ambitious version involves a scraping cluster, a job queue, a database, a separate AI service for scoring, a proxy rotation layer, and a dashboard to view results. That is a lot of infrastructure for what amounts to: search, scrape, rank, export.
 
 This post looks at an influencer discovery tool built as a single Ikon AI app -- about two thousand lines in one file, no database, no job queue, no separate frontend. You describe your product in plain language, the tool finds TikTok creators who match, scores each one with written reasoning, enriches them with cross-platform data, and presents the results in a sortable, filterable interface with export to JSON and Mailchimp CSV. Multiple users can watch the crawl progress in real time.

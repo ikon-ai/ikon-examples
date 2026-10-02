@@ -1,5 +1,7 @@
 # When AI Apps Talk to Each Other
 
+*Published 2026-03-31*
+
 You built a talking teddy bear for your kid. A Pi Zero with a microphone and speaker inside a stuffed animal, connected to an Ikon server. The bear tells stories, answers questions, remembers yesterday's conversation. It is its own app, and it works well.
 
 Separately, you set up a room sensor in the kid's bedroom. Temperature, light level, and noise. It is its own app too — you check the readings on your phone. You used it to figure out that the room gets too cold around 3 AM, and you adjusted the thermostat.

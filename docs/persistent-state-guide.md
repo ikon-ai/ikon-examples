@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-<!-- checked-against: b6156040aa843eec -->
+<!-- checked-against: ea6ffa2f30589c7a -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -133,11 +133,11 @@ Backend ≠ scope. Scope decides who sees the value; backend decides where it li
 
 Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
 `dedicated-small` — which decides how densely it is packed onto an instance and how many
-connections it gets. `ikon app db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database has a fixed tier.
+connections it gets. `ikon db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database has a fixed tier.
 
 A live database can move to another tier without redeploying:
 
-```
+```bash
 ikon db tier dedicated-small
 ```
 
@@ -154,7 +154,7 @@ writable again (unless it is over its storage quota), and `ikon db list` shows t
 another. A database holding a single row too large to move — tens of megabytes as text on the
 shared tiers — is refused before anything changes.
 
-## The `key:` parameter — only for loops
+## The `key:` parameter — loops and refactor-proof state
 
 <!-- ikon-example: persistent-dynamic-keys -->
 ```csharp
@@ -175,7 +175,7 @@ foreach (var camera in cameras)
 
 Pass a stable identifier the app owns. Not `Guid.NewGuid()` — that changes on every restart and orphans the old data. Don't reuse the same key across different types or scopes.
 
-You almost never need `key:` for fields. Field names are already stable. Only reach for it when constructing reactives in a loop or based on runtime identity.
+Without `key:`, a field's stored value is found by its declaring source file's path under the app root, the constructing member's name, `T`, and its order among same-typed persistent reactives built in that member. Renaming or moving the file or field, or reordering such siblings, silently starts from the initial value and orphans the stored one. That is fine for state you can afford to lose; pass a fixed `key:`, unique within the app, for state that must survive refactoring, and always when constructing reactives in a loop or based on runtime identity.
 
 ## Save semantics
 

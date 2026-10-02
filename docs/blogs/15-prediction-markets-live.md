@@ -1,5 +1,7 @@
 # A Live Prediction Markets Dashboard in Under a Thousand Lines
 
+*Published 2026-03-19*
+
 A prediction markets dashboard that crawls a public leaderboard, classifies wallets by trading behavior, gets AI-powered copy-trading recommendations, saves snapshots to the cloud, and serves a filterable, searchable interface to every connected viewer simultaneously. One file. No API routes, no client-side data fetching, no state management library, no real-time infrastructure setup.
 
 This is not a radical departure from how you would build a dashboard. The same pieces exist: data fetching, pagination, data transformation, filtering, AI integration, persistence. What is different is how little ceremony is needed to wire them together.

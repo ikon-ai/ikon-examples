@@ -1,5 +1,5 @@
 # Ikon Device Capture Guide
-<!-- checked-against: cc1f12fff029e298 -->
+<!-- checked-against: a2ee3577885b857e -->
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |

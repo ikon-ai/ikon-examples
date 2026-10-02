@@ -1,5 +1,7 @@
 # A Natural Language 3D Globe
 
+*Published 2026-03-19*
+
 Type "CO2 emissions" into a text field. A spinning 3D globe lights up with animated spikes at locations around the world -- sized by magnitude, colored to match the data type, clickable to inspect individual values. Type "who's online?" and the globe redraws with internet usage data in blue. Type "how hot is it?" and temperature data appears in red. Multiple people can connect simultaneously, ask different questions, and watch the globe update together.
 
 The backend is about four hundred lines. The 3D rendering component is about six hundred lines. There is no API layer, no state synchronization code, no WebSocket configuration. Here is how it works and why that matters.

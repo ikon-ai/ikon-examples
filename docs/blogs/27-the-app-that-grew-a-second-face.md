@@ -1,5 +1,7 @@
 # The App That Grew a Second Face
 
+*Published 2026-04-16*
+
 A developer ships a quiz game. Six players join on their phones, a host controls the round from a laptop, the AI invents questions on the fly. It runs beautifully in a browser tab.
 
 Then someone says, "Can we put this on the TV in the break room?"

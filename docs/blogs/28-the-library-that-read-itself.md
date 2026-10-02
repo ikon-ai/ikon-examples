@@ -1,5 +1,7 @@
 # The Library That Read Itself
 
+*Published 2026-04-17*
+
 A developer writes a documentation site. Twenty-six sections, hand-written, each polished through an optimization loop until a classifier can route any user question to the right page. It works. A user asks "how do I animate a button on hover?" and the system picks the motion reference, assembles the context, answers correctly. Weeks of careful curation pay off.
 
 Then someone asks: what if the documentation could organize itself?

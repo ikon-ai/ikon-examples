@@ -1,5 +1,7 @@
 # Not a Vibe Coding Tool (But Also, Yes, a Vibe Coding Tool)
 
+*Published 2026-03-25*
+
 You built a project tracker in ten minutes with a vibe coding tool. The client loved the demo. Then they asked: "Can it join our standup call, transcribe what everyone says, and update the tasks automatically?" You stare at the chat prompt, because the platform that built your app in minutes cannot add a microphone.
 
 This is the boundary that vibe coding tools -- platforms like Lovable and Base44 where you describe an app and AI generates it -- hit repeatedly. They are genuinely impressive at producing traditional web applications from a description. But the applications they produce are bounded by the stack they generate for. And that stack was not designed for a world where applications listen, speak, watch, think in the background, and collaborate in real time.

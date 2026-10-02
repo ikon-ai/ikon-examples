@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-<!-- checked-against: 0bb72a9b4ed7d3ee -->
+<!-- checked-against: c585e330b44faadb -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -25,14 +25,14 @@ private UI UI { get; } = new(app, new IkonTheme
 
     ["radius"]               = "rounded-2xl",
     ["density"]              = "comfortable",
-    ["font-heading"]         = "Crimson Pro", // literal family name — the Google Fonts import is automatic
+    ["font-heading"]         = "Crimson Pro", // literal family name — a baseline family, self-hosted, so no Google Fonts import
 
     ["motion-duration-base"] = "200ms",
     ["ease-default"]         = "ease-out",
 });
 ```
 
-That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, its alias `Dark` (the same property under a second name), and `Light`, which takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks.
+That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, its alias `Dark` (the same property under a second name), and `Light`, which takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks. The nested `Light` theme carries tokens only — one that sets `Mode`, `DarkMode` or `Dark` throws `ArgumentException` (set those on the outer theme) — and a token set both in `Light` and through the outer indexer to different values throws `ArgumentException`, whichever comes first.
 
 ## Two-tier styling
 
@@ -63,7 +63,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | smart sniff |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
 | `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
-| `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
+| `font-{role}` | `--font-{role}` | family stack; a bare literal family name auto-imports from Google Fonts only on the six font-role keys (`font-heading` ... `font-mono`), and not for the self-hosted baseline families |
 | `ease-{kind}` | `--ease-{kind}` | easing |
 | `spacing`, `radius-base` (the targets of `density` and `radius`) | `--spacing`, `--radius-base` | the same resolver as their theme key |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`) | `--{key}` | smart sniff |

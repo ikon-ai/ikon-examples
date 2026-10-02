@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: dddf8c7764faeace -->
+<!-- checked-against: dff5a8444ccf79fd -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -74,7 +74,7 @@ Also note: **interruption is instance-global, not per-target.** All speech flows
 
 ### Stopping speech
 
-`Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and the speech mixer's stream is the app's default output. Stop speech through the mixer:
+`Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and with no id it closes the `Play*`/`Send*` default stream, never the speech mixer's (`SpeechMixer.StreamId`). Stop speech through the mixer:
 
 <!-- ikon-example: av-mixer-control -->
 ```csharp
@@ -224,8 +224,8 @@ Audio.SpeakChunk(MediaTargets.Everyone, chunk);
 
 Two traps:
 
-- The parameterless constructor exists only for the serializer. An object initializer that skips fields leaves `SampleRate` and `ChannelCount` at `0`, and `SpeakChunk` throws `ArgumentException` synchronously for such a chunk — inside whatever handler called it, so an unguarded call takes the handler down.
-- The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. A chunk carrying the id of an utterance that has already completed is dropped with a warning — unless it is marked `isFirst`, which starts a new utterance under that same id. Any id that is neither the current nor a completed one starts a new utterance and interrupts what is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
+- There is no public parameterless constructor, so `new AudioChunk { ... }` does not compile. `SpeakChunk` throws `ArgumentException` synchronously for a `ChannelCount` other than 1 or 2 — the mixer takes only mono or stereo, so downmix wider audio first — inside whatever handler called it, so an unguarded call takes the handler down.
+- The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. A chunk carrying the id of the most recently completed utterance is dropped with a warning — unless it is marked `isFirst`, which starts a new utterance under that same id. Any other id, including that of an earlier completed utterance, starts a new utterance and interrupts what is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
 
 ## Group audio: calls and huddles
 

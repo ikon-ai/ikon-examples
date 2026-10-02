@@ -1,5 +1,5 @@
 # User Data Erasure
-<!-- checked-against: c0bbecaafc253617 -->
+<!-- checked-against: c0bbecaa0c61d2a7 -->
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
 erases the user's personal data centrally, across every app and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.

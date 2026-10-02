@@ -1,5 +1,7 @@
 # The AI Multiplayer Server
 
+*Published 2026-03-31*
+
 A multiplayer game needs a server. It handles persistent connections, player sessions, shared world state, real-time synchronization, and reconnection. Now add AI-powered NPCs. That means a second server — or at least a separate backend — to run language models, manage prompts, and feed responses back into the game. Add a web-based companion app or spectator view and you need a third layer. Three systems. Three deployments. Three sets of state to keep in sync.
 
 Or: one IkonServer that does all of it.

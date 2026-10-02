@@ -1,5 +1,7 @@
 # The Database That Forgets
 
+*Published 2026-04-20*
+
 Every night while you sleep, your brain throws things away.
 
 Not metaphorically. Literally. Neuroscientists call it synaptic pruning — during deep sleep, the brain weakens or eliminates the connections it decided weren't important that day. The memories that survive are the ones that were reinforced, cross-referenced, useful. Everything else dissolves quietly before morning.

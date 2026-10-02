@@ -1,5 +1,5 @@
 # Teleport message binary specification
-<!-- checked-against: 51e3998e8f3c98a6 -->
+<!-- checked-against: fd3183e0b48bec19 -->
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
@@ -43,7 +43,7 @@ Teleport defines three container types and a fixed set of primitives.
 
 Each object field is identified by a 32-bit unsigned integer:
 
-```
+```text
 fieldId = xxHash32(fieldName.UTF8, seed = 0)
 ```
 
@@ -84,7 +84,7 @@ Without a schema the emitted hex ids cannot be turned back into field names, so 
 
 ### 3.2 Object Layout
 
-```
+```text
 [objectLength:varuint]          // emitted whenever the object is nested; omit for the root envelope
 0xA1                            // ObjectStart marker
 [version:varuint]               // canonical unsigned LEB128
@@ -101,7 +101,7 @@ repeat fields until 0xA2:
 
 ### 3.3 Field Layout
 
-```
+```text
 fieldId:u32
 descriptor:u8 = (type << 4) | flags
 length:varuint                  // only for variable-width payloads
@@ -119,7 +119,7 @@ length:varuint                  // only for variable-width payloads
 
 ### 3.4 Array Payload
 
-```
+```text
 elementDescriptor:u8 = (elementType << 4) | elementFlags
 count:varuint
 repeat count times:
@@ -140,7 +140,7 @@ Arrays support up to 4 294 967 295 elements (bounded by payload size).
 
 ### 3.5 Dict Payload
 
-```
+```text
 keyDescriptor:u8   = (keyType << 4) | keyFlags      // primitive keys only
 valueDescriptor:u8 = (valueType << 4) | valueFlags  // any Teleport type
 count:varuint
@@ -188,9 +188,9 @@ Example: `00112233-4455-6677-8899-aabbccddeeff` encodes as
 
 ## 5. JSON Mirror
 
-Binary → JSON mapping is direct. The runtime ships the binary→JSON direction only
-(`TeleportJsonMirror.ToJson`, the schema being the JSON IR from `ikon teleport generate --type
-json-ir`); there is no JSON→binary entry point.
+Binary → JSON mapping is direct. The runtime implements the binary→JSON direction only, internally (the schema being the JSON IR
+from `ikon teleport generate --type json-ir`); it has no public entry point, and there is no
+JSON→binary direction.
 
 | Teleport type | JSON form                                              |
 |---------------|--------------------------------------------------------|
@@ -446,7 +446,7 @@ The runtime does not provide a JSON→binary decoder; this projection is for ins
 
 ## 12. Byte Layout Summary
 
-```
+```text
 Object:
   [objectLength:varuint]    // emit only when nested; counts every byte of the [0xA1 ... 0xA2] blob
   0xA1

@@ -1,5 +1,5 @@
 # Authenticating the Ikon tool in CI
-<!-- checked-against: 0ee4e88af22d03f8 -->
+<!-- checked-against: 33894749f1bac7ca -->
 How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
 
 ## The short version
@@ -37,7 +37,7 @@ ikon auth token create my-pipeline
 
 It prints the token once:
 
-```
+```text
 Created service token 'my-pipeline' (id 68f2a1c9e4b17d3a5c9012ab), valid until 2026-09-09 14:32
 
 ikon_svc_kZ8vQ2mR7tX...

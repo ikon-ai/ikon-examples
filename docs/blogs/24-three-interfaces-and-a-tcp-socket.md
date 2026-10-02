@@ -1,5 +1,7 @@
 # Three Interfaces and a TCP Socket
 
+*Published 2026-03-31*
+
 You have a small sensor board on your balcony. An ESP32 microcontroller with a temperature sensor, a humidity sensor, and a light sensor. It cost twelve euros. It connects to an Ikon server over Wi-Fi, and now you check the weather on your balcony from your phone — not just the raw numbers, but an AI-generated forecast: "Sunny this afternoon, but humidity is climbing. Rain likely by evening. Good day to bring the laundry in before 5 PM."
 
 The sensor board does not generate forecasts. It reads three numbers and sends them to the server. The server runs AI models that interpret the readings, correlate them with patterns, and produce a human-readable forecast. Your phone shows the result on a web page served by the same application.

@@ -1,10 +1,10 @@
 # Custom Map Component Guide
-<!-- checked-against: 1a67878735646aef -->
+<!-- checked-against: 8b4301a3f005a1a3 -->
 This guide shows how to add an interactive map component to an Ikon AI App using Leaflet. The pattern covers creating a custom frontend React component, a C# extension method to drive it, and bidirectional communication between the two.
 
 ## Architecture Overview
 
-```
+```text
 C# App (cloud)                          Frontend (browser)
  |                                        |
  |  view.MyMap(markers, onClick...)       |
@@ -41,6 +41,7 @@ npm install -D @types/leaflet
 
 Create `frontend-node/src/lib/my-map/components/my-map.tsx`:
 
+<!-- ikon-example: custom-map-component -->
 ```tsx
 import { memo, useEffect, useRef } from 'react';
 import {
@@ -175,6 +176,7 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
       pinsLayerRef.current = null;
       areasLayerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- center and zoom are only the starting view
   }, []);
 
   // Map click handler
@@ -194,8 +196,9 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
 
   // Update pins
   useEffect(() => {
-    if (!pinsLayerRef.current) return;
-    pinsLayerRef.current.clearLayers();
+    const layer = pinsLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
 
     for (const pin of parsePins(props.pins)) {
       const marker = L.circleMarker([pin.lat, pin.lon], {
@@ -219,14 +222,15 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
         });
       }
 
-      marker.addTo(pinsLayerRef.current!);
+      marker.addTo(layer);
     }
   }, [props.pins, props.onPinClickId, props.dispatchAction]);
 
   // Update area overlays
   useEffect(() => {
-    if (!areasLayerRef.current) return;
-    areasLayerRef.current.clearLayers();
+    const layer = areasLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
 
     for (const area of parseAreas(props.areas)) {
       const circle = L.circle([area.lat, area.lon], {
@@ -244,7 +248,7 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
         });
       }
 
-      circle.addTo(areasLayerRef.current!);
+      circle.addTo(layer);
     }
   }, [props.areas]);
 
@@ -317,8 +321,9 @@ Key points:
 
 Create `frontend-node/src/lib/my-map/my-map-module.ts`:
 
-```typescript
-import { type IkonUiComponentResolver, type IkonUiModuleLoader, type IkonUiRegistry } from '@ikonai/sdk-react-ui';
+<!-- ikon-example: custom-map-module -->
+```ts
+import type { IkonUiComponentResolver, IkonUiModuleLoader, IkonUiRegistry } from '@ikonai/sdk-react-ui';
 import { createMyMapResolver } from './components/my-map';
 
 export const IKON_UI_MY_MAP_MODULE = 'my-map';
@@ -336,7 +341,8 @@ export function registerMyMapModule(registry: IkonUiRegistry): void {
 
 Create `frontend-node/src/lib/my-map/index.ts`:
 
-```typescript
+<!-- ikon-example: custom-map-index -->
+```ts
 export { registerMyMapModule } from './my-map-module';
 ```
 
@@ -344,13 +350,17 @@ export { registerMyMapModule } from './my-map-module';
 
 In your `frontend-node/src/app.tsx`, import and add the module:
 
+<!-- ikon-example: custom-map-register -->
 ```tsx
 import { registerMyMapModule } from './lib/my-map';
 
-// In the useIkonApp call:
-const app = useIkonApp({
-  modules: [registerStandardUiModule, registerLucideIconsModule, registerMyMapModule],
-});
+function AuthorizedApp() {
+  const app = useIkonApp({
+    modules: [registerStandardUiModule, registerLucideIconsModule, registerMyMapModule],
+  });
+
+  // ...the rest of AuthorizedApp is unchanged
+}
 ```
 
 ## Step 2: C# Data Classes + Extension Method
@@ -564,6 +574,7 @@ To make markers draggable, follow this pattern:
 
 **Frontend** — create the Leaflet marker with `draggable: true`, dispatch on `dragend`:
 
+<!-- ikon-example: custom-map-draggable-marker -->
 ```tsx
 const marker = L.marker([pin.lat, pin.lon], { icon, draggable: true });
 
@@ -641,6 +652,7 @@ Every time you add a new prop:
 
 For polygon shapes, pass vertices as `number[][]` (array of `[lat, lon]` pairs):
 
+<!-- ikon-example: custom-map-polygon-shape -->
 ```tsx
 // Frontend
 if (area.vertices && area.vertices.length >= 3) {
@@ -669,7 +681,7 @@ var overlay = new PolygonOverlay
 
 ## File Structure Summary
 
-```
+```text
 your-app/
   app/YourApp/
     MyMapExtensions.cs       # Data classes + UIView extension

@@ -1,5 +1,5 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: 1865b9f0c074b010 -->
+<!-- checked-against: 847f7bf20102ff00 -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point.
@@ -9,7 +9,7 @@ is the entry point.
 Nothing works until the app has a number, because a number is what makes a message replyable and
 what lets calls happen at all. In a terminal, run it bare and choose from menus:
 
-```
+```bash
 ikon phone buy
 ```
 
@@ -19,7 +19,7 @@ approve you first, which takes days. You can pass over a market that does not su
 anything, and it sends you back to the list if one turns out not to. `ikon phone markets` prints the same list for every provider side
 by side (`--provider` narrows it, `--format json` gives it to a script or an agent):
 
-```
+```bash
 ikon phone markets
 ikon phone buy --country se --provider 46elks --yes
 ```
@@ -46,7 +46,7 @@ this is what a regulator reads to learn who is behind the number.
 
 Interactively it simply prompts. For a script or an agent, pass the fields as flags:
 
-```
+```bash
 ikon phone buy --country fi --provider twilio --yes \
   --kyc business_name="Acme Oy" \
   --kyc email=ops@acme.fi \
@@ -71,7 +71,7 @@ Some regulators also want a document as a file — Germany, for one, wants an ex
 commercial register. Interactively `buy` asks for the path; in a script pass it with `--kyc-file`,
 named as the missing-field message names it:
 
-```
+```bash
 ikon phone buy --country de --provider twilio --yes \
   --kyc business_name="Acme GmbH" \
   --kyc-file commercial_registrar_excerpt=./excerpt.pdf
@@ -84,7 +84,7 @@ keeps no copy.
 Run it again for a second number: an app may hold several, in different markets and on different
 providers.
 
-```
+```bash
 ikon phone list
 ```
 
@@ -92,7 +92,7 @@ lists every number the app holds — market, provider, which is the default send
 one's incoming traffic goes — and any regulatory review still waiting on a verdict. `--format json`
 or `--format csv` gives the numbers to a script.
 
-```
+```bash
 ikon phone release +46766861234
 ```
 
@@ -135,7 +135,7 @@ handset shows the problem. `Replyable` is how you find out. Treat it as the sign
 conversation is not possible, and either say so in the message ("do not reply — call us on …") or
 allocate a number in that market:
 
-```
+```bash
 ikon phone buy --country fi
 ```
 
@@ -165,7 +165,7 @@ reaches the recipient as a stranger.
 
 To pin one number as the app's usual sender:
 
-```
+```bash
 ikon phone default +46766861234
 ```
 
@@ -245,7 +245,7 @@ which of its users owns that number — so the platform cannot pick the destinat
 default inbound goes to the app's **shared instance**, the one an app gets when nothing identifies
 the caller.
 
-```
+```bash
 ikon phone bind --identity '{"UserId":"alice"}'
 ```
 
@@ -254,7 +254,7 @@ message starts one.
 
 **Each number can go somewhere different.** Name one and the rest stay where they are:
 
-```
+```bash
 ikon phone bind +358401234567 --identity '{"UserId":"alice"}'
 ikon phone bind +46766861234  --identity '{"UserId":"bob"}'
 ```
@@ -285,13 +285,13 @@ An app that runs out of credits is suspended, which stops telephony along with e
 
 ## Giving a number up
 
-```
+```bash
 ikon phone release +46766861234
 ```
 
 gives up one number. To give up telephony entirely:
 
-```
+```bash
 ikon phone release --all
 ```
 

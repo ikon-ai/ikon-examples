@@ -1,15 +1,15 @@
 # Ikon AI TypeScript SDK
-<!-- checked-against: aa24b86a17f12f0c -->
+<!-- checked-against: b0a1ae79520ae03f -->
 
 The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 18+.
 
 ## Features
 
 - Three authentication modes: API Key, Local Development, Session Token
-- UI-friendly connection states with automatic slow connection detection
+- UI-friendly connection states, with slow-connection detection in the React layer (`isConnectingSlow`)
 - Automatic reconnection with fixed-delay retries
 - Web Worker support for off-UI-thread protocol processing
-- Smart endpoint selection (WebSocket → proxied variants; opt-in WebTransport preferred when enabled)
+- Smart endpoint selection (WebSocket → proxied variants → HTTP stream; opt-in WebTransport preferred when enabled)
 - Function registration and remote invocation
 - Audio/video playback and capture pipelines
 - Framework-agnostic UI state management (sdk-ui)
@@ -30,7 +30,8 @@ npm install @ikonai/sdk-ui
 
 ## Quick Start
 
-```typescript
+<!-- ikon-example: ts-sdk-quick-start -->
+```ts
 import { IkonClient } from '@ikonai/sdk';
 
 // Create configuration with API key authentication
@@ -62,7 +63,8 @@ The SDK supports three authentication modes. Exactly one must be configured.
 
 Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
 
-```typescript
+<!-- ikon-example: ts-sdk-auth-api-key -->
+```ts
 import { IkonClient, UserType, ClientType } from '@ikonai/sdk';
 
 const client = new IkonClient({
@@ -81,7 +83,8 @@ const client = new IkonClient({
 
 Connect directly to a local Ikon server during development.
 
-```typescript
+<!-- ikon-example: ts-sdk-auth-local -->
+```ts
 const client = new IkonClient({
   local: {
     host: 'localhost',
@@ -95,7 +98,8 @@ const client = new IkonClient({
 
 Use this when the session token was obtained from OAuth flow or anonymous authentication. The JWT token already contains the internal userId.
 
-```typescript
+<!-- ikon-example: ts-sdk-auth-session-token -->
+```ts
 const client = new IkonClient({
   sessionToken: {
     token: 'eyJhbGc...',       // JWT token
@@ -109,7 +113,8 @@ An access token expires while the app is still running. It is a connect-time cre
 connection is already authenticated and never presents it again — so hand a renewed one to the
 running client instead of building a new one:
 
-```typescript
+<!-- ikon-example: ts-sdk-update-auth-token -->
+```ts
 // Same user, fresher credential. A token for a different user is refused;
 // that needs a new client, because the connection was resolved from the old identity.
 client.updateAuthToken(renewedToken);
@@ -121,7 +126,8 @@ behind the connection changes and pushes the token through when only the credent
 To open a second session next to the app connection — a media leg to a cell room, say — use
 `createSibling`, which keeps the sibling's credential in step with this client's:
 
-```typescript
+<!-- ikon-example: ts-sdk-create-sibling -->
+```ts
 const sibling = client.createSibling({ 'ikon-cell-type': 'room', RoomId: 'r1' });
 ```
 
@@ -146,7 +152,8 @@ The `ConnectionState` union also includes deprecated states (`idle`, `connecting
 
 Helper functions are available for common state checks:
 
-```typescript
+<!-- ikon-example: ts-sdk-state-helpers -->
+```ts
 import { isConnecting, isConnected, isOffline } from '@ikonai/sdk';
 
 if (isConnecting(client.connectionState)) {
@@ -164,7 +171,8 @@ if (isOffline(client.connectionState)) {
 
 ### Configuration Callbacks
 
-```typescript
+<!-- ikon-example: ts-sdk-config-callbacks -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
 
@@ -199,7 +207,8 @@ const client = new IkonClient({
 
 ### Connecting and Disconnecting
 
-```typescript
+<!-- ikon-example: ts-sdk-connect-disconnect -->
+```ts
 // Connect (throws on an authentication or protocol failure; a connection timeout or an
 // unsupported browser resolves with the client offline instead)
 await client.connect();
@@ -233,7 +242,8 @@ client.sendUpdateClientContext({
 
 The SDK automatically attempts to reconnect when the connection is lost unexpectedly. Configure reconnection behavior:
 
-```typescript
+<!-- ikon-example: ts-sdk-reconnection -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   timeouts: {
@@ -245,7 +255,7 @@ const client = new IkonClient({
 });
 ```
 
-Reconnection uses a fixed delay between attempts (2s by default).
+The first reconnect attempt is immediate; each later one waits a fixed delay (2s by default).
 
 Renewing the access token is not a reason to reconnect — see `updateAuthToken` above.
 
@@ -255,7 +265,8 @@ Renewing the access token is not a reason to reconnect — see `updateAuthToken`
 
 The SDK provides a subscription-based approach for handling protocol messages:
 
-```typescript
+<!-- ikon-example: ts-sdk-subscribe-messages -->
+```ts
 import { readOpcode, readProtocolMessageHeaders } from '@ikonai/sdk';
 
 // Subscribe to all messages
@@ -274,7 +285,8 @@ unsubscribe();
 
 Filter messages by opcode group for better performance:
 
-```typescript
+<!-- ikon-example: ts-sdk-filtered-subscriptions -->
+```ts
 import { Opcode } from '@ikonai/sdk';
 
 // Subscribe to specific opcode groups
@@ -300,7 +312,8 @@ const unsubscribe2 = client.subscribeToProtocolMessages(
 
 ### Subscribing to State Changes
 
-```typescript
+<!-- ikon-example: ts-sdk-subscribe-state -->
+```ts
 // Subscribe to state changes (called immediately with current state)
 const unsubscribe = client.subscribeToState((state) => {
   console.log(`Connection state: ${state}`);
@@ -312,7 +325,8 @@ unsubscribe();
 
 ### Sending Messages
 
-```typescript
+<!-- ikon-example: ts-sdk-send-messages -->
+```ts
 // Send a protocol message
 client.sendProtocolMessage(message);
 
@@ -328,13 +342,15 @@ The SDK provides a function registry system that allows you to register callable
 
 Access the function registry through the client:
 
-```typescript
+<!-- ikon-example: ts-sdk-function-registry -->
+```ts
 const registry = client.functionRegistry;
 ```
 
 ### Registering Functions
 
-```typescript
+<!-- ikon-example: ts-sdk-register-function -->
+```ts
 import type { FunctionDefinition } from '@ikonai/sdk';
 
 // Define a function
@@ -351,10 +367,11 @@ const definition: FunctionDefinition = {
   ],
 };
 
-// Register with handler
+// Register with handler. A handler's parameters are typed `unknown`; each arrives already
+// converted to the kind its descriptor names, so narrow it to that type.
 const unregister = client.functionRegistry.register(
   definition,
-  (name: string) => `Hello, ${name}!`
+  (name) => `Hello, ${name as string}!`
 );
 
 // Later: unregister
@@ -363,7 +380,8 @@ unregister();
 
 ### Async Functions
 
-```typescript
+<!-- ikon-example: ts-sdk-async-function -->
+```ts
 const asyncDefinition: FunctionDefinition = {
   name: 'fetchData',
   description: 'Fetches data from an API',
@@ -375,8 +393,8 @@ const asyncDefinition: FunctionDefinition = {
 
 client.functionRegistry.register(
   asyncDefinition,
-  async (url: string) => {
-    const response = await fetch(url);
+  async (url) => {
+    const response = await fetch(url as string);
     return response.text();
   }
 );
@@ -386,7 +404,8 @@ client.functionRegistry.register(
 
 Use `withResultData` to return both a JSON value and binary data:
 
-```typescript
+<!-- ikon-example: ts-sdk-result-data -->
+```ts
 import { withResultData } from '@ikonai/sdk';
 
 const imageDefinition: FunctionDefinition = {
@@ -406,9 +425,10 @@ client.functionRegistry.register(
 
 ### Remote Function Calling
 
-Call functions registered by other connected clients:
+Call functions registered by the app server or by other connected clients:
 
-```typescript
+<!-- ikon-example: ts-sdk-remote-call -->
+```ts
 import { FunctionCallError } from '@ikonai/sdk';
 
 // Call a remote function by name
@@ -452,7 +472,8 @@ The SDK provides built-in audio and video playback/capture pipelines.
 
 ### Accessing Media
 
-```typescript
+<!-- ikon-example: ts-sdk-media-access -->
+```ts
 // Backup (non-WebRTC) playback pipeline: null while WebRTC carries media (the default)
 const audio = client.media?.audio;
 const video = client.media?.video;
@@ -463,7 +484,8 @@ const capture = await client.ensureMediaCapture();
 
 ### Configuration
 
-```typescript
+<!-- ikon-example: ts-sdk-media-config -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   audio: {
@@ -490,7 +512,8 @@ When WebRTC is disabled or its signaling fails, the playback pipelines process a
 
 The SDK supports WebRTC for audio and video transport. It is enabled by default and can be turned off in the configuration:
 
-```typescript
+<!-- ikon-example: ts-sdk-webrtc -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   webRtc: { enabled: false },  // disable WebRTC; default is true
@@ -508,10 +531,11 @@ const streams: Map<number, MediaStream> = client.webRtcVideoStreams;
 // Look up a video stream by app-level stream ID
 const stream = client.getWebRtcVideoStreamByStreamId('my-stream-id');
 
-// Listen for track map changes from the server
-client.onWebRtcTrackMapChanged = (info) => {
+// Listen for track map changes from the server (any number of listeners; the single-slot
+// `onWebRtcTrackMapChanged` property is replaced by whoever assigns it last)
+const stopListening = client.addWebRtcTrackMapListener((info) => {
   console.log(`Track ${info.kind}:${info.trackIndex} active=${info.active}`);
-};
+});
 ```
 
 ## UI State Management (sdk-ui)
@@ -522,7 +546,8 @@ The `@ikonai/sdk-ui` library provides framework-agnostic UI state management for
 
 The core class handles protocol messages and maintains UI state:
 
-```typescript
+<!-- ikon-example: ts-sdk-ui-core -->
+```ts
 import { IkonUiCore } from '@ikonai/sdk-ui';
 
 const uiCore = new IkonUiCore({
@@ -556,7 +581,8 @@ uiCore.dispose();
 
 Access the UI store for stream snapshots:
 
-```typescript
+<!-- ikon-example: ts-sdk-ui-store -->
+```ts
 // Get all stream snapshots
 const snapshots = uiCore.uiStore.getSnapshots();
 
@@ -568,27 +594,17 @@ const snapshot = uiCore.uiStore.getSnapshot(streamId);
 
 To build custom UI renderers for frameworks other than React, use the exported types and utilities:
 
-```typescript
-import {
-  UiStore,
-  UiStreamStore,
-  parseUiUpdate,
-  HandlerCache,
-  type UiNode,
-  type UiNodeProps,
-  type ParsedUiUpdate,
-} from '@ikonai/sdk-ui';
+<!-- ikon-example: ts-sdk-custom-renderer -->
+```ts
+import { HandlerCache, type UiNode } from '@ikonai/sdk-ui';
 
-// UiNode represents a UI element
-interface UiNode {
-  id: string;
-  type: string;
-  props: UiNodeProps;
-  children: readonly UiNode[];
-  styleIds: readonly string[];
+// A UiNode is one UI element: readonly id, type, props (Record<string, unknown>), children and styleIds
+function renderNode(node: UiNode, depth = 0): string {
+  const line = `${'  '.repeat(depth)}<${node.type} id="${node.id}" class="${node.styleIds.join(' ')}">`;
+  return [line, ...node.children.map((child) => renderNode(child, depth + 1))].join('\n');
 }
 
-// HandlerCache provides stable event handler references
+// HandlerCache provides stable event handler references, one per node and action
 const cache = new HandlerCache();
 const handler = cache.getHandler('node-id', 'action-id', (actionId) => {
   client.sendActionCall(actionId);
@@ -601,7 +617,8 @@ The `sdk-ui` library is designed to be framework-agnostic. For React integration
 
 ### Timeouts
 
-```typescript
+<!-- ikon-example: ts-sdk-timeouts -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   timeouts: {
@@ -616,7 +633,8 @@ const client = new IkonClient({
 
 ### Protocol Options
 
-```typescript
+<!-- ikon-example: ts-sdk-protocol-options -->
+```ts
 import { Opcode } from '@ikonai/sdk';
 
 const client = new IkonClient({
@@ -632,7 +650,8 @@ const client = new IkonClient({
 
 ### Client Identification
 
-```typescript
+<!-- ikon-example: ts-sdk-client-identification -->
+```ts
 const client = new IkonClient({
   apiKey: {
     apiKey: '...',
@@ -656,7 +675,8 @@ const client = new IkonClient({
 
 Enable debug mode by adding `?ikon-debug=true` to the URL, and read it programmatically:
 
-```typescript
+<!-- ikon-example: ts-sdk-debug-mode -->
+```ts
 import { initializeDebugMode, isDebugModeEnabled } from '@ikonai/sdk';
 
 // Initialize based on URL parameter (?ikon-debug=true)
@@ -672,10 +692,15 @@ if (isDebugModeEnabled()) {
 
 When the app offers feedback (`[Feedback]` in `ikon-config.toml`), `IkonApp` draws the platform's feedback button and sheet. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
 
+<!-- ikon-example: ts-sdk-feedback -->
 ```tsx
-const { available, open } = useIkonFeedback(app.client);
+import { useIkonFeedback, type UseIkonAppResult } from '@ikonai/sdk-react-ui';
 
-return available ? <button onClick={open}>Send feedback</button> : null;
+export function SendFeedbackButton({ app }: { app: UseIkonAppResult }) {
+  const { available, open } = useIkonFeedback(app.client);
+
+  return available ? <button onClick={open}>Send feedback</button> : null;
+}
 ```
 
 `available` is false for anyone the app does not offer feedback. `open()` behaves as a tap on the platform's button, screenshot included, and needs an `IkonApp` on the page to show the sheet. Without React, `client.requestFeedback()` does the same. With `[Feedback] Button = "none"` the platform draws no button, and controls like this are the only way in.
@@ -711,7 +736,7 @@ place instead of silently pinning something slow.
 
 Pinning is how a fallback path gets exercised before a customer's network exercises it for you:
 
-```
+```text
 https://your-app.ikonai.app/?ikon-transport=http-poll&ikon-debug=true
 ```
 
@@ -724,7 +749,8 @@ reporting success would defeat the point.
 
 By default, the SDK auto-registers browser convenience functions (getTheme, setTheme, getLocation, etc.) when running in a browser. Disable this if needed:
 
-```typescript
+<!-- ikon-example: ts-sdk-browser-functions -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   disableBrowserFunctions: true,
@@ -761,7 +787,8 @@ Opt one link out with an attribute:
 Or turn it off for the whole client — appropriate when the app's internal links address documents it
 does not route:
 
-```typescript
+<!-- ikon-example: ts-sdk-intercept-links -->
+```ts
 const client = new IkonClient({
   // ... authentication config ...
   interceptInternalLinks: false,
@@ -772,7 +799,8 @@ const client = new IkonClient({
 
 Configure SDK logging:
 
-```typescript
+<!-- ikon-example: ts-sdk-logging -->
+```ts
 import { setLogLevel, setLogSink, LogLevel, createLogger, subscribeToLogEvents } from '@ikonai/sdk';
 
 // Set minimum log level for console output
@@ -824,9 +852,10 @@ The SDK provides typed errors for different failure scenarios:
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
 
-In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` with only `name` set, so identify transport-level errors by `error.name` rather than `instanceof`.
+In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` that keeps only the `name` and `message`, so identify transport-level errors by `error.name` rather than `instanceof`.
 
-```typescript
+<!-- ikon-example: ts-sdk-error-handling -->
+```ts
 import { AuthenticationError } from '@ikonai/sdk';
 
 const client = new IkonClient({

@@ -1,5 +1,5 @@
 # Asset System Developer Guide
-<!-- checked-against: f2afcaee209ebbe9 -->
+<!-- checked-against: d365f831539e0ab1 -->
 ## Overview
 
 The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.
@@ -8,7 +8,7 @@ The Ikon asset system exposes a uniform abstraction for storing and retrieving f
 
 All asset identifiers use the `assets://` scheme defined by `AssetUri`. URIs are composed of optional scope segments followed by the asset class and backend-specific path:
 
-```
+```text
 assets://space/{spaceId}/user/{userId}/{asset-class}/{path/to/resource}?{query}
 ```
 
@@ -176,7 +176,7 @@ await assets.GetOrUpdateWithMetadataAsync<Settings>(
 
 ## Listing assets
 
-Use `ListAsync` with an `AssetQuery` to enumerate a folder. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`. The folder prefix is the only filter that applies: `Tags` and `ContinuationToken` are ignored today, `Limit` caps the `EmbeddedFile` listing only, and the result's `NextContinuationToken` is always null, so filter and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one returns an empty list.
+Use `ListAsync` with an `AssetQuery` to enumerate a folder. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`. The folder prefix is the only filter that applies: a non-empty `Tags` throws `NotSupportedException`, `ContinuationToken` is ignored today, `Limit` caps every listing, and the result's `NextContinuationToken` is always null, so filter by tag and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one never lists its own files, only the unscoped files at the same bare path.
 
 <!-- ikon-example: asset-guide-list -->
 ```csharp

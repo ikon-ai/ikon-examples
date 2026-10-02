@@ -1,5 +1,5 @@
 # Flutter SDK Guide
-<!-- checked-against: 0b87eea2d9a6a411 -->
+<!-- checked-against: a51096e3c9b6be56 -->
 
 ## Overview
 
@@ -60,7 +60,7 @@ not the native story.
 
 ## Architecture
 
-```
+```text
 C# App (unchanged)
   view.Button(style: ["px-4 py-2 bg-blue-500 rounded"], label: "Go")
        │
@@ -110,7 +110,7 @@ syntax.
 
 Add a `frontend-flutter/` directory alongside your existing `frontend-node/`:
 
-```
+```text
 Ikon.App.MyApp/
 ├── app/                    ← C# backend
 ├── frontend-node/          ← Web frontend (existing)
@@ -129,7 +129,7 @@ description: Flutter frontend for My Ikon App
 
 environment:
   sdk: ^3.3.0
-  flutter: '>=3.10.0'
+  flutter: '>=3.44.0'
 
 dependencies:
   flutter:
@@ -139,6 +139,7 @@ dependencies:
 
 ### 3. lib/main.dart
 
+<!-- ikon-example: flutter-sdk-quick-start -->
 ```dart
 import 'package:flutter/material.dart';
 import 'package:ikon_sdk/ikon_sdk.dart';
@@ -310,12 +311,14 @@ flutter build web --dart-define=IKON_PORT=8446
 
 `IkonClient.connectLocal()` handles everything — no config needed:
 
+<!-- ikon-example: flutter-sdk-auth-local -->
 ```dart
 final client = await IkonClient.connectLocal(host: 'localhost', port: 8446);
 ```
 
 ### Deployed Apps — Guest/Anonymous
 
+<!-- ikon-example: flutter-sdk-auth-guest -->
 ```dart
 final client = await IkonClient.connectGuest(
   serverHost: 'myapp.ikon.ai',
@@ -337,6 +340,7 @@ connect. `sso:` connections and passkeys are not offered on a phone yet.
 `ikon bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
 `RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template wires it; the essentials are:
 
+<!-- ikon-example: flutter-sdk-native-sign-in -->
 ```dart
 final navigatorKey = GlobalKey<NavigatorState>(); // MaterialApp(navigatorKey: navigatorKey, ...)
 
@@ -358,19 +362,29 @@ before connecting when `signIn.storedToken()` is null.
 
 ### Deployed Apps — API Key
 
+There is no `connect*` helper for an API key, so the client is built from the auth result:
+
+<!-- ikon-example: flutter-sdk-auth-api-key -->
 ```dart
 final auth = IkonAuthenticator(host: 'myapp.ikon.ai', port: 443);
 final result = await auth.authenticateApiKey(
   spaceId: 'my-space-id',
   apiKey: 'my-api-key',
 );
-// Use result.websocketUrl and result.authTicket with IkonClientConfig
+
+// What the connect* helpers do for you: connect, register the built-in client functions, then
+// send the ready message without which the app never sees the client join.
+final client = IkonClient(IkonClientConfig.fromAuthResult(result));
+await client.connect();
+registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
+client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 ```
 
 ## Custom Components
 
 Register custom Flutter widgets for node types the server sends:
 
+<!-- ikon-example: flutter-sdk-custom-component -->
 ```dart
 final registry = IkonComponentRegistry();
 registry.register('my-custom-widget', (node, style, children, context) {
@@ -379,15 +393,16 @@ registry.register('my-custom-widget', (node, style, children, context) {
 });
 
 // Use the custom registry
-IkonParallaxView(uiCore: uiCore, client: client, registry: registry)
+final view = IkonParallaxView(uiCore: uiCore, client: client, registry: registry);
 ```
 
 ## Multi-mount apps
 
 Apps that declare multiple Parallax sub-trees via `IAppBase.Mounts` can be selectively embedded by passing the `mount:` argument:
 
+<!-- ikon-example: flutter-sdk-mount -->
 ```dart
-IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas')
+final view = IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas');
 ```
 
 When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, or else the only stream other than the platform overlay; with several such streams nothing renders. The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
@@ -396,6 +411,7 @@ When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, 
 
 The server can call functions registered on the Flutter client:
 
+<!-- ikon-example: flutter-sdk-client-function -->
 ```dart
 client.functionRegistry.register(
   FunctionDefinition(name: 'my.customAction', resultTypeName: 'string'),
@@ -406,7 +422,7 @@ client.functionRegistry.register(
 );
 ```
 
-Built-in Flutter functions (called automatically by the server):
+Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and called by the server, include:
 - `ikon.client.getTheme` / `setTheme` — `dark` or `light`; `setTheme` drives the renderer's light/dark token variants and returns false for an unrecognised name
 - `ikon.client.getLanguage` — device locale
 - `ikon.client.getTimezone` — device timezone
@@ -423,6 +439,7 @@ Built-in Flutter functions (called automatically by the server):
 
 ## File Upload
 
+<!-- ikon-example: flutter-sdk-file-upload -->
 ```dart
 final uploader = IkonFileUpload(client);
 final result = await uploader.upload(
@@ -440,6 +457,7 @@ The SDK bundles Opus + PCM + WebRTC implementations behind pluggable interfaces
 (`AudioEncoder`, `AudioDecoder`, `AudioOutput`, `MicSource`); the `enableIkon*` helpers
 wire the bundled ones:
 
+<!-- ikon-example: flutter-sdk-media -->
 ```dart
 // Opus mic capture (bundled OpusAudioEncoder + record-based mic source)
 final capture = enableIkonAudioCapture(client);
@@ -481,7 +499,7 @@ The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 
 ## Supported Components
 
-The Flutter SDK renders 105+ registered component types including:
+The Flutter SDK renders 160+ registered component types including:
 
 - **Layout:** div (auto Row/Column from flex direction), scroll area, separator, aspect ratio
 - **Text:** text, heading, label, markdown (full rendering)
@@ -496,7 +514,8 @@ The Flutter SDK renders 105+ registered component types including:
 ## CI/CD
 
 Flutter is wired into CI via `platform-dart/builder.py`, which provides `build`
-(`flutter pub get`), `analyze`, `test`, and `full_build` targets. The Dart protocol
+(`flutter pub get`), `analyze` (the SDK and the examples this guide quotes, in
+`platform-dart/ikon_sdk_doc_examples/`), `api_surface`, `test`, and `full_build` targets. The Dart protocol
 files under `platform-dart/ikon_sdk/lib/protocol/generated/` are regenerated by the
 platform-dotnet build (the `IkonServer` project), so run that first after schema
 changes.

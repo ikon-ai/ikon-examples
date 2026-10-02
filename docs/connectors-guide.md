@@ -1,12 +1,12 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: 871ba7e4267cbddd -->
-This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
+<!-- checked-against: 27536c2ea258482d -->
+This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub, Microsoft Graph, Procountor), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
 
 Each connector is a **raw** client for one external service: a thin, typed wrapper over the service's API with no agent coupling. The connectors' agent skills are internal, so an app cannot construct them or register them on a persona of its own; the one public route to one is `BrowserOperatorPersona.Create()`, which builds a persona around the browser skill. This guide focuses on the raw connectors.
 
-All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying (GitHub `403` needs one more check — see below):
+All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"microsoft-graph"`, `"procountor"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`, normalized so that `401`/`403` mean the credential must be reconnected: a Slack auth error (HTTP 200 with `ok:false`) is reported as `401`, and a GitHub rate-limit `403` as `429`. Any other Slack API error has a null `StatusCode` and its code (`channel_not_found`, `not_in_channel`, `is_archived`) in `ErrorCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying (Google, Microsoft Graph and Procountor report the raw status, and a Google `403` can be a quota rather than a revoked grant):
 
 <!-- ikon-example: connectors-errors -->
 ```csharp
@@ -24,11 +24,11 @@ catch (ConnectorException)
 }
 ```
 
-The Slack and GitHub connectors honor rate limits on their JSON API calls: a `429` is retried up to three times, waiting the server's `Retry-After` (bounded at two minutes), before it surfaces as a `ConnectorException`. Three methods bypass that retry and fail immediately on a `429` — `GitHub.GetPullRequestDiffAsync`, `GitHub.MergePullRequestAsync`, and `Slack.DownloadFileAsync` — so wrap those yourself when rate limiting matters.
+The Slack and GitHub connectors honor rate limits on their JSON API calls: a `429` is retried up to three times, waiting the server's `Retry-After` (bounded at two minutes), before it surfaces as a `ConnectorException`. Four methods bypass that retry and fail immediately on a `429` — `GitHub.GetPullRequestDiffAsync`, `GitHub.MergePullRequestAsync`, `GitHub.MergePullRequestUnpinnedAsync`, and `Slack.DownloadFileAsync` — so wrap those yourself when rate limiting matters. `MicrosoftGraph` and `Procountor` retry the same way on every call they make, the token request included, and on its Graph calls and downloads `MicrosoftGraph` treats a `503` as it does a `429`, because Graph throttles with either.
 
-GitHub is the exception to the `403` rule above: it answers a primary or secondary rate limit with `403` as well, and the connector does not retry those. The response body is in `Message` (`"API rate limit exceeded"`, `"secondary rate limit"`), so for `Provider == "github"` treat a `403` as a dead credential only when the message does not name a rate limit; otherwise retry after the limit resets.
+GitHub answers a primary or secondary rate limit with `403` as well; the connector reports such a response (one with `X-RateLimit-Remaining: 0` or a `Retry-After`) as `429`, so a GitHub `403` that reaches you is an access failure, not a rate limit.
 
-One more exception type exists, and it is not a failure: the paged reads (`Slack.HistorySinceAsync`, `Slack.ListConversationsAsync`, `GitHub.ListIssuesSinceAsync`) each take a `maxPages` bound, and a call that reaches it with the service still holding more throws `ConnectorPageCapException<T>` — carrying the `Items` it did read and a `ResumeFrom` point — rather than handing back a shortened list as if it were complete. Each method's section below says what `ResumeFrom` means for it, because Slack and GitHub page in opposite directions. The platform's own backend listings (`IkonBackend` — spaces, databases, billing rows, release notes, everything an `ikon` verb or Studio lists) follow the same rule with `BackendPageCapException<T>`: a `maxResults` window that fills while the backend reports more throws with the `Items` read, the `TotalCount`, and the `NextCursor`, never a shortened list as the total.
+One more exception type exists, and it is not a failure: the paged reads (`Slack.HistorySinceAsync`, `Slack.ListConversationsAsync`, `GitHub.ListIssuesSinceAsync`) each take a `maxPages` bound, and a call that reaches it with the service still holding more throws `ConnectorPageCapException<T>` rather than handing back a shortened list as if it were complete. What it carries differs because Slack and GitHub page in opposite directions: `ResumeFrom` is set only where a cursor can continue the read (GitHub issues) and is null for Slack, and Slack history hands back no `Items` at all — each method's section below says which. Every listing of `MicrosoftGraph` and `Procountor` follows the same rule, with `ResumeFrom` set to its own cursor: the next page link for Graph, the lowest id read for Procountor. The platform's own backend listings (`IkonBackend` — spaces, databases, billing rows, release notes, everything an `ikon` verb or Studio lists) follow the same rule with `BackendPageCapException<T>`: a `maxResults` window that fills while the backend reports more throws with the `Items` read, the `TotalCount`, and the `NextCursor`, never a shortened list as the total.
 
 ## Slack
 
@@ -46,7 +46,7 @@ var slack = new Slack(botToken);
 var posted = await slack.PostAsync("C0123456789", "Deploy finished", threadTs: rootTs);
 ```
 
-The returned `SlackMessage` is **synthesized locally** from the request, not fetched back from Slack: `Ts` and `Channel` come from the response, but `User` is empty and `ThreadTs` merely echoes the argument. Use it for the `Ts` of the message you just posted — do not read server-populated fields (author, files, subtype) off it.
+The returned `SlackPostResult` is what Slack echoed back: the posted message's `Ts` and the `Channel` id a name like `#general` resolved to. Pass that `Ts` as `threadTs` to reply in the thread; the post's author, subtype and files are not returned — read the message back from history for those.
 
 ### Reading history
 
@@ -67,11 +67,11 @@ foreach (var message in messages)
 
 **In-thread replies are not in that result, and nothing reports their absence.** Both methods call `conversations.history`, which returns only the messages posted to the channel itself; a reply posted inside a thread is reached by `conversations.replies` on its parent's `ThreadTs`, and this connector does not call it. So a channel feed built on `HistorySinceAsync` alone silently drops every threaded reply, however far the cursor advances. A message that owns a thread carries its own `ts` as `ThreadTs` — fetch each such thread yourself if replies matter to you.
 
-Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200), and the bound is never silent: when it trips with Slack still reporting a `next_cursor`, the call throws `ConnectorPageCapException<SlackMessage>` instead of returning. The exception carries the messages it did read as `Items` (oldest-first, same as a normal result) and the oldest of their `ts` values as `ResumeFrom`. Because Slack pages **backward in time**, the span in hand is the most recent one and the unread messages sit **below** `ResumeFrom` — so ingest `Items` if they are useful, but do not move your cursor past the `oldestTs` you called with; the only way to close the gap is to call again with a larger `maxPages`. A caller that stays under the bound sees no exception at all.
+Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200), and the bound is never silent: when it trips with Slack still reporting a `next_cursor`, the call throws `ConnectorPageCapException<SlackMessage>` instead of returning, with empty `Items` and a null `ResumeFrom`. Because Slack pages **backward in time**, the messages read are the most recent ones and the unread gap sits **below** them, so none are handed out — keep your cursor at the `oldestTs` you called with, and close the gap by calling again with a larger `maxPages` or by reading narrower windows with the `HistorySinceAsync(channel, oldestTs, latestTs)` overload. `maxPages` must be positive and `pageLimit` 1–1000, or the call throws `ArgumentOutOfRangeException`. A caller that stays under the bound sees no exception at all.
 
 ### Conversations and files
 
-`ListConversationsAsync` returns the public and private channels the token can see, paging up to `maxPages`; a workspace with more channels than the cap admits gets a `ConnectorPageCapException<SlackConversation>` carrying the channels read so far as `Items` and the next page cursor as `ResumeFrom`, never a shortened list presented as the total — raise `maxPages` for such a workspace. `GetConversationAsync(channelId)` fetches one. Both hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, and the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM. A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when the token cannot fetch it). `DownloadFileAsync(url)` downloads a shared file's `url_private_download` with the bot token. It fetches Slack-owned hosts only (`slack.com` and subdomains); any other URL — e.g. one parsed out of untrusted message text — throws `ArgumentException` without a request, so the token can never leak to another server.
+`ListConversationsAsync` returns the public and private channels the token can see, paging up to `maxPages`; a workspace with more channels than the cap admits gets a `ConnectorPageCapException<SlackConversation>` carrying the channels read so far as `Items` and a null `ResumeFrom`, never a shortened list presented as the total — raise `maxPages` for such a workspace. Archived channels are included; filter on `SlackConversation.IsArchived` before posting, which fails on one with `is_archived`. `GetConversationAsync(channelId)` fetches one. Both hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, and the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM. A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when the token cannot fetch it). `DownloadFileAsync(url)` downloads a shared file's `url_private_download` with the bot token; when Slack answers with its HTML sign-in page instead (the token lacks `files:read` or the file is not shared with the bot), it throws `ConnectorException` rather than returning that page as the file. It fetches Slack-owned hosts only (`slack.com` and subdomains); any other URL — e.g. one parsed out of untrusted message text — throws `ArgumentException` without a request, so the token can never leak to another server.
 
 ### Socket Mode
 
@@ -86,7 +86,7 @@ var wsUrl = await slack.OpenSocketUrlAsync(appToken);   // xapp-..., not the xox
 
 ## GitHub
 
-Construct `GitHub` with a token. The constructor **throws `ArgumentException` on an empty or whitespace token** — an empty token would otherwise degrade silently to unauthenticated requests, where private repositories answer 404 instead of 401. Every `repo` parameter is the `"owner/name"` form:
+Construct `GitHub` with a token. The constructor **throws `ArgumentException` on an empty or whitespace token** — an empty token would otherwise degrade silently to unauthenticated requests, where private repositories answer 404 instead of 401. Every `repo` parameter is the `"owner/name"` form, checked before any request: anything other than two segments of letters, digits, `-`, `_` or `.` joined by one `/` (a full URL, `owner/name/extra`, a `.` or `..` segment) throws `ArgumentException`:
 
 <!-- ikon-example: connectors-github -->
 ```csharp
@@ -97,7 +97,7 @@ var commentUrl = await gitHub.CommentAsync("ikon-ai/examples", 42, "Reproduced o
 
 ### Listing by update time
 
-`ListIssuesSinceAsync(repo, since)` returns every issue **and pull request** updated after `since` (an ISO-8601 timestamp, e.g. `"2026-01-01T00:00:00Z"`), ordered by update time ascending and paged to completion. Paging is bounded by `maxPages` (default 50 pages of 100), and reaching the bound with a full last page throws `ConnectorPageCapException<GitHubIssue>` rather than returning a shortened list: `Items` holds the pages read (ascending and gap-free, so they are safe to process) and `ResumeFrom` is the newest `UpdatedAt` among them — pass it back as the next `since` to continue. The GitHub issues API includes pull requests; `GitHubIssue.IsPullRequest` tells them apart.
+`ListIssuesSinceAsync(repo, since)` returns every issue **and pull request** updated after `since` (an ISO-8601 timestamp, e.g. `"2026-01-01T00:00:00Z"`), ordered by update time ascending and paged to completion. Paging is bounded by `maxPages` (default 50 pages of 100; `maxPages <= 0` throws `ArgumentOutOfRangeException`), and reaching the bound with a full last page throws `ConnectorPageCapException<GitHubIssue>` rather than returning a shortened list: `Items` holds the pages read (ascending and gap-free, so they are safe to process) and `ResumeFrom` is the newest `UpdatedAt` among them — pass it back as the next `since` to continue. The GitHub issues API includes pull requests; `GitHubIssue.IsPullRequest` tells them apart.
 
 `GitHubIssue.UpdatedAt` is the raw ISO-8601 string exactly as GitHub returned it. It is an **opaque cursor**: feed it back as the next `since` without parsing or reformatting it — a round-trip through `DateTime` can change the text and break resume-from-cursor paging.
 
@@ -129,7 +129,8 @@ if (updated.Count > 0)
 
 <!-- ikon-example: connectors-github-merge -->
 ```csharp
-var result = await gitHub.MergePullRequestAsync("ikon-ai/examples", 42, commitTitle: "Add retry policy");
+var reviewedHead = await gitHub.GetPullRequestHeadShaAsync("ikon-ai/examples", 42);   // before reading the diff
+var result = await gitHub.MergePullRequestAsync("ikon-ai/examples", 42, reviewedHead, commitTitle: "Add retry policy");
 
 if (!result.Merged)
 {
@@ -138,6 +139,155 @@ if (!result.Merged)
 ```
 
 `GetPullRequestDiffAsync` returns the PR's unified diff as text.
+
+## Microsoft Graph: SharePoint and Entra
+
+`MicrosoftGraph` reads a SharePoint document library together with who may read each document, and resolves a person's Entra identity to the principals those grants name. That is what an app needs to show SharePoint content only to the people SharePoint would show it to. Construct it with an app registration's tenant id, client id and client secret; an empty one throws `ArgumentException` at construction. The access token is requested on first use and again shortly before it expires.
+
+**This is application-permission access with permission sync, not delegated access.** Every call runs as the app registration, which reads whatever its permissions admit, so Graph trims nothing per person. Your app reads each file's grants and enforces them itself. Two things follow. A permission changed in SharePoint applies in your app only once you have read that file's grants again. And a grant the connector reports as unresolved (below) names nobody you can check, so it must admit nobody.
+
+### What to provision
+
+In the tenant's Entra admin center: register an application, create a client secret, add these Microsoft Graph **application** permissions, and grant admin consent.
+
+| Permission | What needs it |
+|---|---|
+| `Sites.Read.All` | `GetSiteAsync` and `GetGroupSiteAsync`. It also covers `ListDrivesAsync`, `ListFilesAsync`, `DownloadFileAsync` and `ListPermissionsAsync`, for which Graph names `Files.Read.All` as the least privilege. |
+| `User.Read.All` | `FindUserAsync` and `ListUserGroupsAsync`. |
+| `GroupMember.Read.All` | The names of the groups `ListUserGroupsAsync` returns. Without it Graph returns each group's id and an empty `DisplayName`; the ids are all that trimming needs. |
+
+Two things to settle with the tenant's administrator rather than assume. Microsoft's guidance for scanning libraries at scale says an app needs `Sites.FullControl.All` "to process permissions correctly", while the reference for listing a file's permissions names only the read permissions above: if `ListPermissionsAsync` returns fewer grants than SharePoint shows for a file, that is the permission to add. And to confine the app registration to one site, Microsoft's `Sites.Selected` takes the place of `Sites.Read.All` once an administrator has given the application the `read` role on that site.
+
+### Reading a library
+
+<!-- ikon-example: connectors-graph-ingest -->
+```csharp
+var graph = new MicrosoftGraph(tenantId, clientId, clientSecret);
+var site = await graph.GetSiteAsync("contoso.sharepoint.com", "/sites/Finance");
+var library = (await graph.ListDrivesAsync(site.Id)).First(drive => drive.Name == "Documents");
+
+var listing = await graph.ListFilesAsync(library.Id);
+
+foreach (var file in listing.Files)
+{
+    var grants = await graph.ListPermissionsAsync(library.Id, file.Id);
+    var content = await graph.DownloadFileAsync(library.Id, file.Id, maxBytes: 20_000_000);
+    await IndexAsync(file, content, grants);
+}
+
+var deltaLink = listing.DeltaLink;   // store verbatim: it is what reads only the changes next time
+```
+
+`GetSiteAsync(hostname, sitePath)` finds a site by its address and returns it as a `MicrosoftGraphSite`; an empty path or `/` is the host's root site. `ListDrivesAsync` returns its document libraries as `MicrosoftGraphDrive` records. `ListFilesAsync` walks a library's delta feed, which is the one listing Graph guarantees complete while people keep editing, and returns a `MicrosoftGraphFileListing`: the `Files` and a `DeltaLink`. Each `MicrosoftGraphFile` has its `Id`, `Name`, `Path` inside the library, `WebUrl`, `MimeType`, `Size`, `LastModified` and `LastModifiedBy`. Only files are listed; a OneNote notebook, which Graph models as a package, is not one.
+
+`folderPath` narrows the result to one folder, but the walk still pages the whole library, because Graph documents the delta feed for a library's root only. The walk is bounded by `maxPages` (default 50), and reaching it with more pending throws `ConnectorPageCapException<MicrosoftGraphFile>` with the files read as `Items` and the next page link as `ResumeFrom` — pass that as `deltaLink` to continue from there.
+
+`DownloadFileAsync` takes a `maxBytes` and refuses a larger file with a `ConnectorException` instead of buffering it or handing back part of it.
+
+### Keeping it current
+
+<!-- ikon-example: connectors-graph-changes -->
+```csharp
+var changes = await graph.ListFilesAsync(driveId, deltaLink: deltaLink);
+
+foreach (var file in changes.Files)
+{
+    if (file.Deleted)
+    {
+        await RemoveAsync(file.Id);
+        continue;
+    }
+
+    var grants = await graph.ListPermissionsAsync(driveId, file.Id);
+    var content = await graph.DownloadFileAsync(driveId, file.Id, maxBytes: 20_000_000);
+    await IndexAsync(file, content, grants);
+}
+
+deltaLink = changes.DeltaLink;
+```
+
+Called with the `DeltaLink` of an earlier listing, `ListFilesAsync` returns only what changed since. A removed item arrives with `Deleted` set and nothing but its `Id`; a deleted folder's id can be among them, and deletions are never filtered by `folderPath`. With a `folderPath`, a changed file that is now outside the folder arrives as `Deleted` too, since it may have been moved out of it. A link too old for Graph to answer throws `ConnectorException` with `StatusCode` 410, and the remedy is a full listing. Key what you store on `Id`: a folder that is moved or renamed does not bring the files under it back through the feed, so a stored `Path` goes stale until the next full listing.
+
+**A change to who may read is not a change to a file.** New sharing on a folder, a change to the site's permissions, a person joining or leaving a group — none of these re-reports the files they affect. Read group membership when a person asks (`ListUserGroupsAsync` is cheap), and re-read `ListPermissionsAsync` for every file you hold on the schedule that decides how stale a permission you accept.
+
+### Who may read a file
+
+`ListPermissionsAsync(driveId, itemId)` returns the item's effective permissions, inherited ones included, as one `MicrosoftGraphGrant` per principal. Its `Kind` says what `PrincipalId` is and whether you can check a person against it:
+
+| `Kind` | The grant is to | Checking a person |
+|---|---|---|
+| `User` | an Entra user | `PrincipalId` equals the `Id` of the `MicrosoftGraphUser` from `FindUserAsync` |
+| `Group` | an Entra group, security or Microsoft 365 | `PrincipalId` is among the ids from `ListUserGroupsAsync` |
+| `SiteGroup` | a SharePoint site group, such as "Finance Members" | **unresolved** |
+| `SiteUser` | a principal SharePoint knows and Entra does not; `LoginName` carries its claim | **unresolved** |
+| `Link` | whoever holds a sharing link's URL; `LinkScope`, a `MicrosoftGraphLinkScope`, is `Anonymous`, `Organization` or `Unknown` | **unresolved** — the connector cannot know who holds it |
+| `Application` | an application | not a person |
+| `Unknown` | an invitation nobody has redeemed (`Email` is its address), or a shape the connector does not know | **unresolved** |
+
+A sharing link made for named people is not a `Link` grant: it yields one grant per person named, with `LinkScope` `Users` — a `User` or `Group` grant where Entra knows them, otherwise one of the unresolved kinds. A link that only re-states access people already have yields nothing. `Roles` are Graph's own — `read`, `write` and `owner` all include reading — and `Inherited` is true when Graph named the folder a grant comes from; Graph documents that SharePoint libraries leave that out, so false does not mean the grant is set on the file itself.
+
+<!-- ikon-example: connectors-graph-trim -->
+```csharp
+var user = await graph.FindUserAsync(signedInEmail);
+
+if (user is null)
+{
+    return false;   // not in this tenant, so no grant can name them
+}
+
+var groupIds = (await graph.ListUserGroupsAsync(user.Id))
+    .Select(group => group.Id)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+var mayRead = grants.Any(grant =>
+    grant.Roles.Any(role => role is "read" or "write" or "owner")
+    && grant.PrincipalId is { } principalId
+    && grant.Kind switch
+    {
+        MicrosoftGraphPrincipalKind.User => string.Equals(principalId, user.Id, StringComparison.OrdinalIgnoreCase),
+        MicrosoftGraphPrincipalKind.Group => groupIds.Contains(principalId),
+        _ => false,   // site groups, links and unknown principals name nobody this app can check
+    });
+```
+
+`FindUserAsync` takes an Entra object id, a user principal name or a primary mail address, returns null when nobody matches, and throws when more than one person does. `ListUserGroupsAsync` returns every group the person is in, directly or through nested groups, as `MicrosoftGraphGroup` records; owning a group is not membership of it.
+
+**SharePoint site groups are the limit to know before you promise anything.** A site's own permissions are held by its site groups — Owners, Members, Visitors — and a library that inherits them reports its grants as `SiteGroup`. Graph gives an application no call that lists who is in a site group, so the connector reports the group by name and resolves nothing: under the rule above, a library shared only through its site's groups is readable by nobody in your app. What resolves is a grant to people or to Entra groups, so the dependable arrangement is a library, or its folders, shared with Entra groups.
+
+For a team site connected to a Microsoft 365 group there is one more fact to use. Microsoft documents that the group's owners become site owners and its members site members, and that people can also be added to the site's groups directly. `MicrosoftGraphDrive.OwnerGroupId` names that group where Graph reports it — Graph returns it without documenting it, so confirm it by checking that `GetGroupSiteAsync` returns the same site — and `ListUserGroupsAsync` says whether a person is in it. Whether a `SiteGroup` grant called "Finance Members" is that site's members group is something the connector cannot see, and people added to the site directly are in no Entra group, so treating group membership as that grant is your app's stated rule, never the connector's.
+
+## Procountor
+
+`Procountor` reads customers, sales invoices and their payments from Procountor (Finago). It writes nothing.
+
+Procountor issues credentials in two halves. The **client id, client secret and redirect URI** identify your integration and come from Procountor when you request API access. The **API key** is created in Procountor by a user of the company whose figures you read — *Basics → API client keys → New API key*, entering your client id — and binds the connector to that user's rights in that one company; a company administrator can create it for a technical user that may use the API and not the application. Keep all four in `app.Secrets`. The connector exchanges the key for an access token that lasts an hour and renews it before it expires.
+
+<!-- ikon-example: connectors-procountor -->
+```csharp
+var procountor = new Procountor(clientId, clientSecret, redirectUri, apiKey);
+
+var customers = await procountor.ListCustomersAsync();
+var invoices = await procountor.ListSalesInvoicesAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 3, 31));
+
+foreach (var byStatus in invoices.GroupBy(invoice => invoice.Status))
+{
+    Log.Instance.Info($"{byStatus.Key}: {byStatus.Count()} invoices, {byStatus.Sum(invoice => invoice.Total ?? 0)} in accounting currency");
+}
+
+var payments = await procountor.ListPaymentEventsAsync(invoices[0].Id);
+```
+
+The constructor reads production (`Procountor.ProductionBaseUrl`) unless given another `baseUrl`; `Procountor.TestBaseUrl` is Procountor's public testing server, which has its own credentials and its own data. An empty credential, or a base URL that is not `https`, throws `ArgumentException` at construction.
+
+`ListCustomersAsync` returns the customers of the business partner register as `ProcountorBusinessPartner` records. Procountor lists active partners or deactivated ones, never both: `active: false` asks for the others.
+
+`ListSalesInvoicesAsync(startDate, endDate)` returns the sales invoices whose invoice date falls in the range, both ends included, as `ProcountorInvoice` records: `Id`, `PartnerId` and `PartnerName`, `InvoiceNumber`, `Date`, `DueDate`, `Total`, `TotalExcludingVat`, `Currency`, `Status` and `Type`. Three contracts to respect:
+
+- **Every status comes back**, unfinished and invalidated invoices among them. `Status` is Procountor's own word (`UNFINISHED`, `NOT_SENT`, `SENT`, `PARTLY_PAID`, `PAID`, `MARKED_PAID`, `INVALIDATED` and more); decide which ones a figure counts before you sum.
+- **`Total` is in the company's accounting currency**, also for an invoice issued in another currency, so totals add up. It is null where Procountor reported no such sum.
+- **There is no open amount.** A listing carries `Status` and nothing about how much has been paid. `ListPaymentEventsAsync(invoiceId)` returns the payments recorded against one invoice as `ProcountorPaymentEvent` records; what is still owed is the total less the events you count as paid, and which of them count is an accounting decision the connector does not make.
+
+Listings page by descending id, 200 rows a page, and a row created while a listing runs is never returned twice or made to hide another. The bound is `maxPages` (default 50, so 10,000 rows; 10 for `ListPaymentEventsAsync`): reaching it with a full last page throws `ConnectorPageCapException<T>` with the rows read as `Items` and the lowest id among them as `ResumeFrom` — parse it and pass it as `previousId` to read on. Procountor documents its request limits (60 a second in production, 90 a minute on the testing server) and no throttling response; the connector waits and retries on a `429` if one comes.
 
 ## Google: Drive and Gmail
 
@@ -164,9 +314,9 @@ var uploaded = await drive.UploadAsync("report.pdf", "application/pdf", content,
 await using var download = await drive.DownloadAsync(uploaded.Id);
 ```
 
-`DownloadAsync` buffers the whole file in memory and works only for files with binary content: Google-native Docs, Sheets and Slides are rejected with HTTP 403 as a `ConnectorException`, and the connector has no export.
+`DownloadAsync` buffers the whole file in memory and works only for files with binary content: Google-native Docs, Sheets and Slides are rejected by Google with HTTP 403, surfaced as a `ConnectorException` whose `StatusCode` is null (the 403 appears only in `Message`, so the `401`/`403` rule above does not catch it), and the connector has no export.
 
-`ListAsync(folderId, limit)` fetches a **single page**: `limit` is a per-page maximum, not a guarantee that everything under the folder is returned, and the results **include trashed files**. Use it only for a bounded "recent files" peek. For a complete or filtered listing use `ListAllAsync`, which pages through the entire result set and accepts an extra Drive query clause:
+`ListAsync(folderId, limit)` returns **at most `limit`** files, paging as needed and **excluding trashed files**; a result of exactly `limit` files means more may exist, and `limit <= 0` returns an empty list. Use it only for a bounded "recent files" peek. For a complete or filtered listing use `ListAllAsync`, which pages through the entire result set, includes trashed files unless the query excludes them, and accepts an extra Drive query clause:
 
 <!-- ikon-example: connectors-drive-list -->
 ```csharp
@@ -197,8 +347,8 @@ var sentId = await gmail.SendAsync("someone@example.com", "Weekly summary", body
 
 Two field contracts to respect:
 
-- `EmailSummary.ReceivedAt` is `DateTimeOffset.MinValue` when Gmail supplies no internal date. Check for it before sorting or displaying by date.
-- `GetBodyAsync` returns the `text/plain` part when present, else the **raw HTML** of the `text/html` part, else an empty string — the fallback is not converted to text.
+- `EmailSummary.ReceivedAt` is null when Gmail supplies no internal date. Handle it before sorting or displaying by date.
+- `GetBodyAsync` returns an `EmailBody`: `Text` is the `text/plain` part when present (`IsHtml` false), else the **raw HTML** of the `text/html` part (`IsHtml` true, not converted to text), else an empty string.
 
 ## Browser
 
@@ -219,7 +369,7 @@ var run = await WebAgent.OperateAsync(
     thread,                                    // an AgentThread from Ikon.Agent
     "https://portal.example.com",
     "Log in with the provided credentials and extract the current account balance",
-    new WebAgentOptions(MaxSteps: 25, Headless: true));
+    new WebAgentOptions(PublicInternetOnly: true, MaxPasses: 25, Headless: true));
 
 if (run.Outcome == WebOutcome.Succeeded)
 {
@@ -227,13 +377,13 @@ if (run.Outcome == WebOutcome.Succeeded)
 }
 ```
 
-`WebRun` carries the `Outcome` (`Succeeded`, `Failed`, or `BudgetExhausted` when `MaxSteps` ran out), a `Summary`, the full action trace in `Steps`, any `Extract`ed `Outputs`, and `Looks` — the count of on-demand vision inspections, which consume agent budget without appearing in the trace.
+`WebRun` carries the `Outcome` (`Succeeded`, `Failed`, or `BudgetExhausted` when `MaxPasses` ran out), a `Summary`, the full action trace in `Steps`, any `Extract`ed `Outputs`, and `Looks` — the count of on-demand vision inspections, which consume agent budget without appearing in the trace.
 
 ### Sites you do not control
 
 A site that is not your own app decides what the browser loads next, and the agent can press anything on it. Three options make that safe to hand to a person:
 
-- `PublicInternetOnly: true` confines the browser to public addresses. Every request is made by the platform's guarded HTTP client, so no page can reach the network your app runs in, and certificates are validated.
+- `PublicInternetOnly: true` confines the browser to public addresses. Every request is made by the platform's guarded HTTP client, so no page can reach the network your app runs in, and certificates are validated. Every `WebAgentOptions` states it; `false` is only for your own app on localhost or a private address.
 - `ReviewWrite` is asked before every action that could change something on the site — a click on a submit, send, pay or delete control, Enter outside a search field, and anything the classifier does not recognise. The action runs only on `WebApproval.Allow`; `WebApproval.Deny(reason)` is reported to the agent, which does not try it again. The `WebActionReview` carries a one-line `Description` and a JPEG `Screenshot` of the page. Nobody answering must be a refusal, so bound the wait.
 - `OnProgress` hands you a `WebProgress` — step number, URL, what just happened, and a JPEG `Screenshot` — after every observation, for a live view.
 
@@ -244,8 +394,8 @@ var run = await WebAgent.OperateAsync(
     "https://supplier.example.com/orders",
     "Reorder last month's printer paper",
     new WebAgentOptions(
-        MaxSteps: 40,
         PublicInternetOnly: true,
+        MaxPasses: 40,
         ReviewWrite: async (review, ct) => await askPerson(review.Description, review.Screenshot, ct)
             ? WebApproval.Allow
             : WebApproval.Deny("the person declined it"),
@@ -335,7 +485,7 @@ var replay = await WebAgent.ReplayAsync(flow, new Dictionary<string, string>
 {
     ["email"] = accountEmail,
     ["password"] = accountPassword,
-});
+}, headless: true, publicInternetOnly: true);   // as the run it was distilled from
 
 if (replay.Ok)
 {
@@ -343,7 +493,7 @@ if (replay.Ok)
 }
 ```
 
-Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`.
+Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`. Pass `publicInternetOnly` as the run the flow was distilled from had it: the overload without it replays with `PublicInternetOnly` off, private addresses reachable and certificates unchecked, which is for your own app only.
 
 `WebAgent.ReplayAsync(page, flow, inputs)` replays on an `IWebPage` you opened and still own — a `BrowserSession`, or a page from the same opener you give `WebAgentOptions.OpenPage` — and leaves it open. A replay asks nobody before a step, so check `WebAgent.WritesIn(flow)` before replaying unattended: it names, in an approval's words, each step an agent run would have asked a person about, and is empty for a flow that only reads.
 

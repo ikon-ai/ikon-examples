@@ -1,5 +1,5 @@
 # Ikon.App.Payments Guide
-<!-- checked-against: 40fb6d76d4c8bdba -->
+<!-- checked-against: fc450ebd25cc7c91 -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
@@ -70,8 +70,9 @@ That's the whole loop: send a command, redirect to the link, react to `PaymentEv
 ## The command surface (provider-neutral)
 
 All commands go to the backend, which runs them on the app's provider and returns a typed result —
-identical whether the provider is Stripe or Mollie. Every command takes an optional `provider:` override;
-without it the backend charges with the provider you enabled for the app (or the `DefaultProvider` you
+identical whether the provider is Stripe or Mollie. Every command from `CreateOfferAsync` through
+`ReconcileAsync` takes an optional `provider:` override (the entitlement checks and `List…Async` reads
+take none); without it the backend charges with the provider you enabled for the app (or the `DefaultProvider` you
 pinned when more than one is enabled).
 
 | Method | Does |
@@ -145,7 +146,7 @@ await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
 
 or
 
-```
+```bash
 ikon offer create pro --name Pro --amount 999 --currency eur --interval month
 ikon offer list
 ikon offer delete pro
@@ -405,7 +406,7 @@ ikon payments disable mollie  # remove just one
 
 You only ever send commands and react to events — the backend does the rest:
 
-```
+```text
  Your app (C#)            Ikon backend                     Provider
  ─────────────            ────────────                     ────────
  CreatePaymentLinkAsync ───►  command  ──────────────────►  Stripe / Mollie

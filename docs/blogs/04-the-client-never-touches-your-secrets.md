@@ -1,5 +1,7 @@
 # The Client Never Touches Your Secrets
 
+*Published 2026-03-19*
+
 Open your browser's developer tools on most AI-powered web applications. Inspect the network tab. You'll find API keys in headers, tokens stored where anyone can read them, and service credentials embedded in the code that shipped to your browser.
 
 Ikon's architecture makes this problem disappear — not by adding security layers, but by eliminating the condition that creates the vulnerability in the first place.

@@ -1,5 +1,7 @@
 # A Raspberry Pi with Cloud Intelligence
 
+*Published 2026-03-31*
+
 You build a small robot on a Saturday afternoon. A Raspberry Pi, a camera, a distance sensor, two motors. You set it on the living room floor and open your phone.
 
 The robot starts moving. On your phone you see what it sees — a live camera feed with the AI's narration underneath. "Doorway ahead, entering kitchen. Table and chairs. Cat on counter." The robot pauses at the cat, takes a closer look, then continues past. You did not program this. The robot does not know what a cat is. It has a camera and wheels — nothing else.

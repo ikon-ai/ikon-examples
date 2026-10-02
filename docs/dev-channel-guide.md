@@ -1,5 +1,5 @@
 # Ikon Dev Channel Guide
-<!-- checked-against: 6eca0f33354e84b0 -->
+<!-- checked-against: d1e31bf4560e0bdc -->
 Get a platform library or ikon tool fix without waiting for a release.
 
 Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed
@@ -47,7 +47,7 @@ has to know the dev channel exists.
 
 `ikon update dev` also adds one line to `frontend-node/.npmrc`:
 
-```
+```ini
 @ikon-ai:registry=https://npm.pkg.github.com
 ```
 
@@ -56,7 +56,7 @@ own `~/.npmrc` and is written by `ikon login`.
 
 ## Reading a dev version
 
-```
+```text
 3.2.40-dev.87
 │     │   └── commits since the last release
 │     └────── the dev channel label
@@ -65,9 +65,10 @@ own `~/.npmrc` and is written by `ikon login`.
 
 A dev build always sorts **above** the release before it and **below** the release it is heading
 towards, so `dev` always moves forward and `stable` always walks back. When `3.2.40` is finally
-released it outranks every `3.2.40-dev.*`, and a dev app's .NET packages roll onto the release
-automatically at the next update; its TypeScript SDK stays on the newest dev build until you run
-`ikon update stable`.
+released it outranks every `3.2.40-dev.*`, but a dev app's update takes the newest dev build, and
+the first push to main after the release publishes a `3.2.41-dev.*`. The .NET packages roll onto
+`3.2.40` only when an update runs before that; the app has then left the dev channel, and the next
+plain `ikon update` brings its TypeScript SDK back to the release as well.
 
 ## The seven-day window
 

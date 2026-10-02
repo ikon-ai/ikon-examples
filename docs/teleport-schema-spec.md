@@ -1,5 +1,5 @@
 # Teleport message schema specification
-<!-- checked-against: f002ba185389f04b -->
+<!-- checked-against: 682724a74593fe0d -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -233,7 +233,7 @@ as `5` in every SDK. An explicit `= null` is accepted and means what it says.
 
 Each field's binary ID is:
 
-```
+```text
 fieldId = xxHash32(fieldName.UTF8, seed = 0)
 ```
 
@@ -478,11 +478,11 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 
 | Rule           | Description                                |
 |----------------|--------------------------------------------|
-| Field names    | `[A-Za-z_][A-Za-z0-9_]*`                   |
+| Field names    | Not checked; any TOML key is taken as written |
 | Duplicates     | Forbidden per scope                        |
 | Enum values    | Integers or strings (single kind per enum) |
-| Version        | Must increase monotonically                |
-| Transforms     | Must chain (vN → vN+1)                     |
+| Version        | Required with `type`; never compared to a previous version |
+| Transforms     | Reserved key; not read or validated        |
 | Layout hash    | Derived by the compiler; never hand-written |
 | Non-zero flags | Invalid                                    |
 | Depth >128     | Invalid                                    |
@@ -491,7 +491,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 
 ## 13. Compilation Workflow
 
-```
+```text
 .tp  →  Codegen  →  Generated source  →  Binary (Teleport)
 ```
 
@@ -582,7 +582,7 @@ The compiler emits these enums directly into the namespace without generating a 
 | Version        | varuint                | `version = n`                 |
 | Encoding       | Canonical binary       | Deterministic schema          |
 | JSON mirror    | Direct                 | Generated from schema         |
-| Compatibility  | Skippable unknowns     | Transforms DSL                |
+| Compatibility  | Skippable unknowns     | `[obsolete]` ledger           |
 | Runtime        | None                   | None                          |
 | Purpose        | Wire encoding          | Build-time layout definition  |
 
@@ -683,6 +683,6 @@ Every type above except `TeleportType` is a `ref struct` that borrows the source
 captured in a lambda, or cross an `await`. The `As*` accessors require the wire `TeleportType` to
 match exactly — there is no numeric widening, and a mismatch throws `TeleportError.BadType` — so
 check `Value.Type` first. `AsString` additionally validates UTF-8 and throws on malformed bytes;
-`AsUtf8` is the raw alternative that never throws.
+`AsUtf8` is the raw alternative that skips that check (it still throws `BadType` on a non-String value).
 
 ---

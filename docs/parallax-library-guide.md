@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: e64cf5b54b417fac -->
+<!-- checked-against: eec1510fce5cef38 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -277,7 +277,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 **Data:**
 - `view.DataTable()` - Paginated tables with typed cells, row actions, and column resize (per-slot styling via the `DataTableStyles` record on `styles:`)
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
-- `view.ChatLog()` - Chat-bubble layout with auto-scroll and composer
+- `view.ChatLog()` - `ScrollColumn` with auto-scroll on and optional header/footer slots (pass your composer as the footer)
 - `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload, auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
 - `view.ContentGrid()` - Column-defined grid taking `ContentGridColumn[]`, for card and media layouts a `DataTable` would over-structure
 - `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
@@ -343,7 +343,7 @@ view.StatCard("Revenue", "$12,400", delta: "+8%", trend: StatTrend.Up, icon: "tr
     iconTone: SemanticTone.Success);
 ```
 
-Toasts are a per-client queue rendered by a single `ToastHost` in the root UI:
+Toasts are a per-client queue rendered by a single `ToastHost` in the root UI. The queue is a `ClientReactive`, so call `Toasts.Success`/`Error`/`Show` where a client scope is active (a UI render or a client event handler); from background work outside one they throw instead of showing a toast:
 
 <!-- ikon-example: px-app-chrome-and-semantictone-2 -->
 ```csharp
@@ -545,7 +545,7 @@ view.Button([Button.GhostMd, Button.Icon],
 ```
 
 - **Never use a `title` prop for a hover name.** That is the browser's own tooltip: unstyleable, unpositionable, ~1s late, and invisible to touch. `Dialog(title:)` is a different thing — an accessible title, not a tooltip.
-- `tooltip:` on `Button` is sugar for wrapping it in `Tooltip`. Reach for the `Tooltip` component directly when the trigger is not a Button, or when you need `open:`/`delayDuration:` control.
+- `tooltip:` on `Button` is sugar for wrapping it in `Tooltip`. Reach for the `Tooltip` component directly when the trigger is not a Button, or when you need `open:` (which needs `onOpenChange:` too, or hover and focus can neither show nor hide it) or `delayDuration:` control.
 - **The tooltip wrapper becomes the flex child.** `Tooltip` renders a `span` around its trigger, so layout, responsive and absolute classes belong on the wrapper, not on the button inside it — `hidden lg:inline-flex`, `shrink-0`, `absolute top-2 right-2` left on the button are all pinned inside a static span and do nothing. Pass them as `tooltipRootStyle:` (or `rootStyle:` on `Tooltip`).
 - **Nesting inside another overlay:** a tooltipped menu button goes *inside* the Popover's `trigger:` slot, not around the Popover.
 

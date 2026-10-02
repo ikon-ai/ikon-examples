@@ -1,5 +1,7 @@
 # Building an AI Text Adventure
 
+*Published 2026-03-19*
+
 We built a scored narrative game where you investigate surreal crime scenes, interrogate witnesses, and try to deduce hidden universal laws. Every playthrough is different -- the AI generates the accusations, the scenes, the witnesses, and the imagery on the fly. The whole thing is under a thousand lines.
 
 This post is about how it creates a compelling experience from several AI capabilities working together, and why the design stays small.

@@ -1,5 +1,7 @@
 # Animated Voice Chat with Live2D Characters
 
+*Published 2026-03-19*
+
 Talk to an animated character. It listens, thinks, and responds with lip-synced speech -- mouth shapes perfectly matched to every syllable, expressions shifting with the conversation. You can interrupt it mid-sentence and the character gracefully stops talking. Stack audio effects on the voice -- reverb, robot filter, telephone crackle -- and tweak them live while the character speaks. Choose from five characters and three camera angles. Multiple people can join the same conversation simultaneously.
 
 All of this runs as about twelve hundred lines in a single project. Here is what that means and how it works.

@@ -1,5 +1,7 @@
 # One Codebase, Three Platforms
 
+*Published 2026-03-19*
+
 Imagine a training simulation: a 3D environment running in a game engine, an instructor dashboard open in a browser, and sensor data streaming from a device on a kiosk. Three completely different platforms, three different rendering technologies, three different teams who would normally need to build and maintain separate backends. Now imagine all three connect to a single application, share the same live state, and update simultaneously when anything changes.
 
 That is what it means to build on Ikon.

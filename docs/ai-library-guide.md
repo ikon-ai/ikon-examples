@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: b29a185e246a9e19 -->
+<!-- checked-against: 2fa4139a447cf4cd -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -16,8 +16,8 @@ var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
 
 // Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
-// run stops without one; EmergeEventExtensions.FinalAsync instead hands back a nullable
-// result plus the updated context.
+// run stops or completes without one; EmergeEventExtensions.FinalAsync hands back a nullable
+// result plus the updated context, and still throws when the run stops.
 var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
 {
     pass.Command = "Return invented personal details about the person the user asked about.";
@@ -285,7 +285,7 @@ var result = await imageUpscaler.UpscaleImageAsync(new ImageUpscalerConfig
 await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
 ```
 
-`ScaleFactor` and `TargetResolution` are mutually exclusive, and a model rejects either one it does not support rather than silently ignoring it. Output is PNG unless `OutputFormat` says otherwise, so a freshly recovered image is not immediately thrown away to JPEG.
+`ScaleFactor` and `TargetResolution` are mutually exclusive, and a model rejects either one it does not support rather than silently ignoring it. On a model whose `SupportsOutputFormat` is true, output is PNG unless `OutputFormat` says otherwise, so a freshly recovered image is not immediately thrown away to JPEG; Recraft Crisp ignores `OutputFormat` and returns the provider's own encoding.
 
 ## DepthEstimation
 
@@ -356,7 +356,7 @@ Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 
 A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. The same read off a `MeshGeneratorCapabilities` without constructing a generator.
 
-Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Set on a Meshy model, any of them throws rather than being dropped, except a `Material` of `Auto` or `Pbr` and an `OutputFormat` other than `Stl`, which Meshy takes:
+Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Not every Rodin tier takes all of them: Gen-2 throws on `GeometryMode`, `TextureQuality`, `SharpenTextures`, `RemoveTextureLighting` and `InputImageViews`, `Creative` geometry needs the Gen-2.5 Medium tier or higher, `MicroDetail` needs Gen-2.5 Extreme High, and every Rodin model throws on a `TexturePrompt` or `Remesh = false`. Set on a Meshy model, any of them throws rather than being dropped, except a `Material` of `Auto` or `Pbr` and an `OutputFormat` other than `Stl`, which Meshy takes:
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
@@ -500,7 +500,7 @@ Log.Instance.Info($"Enhanced video URL: {result.Url}");
 
 `Ikon.AI.VideoSegmentation.VideoSegmenter` segments and tracks objects through a whole video from text, point, or box prompts (SAM 3). The model follows each named concept across frames, so an object keeps its identity from one frame to the next — the difference from running `ImageSegmenter` frame by frame, which knows nothing about the frame before.
 
-The result is a `VideoSegmenterResult`: `Url` is the segmented video (the model keeps it; nothing is downloaded into the app), with `MimeType`, `SizeBytes` and an optional `BoundingBoxFramesZipUrl` holding per-frame bounding box overlays. `VideoSegmenter` implements `IVideoSegmenter`, so a method that only needs "something that segments video" can take the interface.
+The result is a `VideoSegmenterResult`: `Url` is the segmented video (the provider's own link, not re-hosted, so it dies when the provider purges the file — download what you keep rather than persisting the link; nothing is downloaded into the app), with `MimeType`, `SizeBytes` and an optional `BoundingBoxFramesZipUrl` holding per-frame bounding box overlays. `VideoSegmenter` implements `IVideoSegmenter`, so a method that only needs "something that segments video" can take the interface.
 
 Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL or an asset: `Data` is uploaded to a temporary asset first and a minutes-long clip is far too large to hold in memory. The endpoint is priced by the length of the input, so trimming or reducing the frame rate before the call is what makes a long video cheaper, not scaling it down.
 
@@ -516,7 +516,7 @@ var result = await VideoSegmenter.SegmentAsync("https://example.com/race.mp4", "
 Log.Instance.Info($"Segmented video: {result.Url}");
 ```
 
-Use the constructor + config form for an asset input, several concepts at once, point/box prompts, or a different detection threshold. The segmented video is always an MP4:
+Use the constructor + config form for an asset input, several concepts at once, point/box prompts, or a different detection threshold (between 0 and 1); a config with no `Prompt`, `PointPrompts` or `BoxPrompts` throws. The segmented video is always an MP4:
 
 Needs the `Ikon.AI.VideoSegmentation` using directive.
 
@@ -706,7 +706,7 @@ the model does by default — Azure then claims no `IsEndOfTurn`, while the othe
 from their own endpointing. `Endpointing` says which of the tuning fields — `EndOfTurnSilence`,
 `MaxTurnSilence`, `EndOfTurnConfidenceThreshold`, `EndpointingSensitivity`, `VoiceActivityThreshold`,
 `MinSpeechDuration`, `MinSilenceDuration` and `SpeechStartPadding` — that model takes from you
-(Azure takes no silence bounds under `Semantic`) —
+(Azure takes no silence bounds and no word timestamps under `Semantic`) —
 **setting one it does not take throws**, because a threshold the service never received leaves a
 stream that still transcribes and a conversation that feels wrong for reasons nothing reports.
 A value outside the model's range throws too (Azure's `EndOfTurnSilence` is 100–5000 ms, and its
@@ -978,7 +978,7 @@ var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
 Log.Instance.Info(result.Text);
 ```
 
-**Page selection** is 1-based and inclusive on every model — `"1-5"`, `"2"`, `"1-3,7"` all mean the same pages whichever model reads them, and `result.Pages[].PageNumber` numbers them the same way. A range whose syntax is wrong is rejected before the provider is called rather than being silently read as the whole document.
+**Page selection** is 1-based and inclusive on every model — `"1-5"`, `"2"`, `"1-3,7"` all mean the same pages whichever model reads them, and `result.Pages[].PageNumber` numbers them the same way. The one exception is the open-ended `"3-"` form, which Azure accepts and Mistral OCR throws on. A range whose syntax is wrong is rejected before the provider is called rather than being silently read as the whole document.
 
 **Limits** come from `OCR.GetCapabilities(model)`, so a caller can size a request before making it:
 

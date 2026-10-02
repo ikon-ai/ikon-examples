@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: 98b2b9d481cb5e85 -->
+<!-- checked-against: 493955fb3013e032 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -111,13 +111,16 @@ git-ignore the real path) and `MaterializeAsync` puts the real files back, hash-
 idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when some
 blob is simply gone. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
 platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private
-ones readable only by the app, everything content-addressed by SHA-256 so identical bytes upload
-once and a pointer's URI is immutable.
+ones readable only by the app, everything content-addressed by SHA-256 plus file extension and keyed
+by space, so identical bytes of the same extension and class upload once per space and a pointer's
+URI is immutable.
 
 Reclaiming space is a two-step, plan-then-execute reachability GC. `PlanGcAsync(repoDir, scope)`
-returns an `AssetGcPlan` — the `Scope`, how many URIs were `EverReferenced`, how many are `Kept`,
-and the `Orphans` (each an `AssetGcOrphan` holding one URI) — without touching the store.
-`AssetGcScope` is the safety dial: `History` keeps everything any reachable commit references and so
-deletes nothing, `Window` keeps the working tree plus a recent day window, and `Current` keeps only
-what the working tree references, reclaiming every historical version. `ExecuteGcAsync(plan)` then
-deletes, best-effort, returning deleted and failed counts.
+returns an `AssetGcPlan` — the `RepoDir`, `Scope` and `WindowDays` it was made with, how many URIs
+were `EverReferenced`, how many are `Kept`, and the `Orphans` (each an `AssetGcOrphan` holding one
+URI) — without touching the store. `AssetGcScope` is the safety dial: `History` keeps everything any
+reachable commit references and so deletes nothing, `Window` keeps the working tree, the tip of every
+branch, tag and stash, plus a recent day window, and `Current` keeps only what the working tree and
+those tips reference, reclaiming every other historical version. `ExecuteGcAsync(plan)` then re-runs
+the plan against the repo and deletes, best-effort, only the URIs both plans call orphans (do not
+normalize while it runs), returning deleted and failed counts.

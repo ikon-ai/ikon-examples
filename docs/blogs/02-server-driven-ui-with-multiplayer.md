@@ -1,5 +1,7 @@
 # Server-Driven UI with Built-In Multiplayer
 
+*Published 2026-03-19*
+
 Every web framework today assumes the same architecture: the server sends data, the client renders the interface. Then you need state management libraries, client-side routers, hydration strategies, WebSocket layers for real-time updates — all to bridge the gap between where your data lives and where pixels appear on screen.
 
 Ikon removes that gap entirely. The interface is defined on the server, diffed on the server, and only minimal updates stream to each connected client. The client is a thin renderer with no business logic. And because the server controls what every connected person sees, multiuser collaboration comes for free.

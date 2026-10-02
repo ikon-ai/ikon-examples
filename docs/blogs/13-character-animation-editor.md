@@ -1,5 +1,7 @@
 # A Character Animation Editor for AI Video
 
+*Published 2026-03-19*
+
 Imagine defining a character's expressions -- happy, angry, thinking -- uploading a reference image for each, and having AI generate looping animation videos for every expression and smooth transition videos between every pair of them. That is what this editor does. The result is a complete set of character animations, ready to drive an interactive character that can shift between moods on command.
 
 The entire application logic -- state management, prompt generation, image processing, video generation across six providers, bulk generation, cloud persistence, and the full editing interface -- is under eleven hundred lines. One project. No separate backend, no job queue, no image processing service.

@@ -1,5 +1,7 @@
 # Apps That Persist
 
+*Published 2026-03-19*
+
 Close your browser. Walk away. Come back tomorrow morning. Your AI research assistant has been working through the night -- analyzing documents, monitoring sources, building a digest of what happened while you were gone. When you open the app, the results are waiting. The conversation remembers where you left off. The analysis is further along than when you left.
 
 This is what it feels like when applications persist.

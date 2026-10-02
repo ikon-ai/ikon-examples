@@ -1,5 +1,7 @@
 # The Two-Hundred-Line AI App
 
+*Published 2026-03-19*
+
 A platform's floor matters as much as its ceiling. If the simplest possible app requires boilerplate, configuration files, and ceremony before anything works, something has gone wrong. The floor tells you the truth about a platform's abstractions -- whether they actually reduce complexity or just redistribute it.
 
 On Ikon, the simplest AI app is about two hundred lines. A haiku generator: you type a topic, it writes a haiku, generates a matching illustration, and displays both. That is the whole thing. One file. No separate frontend, no API routes, no environment variables, no client-side state management, no loading indicators you have to wire up yourself.

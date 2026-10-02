@@ -1,5 +1,7 @@
 # Binary Protocol, Not REST
 
+*Published 2026-03-19*
+
 Every modern web application speaks the same language: JSON over HTTP. The client makes a request, the server sends a response, the connection closes. Need real-time updates? Add WebSockets. Need file uploads? Something else. Need streaming? Another protocol. Need video? A separate media server. Each requirement bolts another layer onto the original request-response model.
 
 Ikon takes a fundamentally different approach. A single persistent connection carries everything — interface updates, audio streams, video frames, function calls, and events — all multiplexed over one channel. No REST endpoints. No GraphQL. No separate real-time servers.
