@@ -34,13 +34,7 @@ public partial class DepthParallaxApp(IApp<SessionIdentity, ClientParameters> ap
 
     public async Task Main()
     {
-        app.ClientJoinedAsync += async args =>
-        {
-            if (!args.ClientContext.IsDarkTheme())
-            {
-                await ClientFunctions.SetThemeAsync(Theme.Dark);
-            }
-        };
+        UI.UseTheme(Theme.Dark, followClient: false);
 
         UI.Root([Page.Default], content: view =>
         {
