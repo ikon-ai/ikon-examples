@@ -1,5 +1,5 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: 847f7bf20102ff00 -->
+<!-- checked-against: 847f7bf25b86f008 -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point.

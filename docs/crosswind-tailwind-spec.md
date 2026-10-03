@@ -1,4 +1,4 @@
-<!-- checked-against: b66b7f95d8994b91 -->
+<!-- checked-against: b66b7f95eaa8dafa -->
 ﻿# Crosswind Tailwind Spec
 
 Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.

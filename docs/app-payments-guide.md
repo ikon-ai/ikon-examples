@@ -1,5 +1,5 @@
 # Ikon.App.Payments Guide
-<!-- checked-against: fc450ebd25cc7c91 -->
+<!-- checked-against: 4b2f5a0470af6ad8 -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
@@ -401,6 +401,10 @@ Mollie application fee, Surfboard Flow service-provider split), so the cut settl
 ikon payments disable                    # remove every provider from the app
 ikon payments disable mollie  # remove just one
 ```
+
+Disabling removes the app's binding and the provider keys it stored. On the development platform,
+where Stripe runs in its test mode, the connected account the ikon-connect path created is closed too;
+a live account stays open, because it has a business and a balance behind it.
 
 ## How it works (the mental model)
 

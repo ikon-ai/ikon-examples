@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: eec1510fce5cef38 -->
+<!-- checked-against: c828fe77eb10bfd2 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -105,7 +105,7 @@ public async Task Main()
 }
 ```
 
-`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync` flips the calling client between dark and light and `SetAsync` sets it; both update `Current` at once and push the change to that client, holding the push until a client that has not yet registered its theme function does. By default a joining client that already has a saved theme keeps it (`followClient: true`).
 
 ### When an Action Handler Throws
 

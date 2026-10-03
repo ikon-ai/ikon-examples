@@ -1,5 +1,5 @@
 # Ikon AI C++ SDK
-<!-- checked-against: 37afd6b377914e78 -->
+<!-- checked-against: 37afd6b3f691273d -->
 
 The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17, and every example below compiles as C++17.
 

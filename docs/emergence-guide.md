@@ -1,5 +1,5 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: 40deacff56c042d2 -->
+<!-- checked-against: 080e1dee1d4687b4 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
@@ -34,9 +34,12 @@ var (withContext, context) = await Emerge.Run<MyType>(model, ctx, pass => { pass
 var (withTrace, tracedContext, trace) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalWithTraceAsync();
 ```
 
-A run is single-shot: pick one shape. Awaiting a run that has already been
-enumerated (or enumerating one that has already been awaited) throws rather
-than calling the model a second time.
+A run is single-shot: the model is called once. A run enumerated to its
+`Completed<T>` or `Stopped<T>` event can then be awaited for that result (a
+stopped run throws `EmergenceStoppedException`, as awaiting it directly would);
+awaiting a run whose enumeration ended before either event throws
+`InvalidOperationException`, and so does enumerating a run that has already been
+awaited.
 
 ### Event Types
 
@@ -160,7 +163,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 });
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an extension on `EmergeRun<T>` from `EmergeEventExtensions`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result for a run that completes without one (a stopped run still throws `EmergenceStoppedException`):
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so on an `EmergeRun<T>`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result for a run that completes without one (a stopped run still throws `EmergenceStoppedException`):
 
 <!-- ikon-example: emergence-final -->
 ```csharp
@@ -170,7 +173,7 @@ var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, cont
 }).FinalAsync();
 ```
 
-The `EmergePass<T>` configure callback is invoked before every iteration on a reset pass — `Tools` emptied and any `Stop` cleared — so set everything the iteration needs on every call, add tools unconditionally, and keep side effects idempotent (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
+The `EmergePass<T>` configure callback is invoked before every iteration on the same pass — settings and `Tools` carry over, only a `Stop` is cleared, and adding a tool whose name is already there replaces it — so tools added on the first iteration stay offered, but keep side effects idempotent, because they repeat once per iteration (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
 
 - `pass.Iteration` — current iteration number
 - `pass.HasFunctionResults` / `pass.HasNewFunctionResults` — whether tool results exist in context
@@ -191,7 +194,12 @@ The `EmergePass<T>` configure callback is invoked before every iteration on a re
   rather than being quietly dropped. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
   which dial a model reads: `ReasoningDial.Effort`, `ReasoningDial.TokenBudget`, or
   `ReasoningDial.None` for a model that takes neither.
-- `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits
+- `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits (10 iterations, 50 tool calls and
+  5 minutes when null); running out stops the run with `MaxIterationsExceeded`,
+  `MaxToolCallsExceeded` or `MaxWallTimeExceeded`.
+- `MaxInvalidJsonReplies` - Consecutive replies that fail to deserialize into `T` before the run
+  stops with `InvalidJson (<last error>)` (default 3). Each rejected reply is fed back to the model
+  with the error; a reply that parses or calls tools resets the count.
 - `MaxRetries`, `RetryDelay` - Automatic retry on transient failures
 - `Tools` - Available tools (see [Tool Registration](#tool-registration))
 
@@ -199,7 +207,7 @@ The `EmergePass<T>` configure callback is invoked before every iteration on a re
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which read every language differently.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — with `Count` above 1 and no scorer the run throws `ArgumentException` before the first candidate, since unscored candidates all tie. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which read every language differently.
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
@@ -462,7 +470,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
-**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes with `default(T)` — for a value-type `T` that is `false` or `0`, which the awaited run cannot tell from a real result, so end a value-type run with `EndRun(value)`. Enumerating the run and reading the `Completed<T>` event observes the same result, but awaiting a run whose `T` is a reference type then throws `EmergenceStoppedException` (no result was produced).
+**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes without a result: the `Completed<T>` event carries `HasResult` false, and awaiting the run throws `EmergenceStoppedException` saying so, for a value-type `T` as much as a reference type, rather than returning a `default(T)` that looks real.
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 
@@ -553,6 +561,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `Regions` | `IReadOnlyList<ModelRegion>?` | Model region preferences |
 | `MaxIterations` | `int?` | Max agentic iterations |
 | `MaxToolCalls` | `int?` | Max tool calls |
+| `MaxInvalidJsonReplies` | `int?` | Consecutive unparseable JSON replies before stopping with `InvalidJson` (default 3) |
 | `MaxWallTime` | `TimeSpan?` | Max wall clock time |
 | `MaxRetries` | `int?` | Max retries on transient failures |
 | `RetryDelay` | `TimeSpan?` | Delay between retries |

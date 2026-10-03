@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 7e2d232ad06267d1 -->
+<!-- checked-against: 7e2d232a36645cb4 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.

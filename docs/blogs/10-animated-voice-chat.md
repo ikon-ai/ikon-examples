@@ -35,7 +35,7 @@ When you start talking while the character is still speaking, the app handles it
 The entire interruption handler is three lines:
 
 ```csharp
-Audio.SpeechMixer.FadeOut();
+Audio.StopSpeech(MediaTargets.Everyone);
 StopSpeaking();
 _sttIsToggleRecording.Value = true;
 ```

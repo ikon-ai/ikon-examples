@@ -1,5 +1,5 @@
 # Authenticating the Ikon tool in CI
-<!-- checked-against: 33894749f1bac7ca -->
+<!-- checked-against: edadbd327f6d3374 -->
 How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
 
 ## The short version
@@ -68,7 +68,7 @@ Set three environment variables in your CI configuration:
 | `IKON_SPACE_ID` | The id of the app to act on. The variable keeps the platform's own word for a cloud app, a space. |
 | `IKON_BACKEND_ENV` | `dev` or `prod` — which platform the pipeline runs against. |
 
-`IKON_SPACE_ID` is needed because the organisation and app defaults that `ikon default set` sets live in the login file on your own machine, and a CI runner has no login file. You can pass `--app-id` on each command instead.
+`IKON_SPACE_ID` is needed because the organisation and app defaults that `ikon default set` sets live in the login file on your own machine, and a CI runner has no login file. You can pass `--app-id` on each command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`.
 
 `IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. On your own machine that choice comes from your login or `ikon default set`; a CI runner has neither. The tool then looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
 

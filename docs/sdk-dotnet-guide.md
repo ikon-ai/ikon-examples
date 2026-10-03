@@ -1,5 +1,5 @@
 # Ikon AI C# SDK
-<!-- checked-against: fbcea7261e4995f2 -->
+<!-- checked-against: 57a199296ed99f97 -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -216,10 +216,11 @@ client.StateChangedAsync += async e =>
     Console.WriteLine($"State: {e.State}");
 };
 
-// Connection established and ready
+// Connection established and ready, raised again on every reconnect
 client.ReadyAsync += async e =>
 {
-    // Perform initialization here
+    // Perform initialization here. e.IsReconnect is false only for the first connect;
+    // e.IsNewSession says the server session changed and its server-side state is gone
     await client.SignalReadyAsync();  // Signal that this client is ready (mandatory)
 };
 
@@ -421,6 +422,8 @@ Control how audio frames are delivered:
 | `Streaming` | Forward frames immediately (lowest latency) |
 | `DelayUntilTotalDurationKnown` | Buffer until the total duration is known, then stream |
 | `DelayUntilIsLast` | Buffer everything, emit all frames when stream ends |
+
+The two `Delay*` modes are for clips. A live microphone sends no last frame until it closes, so a segment that buffers past `e.MaxBufferedDuration` (5 minutes by default) is delivered with one warning and the rest of it streams.
 
 Set the streaming mode in the `AudioInputStreamBeginAsync` event handler:
 
@@ -684,7 +687,7 @@ var config = new IkonClientConfig
     InstallId = "install-xyz",
     Locale = "en-US",
     Description = "My Application",
-    UserAgent = "my-app/1.0.0",
+    UserAgent = "my-app/1.0.0",       // replaces the default, which names this machine's OS and architecture
     Parameters = new Dictionary<string, string>
     {
         ["custom_param"] = "value"

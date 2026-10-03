@@ -1,5 +1,5 @@
 # Connecting your computer to an Ikon app
-<!-- checked-against: 81c6264db85d833e -->
+<!-- checked-against: 81c6264d12d42310 -->
 How to connect a computer of yours to an Ikon app with Ikon Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
 the computer's own browser. For app developers; everything here works

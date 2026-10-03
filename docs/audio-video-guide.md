@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: dff5a8444ccf79fd -->
+<!-- checked-against: a73f9a1ec58f4408 -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -14,7 +14,7 @@ private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
 ```
 
-**The field initializer is mandatory, not a style choice.** The `Audio` constructor subscribes to the app's `StartingAsync` event, and the speech-mixer pump — the loop that actually plays everything sent through `SpeakAsync` and `SpeakChunk` — is only started from that handler. Field initializers run before the framework raises `StartingAsync`; code inside `Main()` runs after it. An `Audio` constructed in `Main()` has missed the event, its pump never starts, and every `SpeakAsync` call is silently swallowed — no exception, no sound.
+Construct each service once. The constructor subscribes to the app's incoming media messages, so a service constructed later than setup misses every stream that began before it, and a second instance decodes every incoming stream a second time. Speech needs no start-up step: each target set's speech mixer starts the loop that plays it out on the first utterance sent to that set.
 
 All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.cs`, so no `using` directives are needed for any type in this guide.
 
@@ -41,11 +41,11 @@ await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCo
 
 ### The lane is in the name
 
-`Speak*` goes through the app's **single speech mixer**: one utterance at a time for the whole app, and starting another fades out the one playing. That interruption is app-wide, not per-target — a `SpeakAsync` aimed at one client still cuts off speech aimed at another.
+`Speak*` goes through a **speech mixer per target set**: one utterance at a time for each distinct set of clients, each on its own output stream. Starting an utterance fades out the speech of every target set that shares a client with it, and only those — a `SpeakAsync` to client A leaves speech to client B playing, while one to `MediaTargets.Everyone` shares every client and so stops all speech, and a targeted one stops a broadcast that is playing.
 
 `Send*` / `Play*` go straight to the wire as independent streams keyed by `streamId`, and overlap freely, including with speech.
 
-So **two voices at once is `PlayClipAsync` on two stream ids**, not two `SpeakChunk` calls — those interrupt each other, because a chunk carrying a new id supersedes the current utterance. `SpeakChunk` exists for generator settings `SpeakAsync` does not expose and for raw sample access, not for overlap.
+So **two voices to the same listener at once is `PlayClipAsync` on two stream ids**, not two `SpeakChunk` calls — those interrupt each other, because a chunk carrying a new id supersedes what is playing to the same clients. `SpeakChunk` exists for generator settings `SpeakAsync` does not expose and for raw sample access, not for overlap.
 
 Don't run two concurrent `PlayClipAsync` calls on the same stream id — the interleaved frames corrupt client playback. Use distinct stream ids or await the previous call first.
 
@@ -70,19 +70,19 @@ Audio.SpeechRecognizedAsync += async args =>
 };
 ```
 
-Also note: **interruption is instance-global, not per-target.** All speech flows through one mixer, so a new `SpeakAsync` fades out whatever is currently playing even when the two utterances target different clients. If two users must be spoken to independently at the same time, the speech lane cannot do it, `SpeakChunk` included, since a chunk with a new id interrupts the current one too. Generate each utterance with `SpeechGenerator.GenerateAsync` and play it with `Audio.PlayClipAsync` on its own stream id, which plays alongside the speech lane.
+Because interruption follows the targets, replying to each speaker like this lets two users be spoken to at the same time: a reply to one does not cut off the reply to the other. A reply to `MediaTargets.Everyone` still interrupts both.
 
 ### Stopping speech
 
-`Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and with no id it closes the `Play*`/`Send*` default stream, never the speech mixer's (`SpeechMixer.StreamId`). Stop speech through the mixer:
+`Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and with no id it closes the `Play*`/`Send*` default stream, never a speech stream (`Audio.GetSpeechStreamId(targets)`). Stop speech by its targets; like a new utterance, a stop reaches every target set that shares a client with the targets given:
 
 <!-- ikon-example: av-mixer-control -->
 ```csharp
-Audio.SpeechMixer.FadeOut();   // graceful: fade out the current utterance
-Audio.SpeechMixer.Clear();     // hard reset: discard current, pending, and paused speech
+Audio.StopSpeech(MediaTargets.Everyone);               // graceful: fade out all speech
+Audio.StopSpeech(MediaTargets.To(7), fade: false);     // hard stop: discard speech that reaches client 7
 ```
 
-`SpeechMixer` also offers `Pause()` / `Resume()`, and `WaitForCompletionAsync(speechEventId)` to await a specific utterance.
+`Audio.PauseSpeech(targets)` / `Audio.ResumeSpeech(targets)` hold and release playout the same way; await `SpeakAndWaitAsync` to continue after an utterance has played out.
 
 ## Receiving audio from the microphone
 

@@ -1,5 +1,5 @@
 # Ikon Pipeline Guide
-<!-- checked-against: 86465975a647a325 -->
+<!-- checked-against: 26c9418ea3287b96 -->
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
@@ -150,7 +150,10 @@ misses; `ProcessFailureCount` and `ProcessRetryCount`; `ErrorLogCount` and `Warn
 `Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; and the accumulated `Usages` map that
 carries whatever the processors metered. Once `TotalFailureCount` (input, process and output
 failures) exceeds `Config.ProcessFailureThreshold` (default 0) the run throws `PipelineException` at
-completion, and a failed item's output is dropped. A pipeline that fails structurally — a malformed
+completion, and a failed item's output is dropped. What succeeded is not lost with it:
+`PipelineException.CollectedItems` holds the outputs `Run` had collected, and
+`PipelineException.FailedItems` lists the items a processor gave up on (the first 1000; the failure
+count stays exact), each a `PipelineItemFailure` carrying the item, the processor and its last error (input-read and output-write failures are counted, not listed). A pipeline that fails structurally — a malformed
 graph, a pipeline class or config that cannot be constructed — publishes a faulted status and then
 rethrows the original exception: `PipelineException` for the runner's own checks (no public
 constructor, a missing config file, no `Run` method, no terminal step), but a pipeline constructor
@@ -599,7 +602,7 @@ value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else `IKON_SPACE_ID`, else the enclosing project's `Target.SpaceId`, else your default app, and it fails if none is found.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name.
 
 ## Reading PDFs
 
@@ -774,9 +777,9 @@ This name format is used when configuring the client processor whitelist.
 | Option | Description |
 |--------|-------------|
 | `RabbitMQConnectionString` / `--remote-rabbitmq` | RabbitMQ connection string. Format: `host=localhost;port=5672;username=guest;password=guest`. Required for distributed execution. |
-| `MaxRemoteRequestParallelism` / `--max-remote-request-parallelism` | Maximum concurrent remote operations the host processes. Defaults to `ProcessorCount * 100`. |
+| `MaxRemoteRequestParallelism` / `--max-remote-request-parallelism` | Maximum concurrent remote state requests the host serves. Defaults to `ProcessorCount * 100`. |
 | `RemoteCallTimeoutSeconds` (code only, no CLI flag) | Seconds the host waits for the next message of a remote call before failing it with a retryable `TimeoutException`. Default 1800; 0 waits forever. |
-| `RemoteClientProcessorWhiteList` / `--remote-client-processor-whitelist` | Comma-separated list of processor names this client handles. If omitted, the client handles all remote processors. |
+| `RemoteClientProcessorWhiteList` / `--remote-client-processor-whitelist` | Comma-separated list of processor names this client handles. If omitted, the client handles all remote processors. Clients handling the same processor share its calls; each call runs on exactly one of them. |
 | `CachePath` / `--cache` | Path to the shared content cache directory. Must be the same for host and all clients. |
 
 ### Example: Single Client Handling All Processors
