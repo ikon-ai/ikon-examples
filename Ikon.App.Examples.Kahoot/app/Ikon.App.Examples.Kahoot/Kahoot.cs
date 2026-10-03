@@ -39,6 +39,7 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
+        UI.UseTheme(Theme.Dark, followClient: false);
         app.ClientJoinedAsync += OnClientJoinedAsync;
         app.ClientLeftAsync += OnClientLeftAsync;
         app.StoppingAsync += OnStoppingAsync;
@@ -53,19 +54,17 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
         await _gameCts.CancelAsync();
     }
 
-    private async Task OnClientJoinedAsync(ClientJoinedEventArgs args)
+    private Task OnClientJoinedAsync(ClientJoinedEventArgs args)
     {
-        {
-            using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId));
+        using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId));
 
-            if (_gameStage.Value == GameStage.Question)
-            {
-                var offsetMs = (int)(DateTimeOffset.UtcNow - _questionStartedAt).TotalMilliseconds;
-                _progressBarOffsetMs.Value = Math.Max(0, offsetMs);
-            }
+        if (_gameStage.Value == GameStage.Question)
+        {
+            var offsetMs = (int)(DateTimeOffset.UtcNow - _questionStartedAt).TotalMilliseconds;
+            _progressBarOffsetMs.Value = Math.Max(0, offsetMs);
         }
 
-        await ClientFunctions.SetThemeAsync(Theme.Dark, targetId: args.ClientSessionId);
+        return Task.CompletedTask;
     }
 
     private async Task OnClientLeftAsync(ClientLeftEventArgs args)
