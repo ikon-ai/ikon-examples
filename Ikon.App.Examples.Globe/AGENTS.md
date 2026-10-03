@@ -51,14 +51,14 @@ The three compose freely in the same array (`[Button.PrimaryMd, "mt-4 self-cente
 
 ## Running and checking the app
 
-Run it from the app root with `ikon app run` (add `--log-debug` for the server's own detail); the
+Run it from the app root with `ikon run` (add `--log-debug` for the server's own detail); the
 URLs land in `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`. Then check it as text
 before reaching for a browser:
 
 ```bash
-ikon app browse --steps "observe"                                   # screen text + [id] action handles
-ikon app browse --steps "fill 1 hello; tap Send; wait 1500; look after.png"
-ikon app browse --text-only --format json < steps.txt               # one step per line, one JSON object per step
+ikon browse --steps "observe"                                   # screen text + [id] action handles
+ikon browse --steps "fill 1 hello; tap Send; wait 1500; look after.png"
+ikon browse --text-only --format json < steps.txt               # one step per line, one JSON object per step
 ```
 
 `observe` prints what the screen says and which actions exist; `tap <id|label>` and
@@ -70,23 +70,37 @@ components. `expect <text>` and `expect-absent <text>` pass or fail on what the 
 text and control labels, case-insensitive, waiting a few seconds for it to settle), and a run with a
 failed step exits non-zero. An observation costs a few hundred tokens where a screenshot costs
 thousands — read the text first and screenshot only when the question is about pixels.
-`ikon app stop` ends the run.
+`ikon stop` ends the run.
 
 A script worth keeping becomes a **check gate**: `.ikon/gates/<name>.toml` (the name in lower-case
 letters, digits and `-`) with `kind = "check"`, an optional `description`, `blocking = false` for one
 that reports without failing the run, and the script in `steps`, one step per line (`#` starts a
 comment). A gate that creates data leaves none behind for the next run to trip over.
-`ikon app test run` runs every gate against the local run or, with `--target`/`--space-id`,
-the deployed app; `ikon app test run <name>` runs one. The gate that shows a defect is the change's
-reproduction: `ikon app tasks reproduction set <task-id> <name>` attaches it to a proposed change,
-accepting the change binds the file, and `ikon app test run --regression` runs the accepted ones —
+`ikon test` runs every gate against the local run or, with `--target`/`--app-id`,
+the deployed app; `ikon test <name>` runs one. The gate that shows a defect is the change's
+reproduction: `ikon task set <task-id> --reproduction <name>` attaches it to a proposed change,
+accepting the change binds the file, and `ikon test --regression` runs the accepted ones —
 refusing any whose file has changed since.
 
 The same steps drive the **deployed** app, signed in as you with your `ikon login` — no browser
-sign-in: `ikon app browse --space-id <space> --steps "observe"` (or `--target <name>`). With neither,
-a local run is browsed when one is up, and otherwise the project's configured space. `look` then
-opens the app's own address and joins that same signed-in session. A space with no active deployment
+sign-in: `ikon browse --app-id <space> --steps "observe"` (or `--target <name>`). With neither,
+a local run is browsed when one is up, and otherwise the cloud app the project is linked to. `look` then
+opens the app's own address and joins that same signed-in session. An app with no active deployment
 is refused rather than started.
+
+## The ikon tool's commands
+
+This part of AGENTS.md comes from the ikon tool and is rewritten whenever the tool or the app's
+Ikon libraries change. The tool's own help is the authority on its commands, ahead of any guide:
+
+- `ikon help <section> --json` — one section's commands with their options, positionals and
+  remarks; the sections are Develop, Source, Ship, Services, Operate, Autopilot, Account and Machine
+- `ikon help <command> --json` — one command; `ikon <command> --help` prints the same for a person
+- `ikon help --json` — every command, and what holds for all of them: how the app and the platform
+  environment are chosen, and the shape of `--format json` output and failures
+
+A command a doc names that the tool rejects as unknown has been renamed — look it up there rather
+than guessing. Each setting in `ikon-config.toml` is explained by the comment above it in the file.
 
 ## What the app must contain
 
