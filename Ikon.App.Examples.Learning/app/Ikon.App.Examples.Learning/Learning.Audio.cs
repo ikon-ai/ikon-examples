@@ -29,7 +29,7 @@
             if (args.IsLast)
             {
                 state.Complete();
-                RunBatchRecognitionAsync(state).RunParallel();
+                RunBatchRecognitionAsync(state).ObserveInBackground();
             }
         };
 

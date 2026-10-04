@@ -965,7 +965,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 
     internal void InterruptSpeaking()
     {
-        Audio.SpeechMixer.FadeOut();
+        Audio.StopSpeech(MediaTargets.Everyone);
         StopSpeaking();
     }
 

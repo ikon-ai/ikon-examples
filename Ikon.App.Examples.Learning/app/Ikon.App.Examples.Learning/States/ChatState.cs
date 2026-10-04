@@ -13,7 +13,7 @@ public class ChatState(LearningApp outer) : ILearningState
 
         var greeting = "Hei! Olen Aino, kieltenoppimisavustajasi. Voit jutella kanssani millä tahansa kielellä - ei vain suomeksi! Olen täällä auttamassa sinua harjoittelemaan.";
         outer.AddChatMessage(ChatRole.Assistant, greeting);
-        outer.SpeakAsync(greeting).RunParallel();
+        outer.SpeakAsync(greeting).ObserveInBackground();
 
         return Task.CompletedTask;
     }
@@ -32,7 +32,7 @@ public class ChatState(LearningApp outer) : ILearningState
     public Task HandleAIMessageAsync(string message)
     {
         outer.AddChatMessage(ChatRole.Assistant, message);
-        outer.SpeakAsync(message).RunParallel();
+        outer.SpeakAsync(message).ObserveInBackground();
         return Task.CompletedTask;
     }
 
