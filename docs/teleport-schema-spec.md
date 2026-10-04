@@ -1,5 +1,5 @@
 # Teleport message schema specification
-<!-- checked-against: 682724a7a223b623 -->
+<!-- checked-against: aaf4747fa223b623 -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -26,11 +26,10 @@ Teleport schema aligns 1:1 with the Teleport binary format, ensuring that field 
 | Property               | Description                          |
 |------------------------|--------------------------------------|
 | Extension              | `.tp`                                |
-| MIME Type              | `application/x-teleport-schema`      |
 | Syntax                 | TOML 1.0                             |
 | Runtime Representation | Binary `.tpx` (Teleport core format) |
 
-Each file defines a single root message and may contain nested messages, enums, transforms, and constraints.
+Each file defines a single root message and may contain nested messages and enums; `transforms` and `constraints` are reserved keys the parser ignores.
 
 ### Include Directive
 
@@ -60,8 +59,8 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `[fields]`       | optional | Field names and types. Only allowed when `type` is present.                              |
 | `[nested.*]`     | optional | Nested subtypes                                                                          |
 | `[enums.*]`      | optional | Enumerations. When `type` is omitted, these enums become namespace-level (global) types. |
-| `[[transforms]]` | optional | Version upgrade logic                                                                    |
-| `[constraints]`  | optional | Numeric/string constraints                                                               |
+| `[[transforms]]` | optional | Reserved for version upgrade logic; ignored by the parser and generators. See section 9. |
+| `[constraints]`  | optional | Reserved for numeric/string constraints; ignored by the parser and generators. See section 10. |
 | `[obsolete]`     | optional | Ledger of removed fields: name → the type the field had when it was live. See section 5. |
 
 ### Data Schemas
@@ -109,7 +108,7 @@ string annotated = config.ToToml(new Dictionary<string, IReadOnlyList<string>>
 
 which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: root fields first (one blank line between blocks, each preceded by its doc lines), then one `[FieldName]` section per nested-typed root field in schema order, written compactly with the nested type's doc lines above the header. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, and any other key becomes a trailing `[Key]` block.
 
-The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, or a non-optional nested type (a section); section fields are the same scalars/lists. Optional fields, enums, lists of nested types, and nesting below sections are rejected.
+The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, a non-optional nested type (a section), or a list of a nested type (one `[[FieldName]]` table per element after the sections, a commented-out `# [[FieldName]]` template when empty, extras keyed `<FieldName>__<index>`); section and table fields are the same scalars/lists. Optional fields, enums, and nesting below sections are rejected.
 
 #### Binary Codecs
 

@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: 493955fbfeee9531 -->
+<!-- checked-against: 22ad596c6c72e9f4 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -76,8 +76,9 @@ installed it and compares that stamp on the way up. The repair is a deletion, no
 a populated tree's optional dependencies as already resolved and never fetches the missing binary
 ([npm/cli#4828](https://github.com/npm/cli/issues/4828)).
 
-Share an app with `ikon share` or `ikon share --package` and none of this arises — they
-package the app without carrying one machine's install to another.
+Share an app with `ikon share` or `ikon share --package` and none of this arises — `share` prints a
+clone command so the recipient installs their own dependencies, and `--package` builds a zip without
+carrying one machine's install to another.
 
 ## Older apps
 

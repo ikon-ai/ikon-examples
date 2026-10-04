@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-<!-- checked-against: c585e330461e26f6 -->
+<!-- checked-against: e8adb505461e26f6 -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -15,7 +15,7 @@ private UI UI { get; } = new(app, new IkonTheme
     Mode = ThemeMode.Fixed,
 
     ["primary"]              = "amber-400",  // whole brand cluster: CTAs, checked controls, focus rings, brand icons + text
-    ["primary-foreground"]   = "#0A0A0A",    // text on brand fills — needed because amber-400 is a light step
+    ["primary-foreground"]   = "#0A0A0A",    // text on brand fills — pins the near-black label amber-400 would get anyway
 
     ["background"]           = "zinc-950",
     ["foreground"]           = "amber-50",
@@ -560,7 +560,7 @@ view.Text(["text-2xl font-bold text-brand-secondary"], "Section Title");
 view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
 ```
 
-The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, and the full `bg-error-*`/`bg-success-*`/`bg-warning-*` families.
+The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, `bg-error-primary`/`bg-error-secondary` (the `["destructive"]` key drives the solid and button members), and the full `bg-success-*`/`bg-warning-*` families.
 
 Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) by what the surface is — neither matches `bg-primary` in both schemes — plus `text-foreground` / `border-secondary`.
 

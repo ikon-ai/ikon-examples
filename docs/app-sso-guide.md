@@ -1,5 +1,5 @@
 # Ikon.App.Sso Guide
-<!-- checked-against: aaf7106a9f11d28f -->
+<!-- checked-against: e4a9e51d9f11d28f -->
 Let your business customers sign in to your app through their own directory — Microsoft Entra ID,
 Google Workspace, or any OpenID Connect provider (Okta, Auth0, Keycloak, PingFederate). Their users
 then authenticate under their own conditional-access rules, MFA and offboarding: someone their IT
@@ -42,9 +42,11 @@ customer's Entra directory, a token from another directory — is refused, never
 unverified user. A DNS proof is re-checked every day; if the record goes missing it keeps working for
 72 hours and is revoked after that.
 
-`SsoConnection.AttestsDomains` says whether a connection's domains sign in without DNS proof: always
-on Google Workspace and on the platform's Entra registration, and on a customer's own Entra
-registration when it was created with `EntraDomainAttestation = true`. Where it is true, treat the TXT
+`SsoConnection.AttestsDomains` says whether a connection's domains are expected to sign in without DNS
+proof: always on Google Workspace and on the platform's Entra registration, and on a customer's own
+Entra registration when it was created or updated with `EntraDomainAttestation = true`. It reports
+that setting, not what decides a sign-in: an Entra token that carries `xms_edov` is let in without DNS
+proof whatever the flag says. Where it is true, treat the TXT
 record as optional and do not ask the customer for it: nothing is looked up until
 `VerifyDomainAsync` is called. Each `SsoEmailDomain` records `LastSignInAt` and `AttestedAt`, the last
 sign-in whose token carried the provider's verification — an `AttestedAt` older than `LastSignInAt`
@@ -117,7 +119,9 @@ foreach (var domain in connection.EmailDomains)
 ```
 
 The issuer must be `https` on the public internet and publish a discovery document at
-`<issuer>/.well-known/openid-configuration`; both are checked when the connection is saved. The
+`<issuer>/.well-known/openid-configuration`; both are checked when the connection is saved. Saving is
+also refused when that document names a different `issuer` (only a trailing slash is ignored) or lacks
+a public `https` `authorization_endpoint`, `token_endpoint` or `jwks_uri`. The
 client secret is write-only: `SsoConnection.ClientSecretSet` says whether one is stored, never what
 it is.
 

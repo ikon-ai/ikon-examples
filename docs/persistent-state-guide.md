@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-<!-- checked-against: ea6ffa2fb8c01c4f -->
+<!-- checked-against: a7edd326b8c01c4f -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -133,7 +133,7 @@ Backend ≠ scope. Scope decides who sees the value; backend decides where it li
 
 Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
 `dedicated-small` — which decides how densely it is packed onto an instance and how many
-connections it gets. `ikon db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database has a fixed tier.
+connections it gets. `ikon db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database starts on `shared-dense`.
 
 A live database can move to another tier without redeploying:
 
@@ -141,7 +141,9 @@ A live database can move to another tier without redeploying:
 ikon db tier dedicated-small
 ```
 
-With several declared databases, name the one to move with `--name <name>`. The platform
+A database moves to `shared` or `dedicated-small`, the tiers `ikon db create` offers, so the
+built-in database can leave `shared-dense` but none can move onto it. With several declared
+databases, name the one to move with `--name <name>`. The platform
 copies the data to an instance of the new tier, verifies it, and switches connections over —
 the database keeps its name and credentials, but expect open connections to drop briefly while
 the data moves (sessions reconnect automatically). Writes are refused while the data is copied;

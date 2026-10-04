@@ -1,5 +1,5 @@
 # Ikon Pipeline Guide
-<!-- checked-against: 26c9418ea3287b96 -->
+<!-- checked-against: a722d69de0a37fc4 -->
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
@@ -54,7 +54,7 @@ internal class SimplePipeline
 ### Running the Pipeline
 
 Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
-(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache.
+(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache. The items `Run` and `RunAsEnumerable` return are hashes whose content the runner serves, so read their content before the runner is disposed and from the async flow that ran it; otherwise `GetContentAsString` and its siblings throw `PipelineException`.
 
 <!-- ikon-example: pipeline-run -->
 ```csharp
@@ -545,7 +545,8 @@ alongside `host.Config`:
 
 - `host.Secrets` — secrets (API keys, tokens, passwords) for the app the pipeline runs in. Manage values
   with `ikon secret set/list/delete`. They are fetched only when the tool is logged in with an
-  app; otherwise `host.Secrets` is empty and the two ids below are empty strings. Only
+  app; otherwise `host.Secrets` and `host.SpaceId` are empty, while `host.OrganisationId` is still
+  the logged-in token's organisation (empty only when not logged in). Only
   `Initialize<TPipeline>` logs in; `Initialize(PipelineRunner.Config)` does not, so a pipeline
   started that way gets empty secrets unless the caller logged in first.
 - `host.OrganisationId` — id of the current organisation.

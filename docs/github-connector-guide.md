@@ -1,5 +1,5 @@
 # GitHub Connector Guide
-<!-- checked-against: b0e1c26b7be2bdf1 -->
+<!-- checked-against: b0e1c26b39abc08c -->
 This guide covers `Ikon.Connectors.GitHub` — issues, pull requests, repository files, sign-in and webhooks — for app developers wiring GitHub into an Ikon app.
 
 ## GitHub

@@ -1,13 +1,13 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: 080e1dee1d4687b4 -->
+<!-- checked-against: 27ae7832015dce3e -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
 
 ### Awaitable and Streaming
 
-Every entry point returns an `EmergeRun<T>` — a handle that is both awaitable and
-enumerable. Await it for the result, or `await foreach` it to watch the run unfold.
+`Emerge.Run`, the patterns and `TreeIndex.BuildAsync` return an `EmergeRun<T>` — a handle that is both awaitable and
+enumerable (`Emerge.AskAsync` returns a plain `Task`, `Emerge.Generate` an `IAsyncEnumerable<LLMEvent>`). Await it for the result, or `await foreach` it to watch the run unfold.
 There is no terminal call to remember.
 
 <!-- ikon-example: emx-awaitable-and-streaming -->
@@ -34,7 +34,7 @@ var (withContext, context) = await Emerge.Run<MyType>(model, ctx, pass => { pass
 var (withTrace, tracedContext, trace) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalWithTraceAsync();
 ```
 
-A run is single-shot: the model is called once. A run enumerated to its
+A run executes once (a tool loop still calls the model once per iteration). A run enumerated to its
 `Completed<T>` or `Stopped<T>` event can then be awaited for that result (a
 stopped run throws `EmergenceStoppedException`, as awaiting it directly would);
 awaiting a run whose enumeration ended before either event throws
@@ -109,7 +109,7 @@ await Emerge.Refine<Draft>(model, ctx, opt =>
 
 Patterns handle context in two ways:
 
-- **Shared context**: Refine iterations share context — each refinement runs on the context the previous stage returned. The MapReduce reducer and EnsembleMerge merger run on the caller's context instead and receive the earlier outputs as JSON in their `Command`.
+- **Shared context**: Refine iterations share context — each refinement runs on the context the Initial stage returned and receives the current result as JSON in its `Command`. The MapReduce reducer and EnsembleMerge merger run on the caller's context instead and receive the earlier outputs as JSON in their `Command`.
 - **Isolated context**: Independent runs (BestOf candidates, MapReduce chunks, EnsembleMerge solvers) use isolated derived contexts. MapReduce chunks and EnsembleMerge solvers run in parallel; BestOf candidates run sequentially, so budget wall time for `Count` full calls.
 
 ---
@@ -163,7 +163,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 });
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so on an `EmergeRun<T>`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result for a run that completes without one (a stopped run still throws `EmergenceStoppedException`):
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so on an `EmergeRun<T>`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result for a run that completes without one (a stopped run still throws `EmergenceStoppedException`, and so does a missing result for a non-nullable value-type `T` such as `int` or `bool`):
 
 <!-- ikon-example: emergence-final -->
 ```csharp
@@ -403,8 +403,9 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
     opt.MaxSteps = 10;
     opt.MaxResults = 3;
 
-    // The executor owns the navigator's Command and MaxIterations and overwrites them
-    // every step — configure only model-level knobs (Model, Temperature, MaxOutputTokens)
+    // The executor builds the navigator's Command from Query and its MaxIterations from
+    // MaxSteps; setting either throws ArgumentException, so configure only model-level
+    // knobs (Model, Temperature, MaxOutputTokens)
     opt.Navigator(n =>
     {
         n.Temperature = 0.2;

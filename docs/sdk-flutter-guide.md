@@ -1,5 +1,5 @@
 # Flutter SDK Guide
-<!-- checked-against: a51096e3c9b6be56 -->
+<!-- checked-against: d70e1656f38cd6e9 -->
 
 ## Overview
 
@@ -24,9 +24,9 @@ was rejected deliberately:
 - **App-store submission risk.** A repackaged website runs into minimum-functionality review
   (Apple guideline 4.2); a Flutter build is a real native app with native navigation, scroll
   physics, text input, and accessibility.
-- **WebView fragmentation cannot be fixed from the server.** The one WebView note elsewhere in
-  these docs is a known failure mode (ancient WebViews silently dropping modern CSS — see the
-  Crosswind/Tailwind divergences doc). A server-driven UI cannot control which WebView engine a
+- **WebView fragmentation cannot be fixed from the server.** These docs already record the kind
+  of failure an older engine brings (2022 smart televisions on Chromium 85 ignoring theme-colour
+  opacity modifiers — see the Crosswind/Tailwind divergences doc). A server-driven UI cannot control which WebView engine a
   device ships.
 - **The architecture makes native cheap — and that is the point.** Parallax sends a component
   tree, not HTML, so the second renderer maps the same tree to native widgets. The usual reason
@@ -235,12 +235,14 @@ ikon run
 
 # Terminal 2: Flutter app
 cd frontend-flutter
-flutter run -d chrome --dart-define=IKON_PORT=8446
+flutter run -d chrome --dart-define=IKON_PORT=8443
 ```
 
-The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
-`--flutter-android` use the simulator or emulator that is already running, boot one when none is
-(`xcrun simctl boot` on iOS, `flutter emulators --launch` on Android), and fall back to a plugged-in phone of that platform. They also pass
+`ikon run` serves HTTPS on 8443, or on the next free port when 8443 is taken; pass that port by hand,
+while the `--flutter-*` flags pass it for you. The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
+`--flutter-android` use the simulator or emulator that is already running, then a plugged-in phone of
+that platform, and boot one only when neither is there (`xcrun simctl boot` on iOS,
+`flutter emulators --launch` on Android). They also pass
 the right server host for the device — the Android emulator reaches the host machine at `10.0.2.2`,
 not `localhost`. A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
 skips opening the web frontend in a browser tab; the web frontend still serves.
@@ -250,7 +252,7 @@ skips opening the web frontend in a browser tab; the web frontend still serves.
 ### Web (Chrome)
 
 ```bash
-flutter run -d chrome --dart-define=IKON_PORT=8446
+flutter run -d chrome --dart-define=IKON_PORT=8443
 ```
 
 ### macOS Desktop
@@ -258,7 +260,7 @@ flutter run -d chrome --dart-define=IKON_PORT=8446
 Requires Xcode installed:
 
 ```bash
-flutter run -d macos --dart-define=IKON_PORT=8446
+flutter run -d macos --dart-define=IKON_PORT=8443
 ```
 
 ### Android
@@ -267,7 +269,7 @@ Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
 
 ```bash
 # Emulator — ikon run --flutter-android does this for you
-flutter run -d android --dart-define=IKON_PORT=8446 --dart-define=IKON_SERVER_HOST=10.0.2.2
+flutter run -d android --dart-define=IKON_PORT=8443 --dart-define=IKON_SERVER_HOST=10.0.2.2
 
 # Physical device — run server on LAN
 ikon run --host-lan
@@ -280,7 +282,7 @@ Requires Xcode + Apple Developer account:
 
 ```bash
 # Simulator (localhost works) — ikon run --flutter-ios does this for you
-flutter run -d ios --dart-define=IKON_PORT=8446
+flutter run -d ios --dart-define=IKON_PORT=8443
 
 # Physical device — run server on LAN
 ikon run --host-lan
@@ -296,14 +298,18 @@ repo the ikon tool writes that override into `pubspec_overrides.yaml` for you.
 
 ```bash
 # Android APK
-flutter build apk --dart-define=IKON_PORT=8446
+flutter build apk --dart-define=IKON_PORT=8443
 
 # iOS IPA
-flutter build ipa --dart-define=IKON_PORT=8446
+flutter build ipa --dart-define=IKON_PORT=8443
 
 # Web
-flutter build web --dart-define=IKON_PORT=8446
+flutter build web --dart-define=IKON_PORT=8443
 ```
+
+These builds still connect to a local server. A build for a deployed space needs the
+`IKON_DEPLOYED`, `IKON_SPACE_ID`, `IKON_AUTH_URL`, `IKON_SERVER_HOST` and `IKON_AUTH_*`
+dart-defines, which `ikon bundle --flutter-android|--flutter-ios|--flutter-web` injects.
 
 ## Authentication
 
@@ -313,7 +319,7 @@ flutter build web --dart-define=IKON_PORT=8446
 
 <!-- ikon-example: flutter-sdk-auth-local -->
 ```dart
-final client = await IkonClient.connectLocal(host: 'localhost', port: 8446);
+final client = await IkonClient.connectLocal(host: 'localhost', port: 8443);
 ```
 
 ### Deployed Apps — Guest/Anonymous

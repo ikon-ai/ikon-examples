@@ -1,4 +1,4 @@
-<!-- checked-against: 6c3b387d00645dd2 -->
+<!-- checked-against: ce33d2a000645dd2 -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
@@ -10,7 +10,7 @@ A Tailwind-inspired, class-based DSL to describe visual motion timelines and aud
 * **Case:** all keywords and identifiers are lowercase ASCII.
 * **Separators:** classes are whitespace-separated. Prefixes are colon-separated.
 * **Whitespace inside brackets `[...]`:** spaces are allowed; leading/trailing spaces are ignored.
-* **Escaping inside `[...]`:** to include `]` use `\]`. Backslash escapes any following char.
+* **Escaping inside `[...]`:** balanced nested brackets need no escaping; to include an unbalanced `]` use `\]`. Backslash escapes any following char.
 * **Underscore separator:** inside `motion-[...]` step utilities, `_` outside of brackets and parentheses is treated as whitespace. This allows `opacity-0_translate-y-[12px]` as equivalent to `opacity-0 translate-y-[12px]`.
 * **Numbers:** decimal (`12`, `0.25`) with optional sign; no thousands separators.
 * **Durations:** `<number>ms` or `<number>s` (e.g., `150ms`, `0.2s`).
@@ -36,7 +36,7 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Element pseudo-classes: `hover`, `focus`, `active`, `visited`, `disabled`, `enabled`, `required`, `optional`, `invalid`, `valid`, `autofill`, `placeholder-shown`, `read-only`, `read-write`, `target`, `empty`, `focus-visible`, `focus-within`, `checked`, `indeterminate`, `in-range`, `out-of-range`, `default`, `first`, `last`, `first-of-type`, `last-of-type`, `only`, `only-child`, `only-of-type`, `odd`, `even`, `open`, `user-valid`, `user-invalid`, `popover-open`, `inert`.
   * Pseudo-elements: `before`, `after`, `first-letter`, `first-line`, `selection`, `marker`, `placeholder`, `file`, `backdrop`, `details-content`, `emoji` (targets emoji glyph spans).
   * Group/peer scopes: `group-<state>` and `peer-<state>` where `<state>` is a pseudo-class, pseudo-element, or explicit selector in brackets `[selector]`.
-  * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
+  * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>` (attribute presence; only `data-state-<value>` splits into `[data-state="<value>"]`), `data-[<name>=<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
   * Theme scoping: `theme-<name>` (if theme variants are enabled).
   * Other selector forms: `in-<...>`, `nth-<...>`, `not-<...>` (unless it negates a media context), `*`, `**`, `flutter`, `web`, any prefix containing `&`, and the container-query variants `@container`, `@<size>`, `@[<width>]`.
 * **Track prefix:** any identifier **not** matching a reserved variant. Tracks may refer to:
@@ -45,7 +45,7 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
   Zero or more track prefixes are allowed; the innermost (closest to the directive) owns that directive.
-  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities.
+  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities. The exception is `dark`/`not-dark` under the default dark-mode strategy: `dark:motion-[...]` is scoped to the dark theme and runs on the `default` track.
 
 Examples:
 
@@ -125,7 +125,7 @@ All may be prefixed by variants and/or a track.
 * `motion-per-line-reverse-loop` (boolean flag; combines `motion-per-line-reverse` with `motion-loop`)
 * `motion-per-paragraph` (boolean flag)
 * `motion-per-children` (boolean flag)
-* `motion-priority-<int>` or `motion-priority-[<int>]` (track precedence hint; syntax only)
+* `motion-priority-<int>` or `motion-priority-[<int>]` (track order: the element's tracks are listed highest priority first in the comma-separated `animation-*` lists, ties in source order; clamped to `0..999`, and a value that is not an integer is replaced by `0` with a warning)
 * `motion-promote` (boolean flag; force `will-change` emission for the track even when the auto rule would skip it for a one-shot animation)
 * `motion-no-promote` (boolean flag; skip `will-change` emission for the track even when the auto rule would promote it — opt-out for plentiful elements where the GPU-layer cost outweighs the start-up smoothness)
 
@@ -162,9 +162,9 @@ Concrete patterns:
 </div>
 ```
 
-* `lead:` binds its track to the scroll timeline and starts paused so a class toggle can resume it while the unprefixed track
+* `lead:` binds its track to the scroll timeline and starts paused so a class toggle can resume it while the `body:` track
   plays immediately.
-* Adding `flare:motion-composition-add` later yields `animation-composition: replace, add, replace`, letting the additive track
+* Adding `flare:motion-composition-add` later yields `animation-composition: replace, replace, add`, letting the additive track
   blend with the existing ones instead of replacing them.
 
 ```html
@@ -174,7 +174,7 @@ Concrete patterns:
 </button>
 ```
 
-* `pulse:` accumulates with other transforms while `halo:` clamps its playback window to the first 60 % of the timeline.
+* `pulse:` accumulates with other transforms while `halo:` emits `animation-range: entry 0% exit 60%`, which takes effect only once the track is bound to a view timeline (`halo:motion-timeline-[view()]`); on the default time-based timeline the range is ignored.
 
 ### 2.3 Input Binding
 
@@ -364,7 +364,7 @@ motion-[0:opacity-0 -translate-y-[8px], 100:opacity-100 translate-y-0]
 The following identifiers are **reserved** as variants when used as a prefix ending with `:`:
 
 * Element pseudo-classes and pseudo-elements listed in §1.
-* `group-<state>`, `peer-<state>`, `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`, `theme-<name>` (only while theme variants are enabled).
+* `group-<state>`, `peer-<state>`, `aria-<name>[-<value>]`, `data-<name>`, `data-state-<value>`, `data-[<name>=<value>]`, `lang-[<tag>]`, `has-[<selector>]`, `theme-<name>` (only while theme variants are enabled).
 * The other selector forms listed in §1 (`in-*`, `nth-*`, `not-*`, `*`, `**`, `flutter`, `web`, `&` selectors, container-query variants).
 
 > Any other prefix is treated as a **track** label (see §1).
@@ -389,9 +389,14 @@ variant-prefix  ::= pseudo-class-variant | pseudo-element-variant
                   | group-variant | peer-variant
                   | aria-variant | data-variant
                   | lang-variant | has-variant
-                  | theme-variant
+                  | theme-variant | other-variant
 
-track-prefix    ::= identifier | supports-track | selector-track
+other-variant   ::= ( "in-" | "nth-" | "not-" ) bracket-chars
+                  | "*" | "**" | "flutter" | "web"
+                  | ampersand-selector     // any prefix containing "&"
+                  | "@container" | "@" identifier | "@" bracket-value
+
+track-prefix    ::= identifier | "2xl" | supports-track | selector-track
 
 core-directive  ::= motion-block
                   | motion-param
@@ -420,7 +425,7 @@ duration        ::= number ( "ms" | "s" )
 step-utilities  ::= utility ( ( WS+ | "_" ) utility )*
 
 utility         ::= neg? utility-name ( "-" utility-atom )*
-                  | utility-name "-" bracket-value
+                  | neg? utility-name "-" bracket-value
                   | audio-param
 
 neg             ::= "-"
@@ -502,9 +507,9 @@ sign           ::= "+" | "-"
 digit          ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 lc-alpha       ::= "a" | "b" | ... | "z"
 
-bracket-chars  ::= ( escaped | char-no-bracket )*
+bracket-chars  ::= ( escaped | bracket-value | char-no-bracket )*
 escaped        ::= "\" any-char
-char-no-bracket::= any-char-except-] | "]" if escaped
+char-no-bracket::= any-char-except-[-and-]
 any-char       ::= any Unicode scalar value
 WS             ::= space | tab | newline
 WS+            ::= WS WS*
@@ -531,7 +536,7 @@ peer-variant  ::= "peer-" ( identifier | bracket-value | pseudo-class-variant | 
 
 aria-variant  ::= "aria-" identifier ( "-" identifier )?
 
-data-variant  ::= "data-" identifier ( "-" identifier )?
+data-variant  ::= "data-" identifier | "data-" bracket-value
 
 lang-variant  ::= "lang-" bracket-value
 
@@ -549,9 +554,9 @@ These are minimal rules code generators MAY enforce during parse; they do not pr
 1. **Timeline basis consistency:** every `motion-[...]` block MUST use either all percent times **or** all durations.
 2. **Step form:** each step MUST contain exactly one time, a colon, and ≥1 utility token.
 3. **Easing function text** inside `[...]` MUST be fully contained (balanced parentheses) and may include commas and spaces.
-4. **Bracket payloads** MUST close; `\]` is the only way to include a literal `]`.
+4. **Bracket payloads** MUST close; a balanced nested `[...]` needs no escaping, and `\]` includes an unbalanced literal `]`.
 5. **Variant collisions:** multiple variants are allowed; order is preserved as written (left-to-right).
-6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is AND-combined into that track, and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`).
+6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is folded into the track name rather than gating the rule (`md:glitch:motion-loop` is track `glitch|md`, a different track from `glitch:`, and applies at every width), and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`).
 7. **Alias `sound-[...]`:** purely syntactic; parsers MAY normalize it to `sfx:source-[...] <same-prefixes>:sfx:play`.
 
 ---

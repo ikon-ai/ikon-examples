@@ -1,5 +1,5 @@
 # Firewall requirements for Ikon AI apps
-<!-- checked-against: 3c33c73631adff65 -->
+<!-- checked-against: 1583fc3b31adff65 -->
 For the network administrator opening access to an Ikon AI app. It lists everything that must be
 allowed, and nothing else is required. Nothing here needs a developer.
 
@@ -44,5 +44,6 @@ and the addresses change without notice. Allow by hostname.
 **443 alone is enough to work.** If policy does not permit the 9000–19999 range, allow only the 443
 rows. The app detects this and routes everything over 443.
 
-**TLS inspection must pass WebSocket connections through.** The streaming connection in step 2 is a
-WebSocket over HTTPS.
+**TLS inspection should pass WebSocket connections through.** The streaming connection in step 2 is
+a WebSocket over HTTPS. If inspection blocks it, the app falls back to ordinary HTTPS requests and
+still works, but more slowly.

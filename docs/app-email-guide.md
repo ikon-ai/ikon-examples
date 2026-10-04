@@ -1,5 +1,5 @@
 # Ikon.App.Email Guide
-<!-- checked-against: 5d33224b4f26b439 -->
+<!-- checked-against: 015158634f26b439 -->
 Send transactional email from your app and read the mail delivered to your app — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point, available to every app. Each message sent is
@@ -154,7 +154,9 @@ storage; deleting an unknown id throws rather than succeeding silently.
 
 Instead of sweeping the inbox on a schedule, listen for the platform's `EmailReceived` event: the
 backend delivers every stored message to the app's userless instance — starting one when none is
-running — and keeps the event until the handler returns.
+running — and keeps the event until the handler returns. The wake-up itself is best-effort: if the
+backend fails to create the event, the message is still stored and readable through `app.Email` but
+the trigger never fires for it, so an app that must not miss mail still reads its inbox now and then.
 
 <!-- ikon-example: email-trigger -->
 ```csharp

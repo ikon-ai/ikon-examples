@@ -1,5 +1,5 @@
 # Microsoft Connector Guide
-<!-- checked-against: 2a7e98423f75fb6d -->
+<!-- checked-against: 6fb16b4feea11d5b -->
 This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory and Outlook mail through Microsoft Graph — for app developers wiring Microsoft 365 into an Ikon app.
 
 ## Microsoft: SharePoint and OneDrive
@@ -134,7 +134,7 @@ Under `Sites.Selected` an app sees only what it has been granted. `GrantAppAcces
 
 ### Reading only what changed
 
-`DeltaAsync` returns every item of a drive on the first call and only the changes on the next, keyed by the `DeltaLink` it hands back — store it per drive. The delta feed is the one listing Graph guarantees complete while people keep editing. Each item appears once, in its latest state, folders and the drive root included, with its `Path` inside the drive (`/Policies/ISMS scope.docx`) and `LastModifiedBy`. Removed items arrive with `Deleted` set and little but their `Id`. Key what you store on `Id`: a folder that is moved or renamed does not bring the items under it back through the feed, so a stored `Path` goes stale until the next full read. A link Graph no longer honours fails with `410`: start again without one. Past `maxPages` (default 50) it throws `ConnectorPageCapException<DriveItem>` whose `ResumeFrom` is passed back as the delta link to continue. The overload taking `DriveDeltaOptions` adds two things: `FromNow` starts watching without the first full read, and `IncludeSharingChanges` brings back items whose access changed, with `SharingChanged` set (below).
+`DeltaAsync` returns every item of a drive on the first call and only the changes on the next, keyed by the `DeltaLink` it hands back — store it per drive. The delta feed is the one listing Graph guarantees complete while people keep editing. Each item appears once, in its latest state, folders and the drive root included, with its `Path` inside the drive (`/Policies/ISMS scope.docx`) and `LastModifiedBy`. Removed items arrive with `Deleted` set and little but their `Id`. Key what you store on `Id`: a folder that is moved or renamed does not bring the items under it back through the feed, so a stored `Path` goes stale until the next full read. A link Graph no longer honours fails with `IsResyncRequired` set (`StatusCode` `410`): start again without one. Past `maxPages` (default 50) it throws `ConnectorPageCapException<DriveItem>` whose `ResumeFrom` is passed back as the delta link to continue. The overload taking `DriveDeltaOptions` adds two things: `FromNow` starts watching without the first full read, and `IncludeSharingChanges` brings back items whose access changed, with `SharingChanged` set (below).
 
 <!-- ikon-example: connectors-sharepoint-delta -->
 ```csharp
@@ -144,7 +144,7 @@ try
 {
     delta = await oneDrive.DeltaAsync(driveId, deltaLink);
 }
-catch (ConnectorException ex) when (ex.StatusCode == 410)
+catch (ConnectorException ex) when (ex.IsResyncRequired)
 {
     delta = await oneDrive.DeltaAsync(driveId);   // the link expired: read everything again
 }
@@ -333,7 +333,7 @@ var overdue = await sharePoint.ListItemsAsync(siteId, tasks.Id,
     new ListItemQuery("fields/Status eq 'Open'", Select: ["Title", "Due"], OrderBy: "fields/Due"));
 ```
 
-`ItemsDeltaAsync` is the drive delta for a list: the first call returns every item with its fields, later ones only what changed since the stored `DeltaLink`, each item once in its latest state and removed ones with `Deleted` set, in a `ListItemDelta`. `fromNow: true` starts watching without the first full read, and a `410` means start again without a link:
+`ItemsDeltaAsync` is the drive delta for a list: the first call returns every item with its fields, later ones only what changed since the stored `DeltaLink`, each item once in its latest state and removed ones with `Deleted` set, in a `ListItemDelta`. `fromNow: true` starts watching without the first full read, and `IsResyncRequired` (a `410`) means start again without a link:
 
 <!-- ikon-example: connectors-sharepoint-list-delta -->
 ```csharp
@@ -366,7 +366,7 @@ await SaveDeltaLinkAsync(delta.DeltaLink);
 
 ### Mail
 
-`Outlook` reads a mailbox in Exchange Online. It needs Graph's `Mail.Read` permission: application, for app-only credentials, reaches every mailbox in the tenant unless an Exchange application access policy narrows it; delegated reaches the signed-in person's own, named `me`. `MessagesDeltaAsync(user, folder)` works like `OneDrive.DeltaAsync`: every message of the folder on the first call (`inbox` by default, or another well-known name or folder id; subfolders are not included), then only what changed since the `DeltaLink` of the `MailDelta` it hands back, a removed message with `Deleted` set. A link Graph no longer honours is a `410`: start again without one. Each `MailMessage` carries the sender's `From` address, `ReceivedAt`, the `Body` as Outlook stores it (`BodyIsHtml` says which), and the `ConversationId` its thread shares. `GetMessageAsync` reads one, null when it is gone:
+`Outlook` reads a mailbox in Exchange Online. It needs Graph's `Mail.Read` permission: application, for app-only credentials, reaches every mailbox in the tenant unless an Exchange application access policy narrows it; delegated reaches the signed-in person's own, named `me`. `MessagesDeltaAsync(user, folder)` works like `OneDrive.DeltaAsync`: every message of the folder on the first call (`inbox` by default, or another well-known name or folder id; subfolders are not included), then only what changed since the `DeltaLink` of the `MailDelta` it hands back, a removed message with `Deleted` set. A link Graph no longer honours throws with `IsResyncRequired` (a `410`): start again without one. Each `MailMessage` carries the sender's `From` address, `ReceivedAt`, the `Body` as Outlook stores it (`BodyIsHtml` says which), and the `ConversationId` its thread shares. `GetMessageAsync` reads one, null when it is gone:
 
 <!-- ikon-example: connectors-outlook-delta -->
 ```csharp

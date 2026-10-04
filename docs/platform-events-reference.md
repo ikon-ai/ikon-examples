@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 7e2d232a36645cb4 -->
+<!-- checked-against: 8edce67836645cb4 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -121,7 +121,7 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 | Event | When | Payload |
 |---|---|---|
 | `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
-| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, or a cell-host spawn failed) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
+| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, or the app's seed run threw) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
 
@@ -257,13 +257,17 @@ zero of them. Successful calls are not tracked individually.
 `expected`, and the rest are `dependency`.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
-`RemoteError`, `IOError`, `Other`.
+`RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`
+and for a call the caller cancelled itself. A call that `failed` otherwise is classed by the error the
+far side threw, by the same rule the AI operation's own `{eventName}_failed` row uses (below): a
+refused prompt is `expected`, a request the model rejects is `user_error`, an empty provider account
+is `provider_credit`, and everything else is `dependency`.
 
 ## Resource and health
 
 | Event | When | Payload |
 |---|---|---|
-| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes`, `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
+| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
 | `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
@@ -393,9 +397,9 @@ wrong is not a command that broke:
 | Event | When | `class` |
 |---|---|---|
 | `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build) | `defect`, or `dependency` for the backend and environment cases |
-| `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault | `user_error` |
+| `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
-| `app_run_stopped` | `ikon run`'s app was killed by a signal — which is what `ikon stop` does | `expected` |
+| `app_run_stopped` | `ikon run`'s app was killed by a signal or by `ikon stop` (on Windows the stop is all that tells a kill from a crash) | `expected` |
 
 Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
 without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it

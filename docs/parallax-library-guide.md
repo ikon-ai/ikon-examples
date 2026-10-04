@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: c828fe77eb10bfd2 -->
+<!-- checked-against: 944622695784dd21 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -105,7 +105,7 @@ public async Task Main()
 }
 ```
 
-`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync` flips the calling client between dark and light and `SetAsync` sets it; both update `Current` at once and push the change to that client, holding the push until a client that has not yet registered its theme function does. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is an `IReadOnlyReactive<Theme>` holding the calling client's theme, bindable in views and read-only, since only `ToggleAsync` and `SetAsync` also tell the browser; `ToggleAsync` flips the calling client between dark and light and `SetAsync` sets it; both update `Current` at once and push the change to that client, holding the push until a client that has not yet registered its theme function does. By default a joining client that already has a saved theme keeps it (`followClient: true`).
 
 ### When an Action Handler Throws
 
@@ -400,16 +400,18 @@ rather than as the app's own output.
 ```csharp
 private sealed record PresetDraft(string Name = "", bool Public = false);
 private readonly FormState<PresetDraft> _preset = new(() => new PresetDraft());
+private readonly ClientReactive<bool> _editingPreset = new(false);
 ```
 
 <!-- ikon-example: px-forms-and-dialogs-with-formstate-2 -->
 ```csharp
-// Open on a fresh draft, or on a copy of the record being edited:
-_preset.Show();
-_preset.Show(new PresetDraft(existing.Name, existing.IsPublic));
+// Open from a handler, never from the render body: Show resets the errors and reopens the form,
+// so calling it on every render would undo validation and close-on-success.
+view.Button(text: "New preset", onClick: () => { _editingPreset.Value = false; _preset.Show(); });
+view.Button(text: "Edit preset", onClick: () => { _editingPreset.Value = true; _preset.Show(new PresetDraft(existing.Name, existing.IsPublic)); });
 
 // In the UI:
-view.FormDialog(_preset, title: "New preset", content: form =>
+view.FormDialog(_preset, title: _editingPreset.Value ? "Edit preset" : "New preset", content: form =>
 {
     form.FormField(_preset, "Name", content: f =>
         f.TextField(value: _preset.Draft.Name,
@@ -667,7 +669,7 @@ What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled
 
 ## The Ikon O
 
-`view.LivingO()` (`LivingOExtensions`) draws the Ikon O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. `candidates:` and `shapeSchedule:` are JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
+`view.LivingO()` (`LivingOExtensions`) draws the Ikon O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
 
 ## Example: Interactive Form
 

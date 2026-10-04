@@ -1,5 +1,5 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: 847f7bf25b86f008 -->
+<!-- checked-against: f87444dd5b86f008 -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point.
@@ -82,7 +82,8 @@ asked for once. The file goes to the platform, which passes it on to the provide
 keeps no copy.
 
 Run it again for a second number: an app may hold several, in different markets and on different
-providers.
+providers. It may hold at most three by default; a fourth buy is refused before anything is bought,
+and releasing a number frees its slot.
 
 ```bash
 ikon phone list

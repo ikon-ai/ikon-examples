@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: a73f9a1ec58f4408 -->
+<!-- checked-against: b1ed6e7e5ade058f -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -173,7 +173,7 @@ per detected turn: a turn that produced no transcript reaches `SpeechNotRecogniz
 
 `UseSpeechRecognition(model, silenceThresholdRms: 0.01f, requireCorrelatedStream: true, language: "", timestamps: SpeechTimestamps.None, timeout: null)`
 
-`requireCorrelatedStream` defaults to **true**: recognition fires only for streams started by Parallax capture buttons (`PushToTalkButton`, `MicToggleButton`, `CaptureButton`), which stamp a `CorrelationId` on the stream. A capture started programmatically with `ClientFunctions.StartAudioCaptureAsync` has no correlation id and is **silently ignored** — the classic symptom is "the mic streams but `SpeechRecognizedAsync` never fires". Pass `requireCorrelatedStream: false` to transcribe every audio stream, including ad-hoc ones. `UseTurnDetection` has the same flag with the same default.
+`requireCorrelatedStream` defaults to **true**: recognition fires only for streams that carry a `CorrelationId`. Parallax capture buttons (`PushToTalkButton`, `MicToggleButton`, `CaptureButton`) stamp one, and `ClientFunctions.StartAudioCaptureAsync` generates one when `ClientAudioCaptureOptions.CorrelationId` is null, so both are transcribed. A stream with no correlation id — one an SDK client sends on its own — is **silently ignored**; the classic symptom is "the mic streams but `SpeechRecognizedAsync` never fires". Pass `requireCorrelatedStream: false` to transcribe every audio stream, including ad-hoc ones. `UseTurnDetection` has the same flag with the same default.
 
 ## Turn detection (open-mic conversations)
 

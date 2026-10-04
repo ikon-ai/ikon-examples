@@ -1,5 +1,5 @@
 # Connecting your computer to an Ikon app
-<!-- checked-against: 81c6264d12d42310 -->
+<!-- checked-against: d256dc9612d42310 -->
 How to connect a computer of yours to an Ikon app with Ikon Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
 the computer's own browser. For app developers; everything here works
@@ -33,9 +33,9 @@ ikon service install
 `install` checks which coding agents the machine has and sets up what they need — including tmux,
 which lets a terminal and the board share one session (macOS and Linux; Windows can run and watch
 sessions but not share them). On macOS it also lets an app's **Connect this computer** link open
-here, and starts Ikon Connect at login, so a computer that restarted is back without a command;
-`--no-links` and `--no-start-at-login` leave either out, or undo it. Elsewhere, run `ikon connect`
-yourself and paste a link after it.
+here; elsewhere, paste a link after `ikon connect`. On macOS, Windows and Linux it starts Ikon
+Connect at login, so a computer that restarted is back without a command; `--no-links` and
+`--no-start-at-login` leave either out, or undo it. Without it, run `ikon service run` yourself.
 
 ## 2. Connect an app
 
@@ -43,11 +43,11 @@ yourself and paste a link after it.
 ikon connect https://your-app.example.com
 ```
 
-The argument is the app — its name, its URL, or its id — and defaults to the app project in the
-current directory. The first time, you confirm the app's id, organisation and what it may do
-on your computer. Leave it running: **one** `ikon connect` serves every app you connect, so run the
-same command for a second app in another terminal and the running process picks it up within
-seconds, then that command returns.
+The argument is the app — its name, its URL, or its id — and can be left out only while an `ikon run`
+instance of the app project in the current directory is running, which it then connects. The first time, you confirm the app's id, organisation and what it may do
+on your computer. `ikon connect` records the connection and returns: the Ikon service (`ikon service run`, which
+`service install` starts at login) serves every app you connect and picks up a new one within
+seconds. If the service is not running, `ikon connect` says so.
 
 An app has to be in one of your organisations, or be one of Ikon's own — Studio and O, which the
 tool names as platform apps on the confirmation.
@@ -56,7 +56,7 @@ tool names as platform apps on the confirmation.
 
 An app that pairs — Studio and O do — takes a computer only once a person has typed the code the
 computer shows into the app. Once the service has reached the app, `ikon connect` prints the
-six-digit code, the service shows it in a notification, and `ikon connect list` shows it as the
+six-digit code, the service shows it in a notification on macOS, and `ikon connect list` shows it as the
 connection's state until it is typed:
 
 ```text
@@ -88,7 +88,6 @@ grant the app lacks is refused on the computer, and the app is told which grant 
 | `--no-grant <grant>` | Take a grant away, or leave a default out; repeatable |
 | `--repo <path>` | The repository the app may work in; defaults to the git root of the current directory |
 | `--app-id <id>` | The precise form of the app argument |
-| `--name <label>` | How the computer appears in the apps; defaults to the host name |
 | `--local-url <url>` | Connect to an app running locally with `ikon run` instead of the cloud |
 | `--trust <app-id>` | Skip the interactive confirmation, for scripts and CI |
 

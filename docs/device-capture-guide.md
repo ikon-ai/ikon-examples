@@ -1,5 +1,5 @@
 # Ikon Device Capture Guide
-<!-- checked-against: a2ee3577bbe8b739 -->
+<!-- checked-against: 5270f0d531888b52 -->
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |
@@ -136,7 +136,7 @@ app.Uploads.Register("my-app.telemetry",
 - **Namespace the id.** The ids that rendered `view.FileUpload` components generate live in the same table.
 - Registering the same id again replaces the previous handlers.
 - Returning an `AssetUri` from `onStart` streams the bytes straight into asset storage without ever holding them in the app — which is what a large file needs, since an app container has far less memory than the files people send it. Return a result that is not accepted to refuse the upload.
-- `onError` runs when a transfer fails partway. A device will generally try again on its next connection.
+- `onError` runs once, after the client has been told, for an upload that does not complete — unless `onStart` itself refused it. A device will generally try again on its next connection.
 
 ## Putting them together
 

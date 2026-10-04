@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 2fa4139a4781f3a4 -->
+<!-- checked-against: 888ac86338023ce5 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -155,9 +155,12 @@ var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
 await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
-A size the model cannot render is refused rather than clamped or bucketed to a nearby one, so the
-picture you get back is the one you asked for or an exception naming what the model accepts. `Width`
-and `Height` default to 1024; set both to `0` to take the provider's own default. Either way the result reports the
+A size outside the model's range is refused rather than clamped to a nearby one, with an exception
+naming what the model accepts; inside the range, Gemini, xAI and FLUX Kontext take only the nearest
+aspect ratio they support, so a 1000x700 request does not come back as 1000x700. `Width`
+and `Height` default to 1024; set both to `0` to take the provider's own default. The 1024 default is
+a square size request, so editing a non-square input image comes back square unless both are `0`, and
+setting only one of them to `0` throws `InvalidRequestException`. Either way the result reports the
 size that was actually delivered, measured from the returned bytes, since models snap to their own
 grids and tiers within what they accept.
 
@@ -252,11 +255,11 @@ await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataA
 
 `Ikon.AI.ImageUpscaling.ImageUpscaler` raises the resolution of a single input image (super-resolution). The result is one larger image. Useful for rescuing low-resolution source material, printing or presenting a generated image at a larger size, and recovering detail from compressed photos.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns WebP; Crystal is the one model that will invent detail.
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns WebP; Crystal is the one model that will invent detail across the whole frame.
 
 Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider.
 
-**Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. No model is `Creative` today, so nothing hallucinates unless you raise `Creativity` on a `Tunable` model — and asking a `Faithful` model for `Creativity` above 0 throws rather than being quietly ignored. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
+**Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. No model is `Creative` today, so nothing hallucinates unless you raise `Creativity` on a `Tunable` model or set `EnhanceFaces`, which invents facial detail even on a `Faithful` model — and asking a `Faithful` model for `Creativity` above 0 throws rather than being quietly ignored. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
 
 One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scale factor:
 

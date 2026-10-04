@@ -1,5 +1,5 @@
 # Ikon Signature Guide
-<!-- checked-against: 44671146d26ce88a -->
+<!-- checked-against: 1e9fb1b5c02623f1 -->
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
@@ -142,7 +142,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 
 | Field | Required | Description |
 |---|---|---|
-| `Purpose` | yes | App-declared reason, e.g. `"contract.sign"`. Logged on the order. |
+| `Purpose` | yes | App-declared reason, e.g. `"contract.sign"`. Logged on the order. At most 100 characters (`Title` and `CostAttributionKey` 200, each filename 255); longer is refused with 400. |
 | `Documents` | yes | One or more `SignatureDocument(Filename, MimeType, Bytes)`. Backend caps at 10 documents / 25 MB each. All documents in one order must share a MIME type — see "Supported document types" above. |
 | `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported in this iteration. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
@@ -198,7 +198,7 @@ Each signing provider calls its own platform-side webhook route when an order tr
 
 ## Failure handling
 
-The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `HttpRequestException` when the platform rejects the order (400 for unsupported, mixed, empty or oversized documents, more than 10 documents or a disallowed `ClientReturnUrl`; 503 when no configured provider can sign it), and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
+The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (unsupported, mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 503 when no configured provider can sign it, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
 
 <!-- ikon-example: signature-failures -->
 ```csharp

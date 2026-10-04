@@ -1,5 +1,5 @@
 # Ikon.App.Payments Guide
-<!-- checked-against: 4b2f5a0470af6ad8 -->
+<!-- checked-against: f12c69e570af6ad8 -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
@@ -185,7 +185,8 @@ await ClientFunctions.OpenExternalUrlAsync(link.Url);
 ```
 
 Paying grants the `level2` entitlement exactly as at full price — the amount charged never affects the
-grant. The platform fee and the recorded payment follow the overridden amount. **One-time offers only**:
+grant. The platform fee and the recorded payment follow the overridden amount. The override must be
+greater than zero — zero or negative is rejected, so handle a credit that covers the whole price yourself. **One-time offers only**:
 supplying `amountMinorOverride` for a recurring offer is rejected (subscriptions use
 `ChangeSubscriptionOfferAsync`). After the upgrade the customer holds both `level1` and `level2`; gate your
 premium features on `level2` and hide the buy button with `IsEntitled` as needed.
@@ -305,8 +306,8 @@ deny code and opens a payment link (a call with no user id is denied with `payme
 retries. `GetEntitlementAsync(offerId).Source` tells you whether the access came from a `Subscription` or a
 `OneTime` purchase.
 
-Subscription access is period-bound: each renewal refreshes `ExpiresAt` (the period end plus a grace
-window), and an entitlement past its `ExpiresAt` counts as inactive even if the final cancellation webhook
+Subscription access is period-bound: each renewal refreshes `ExpiresAt` (the period end, plus a grace
+window on Stripe and Mollie; Surfboard uses the bare period end), and an entitlement past its `ExpiresAt` counts as inactive even if the final cancellation webhook
 never arrived. A **one-time purchase never expires** — it's a permanent unlock for that offer, with no
 `ExpiresAt`. Note that refunding a one-time payment does not revoke the entitlement it granted.
 

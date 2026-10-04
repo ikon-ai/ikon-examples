@@ -1,5 +1,5 @@
 # Crosswind Styling and Motion Guide
-<!-- checked-against: e56fcfb642e95092 -->
+<!-- checked-against: d1e3e7a526f8f56b -->
 ## Overview
 
 Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
@@ -158,14 +158,14 @@ public async Task Main()
     _theme = UI.UseTheme(); // defaults: dark, but follows the theme each browser client reports
 }
 ```
-   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that reports a theme keeps it and clients without one get `defaultTheme` — a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`); with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that reports a theme keeps it and clients without one get `defaultTheme` — a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`); with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (a read-only `IReadOnlyReactive<Theme>` of the calling client's theme) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
 <!-- ikon-example: cw-theme-activation-2 -->
 ```csharp
 view.Button([Button.GhostMd, Button.Icon],
     onClick: _theme.ToggleAsync,
     content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
 ```
-   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme.
+   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme. Make it replace the plain `UI.UseTheme()` call above, not sit beside it: a repeat call with different arguments throws `InvalidOperationException`.
 
 The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
 
@@ -375,7 +375,7 @@ Base modes split text (or children) into individually animated segments:
 - `motion-per-paragraph` — each paragraph
 - `motion-per-children` — each child element
 
-Each base mode supports compound suffixes that combine the split with a playback modifier:
+The letter, word and line modes support compound suffixes that combine the split with a playback modifier:
 
 | Suffix | Effect | Example |
 |--------|--------|---------|
@@ -834,7 +834,7 @@ view.Button(
 
 <!-- ikon-example: cw-common-mistakes -->
 ```csharp
-// WRONG: Missing text color = black/invisible icons
+// WRONG: no text color, so the icon takes the inherited one (dark on blue in a light theme)
 view.Icon(style: ["bg-blue-600"], name: "check");
 
 // CORRECT: Always include text color

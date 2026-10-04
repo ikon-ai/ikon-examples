@@ -1,5 +1,5 @@
 # Asset System Developer Guide
-<!-- checked-against: d652078228fa7340 -->
+<!-- checked-against: 6df527393012cd99 -->
 ## Overview
 
 The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.
@@ -41,9 +41,25 @@ Most read and write operations accept or return an `AssetMetadata` instance. Pop
 
 ## Storing data
 
+### `WriteAsync`
+
+`WriteAsync` is the safe way to stream into an asset. It hands your callback a writable stream and commits only when the callback returns: a callback that throws or is cancelled leaves the asset exactly as it was, and the exception propagates. A failure or cancellation during the commit itself, after the store has sent the request that stores the write, may have stored it anyway, and the exception does not say which, so a retried conditional write can see its own first attempt as a conflict. A conditional write (`AssetMetadata.LastModified`) that another writer beat throws `AssetUpdateConflictException`. On a store your app registered itself with `AddStorageAsync`, which cannot abandon a write, the bytes are staged in a temp file and copied in after the callback returns, so there the guarantee holds only until that copy starts.
+
+<!-- ikon-example: asset-guide-write-async -->
+```csharp
+var assets = Asset.Instance;
+var reportUri = new AssetUri(AssetClass.CloudFile, "reports/latest.pdf", spaceId: "space-42");
+
+await using var source = File.OpenRead("./report.pdf");
+await assets.WriteAsync(
+    reportUri,
+    (target, ct) => source.CopyToAsync(target, ct),
+    new AssetMetadata(mimeType: "application/pdf", size: source.Length));
+```
+
 ### `GetWriteStreamAsync`
 
-`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes; without a size the whole object is buffered in memory and uploaded when the stream is disposed.
+`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). A write that fails before dispose still commits what was written, so prefer `WriteAsync` unless you need the stream itself. On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes; without a size the whole object is buffered in memory and uploaded when the stream is disposed.
 
 <!-- ikon-example: asset-guide-write-stream -->
 ```csharp

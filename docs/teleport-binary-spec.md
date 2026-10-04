@@ -1,5 +1,5 @@
 # Teleport message binary specification
-<!-- checked-against: fd3183e0b48bec19 -->
+<!-- checked-against: 9cedbcbf537a6860 -->
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
@@ -286,14 +286,12 @@ and back-patches the length prefix in front of it, if it has one. Fields are key
 
 <!-- ikon-example: teleport-binary-write -->
 ```csharp
-// A field id is the xxHash32 (seed 0) of the field name's UTF-8 bytes.
-private static readonly uint TimeoutId = FieldId("Timeout");
-private static readonly uint UseCacheId = FieldId("UseCache");
-private static readonly uint PeersId = FieldId("Peers");
-private static readonly uint HostId = FieldId("Host");
-private static readonly uint PortId = FieldId("Port");
-
-private static uint FieldId(string name) => XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(name));
+// A field id is the xxHash32 (seed 0) of the field name's UTF-8 bytes — the id generated code uses.
+private static readonly uint TimeoutId = TeleportHasher.ComputeFieldId("Timeout");
+private static readonly uint UseCacheId = TeleportHasher.ComputeFieldId("UseCache");
+private static readonly uint PeersId = TeleportHasher.ComputeFieldId("Peers");
+private static readonly uint HostId = TeleportHasher.ComputeFieldId("Host");
+private static readonly uint PortId = TeleportHasher.ComputeFieldId("Port");
 
 public static byte[] WriteConfig()
 {

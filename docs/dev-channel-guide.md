@@ -1,5 +1,5 @@
 # Ikon Dev Channel Guide
-<!-- checked-against: d1e31bf48850f513 -->
+<!-- checked-against: 55219bc28850f513 -->
 Get a platform library or ikon tool fix without waiting for a release.
 
 Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed
@@ -90,8 +90,10 @@ What this means in practice:
 - **Already-deployed apps keep running.** A deployed bundle carries its own copies of the Ikon
   libraries and the built frontend, so deleting the package it was built from does not affect it. Only
   *rebuilding* breaks.
-- **A restore failing with a 404 on an `Ikon.*` package almost always means an expired dev pin.** Run
-  `ikon update` to move to a current build, or `ikon update stable` to leave the channel.
+- **An npm install failing with a 404 on an `@ikon-ai/*` package almost always means an expired dev pin.**
+  The npm alias names one exact version; the .NET pin is a minimum, so its restore takes the next
+  newer build with warning NU1603 instead of failing. Run `ikon update` to move to a current build, or
+  `ikon update stable` to leave the channel.
 
 ## The ikon tool on the dev channel
 

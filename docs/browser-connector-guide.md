@@ -1,5 +1,5 @@
 # Browser Connector Guide
-<!-- checked-against: a5bd92f494b212d7 -->
+<!-- checked-against: 9ca58214c8e22577 -->
 This guide covers `Ikon.Connectors.Browser` — a real, Playwright-driven browser operated by an agent or by your code — for app developers automating websites from an Ikon app.
 
 ## Browser
@@ -69,7 +69,7 @@ Typing into a field is not a write, because on most sites nothing is committed u
 <!-- ikon-example: connectors-browser-session -->
 ```csharp
 await using var session = new BrowserSession();
-await session.StartAsync(headless: true);
+await session.StartAsync(publicInternetOnly: true, headless: true);
 await session.NavigateAsync("https://example.com/login");
 
 var marks = await session.MarkElementsAsync();
@@ -118,7 +118,7 @@ The same holds for a payment card and for the person's name and address. Give th
 <!-- ikon-example: connectors-saved-detail -->
 ```csharp
 await using var session = new BrowserSession { Details = detailVault };
-await session.StartAsync(headless: true);
+await session.StartAsync(publicInternetOnly: true, headless: true);
 await session.NavigateAsync("https://shop.example/checkout");
 
 var filled = await session.ExecuteAsync(
@@ -147,7 +147,7 @@ if (replay.Ok)
 }
 ```
 
-Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`. Pass `publicInternetOnly` as the run the flow was distilled from had it: the overload without it replays with `PublicInternetOnly` off, private addresses reachable and certificates unchecked, which is for your own app only.
+Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`. Pass `publicInternetOnly` as the run the flow was distilled from had it: `false` replays with private addresses reachable and certificates unchecked, which is for your own app only.
 
 `WebAgent.ReplayAsync(page, flow, inputs)` replays on an `IWebPage` you opened and still own — a `BrowserSession`, or a page from the same opener you give `WebAgentOptions.OpenPage` — and leaves it open. A replay asks nobody before a step, so check `WebAgent.WritesIn(flow)` before replaying unattended: it names, in an approval's words, each step an agent run would have asked a person about, and is empty for a flow that only reads.
 

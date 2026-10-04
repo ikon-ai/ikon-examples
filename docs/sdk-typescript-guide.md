@@ -1,7 +1,7 @@
 # Ikon AI TypeScript SDK
-<!-- checked-against: b0a1ae79520ae03f -->
+<!-- checked-against: b24ff9287bb5926e -->
 
-The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 18+.
+The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 22+ (it needs a global `WebSocket`, which earlier Node.js versions lack).
 
 ## Features
 
@@ -144,9 +144,9 @@ The client tracks its connection state via the `connectionState` property. Live 
 |-------|-------------|
 | `waitingForExternalConnectUrl` | Waiting for external connect URL (used in preview mode) |
 | `connecting` | Authentication and connection in progress |
-| `connected` | Fully connected and ready |
+| `connected` | Protocol channels connected; the session is joined (GlobalState received, `onJoined` run) shortly after |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
-| `offline` | Disconnected (timeout, server stopped, user-initiated). When the disconnect carried an error, the message is available on `client.lastError` |
+| `offline` | Disconnected (timeout, server stopped, user-initiated). An unsupported browser or an internal failure leaves its error on `client.lastError`; a timeout or a failed connect reports only through `onError` |
 
 The `ConnectionState` union also includes deprecated states (`idle`, `connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
 
@@ -219,13 +219,13 @@ console.log(client.connectionState);  // 'connected'
 // Access session ID after connection
 console.log(client.sessionId);
 
-// Access GlobalState after connection
+// GlobalState is null until it arrives, which can be after connect() resolves; onJoined marks it
 console.log(client.globalState);
 
 // Disconnect (connect() runs once per client; to connect again, build a new client)
 client.disconnect();
 
-// Access the last error (carried alongside `offline` when a disconnect had an error)
+// Access the last error (set when an unsupported browser or an internal failure took the client offline)
 if (client.lastError) {
   console.error(client.lastError);
 }
@@ -367,8 +367,9 @@ const definition: FunctionDefinition = {
   ],
 };
 
-// Register with handler. A handler's parameters are typed `unknown`; each arrives already
-// converted to the kind its descriptor names, so narrow it to that type.
+// Register with handler. A handler's parameters are typed `unknown`; each is the caller's JSON value
+// as sent (a Uint8Array when sent as binary), checked against its descriptor only for null, so
+// validate it before narrowing.
 const unregister = client.functionRegistry.register(
   definition,
   (name) => `Hello, ${name as string}!`
@@ -441,7 +442,8 @@ console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
 // Get a specific remote function
 const func = client.functionRegistry.getRemoteFunction('remoteGreet');
 
-// Handle remote call errors
+// Handle remote call errors. Only a remote failure is a FunctionCallError; not connected, an unknown
+// name, a missing instanceId, the fixed 30 s timeout and a disconnect reject with a plain Error.
 try {
   await client.functionRegistry.call('riskyOperation');
 } catch (error) {
@@ -478,7 +480,7 @@ The SDK provides built-in audio and video playback/capture pipelines.
 const audio = client.media?.audio;
 const video = client.media?.video;
 
-// Media capture (browser only; null until built)
+// Media capture: built on demand and cached; null outside a browser
 const capture = await client.ensureMediaCapture();
 ```
 
@@ -774,9 +776,11 @@ serves link clicks, history gestures and cold loads alike.
 
 The `href` stays in the DOM, so new-tab, copy-link, the status-bar preview and crawlers are
 unaffected. These always navigate natively: modified and middle clicks, `target` links, `download`
-links, `rel="external"`, cross-origin URLs, non-HTTP schemes, the platform-reserved `/ikon` and
+links, `rel="external"`, cross-origin URLs, other browser-navigable schemes (`file:`, `blob:`, `data:` and the like), the platform-reserved `/ikon` and
 `/api` prefixes, fragments on the current page, and any click made while the client has no
-connection.
+connection. A plain click on an external-handler scheme (`mailto:`, `tel:`, `sms:`, app deep links)
+is launched through a hidden iframe instead, even with `interceptInternalLinks: false` or no
+connection, so the connection survives it.
 
 Opt one link out with an attribute:
 
@@ -841,7 +845,7 @@ The SDK provides typed errors for different failure scenarios:
 | `AuthRejectedError` | Server closed the transport immediately after handshake (e.g. cached auth ticket expired) |
 | `MaxRetriesExceededError` | Maximum reconnection attempts exhausted |
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
-| `SpaceNotFoundError` | No app found for the given domain |
+| `SpaceNotFoundError` | No app found for the given domain (exported, but the SDK does not currently raise it) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
 | `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
@@ -941,7 +945,7 @@ const client = new IkonClient({
 | `AuthRejectedError` | Server closed transport immediately after handshake (auth-rejection signal) |
 | `MaxRetriesExceededError` | Max retries exceeded |
 | `ProvisioningTimeoutError` | Provisioning timeout |
-| `SpaceNotFoundError` | No app found |
+| `SpaceNotFoundError` | No app found (not currently raised) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
 | `ServerFullError` | Server at capacity (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |

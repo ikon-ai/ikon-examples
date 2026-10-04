@@ -1,5 +1,5 @@
 # Ikon AI C++ SDK
-<!-- checked-against: 37afd6b3f691273d -->
+<!-- checked-against: dbe538b3f691273d -->
 
 The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17, and every example below compiles as C++17.
 
@@ -139,10 +139,11 @@ client.Ready = [&client]()
     client.SignalReady();  // Signal that this client is ready (mandatory)
 };
 
-// Server is stopping (can still send messages)
+// This client is stopping: on Disconnect(), destruction, a dropped connection or before
+// a reconnect attempt. A message sent from here is not guaranteed to be delivered
 client.Stopping = []()
 {
-    std::cout << "Server stopping..." << std::endl;
+    std::cout << "Client stopping..." << std::endl;
 };
 
 // Disconnected from server
@@ -235,7 +236,7 @@ client.SendMessage(payload);
 
 ## Shared Functions
 
-`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. The client owns one and attaches it itself on connect; get it with `client.Functions()`. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
+`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. The client owns one and attaches it itself on connect; get it with `client.Functions()`. A `Shared` function is announced only when registered while connected, and is not re-announced after a reconnect, so register it in `Ready` as below. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
 <!-- ikon-example: cpp-sdk-shared-functions -->
 ```cpp
@@ -278,7 +279,7 @@ Additional members: `Call` (invoke a local function), `HasFunction`, `GetFunctio
 
 ## Interface Implementations
 
-The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK: `ExampleLogger`, `ExampleHttpClient` and `ExampleNetworkClient` in `example_logger.h`, `example_http_client.h` and `example_network_client.h`. The two clients need OpenSSL, and outside Windows `ExampleHttpClient` also needs `CPPHTTPLIB_OPENSSL_SUPPORT` defined.
+The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK: `ExampleLogger`, `ExampleHttpClient` and `ExampleNetworkClient` in `example_logger.h`, `example_http_client.h` and `example_network_client.h`. `ExampleNetworkClient` needs OpenSSL; `ExampleHttpClient` uses WinHTTP on Windows, and elsewhere needs OpenSSL and `CPPHTTPLIB_OPENSSL_SUPPORT` defined.
 
 ### ILogInterface
 
@@ -318,7 +319,8 @@ public:
     {
         // Send request.content to request.url with request.headers, as GET or POST
         // (request.method), giving up after request.timeoutMs. disableCertificateValidation
-        // is true when connecting to a local Ikon server, whose certificate is self-signed.
+        // is true when connecting to a local Ikon server, whose certificate is self-signed, and
+        // when fetching the entrypoints with an API key on BackendType::Development.
         const char* method = request.method == HttpMethod::Post ? "POST" : "GET";
         std::cout << method << " " << request.url << std::endl;
 
@@ -375,6 +377,8 @@ config.timeouts.maxReconnectAttempts = 6;     // Max reconnection attempts
 config.timeouts.reconnectBackoffMs = 500;     // Initial backoff (ms), doubled on each attempt
 ```
 
+In API-key mode the `/init` request that waits up to `provisioningTimeoutSec` is itself sent with an HTTP timeout of `connectionTimeoutSec`, so raise `connectionTimeoutSec` to at least `provisioningTimeoutSec` for a longer provisioning wait to take effect.
+
 ### Protocol Options
 
 <!-- ikon-example: cpp-sdk-protocol-options -->
@@ -429,7 +433,7 @@ config.parameters = {
 |------|-------------|
 | `ILogInterface` | Logging interface to implement |
 | `IHttpInterface` | HTTP client interface to implement |
-| `INetworkInterface` | TCP client interface to implement |
+| `INetworkInterface` | TLS-over-TCP client interface to implement |
 
 ### Protocol Types
 
