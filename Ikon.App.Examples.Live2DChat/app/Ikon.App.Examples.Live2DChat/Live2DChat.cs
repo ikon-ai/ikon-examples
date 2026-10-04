@@ -170,7 +170,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
 
                 if (_sttContinuousMode.Value)
                 {
-                    RunContinuousRecognitionAsync(state).RunParallel();
+                    RunContinuousRecognitionAsync(state).ObserveInBackground();
                 }
             }
 
@@ -204,7 +204,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
 
                 if (!_sttContinuousMode.Value)
                 {
-                    RunBatchRecognitionAsync(state).RunParallel();
+                    RunBatchRecognitionAsync(state).ObserveInBackground();
                 }
             }
         };
@@ -427,7 +427,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                         onCaptureStart: async _ =>
                         {
                             // Fade out any ongoing speech when recording starts for natural transition
-                            Audio.SpeechMixer.FadeOut();
+                            Audio.StopSpeech(MediaTargets.Everyone);
                             StopSpeaking();
                             _sttRecognizedText.Value = "";
                         });
@@ -623,7 +623,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
         if (!_messageProcessorStarted)
         {
             _messageProcessorStarted = true;
-            ProcessMessageQueueAsync().RunParallel();
+            ProcessMessageQueueAsync().ObserveInBackground();
         }
     }
 
@@ -842,12 +842,12 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
     {
         if (_ttsPaused.Value)
         {
-            Audio.SpeechMixer.Resume();
+            Audio.ResumeSpeech(MediaTargets.Everyone);
             _ttsPaused.Value = false;
         }
         else
         {
-            Audio.SpeechMixer.Pause();
+            Audio.PauseSpeech(MediaTargets.Everyone);
             _ttsPaused.Value = true;
         }
     }
