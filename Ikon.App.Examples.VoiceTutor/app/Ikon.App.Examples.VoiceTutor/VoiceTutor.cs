@@ -358,7 +358,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 
     private void InterruptSpeaking()
     {
-        Audio.SpeechMixer.FadeOut();
+        Audio.StopSpeech(MediaTargets.Everyone);
         StopSpeaking();
     }
 
