@@ -1,6 +1,6 @@
 // ReSharper disable RedundantUsingDirective.Global
 
-// <ikon-usings> Managed by `ikon app update`. Do not edit; add your own usings below this block.
+// <ikon-usings> Managed by `ikon update`. Do not edit; add your own usings below this block.
 global using Ikon.AI.Classification;
 global using Ikon.AI.Decisions;
 global using Ikon.AI.Embeddings;
