@@ -27,7 +27,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "virtualization", "drawing",
         "profiling", "memory", "session-identity", "account", "react-sdk", "consent",
         "payments", "email", "costs", "custom-messages", "database", "persistent-state",
-        "self-test", "device", "telephony", "signatures"
+        "self-test", "device", "telephony", "signatures", "sharepoint"
     ];
 
     // Input states
@@ -466,6 +466,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("device", "Device", RenderDeviceSection),
                             new TabItem("telephony", "Telephony", RenderTelephonySection),
                             new TabItem("signatures", "Signatures", RenderSignaturesSection),
+                            new TabItem("sharepoint", "SharePoint", RenderSharePointSection),
                         ]);
                 });
             });
