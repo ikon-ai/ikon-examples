@@ -19,7 +19,7 @@ internal sealed class SingleProcessorChannelQueue(IAppBase app) : IPatternDemo
     private void AddTranscript(TranscriptRole role, string speaker, string text) => throw new NotImplementedException();
     private Task HandleCommandAsync(string commandText, CancellationToken cancellationToken) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-single-processor-channel-queue
+    #region example:pattern-single-processor-channel-queue
     private readonly System.Threading.Channels.Channel<string> _commandQueue = System.Threading.Channels.Channel.CreateUnbounded<string>();
     private readonly CancellationTokenSource _appCts = new();
     private bool _commandProcessorStarted;
@@ -50,7 +50,7 @@ internal sealed class SingleProcessorChannelQueue(IAppBase app) : IPatternDemo
         if (!_commandProcessorStarted)
         {
             _commandProcessorStarted = true;
-            ProcessCommandQueueAsync().RunParallel();
+            ProcessCommandQueueAsync().ObserveInBackground();
         }
     }
 

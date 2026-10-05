@@ -1,19 +1,77 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: emergence-event-feed — see docs/patterns/emergence-event-feed.md.
-// The stubs outside the region stand in for the app's state instance and the JSON-shortening helper
-// so the event-to-log mapping and color-coded render the doc extracts compile on their own.
+// The members outside the region stand in for the app's state instance and the JSON-shortening
+// helper. Filling the log for real takes an Emerge run against a paid model, so the demo replays a
+// recorded run's entries into the same state, one level of each colour.
 internal sealed class EmergenceEventFeed : IPatternDemo
 {
     public string Slug => "emergence-event-feed";
     public string Title => "Emergence event feed";
     public string Category => "AI";
-    public void RenderDemo(IView view) => Render(view);
+
+    private static readonly (LogLevel Level, string Message)[] RecordedRun =
+    [
+        (LogLevel.Info, "Starting run: summarise open support tickets for the Nordics team"),
+        (LogLevel.Stage, "Entering stage: gather"),
+        (LogLevel.Iteration, "Iteration 1"),
+        (LogLevel.Tool, "Calling tool: search_tickets({\"region\":\"nordics\",\"status\":\"open\"})"),
+        (LogLevel.Tool, "Tool returned: [{\"id\":\"T-4812\",\"subject\":\"Invoice PDF missing VAT line\"},{\"id\":\"T-4815\",\"subject\":\"SSO login loop…"),
+        (LogLevel.Error, "Tool failed: fetch_ticket(\"T-4790\") timed out after 10 s, retrying"),
+        (LogLevel.Tool, "Calling tool: fetch_ticket({\"id\":\"T-4790\"})"),
+        (LogLevel.Stage, "Entering stage: summarise"),
+        (LogLevel.Iteration, "Iteration 2"),
+        (LogLevel.Info, "Grouped 14 tickets into 4 themes"),
+        (LogLevel.Result, "Completed! 2 iterations, 4 tool calls"),
+    ];
 
     private readonly ExampleState state = new();
-    private static string TruncateJson(string json) => throw new NotImplementedException();
+    private readonly Reactive<bool> _replaying = new(false);
 
-    #region docsnippet:pattern-emergence-event-feed
+    public EmergenceEventFeed()
+    {
+        foreach (var (level, message) in RecordedRun)
+        {
+            state.Log(message, level);
+        }
+    }
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-2xl"], content: col =>
+        {
+            col.Button([Button.OutlineSm, "self-start"], text: _replaying.Value ? "Replaying…" : "Replay the recorded run",
+                disabled: _replaying.Value,
+                onClick: async () =>
+                {
+                    _replaying.Value = true;
+                    _ = ReplayAsync();
+                });
+            col.Column(["gap-0"], content: feed => Render(feed));
+        });
+    }
+
+    private async Task ReplayAsync()
+    {
+        try
+        {
+            state.Logs.Clear();
+
+            foreach (var (level, message) in RecordedRun)
+            {
+                await Task.Delay(450);
+                state.Log(message, level);
+            }
+        }
+        finally
+        {
+            _replaying.Value = false;
+        }
+    }
+
+    private static string TruncateJson(string json) => json.Length <= 80 ? json : json[..80] + "…";
+
+    #region example:pattern-emergence-event-feed
     public enum LogLevel { Info, Event, Tool, Result, Error, Stage, Iteration }
     public record LogEntry(DateTime Timestamp, LogLevel Level, string Message);
 

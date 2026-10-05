@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: endpoint-and-mcp-tool — see docs/patterns/endpoint-and-mcp-tool.md.
-// The docsnippet region is the three endpoint shapes an app actually needs: a granted one, a public
+// The example region is the three endpoint shapes an app actually needs: a granted one, a public
 // webhook that authorizes itself, and an MCP tool. Routes are namespaced under /patterns/ so the
 // gallery app cannot collide with a real app's paths.
 internal sealed class EndpointAndMcpTool(IAppBase app) : IPatternDemo
@@ -16,7 +16,7 @@ internal sealed class EndpointAndMcpTool(IAppBase app) : IPatternDemo
     private static bool VerifySignature(string? header, string body) => false;
     private static Task RecordPaymentAsync(string body) => Task.CompletedTask;
 
-    #region docsnippet:pattern-endpoint-and-mcp-tool
+    #region example:pattern-endpoint-and-mcp-tool
     /// The bound body record must be PUBLIC — a public handler cannot take a less accessible
     /// parameter type (CS0051), the same rule that governs SessionIdentity and ClientParameters.
     public sealed record SumRequest(int A, int B);
@@ -31,7 +31,7 @@ internal sealed class EndpointAndMcpTool(IAppBase app) : IPatternDemo
     [HttpPost("/patterns/webhook", Auth = EndpointAuth.Public)]
     public async Task<HttpResult> Webhook(Ikon.App.HttpRequest request)
     {
-        if (!VerifySignature(request.Headers["X-Signature"], request.Body))
+        if (!VerifySignature(request.Headers.GetValueOrDefault("X-Signature"), request.Body))
         {
             return HttpResult.Unauthorized();
         }

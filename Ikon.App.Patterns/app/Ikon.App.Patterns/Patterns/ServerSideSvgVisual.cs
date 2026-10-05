@@ -1,17 +1,32 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: server-side-svg-visual — see docs/patterns/server-side-svg-visual.md.
-// The docsnippet region is the reusable progress-ring builder; the depth layers and the render call
+// The example region is the reusable progress-ring builder; the depth layers and the render call
 // below it show the same single-quoted-attribute recipe applied to a vessel and to `view.Image`.
 internal sealed class ServerSideSvgVisual : IPatternDemo
 {
     public string Slug => "server-side-svg-visual";
     public string Title => "Server-side SVG visual";
     public string Category => "Media";
-    public void RenderDemo(IView view) => Render(view);
 
-    private readonly Reactive<int> _remaining = new(0);
-    private readonly Reactive<int> _total = new(1);
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 items-start"], content: col =>
+        {
+            Render(col);
+            col.Row(["gap-2 items-center"], content: row =>
+            {
+                row.Button([Button.OutlineSm], text: "−1", disabled: _remaining.Value == 0,
+                    onClick: async () => _remaining.Value = Math.Max(0, _remaining.Value - 1));
+                row.Text(["text-sm text-zinc-400"], $"{_remaining.Value} of {_total.Value} tickets left");
+                row.Button([Button.OutlineSm], text: "+1", disabled: _remaining.Value == _total.Value,
+                    onClick: async () => _remaining.Value = Math.Min(_total.Value, _remaining.Value + 1));
+            });
+        });
+    }
+
+    private readonly Reactive<int> _remaining = new(7);
+    private readonly Reactive<int> _total = new(12);
 
     private readonly StringBuilder sb = new();
     private readonly string jarPath = "M 0 0 L 10 10";
@@ -50,7 +65,7 @@ internal sealed class ServerSideSvgVisual : IPatternDemo
         sb.Append($"<ellipse cx='{cx}' cy='{bottomY + 8}' rx='{rx * 0.7:F0}' ry='7' fill='#000000' opacity='0.25'/>");
     }
 
-    #region docsnippet:pattern-server-side-svg-visual
+    #region example:pattern-server-side-svg-visual
     // remaining/total in [0,1] of the ring is filled. strokeColor is any CSS color.
     private static byte[] RingSvg(double fraction, string strokeColor, string label)
     {
@@ -64,9 +79,14 @@ internal sealed class ServerSideSvgVisual : IPatternDemo
         sb.Append($"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {size} {size}' font-family='ui-sans-serif,system-ui'>");
         // track (full faint ring)
         sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='#27272a' stroke-width='{stroke}'/>");
-        // progress arc — start at 12 o'clock by rotating -90° about the centre; round caps
-        sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='{strokeColor}' stroke-width='{stroke}' ");
-        sb.Append($"stroke-linecap='round' stroke-dasharray='{dash:F1} {gap:F1}' transform='rotate(-90 {cx} {cy})'/>");
+        // progress arc — start at 12 o'clock by rotating -90° about the centre; round caps. A round
+        // cap paints a dot even on a zero-length dash, so an empty ring gets no arc at all.
+        if (dash > 0)
+        {
+            sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='{strokeColor}' stroke-width='{stroke}' ");
+            sb.Append($"stroke-linecap='round' stroke-dasharray='{dash:F1} {gap:F1}' transform='rotate(-90 {cx} {cy})'/>");
+        }
+
         // centre label
         sb.Append($"<text x='{cx}' y='{cy}' text-anchor='middle' dominant-baseline='central' fill='#fafafa' font-size='34' font-weight='600'>{label}</text>");
         sb.Append("</svg>");

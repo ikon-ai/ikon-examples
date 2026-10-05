@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: navigation-chrome — see docs/patterns/navigation-chrome.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class NavigationChrome : IPatternDemo
 {
     public string Slug => "navigation-chrome";
@@ -9,7 +9,7 @@ internal sealed class NavigationChrome : IPatternDemo
     public string Category => "Layout & navigation";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-navigation-chrome
+    #region example:pattern-navigation-chrome
     private readonly ClientReactive<string> _section = new("");
     private readonly ClientReactiveList<string> _path = new();
 
@@ -24,8 +24,9 @@ internal sealed class NavigationChrome : IPatternDemo
                 .Select((label, index) => new BreadcrumbItem(
                     label,
                     // The reactive list's mutation set is specific -- Add, AddRange, Insert,
-                    // Remove, RemoveAt, RemoveAll, Clear, ReplaceAll, Sort, Update. There is no
-                    // RemoveRange, so truncating is a ReplaceAll.
+                    // Remove, RemoveAt, RemoveAll, Clear, ReplaceAll, Sort, Update, Mutate, plus the
+                    // indexer and Value setters. There is no RemoveRange, so truncating is a
+                    // ReplaceAll (or a Mutate).
                     OnClick: async () => _path.ReplaceAll(_path.Take(index + 1).ToList())))
                 .ToList());
 

@@ -47,7 +47,7 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
     private static void AddChatMessage(SessionState session, string text) => throw new NotImplementedException();
     private Task FinishInterviewAsync(SessionState session, CancellationToken ct) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-parallel-extract-and-reply
+    #region example:pattern-parallel-extract-and-reply
     private async Task ProcessAnswersAsync(SessionState session, int clientId)
     {
         var queue = GetOrCreateAnswerQueue(clientId);
@@ -96,7 +96,7 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
                 pass.Command = $"Question: {question}\nAnswer: {answer}";
             }, ct);
         }
-        catch (EmergenceStoppedException)
+        catch (Exception ex) when (ex is EmergenceStoppedException or AIException)
         {
             return null;
         }
@@ -115,7 +115,7 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
             session.InterviewContext = context;
             return reply ?? "";
         }
-        catch (EmergenceStoppedException ex)
+        catch (Exception ex) when (ex is EmergenceStoppedException or AIException)
         {
             // The turn still gets an answer; a reply that failed to generate must not end the
             // processing loop for every later turn.

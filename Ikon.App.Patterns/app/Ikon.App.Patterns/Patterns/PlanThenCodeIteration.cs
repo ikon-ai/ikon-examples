@@ -28,7 +28,7 @@ internal sealed class PlanThenCodeIteration : IPatternDemo
     private static string MergePlanSections(string plan, string updatedSections) => throw new NotImplementedException();
     private static string InjectBridgeScript(string code) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-plan-then-code-iteration
+    #region example:pattern-plan-then-code-iteration
     private async Task ModifyGameAsync(int clientId, string prompt)
     {
         if (_currentPlan.Value == null)

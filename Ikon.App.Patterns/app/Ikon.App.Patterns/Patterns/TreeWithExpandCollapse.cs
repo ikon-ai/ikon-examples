@@ -2,19 +2,41 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tree-with-expand-collapse — see docs/patterns/tree-with-expand-collapse.md.
 // The record, status enum, per-client selection and SelectThread stand in for the app's real thread
-// model; the docsnippet region is the canonical recursive renderer the doc extracts.
+// model; the example region is the canonical recursive renderer the doc extracts. The demo hands it
+// the root threads and the whole list, as an app would.
 internal sealed class TreeWithExpandCollapse : IPatternDemo
 {
     public string Slug => "tree-with-expand-collapse";
     public string Title => "Tree with expand-collapse";
     public string Category => "Navigation";
-    public void RenderDemo(IView view) => RenderThreadTree(view, _sampleThreads, _sampleThreads, depth: 0);
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-2 max-w-sm"], content: col =>
+        {
+            col.Column(["rounded-xl border border-secondary py-1.5"], content: tree =>
+                RenderThreadTree(tree, _sampleThreads.Where(t => t.ParentId is null).ToList(), _sampleThreads, depth: 0));
+            col.Row(["gap-2 items-center"], content: row =>
+            {
+                row.Button([Button.GhostSm], text: "Collapse all", onClick: async () => _expandedChildrenIds.Clear());
+                row.Text(["text-xs text-muted-foreground"],
+                    _selectedThreadId.Value is { } id ? $"Selected: {_sampleThreads.First(t => t.Id == id).Title}" : "Nothing selected");
+            });
+        });
+    }
 
     private readonly List<ThreadInfo> _sampleThreads =
     [
-        new("root", "Research task", null, ThreadStatus.Active),
-        new("child-a", "Gather sources", "root", ThreadStatus.Done),
-        new("child-b", "Draft summary", "root", ThreadStatus.Pending),
+        new("market", "Market sizing for e-bikes in Finland", null, ThreadStatus.Active),
+        new("sources", "Gather sales statistics", "market", ThreadStatus.Done),
+        new("customs", "Read customs import data 2023-2025", "sources", ThreadStatus.Done),
+        new("retail", "Survey retailer price lists", "sources", ThreadStatus.Done),
+        new("model", "Build the adoption model", "market", ThreadStatus.Active),
+        new("draft", "Draft the summary", "market", ThreadStatus.Pending),
+        new("pricing", "Competitor pricing review", null, ThreadStatus.Done),
+        new("pricing-eu", "Compare EU list prices", "pricing", ThreadStatus.Done),
+        new("pricing-us", "Compare US list prices", "pricing", ThreadStatus.Done),
+        new("support", "Answer a dealer question about warranty terms", null, ThreadStatus.Done),
     ];
 
     private enum ThreadStatus { Pending, Active, Done }
@@ -23,9 +45,13 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
 
     private readonly ClientReactive<string?> _selectedThreadId = new(null);
 
-    private Task SelectThread(string threadId) => throw new NotImplementedException();
+    private Task SelectThread(string threadId)
+    {
+        _selectedThreadId.Value = threadId;
+        return Task.CompletedTask;
+    }
 
-    #region docsnippet:pattern-tree-with-expand-collapse
+    #region example:pattern-tree-with-expand-collapse
     private readonly ClientReactiveList<string> _expandedChildrenIds = new();
 
     private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<ThreadInfo> allThreads, int depth)

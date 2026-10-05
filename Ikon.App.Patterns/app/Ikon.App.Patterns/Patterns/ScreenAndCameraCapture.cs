@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: screen-and-camera-capture — see docs/patterns/screen-and-camera-capture.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ScreenAndCameraCapture : IPatternDemo
 {
     public string Slug => "screen-and-camera-capture";
@@ -9,7 +9,7 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
     public string Category => "Device & sensors";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-screen-and-camera-capture
+    #region example:pattern-screen-and-camera-capture
     private readonly ClientReactive<string?> _streamId = new(null);
     private readonly ClientReactive<MediaPermissionState> _permission = new(MediaPermissionState.Prompt);
 
@@ -24,20 +24,15 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
                 captureMode: MediaCaptureButtonMode.Toggle,
                 text: "Share screen",
 
-                // The presets are the starting point, not a fallback: DefaultScreen is 1080p30 and
+                // The kind's preset fills every field left null: DefaultScreen is 1080p30 and
                 // DefaultCamera 720p30, both with a key frame every 90 frames.
-                videoOptions: ClientVideoCaptureOptions.DefaultScreen with
+                videoOptions: new ClientVideoCaptureOptions
                 {
                     // A receiver can only start decoding on a key frame, so this is the worst-case
                     // join latency for anyone arriving mid-stream. Lower it for a share people
                     // join late; leave it for a recording nobody watches live.
                     KeyFrameIntervalFrames = 30,
                 },
-
-                // Permission is a state, not an error: these strings are what the button says
-                // while asking and after a refusal, so the control explains itself.
-                permissionText: "Allow screen sharing to continue",
-                permissionDeniedText: "Screen sharing is blocked in your browser settings",
 
                 onCaptureStart: async captureEvent =>
                 {
@@ -49,28 +44,33 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
                 onCaptureStop: async captureEvent =>
                 {
                     _streamId.SetFor(captureEvent.ClientSessionId ?? 0, null);
-                },
+                });
+
+            // Same component, another kind. Screen capture has no permission step -- the
+            // browser's picker asks on every use -- so the permission props belong here.
+            row.CaptureButton(
+                kind: MediaCaptureKind.Camera,
+                captureMode: MediaCaptureButtonMode.Toggle,
+                text: "Camera",
+
+                // Permission is a state, not an error: these strings are what the button says
+                // while asking and after a refusal, so the control explains itself.
+                permissionText: "Allow camera access to continue",
+                permissionDeniedText: "The camera is blocked in your browser settings",
 
                 // Permission is a FOUR-state enum, not a bool: Denied is a user choice they can
-                // change, Unavailable means the device has no such capability at all, and the two
-                // deserve different words.
+                // change, Unavailable means no camera or no capture API (an insecure origin, a
+                // non-browser client), and the two deserve different words.
                 onPermissionChanged: async permission =>
                 {
                     _permission.Value = permission.State;
                 });
 
-            // The camera button differs only in kind and preset -- one component, three kinds.
-            row.CaptureButton(
-                kind: MediaCaptureKind.Camera,
-                captureMode: MediaCaptureButtonMode.Toggle,
-                text: "Camera",
-                videoOptions: ClientVideoCaptureOptions.DefaultCamera);
-
             if (_permission.Value is MediaPermissionState.Denied or MediaPermissionState.Unavailable)
             {
                 row.Text(["text-destructive text-sm"], text: _permission.Value == MediaPermissionState.Denied
                     ? "Permission denied — allow it in your browser settings"
-                    : "This device cannot share its screen");
+                    : "No camera is available here");
             }
         });
     }

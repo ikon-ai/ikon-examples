@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: generated-sound-library — see docs/patterns/generated-sound-library.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class GeneratedSoundLibrary : IPatternDemo
 {
     public string Slug => "generated-sound-library";
@@ -9,7 +9,7 @@ internal sealed class GeneratedSoundLibrary : IPatternDemo
     public string Category => "Voice & audio";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-generated-sound-library
+    #region example:pattern-generated-sound-library
     private sealed record Clip(string Id, string Label, byte[] Data, string MimeType);
 
     private readonly ReactiveList<Clip> _clips = new();

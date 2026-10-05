@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: message-action-row — see docs/patterns/message-action-row.md.
-// The docsnippet region is one transcript row plus its hover/touch-revealed action row; the stubs
+// The example region is one transcript row plus its hover/touch-revealed action row; the stubs
 // outside it stand in for the message model, the transcript, the signed-in user and the edit flow.
 internal sealed class MessageActionRow : IPatternDemo
 {
@@ -34,7 +34,7 @@ internal sealed class MessageActionRow : IPatternDemo
 
     private void BeginEdit(string messageId) => _editing.Value = messageId;
 
-    #region docsnippet:pattern-message-action-row
+    #region example:pattern-message-action-row
     private readonly UserReactive<string> _replyingTo = new("");
     private readonly Reactive<string?> _editing = new(null);
     private readonly Reactive<string?> _confirmingDelete = new(null);

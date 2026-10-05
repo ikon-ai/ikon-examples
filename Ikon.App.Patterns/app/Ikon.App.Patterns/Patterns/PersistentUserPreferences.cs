@@ -16,7 +16,7 @@ internal sealed class PersistentUserPreferences : IPatternDemo
     private sealed record ThreatEvent(string Id, string Narration);
     private sealed record SentinelPreferences(string ViewMode);
 
-    #region docsnippet:pattern-persistent-user-preferences
+    #region example:pattern-persistent-user-preferences
     public partial class SentinelApp(IApp<SessionIdentity, ClientParameters> app)
     {
         // Per-user, persists across sessions — sidebar state, view mode, sub-tabs
@@ -58,7 +58,7 @@ internal sealed class PersistentUserPreferences : IPatternDemo
     }
     #endregion
 
-    // Outside the docsnippet: the pattern declares reactives for every scope (per-user, per-session,
+    // Outside the example: the pattern declares reactives for every scope (per-user, per-session,
     // per-client), but the trimmed example only renders the sidebar and view-mode toggle. Reference the
     // rest here so the warnings-as-errors build does not flag the fields no panel above reads.
     partial class SentinelApp

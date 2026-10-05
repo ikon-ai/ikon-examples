@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: chart-for-the-question — see docs/patterns/chart-for-the-question.md.
-// The docsnippet region leads with the summary values and then picks each chart from the question
+// The example region leads with the summary values and then picks each chart from the question
 // it answers; the stubs outside it stand in for the two aggregates a real dashboard would compute.
 internal sealed class ChartForTheQuestion : IPatternDemo
 {
@@ -29,7 +29,7 @@ internal sealed class ChartForTheQuestion : IPatternDemo
             .Select(d => new Day($"{d}", 20 + (d * 7 % 40))));
     }
 
-    #region docsnippet:pattern-chart-for-the-question
+    #region example:pattern-chart-for-the-question
     private void RenderDashboard(IView view)
     {
         var total = _categories.Sum(c => c.Total);

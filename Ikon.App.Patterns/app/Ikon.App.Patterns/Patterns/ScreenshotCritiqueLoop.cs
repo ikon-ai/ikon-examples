@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: screenshot-critique-loop — see docs/patterns/screenshot-critique-loop.md.
-// The docsnippet region captures the rendered preview and feeds it to a vision LLM; the stubs outside it
+// The example region captures the rendered preview and feeds it to a vision LLM; the stubs outside it
 // stand in for the capture payload, the critique shape and the caller's apply/execute hooks.
 internal sealed class ScreenshotCritiqueLoop : IPatternDemo
 {
@@ -25,7 +25,7 @@ internal sealed class ScreenshotCritiqueLoop : IPatternDemo
     private void ApplyCritique(StructuredCritique critique) => throw new NotImplementedException();
     private void ExecuteCodeSync(string code, UIView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-screenshot-critique-loop
+    #region example:pattern-screenshot-critique-loop
     // Capture: hidden node inside the rendered preview region
     private void RenderPreview(UIView view)
     {
@@ -50,11 +50,16 @@ internal sealed class ScreenshotCritiqueLoop : IPatternDemo
         });
     }
 
-    // Trigger: bump the request id to capture
+    // Trigger: flag the critique, then bump the request id to capture
+    private void RequestCritique()
+    {
+        _pendingCritiqueRequest = true;
+        _captureRequestId.Value++;
+    }
+
+    // Critique: runs from the capture callback, on the fresh screenshot
     private async Task CritiqueUIAsync()
     {
-        _captureRequestId.Value++;
-
         if (_lastScreenshotBase64 == null)
         {
             return;
@@ -62,7 +67,7 @@ internal sealed class ScreenshotCritiqueLoop : IPatternDemo
 
         List<IMessagePart> parts = [
             new TextPart("Score each plan section 0-100% on how the implementation matches the plan."),
-            new ImagePart(Convert.FromBase64String(_lastScreenshotBase64), "image/png"),
+            new ImagePart(Convert.FromBase64String(_lastScreenshotBase64), "image/jpeg"),
         ];
         var ctx = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
 

@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: batched-turn-window — see docs/patterns/batched-turn-window.md.
 // The stubs outside the region stand in for the shared player roster and the batch processor the app
-// owns; the docsnippet region is the canonical body the doc extracts.
+// owns; the example region is the canonical body the doc extracts.
 internal sealed class BatchedTurnWindow : IPatternDemo
 {
     public string Slug => "batched-turn-window";
@@ -17,7 +17,7 @@ internal sealed class BatchedTurnWindow : IPatternDemo
 
     private Task ProcessBatchedActionsAsync() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-batched-turn-window
+    #region example:pattern-batched-turn-window
     private readonly ReactiveDictionary<int, string> _pendingActions = new();
     private readonly Reactive<int> _batchCountdownMs = new(0);
     private readonly Reactive<int> _batchTotalMs = new(20000);

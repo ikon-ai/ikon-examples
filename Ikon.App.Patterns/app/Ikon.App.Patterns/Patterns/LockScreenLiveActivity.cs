@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: lock-screen-live-activity — see docs/patterns/lock-screen-live-activity.md.
-// The docsnippet region is the start/update/end cycle plus the metrics the banner carries. Every
+// The example region is the start/update/end cycle plus the metrics the banner carries. Every
 // call returns false rather than throwing where a banner cannot be shown, but app.LiveActivity
 // itself throws on a host with no device, so the calls stay out of the gallery's render path.
 internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
@@ -16,7 +16,7 @@ internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
     private readonly Reactive<bool> _held = new(false);
     private readonly Reactive<bool> _running = new(false);
 
-    #region docsnippet:pattern-lock-screen-live-activity
+    #region example:pattern-lock-screen-live-activity
     /// The banner carries VALUES, never layout — one widget draws every app's. Three metrics is the
     /// ceiling; anything past that is dropped, so choose the three worth glancing at.
     private IReadOnlyList<LiveMetric> Metrics() =>

@@ -5,15 +5,46 @@ using Ikon.AI.Emergence.Structured;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tagged-model-output — see docs/patterns/tagged-model-output.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts. AskAsync would call a paid
+// model, so the demo feeds two recorded replies through the same parse instead: one that uses both
+// tags, and one where the model ignored them and the answer falls back to the untagged text.
 internal sealed class TaggedModelOutput : IPatternDemo
 {
     public string Slug => "tagged-model-output";
     public string Title => "Tagged model output";
     public string Category => "Conversational AI";
-    public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-tagged-model-output
+    private const string DemoTaggedReply =
+        "<thinking>The recipe serves 4 and uses 300 g of flour. For 6 servings scale by 6/4 = 1.5, " +
+        "so 300 g × 1.5 = 450 g. Butter: 120 g × 1.5 = 180 g.</thinking>" +
+        "<answer>For **6 servings** use **450 g flour** and **180 g butter**; keep the baking time the same.</answer>";
+
+    private const string DemoUntaggedReply =
+        "Use 450 g of flour and 180 g of butter for six servings. The baking time does not change.";
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Text(["text-sm text-zinc-400"], "Question: How much flour and butter for 6 servings instead of 4?");
+            col.Row(["gap-2"], content: row =>
+            {
+                row.Button([Button.OutlineSm], text: "Reply with tags", onClick: async () => ApplyRecordedReply(DemoTaggedReply));
+                row.Button([Button.OutlineSm], text: "Reply without tags", onClick: async () => ApplyRecordedReply(DemoUntaggedReply));
+            });
+            Render(col);
+        });
+    }
+
+    private void ApplyRecordedReply(string raw)
+    {
+        var parsed = StructuredTagParser.Parse(raw, "thinking", "answer");
+        _reasoning.Value = parsed.Blocks.FirstOrDefault(b => b.TagName == "thinking")?.Content;
+        _answer.Value = StructuredTagParser.GetTagContent(raw, "answer")
+            ?? (parsed.PlainText.Length > 0 ? parsed.PlainText : raw);
+    }
+
+    #region example:pattern-tagged-model-output
     private readonly ClientReactive<string?> _answer = new(null);
     private readonly ClientReactive<string?> _reasoning = new(null);
 
@@ -52,7 +83,7 @@ internal sealed class TaggedModelOutput : IPatternDemo
                 col.Markdown(answer);
             }
 
-            // HasTag answers "did the model comply" without pulling the content out.
+            // The model may have skipped <thinking>, so the disclosure only shows when there was any.
             if (_reasoning.Value is { } reasoning)
             {
                 col.Collapsible(content: disclosure =>

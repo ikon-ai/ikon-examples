@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: live-quiz-countdown-loop — see docs/patterns/live-quiz-countdown-loop.md.
-// The docsnippet region drives one round per iteration: pull the next pre-generated question, tick a
+// The example region drives one round per iteration: pull the next pre-generated question, tick a
 // per-second countdown, break early when everyone answered. The stubs outside it hold the game state
 // the loop reads and stand in for the per-round answer bookkeeping.
 internal sealed class LiveQuizCountdownLoop : IPatternDemo
@@ -40,7 +40,7 @@ internal sealed class LiveQuizCountdownLoop : IPatternDemo
         throw new NotImplementedException();
     }
 
-    #region docsnippet:pattern-live-quiz-countdown-loop
+    #region example:pattern-live-quiz-countdown-loop
     private async Task RunGameLoopAsync(CancellationToken ct)
     {
         for (int questionIndex = 0; questionIndex < _totalQuestions.Value; questionIndex++)

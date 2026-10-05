@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: raw-mic-frame-stream — see docs/patterns/raw-mic-frame-stream.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class RawMicFrameStream : IPatternDemo
 {
     public string Slug => "raw-mic-frame-stream";
@@ -11,7 +11,7 @@ internal sealed class RawMicFrameStream : IPatternDemo
 
     private Audio Audio => throw new NotImplementedException();
 
-    #region docsnippet:pattern-raw-mic-frame-stream
+    #region example:pattern-raw-mic-frame-stream
     private readonly ClientReactive<double> _level = new(0);
     private readonly ClientReactive<int> _sampleRate = new(0);
 
@@ -24,8 +24,8 @@ internal sealed class RawMicFrameStream : IPatternDemo
     /// </summary>
     private void WireCapture()
     {
-        // The BEGIN event carries the format. Samples in the frame event are at THIS rate, so a
-        // handler that assumes 48 kHz is wrong on any client that captures at something else.
+        // The BEGIN event carries the format. Samples in the frame event are at THIS rate -- the
+        // server's decoder rate, whatever the client captured at -- and in the client's ChannelCount.
         // AsyncEventHandler<T> takes ONE argument. The (sender, args) shape from ordinary .NET
         // events is CS1593 here.
         Audio.AudioInputStreamBeginAsync += async args =>
@@ -49,8 +49,8 @@ internal sealed class RawMicFrameStream : IPatternDemo
                 sum += sample * sample;
             }
 
-            // A handler runs off any client's scope, so writes name their target explicitly --
-            // a bare .Value would throw rather than silently write to nowhere.
+            // A handler runs in the sending client's scope, so a bare .Value would write to that
+            // client too; SetFor names the target explicitly.
             _level.SetFor(args.ClientSessionId, Math.Sqrt(sum / Math.Max(args.Samples.Length, 1)));
         };
 

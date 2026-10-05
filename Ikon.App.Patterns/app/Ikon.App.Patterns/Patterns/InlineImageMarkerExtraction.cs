@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: inline-image-marker-extraction — see docs/patterns/inline-image-marker-extraction.md.
-// The docsnippet region extracts markers from finished LLM output; the stubs outside it stand in for
+// The example region extracts markers from finished LLM output; the stubs outside it stand in for
 // the showroom API, the visual cache and the per-conversation state the extraction reads.
 internal sealed class InlineImageMarkerExtraction : IPatternDemo
 {
@@ -33,7 +33,7 @@ internal sealed class InlineImageMarkerExtraction : IPatternDemo
     private readonly ReactiveList<ChatMessage> _messages = new();
     private string finalMessage = "";
 
-    #region docsnippet:pattern-inline-image-marker-extraction
+    #region example:pattern-inline-image-marker-extraction
     private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string message)
     {
         var matches = System.Text.RegularExpressions.Regex.Matches(message, @"\[vehicle:([^\]]+)\]");

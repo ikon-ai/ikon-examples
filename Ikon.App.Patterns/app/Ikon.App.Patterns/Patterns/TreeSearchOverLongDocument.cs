@@ -5,15 +5,41 @@ using Ikon.AI.Emergence.Tree;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tree-search-over-long-document — see docs/patterns/tree-search-over-long-document.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class TreeSearchOverLongDocument : IPatternDemo
 {
     public string Slug => "tree-search-over-long-document";
     public string Title => "Tree search over a long document";
     public string Category => "Web & data";
-    public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-tree-search-over-long-document
+    // The gallery builds no index and calls no model: the demo starts with the hits a search of a
+    // tenancy agreement for "can I end the lease early?" would return.
+    private static readonly FoundSection[] SampleHits =
+    [
+        new("n-4-2", "Tenancy agreement > 4 Term > 4.2 Early termination",
+            "Either party may end the tenancy before the end of the fixed term by giving at least two full calendar months' notice in writing. Notice given by the tenant takes effect on the last day of a rental period.",
+            "Answers the question directly: early termination is allowed with two months' written notice", Page: 3),
+        new("n-4-3", "Tenancy agreement > 4 Term > 4.3 Break fee",
+            "Where the tenant ends the tenancy under clause 4.2 within the first twelve months, a break fee equal to one month's rent is payable on the termination date.",
+            "The cost of ending early in the first year", Page: 3),
+        new("n-9-1", "Tenancy agreement > 9 Deposit > 9.1 Return of deposit",
+            "The deposit is returned within 21 days of the end of the tenancy, less any amounts owed under this agreement, including an unpaid break fee.",
+            "What happens to the deposit when the lease ends early", Page: 7),
+    ];
+
+    public TreeSearchOverLongDocument() => _hits.ReplaceAll(SampleHits);
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-2xl"], content: col =>
+        {
+            col.Text(["text-xs text-zinc-400"],
+                "Sample hits for \"Can I end the lease early?\" over a tenancy agreement; no index is built and no model is called");
+            Render(col);
+        });
+    }
+
+    #region example:pattern-tree-search-over-long-document
     private readonly Reactive<TreeIndex?> _index = new(null);
     private readonly ReactiveList<FoundSection> _hits = new();
     private readonly Reactive<bool> _busy = new(false);
@@ -54,8 +80,8 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
                 options.Query = question;
                 options.MaxResults = 5;
 
-                // MaxSteps bounds the walk. Without it a navigator that keeps deciding it is not
-                // done yet pays for every step it takes.
+                // MaxSteps bounds the walk (default 10). A navigator that keeps deciding it is not
+                // done yet pays for every step up to it.
                 options.MaxSteps = 8;
             });
 

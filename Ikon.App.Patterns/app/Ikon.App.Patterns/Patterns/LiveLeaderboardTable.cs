@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: live-leaderboard-table — see docs/patterns/live-leaderboard-table.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class LiveLeaderboardTable : IPatternDemo
 {
     public string Slug => "live-leaderboard-table";
@@ -9,7 +9,7 @@ internal sealed class LiveLeaderboardTable : IPatternDemo
     public string Category => "Multi-user & games";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-live-leaderboard-table
+    #region example:pattern-live-leaderboard-table
     private sealed record Player(string Id, string Name, int Score);
 
     // Shared, not per-client: every player watches the same board.

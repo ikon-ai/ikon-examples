@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: host-and-player-dual-roles — see docs/patterns/host-and-player-dual-roles.md.
-// The docsnippet region is the canonical body the doc extracts. The mined original decorated the
+// The example region is the canonical body the doc extracts. The mined original decorated the
 // class with [App]; here it stays a plain nested example class so it never competes with this app's
 // real [App] type for runtime discovery. The stubs outside the region stand in for the two role
 // views and the session-id helpers the branch logic calls.
@@ -21,7 +21,7 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
     private static void RenderHostView(UIView view) => throw new NotImplementedException();
     private static void RenderPlayerView(UIView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-host-and-player-dual-roles
+    #region example:pattern-host-and-player-dual-roles
     public record ClientParams(string Id = "", bool Host = false);
 
     public class Kahoot(IApp<SessionIdentity, ClientParams> app)

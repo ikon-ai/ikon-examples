@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: shareable-result-export — see docs/patterns/shareable-result-export.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ShareableResultExport : IPatternDemo
 {
     public string Slug => "shareable-result-export";
@@ -11,7 +11,7 @@ internal sealed class ShareableResultExport : IPatternDemo
 
     private string PublicResultUrl() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-shareable-result-export
+    #region example:pattern-shareable-result-export
     private readonly Reactive<byte[]?> _png = new(null);
     private readonly Reactive<byte[]?> _pdf = new(null);
     private readonly Reactive<bool> _busy = new(false);

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: progress-bar-that-changes-color — see docs/patterns/progress-bar-that-changes-color.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ProgressBarThatChangesColor : IPatternDemo
 {
     public string Slug => "progress-bar-that-changes-color";
@@ -9,7 +9,7 @@ internal sealed class ProgressBarThatChangesColor : IPatternDemo
     public string Category => "Status & feedback";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-progress-bar-that-changes-color
+    #region example:pattern-progress-bar-that-changes-color
     private const int TotalSteps = 10;
 
     private readonly Reactive<int> _step = new(3);
@@ -31,8 +31,8 @@ internal sealed class ProgressBarThatChangesColor : IPatternDemo
         view.Column(["gap-3"], content: col =>
         {
             // ComposeIndicator builds the fill class list: base recipe, then the variant, then
-            // caller overrides LAST so they win. The transition is what makes the width glide
-            // instead of jumping -- Progress animates nothing on its own.
+            // caller overrides LAST so they win. The base recipe already transitions the fill's
+            // transform; the override only lengthens and eases that glide.
             col.Progress(
                 value: percent,
                 max: 100,

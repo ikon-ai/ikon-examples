@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: web-research — see docs/patterns/web-research.md.
-// Fully self-contained: the docsnippet region is the canonical two-stage WebSearcher → Emerge.Run
+// Fully self-contained: the example region is the canonical two-stage WebSearcher → Emerge.Run
 // research flow, its two-phase loading reactive, and the answers-with-sources render.
 internal sealed class WebResearch : IPatternDemo
 {
@@ -10,7 +10,7 @@ internal sealed class WebResearch : IPatternDemo
     public string Category => "AI";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-web-research
+    #region example:pattern-web-research
     public sealed record Answer(string Question, string Synthesis, List<Source> Sources);
     public sealed record Source(string Title, string Url, string Snippet);
 

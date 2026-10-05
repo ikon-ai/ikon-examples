@@ -1,17 +1,50 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: skeleton-while-loading — see docs/patterns/skeleton-while-loading.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts. The demo's buttons move it
+// between its three states: loading, loaded, and loaded but empty.
 internal sealed class SkeletonWhileLoading : IPatternDemo
 {
     public string Slug => "skeleton-while-loading";
     public string Title => "Skeleton while loading";
     public string Category => "Status & feedback";
-    public void RenderDemo(IView view) => Render(view);
+
+    private static readonly Article[] SampleArticles =
+    [
+        new("a-1", "Heat pumps in older wooden houses", "What a 1950s house in Kuopio needed before the switch paid off."),
+        new("a-2", "Winter tyres: studded or friction?", "Braking distances from a test track in Ivalo, compared on ice and slush."),
+        new("a-3", "Composting through the winter", "Keeping a bin warm enough to work at minus twenty."),
+    ];
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-4 max-w-xl"], content: col =>
+        {
+            col.Row(["gap-2 flex-wrap"], content: row =>
+            {
+                row.Button([Button.OutlineSm], text: "Loading", onClick: async () =>
+                {
+                    _articles.Clear();
+                    _loading.Value = true;
+                });
+                row.Button([Button.OutlineSm], text: "Loaded", onClick: async () =>
+                {
+                    _articles.ReplaceAll(SampleArticles);
+                    _loading.Value = false;
+                });
+                row.Button([Button.OutlineSm], text: "Loaded, empty", onClick: async () =>
+                {
+                    _articles.Clear();
+                    _loading.Value = false;
+                });
+            });
+            Render(col);
+        });
+    }
 
     private sealed record Article(string Id, string Title, string Summary);
 
-    #region docsnippet:pattern-skeleton-while-loading
+    #region example:pattern-skeleton-while-loading
     private readonly ClientReactive<bool> _loading = new(true);
     private readonly ClientReactiveList<Article> _articles = new();
 
@@ -24,7 +57,9 @@ internal sealed class SkeletonWhileLoading : IPatternDemo
     {
         view.Row(["gap-3 items-center"], content: row =>
         {
-            row.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Md);
+            // A circle needs an explicit square size: SkeletonSize sets only the height, and with no
+            // width the flex row squeezes it to nothing. shrink-0 keeps the row from narrowing it.
+            row.Skeleton(["w-10 h-10 shrink-0"], shape: SkeletonShape.Circle);
 
             row.Column(["gap-2 flex-1"], content: col =>
             {

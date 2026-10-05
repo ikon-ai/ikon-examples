@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: right-rail-tabs-with-attention-dots — see docs/patterns/right-rail-tabs-with-attention-dots.md.
-// The docsnippet region keeps a stable outer container and swaps only the inner branch; the stubs
+// The example region keeps a stable outer container and swaps only the inner branch; the stubs
 // outside it stand in for the per-tab state and the four tab bodies the caller supplies.
 internal sealed class RightRailTabsWithAttentionDots : IPatternDemo
 {
@@ -25,7 +25,7 @@ internal sealed class RightRailTabsWithAttentionDots : IPatternDemo
     private void RenderAiChatTabBody(UIView view) => throw new NotImplementedException();
     private void RenderSourcesTabBody(UIView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-right-rail-tabs-with-attention-dots
+    #region example:pattern-right-rail-tabs-with-attention-dots
     private void RenderRightRail(UIView view)
     {
         view.Column(["w-[360px] h-full min-h-0 shrink-0 border-l"], content: view =>

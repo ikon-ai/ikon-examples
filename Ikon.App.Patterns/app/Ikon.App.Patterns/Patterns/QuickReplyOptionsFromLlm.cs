@@ -1,20 +1,40 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: quick-reply-options-from-llm — see docs/patterns/quick-reply-options-from-llm.md.
-// The stubs outside the region stand in for the app's orchestrator, the active-thread reactive, the
-// assistant message text, and the render surface the snippet writes into.
+// The fields outside the region stand in for the app's orchestrator, the active-thread reactive and
+// one finished assistant message carrying the <ask> markup. The orchestrator is an empty in-memory
+// one with no thread under the demo id, so a pill press finds no thread and posts nothing: a real
+// thread would re-engage a paid model.
 internal sealed class QuickReplyOptionsFromLlm : IPatternDemo
 {
     public string Slug => "quick-reply-options-from-llm";
     public string Title => "Quick-reply options from LLM";
     public string Category => "Chat";
-    public void RenderDemo(IView view) => RenderAssistantMessage(view);
 
-    private readonly Orchestrator _orchestrator = null!;
-    private readonly ClientReactive<string?> _activeThreadId = new(null);
-    private readonly string content = "";
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Column(["bg-[#F7F5F2] rounded-2xl p-5 gap-1"], content: bubble => RenderAssistantMessage(bubble));
+            col.Text(["text-xs text-zinc-400"],
+                "In an app each pill posts its text as the user's reply and re-engages the paused thread; this demo has no live thread, so a press sends nothing");
+        });
+    }
 
-    #region docsnippet:pattern-quick-reply-options-from-llm
+    private readonly Orchestrator _orchestrator = new();
+    private readonly ClientReactive<string?> _activeThreadId = new("demo-trip-planner");
+
+    private readonly string content =
+        "I found three direct flights from Helsinki to Lisbon in the week of 14 October, and two hotels near " +
+        "Alfama that still have rooms for four nights. " +
+        "<ask question=\"Which matters more for this trip?\">" +
+        "<option>Cheapest total price</option>" +
+        "<option>Shortest travel time</option>" +
+        "<option>Walking distance to the old town</option>" +
+        "<option>Free cancellation</option>" +
+        "</ask>";
+
+    #region example:pattern-quick-reply-options-from-llm
     // In RenderThreadMessage — assistant branch
     private void RenderAssistantMessage(IView view)
     {
@@ -85,7 +105,7 @@ internal sealed class QuickReplyOptionsFromLlm : IPatternDemo
     {
         var thread = _orchestrator.GetThread(threadId);
 
-        if (thread is null)
+        if (thread is null || thread.Status.Value is ThreadStatus.Done or ThreadStatus.Failed or ThreadStatus.Archived)
         {
             return;
         }

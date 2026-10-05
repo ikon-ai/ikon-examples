@@ -1,14 +1,70 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: role-tagged-transcript-feed — see docs/patterns/role-tagged-transcript-feed.md.
-// The docsnippet region maps one role enum to per-speaker styles; the Styles stub outside it stands in
-// for the app's committed style tokens the render reads.
+// The example region maps one role enum to per-speaker styles; the Styles stub outside it stands in
+// for the app's committed style tokens the render reads. The demo seeds an interrogation scene and
+// appends the rest of its script one line per press, so the per-role styling and the auto-scroll show.
 internal sealed class RoleTaggedTranscriptFeed : IPatternDemo
 {
     public string Slug => "role-tagged-transcript-feed";
     public string Title => "Role-tagged transcript feed";
     public string Category => "Chat";
-    public void RenderDemo(IView view) => RenderTranscript(view);
+
+    private static readonly (TranscriptRole Role, string Speaker, string Text)[] DemoScript =
+    [
+        (TranscriptRole.System, "System", "Case 14 · The Lighthouse Keeper · interview started"),
+        (TranscriptRole.Narrator, "Narrator", "Rain hammers the window of the harbour office. Mrs. Ahlberg keeps her coat on."),
+        (TranscriptRole.Q, "Q", "Where were you when the lamp went dark on Tuesday night?"),
+        (TranscriptRole.Witness, "Mrs. Ahlberg", "At home. I saw the beam stop from my kitchen, a little after eleven."),
+        (TranscriptRole.Player, "You", "Did anyone else see it go out?"),
+        (TranscriptRole.Witness, "Mrs. Ahlberg", "The ferryman, Olsen. He was still tying up his boat."),
+        (TranscriptRole.Narrator, "Narrator", "She glances at the door, then back at her hands."),
+        (TranscriptRole.Q, "Q", "Olsen says the harbour was empty by ten. One of you is wrong."),
+        (TranscriptRole.Player, "You", "Show her the logbook page."),
+        (TranscriptRole.System, "System", "Evidence presented: Logbook, page 212"),
+        (TranscriptRole.Witness, "Mrs. Ahlberg", "That is not my husband's handwriting."),
+    ];
+
+    private const int DemoSeedCount = 5;
+
+    public RoleTaggedTranscriptFeed() => SeedScene();
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-2xl"], content: col =>
+        {
+            col.Row(["gap-2"], content: row =>
+            {
+                var next = _transcript.Count;
+                row.Button([Button.OutlineSm], text: next < DemoScript.Length ? "Next line" : "Scene over",
+                    disabled: next >= DemoScript.Length,
+                    onClick: async () =>
+                    {
+                        if (_transcript.Count < DemoScript.Length)
+                        {
+                            var (role, speaker, text) = DemoScript[_transcript.Count];
+                            AddTranscript(role, speaker, text);
+                        }
+                    });
+                row.Button([Button.GhostSm], text: "Restart scene",
+                    onClick: async () =>
+                    {
+                        _transcript.Clear();
+                        SeedScene();
+                    });
+            });
+
+            col.Column(["h-[360px] rounded-lg border border-white/10 p-2"], content: frame => RenderTranscript(frame));
+        });
+    }
+
+    private void SeedScene()
+    {
+        foreach (var (role, speaker, text) in DemoScript.Take(DemoSeedCount))
+        {
+            AddTranscript(role, speaker, text);
+        }
+    }
 
     private static class Styles
     {
@@ -36,7 +92,7 @@ internal sealed class RoleTaggedTranscriptFeed : IPatternDemo
         }
     }
 
-    #region docsnippet:pattern-role-tagged-transcript-feed
+    #region example:pattern-role-tagged-transcript-feed
     public enum TranscriptRole { Q, Player, Narrator, Witness, System }
     public record TranscriptEntry(TranscriptRole Role, string Speaker, string Text);
 

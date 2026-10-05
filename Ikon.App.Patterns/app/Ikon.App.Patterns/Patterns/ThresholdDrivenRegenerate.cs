@@ -16,7 +16,7 @@ internal sealed class ThresholdDrivenRegenerate : IPatternDemo
     private Task<(byte[] Data, string MimeType)?> GenerateSceneImageAsync(
         string imagePrompt, float proximity, CancellationToken ct) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-threshold-driven-regenerate
+    #region example:pattern-threshold-driven-regenerate
     private readonly Reactive<float> _proximity = new(0f);
     private readonly Reactive<float> _lastImageProximity = new(-1f);
     private readonly Reactive<byte[]?> _sceneImageData = new(null);

@@ -5,15 +5,44 @@ using Ikon.AI.ImageUpscaling;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: upscale-an-image — see docs/patterns/upscale-an-image.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class UpscaleAnImage : IPatternDemo
 {
     public string Slug => "upscale-an-image";
     public string Title => "Upscale an image";
     public string Category => "Image & video";
-    public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-upscale-an-image
+    // The gallery calls no upscaler: the demo starts with a result delivered as data, a drawn
+    // mountain scene standing in for the upscaled photo.
+    private static readonly OutputImage SampleResult = new()
+    {
+        Kind = ResultKind.Data,
+        MimeType = "image/svg+xml",
+        Width = 1024,
+        Height = 768,
+        Data = System.Text.Encoding.UTF8.GetBytes(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='768' viewBox='0 0 1024 768'>" +
+            "<defs><linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1e3a8a'/><stop offset='1' stop-color='#f59e0b'/></linearGradient></defs>" +
+            "<rect width='1024' height='768' fill='url(#sky)'/>" +
+            "<circle cx='760' cy='330' r='70' fill='#fde68a'/>" +
+            "<polygon points='0,768 260,380 520,768' fill='#334155'/>" +
+            "<polygon points='300,768 620,300 940,768' fill='#1e293b'/>" +
+            "<polygon points='620,300 680,390 560,390' fill='#e2e8f0'/>" +
+            "</svg>"),
+    };
+
+    public UpscaleAnImage() => _upscaled.Value = SampleResult;
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Text(["text-xs text-zinc-400"], "A sample 1024x768 result delivered as data; no upscaler is called");
+            Render(col);
+        });
+    }
+
+    #region example:pattern-upscale-an-image
     private readonly Reactive<OutputImage?> _upscaled = new(null);
     private readonly Reactive<bool> _busy = new(false);
 

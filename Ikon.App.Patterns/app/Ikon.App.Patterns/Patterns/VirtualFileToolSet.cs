@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: virtual-file-tool-set — see docs/patterns/virtual-file-tool-set.md.
 // The log/state/response shims and the three unshown tool bodies (list/delete/search) stand in for the
-// app's real workspace plumbing; the docsnippet region is the canonical sandbox FS the agent drives.
+// app's real workspace plumbing; the example region is the canonical sandbox FS the agent drives.
 internal sealed class VirtualFileToolSet : IPatternDemo
 {
     public string Slug => "virtual-file-tool-set";
@@ -35,7 +35,7 @@ internal sealed class VirtualFileToolSet : IPatternDemo
 
     private object SearchInFiles(ExampleState state, string pattern) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-virtual-file-tool-set
+    #region example:pattern-virtual-file-tool-set
     private readonly Dictionary<string, string> _virtualFiles = new();
 
     private async Task RunCoderAgentAsync()

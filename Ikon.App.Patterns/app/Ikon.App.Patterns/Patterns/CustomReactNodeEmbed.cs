@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: custom-react-node-embed — see docs/patterns/custom-react-node-embed.md.
 // The stubs outside the region stand in for the app's real draft state and event handlers so the
-// docsnippet body — the AddNode / CreateAction wiring the doc extracts — compiles on its own.
+// example body — the AddNode / CreateAction wiring the doc extracts — compiles on its own.
 internal sealed class CustomReactNodeEmbed : IPatternDemo
 {
     public string Slug => "custom-react-node-embed";
@@ -26,7 +26,7 @@ internal sealed class CustomReactNodeEmbed : IPatternDemo
     private Task HandlePlayerFightResultAsync(string? payload) => throw new NotImplementedException();
     private Task HandleConsoleEventAsync(string? payload) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-custom-react-node-embed
+    #region example:pattern-custom-react-node-embed
     private void Render(IView view)
     {
         col.Box(["flex-1 min-h-0"], content: editorBox =>

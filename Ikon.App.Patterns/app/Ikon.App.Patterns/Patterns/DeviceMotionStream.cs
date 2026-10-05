@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: device-motion-stream — see docs/patterns/device-motion-stream.md.
-// The docsnippet region wires app.Motion and renders what the batches produced. The service calls
+// The example region wires app.Motion and renders what the batches produced. The service calls
 // live in Wire/Start/Stop, which the gallery never invokes: app.Motion throws NotSupportedException
 // on a host without a device attached, and a demo must render anywhere.
 internal sealed class DeviceMotionStream(IAppBase app) : IPatternDemo
@@ -11,7 +11,7 @@ internal sealed class DeviceMotionStream(IAppBase app) : IPatternDemo
     public string Category => "Realtime";
     public void RenderDemo(IView view) => RenderCadence(view);
 
-    #region docsnippet:pattern-device-motion-stream
+    #region example:pattern-device-motion-stream
     private readonly UserReactive<double> _stepsPerMinute = new(0);
     private readonly UserReactive<bool> _tracking = new(false);
 

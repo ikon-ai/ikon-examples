@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: url-path-route-state — see docs/patterns/url-path-route-state.md.
 // `app` is the App's primary-constructor handle; the Render* / LoadDashboardData stubs stand in for the
-// per-page views the router switches between. The docsnippet region is the canonical routing round-trip.
+// per-page views the router switches between. The example region is the canonical routing round-trip.
 internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
 {
     public string Slug => "url-path-route-state";
@@ -20,7 +20,7 @@ internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
 
     private void RenderDashboardList(UIView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-url-path-route-state
+    #region example:pattern-url-path-route-state
     // Per client: the URL is one client's, so the page it selects is too. The factory runs on the
     // client's first read -- its first frame -- and CurrentPath is already known by then, so a deep
     // link or reload paints the right page at once. A joined handler runs on a background task and

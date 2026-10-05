@@ -12,7 +12,7 @@ internal sealed class ClientUserBinding : IPatternDemo
 
     private enum BumpScreen { Register, BumpPresented }
 
-    #region docsnippet:pattern-client-user-binding
+    #region example:pattern-client-user-binding
     private readonly ConcurrentDictionary<int, string> _clientToUser = new();
     private readonly ConcurrentDictionary<string, int> _userToClient = new();
 
@@ -35,7 +35,7 @@ internal sealed class ClientUserBinding : IPatternDemo
     private void PostCardToClient(int clientId, string matchId)
     {
         // Several writes to the same client — scope the region once.
-        using var _ = ReactiveScope.Use(new ClientScope(clientId));
+        using var _ = ReactiveScope.UseNested(new ClientScope(clientId));
         _activeMatchId.Value = matchId;
         _revealed.Value = false;
         _screen.Value = BumpScreen.BumpPresented;
@@ -54,7 +54,7 @@ internal sealed class ClientUserBinding : IPatternDemo
             return;
         }
 
-        using var _ = ReactiveScope.Use(new ClientScope(clientId));
+        using var _ = ReactiveScope.UseNested(new ClientScope(clientId));
         _activeMatchId.Value = matchId;
         _screen.Value = target;
     }

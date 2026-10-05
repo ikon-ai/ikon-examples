@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: notify-across-channels — see docs/patterns/notify-across-channels.md.
-// The docsnippet region is the whole delivery decision: one inbox, one route per notification, and
+// The example region is the whole delivery decision: one inbox, one route per notification, and
 // the render for the bell. The inbox itself is a null! placeholder here — constructing one reaches
 // app.Notifications, which a host with no notification surface does not have.
 internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
@@ -24,7 +24,7 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
             "/summary", null, "digest", DateTime.UtcNow.AddDays(-1), true),
     ];
 
-    #region docsnippet:pattern-notify-across-channels
+    #region example:pattern-notify-across-channels
     /// Register channels ONCE, in OnStarting. The platform does not hand apps its users' email
     /// addresses or phone numbers, so each channel takes a resolver into the app's own profile state.
     private void Wire()
@@ -64,8 +64,8 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
         if (outcome.Failed.Count > 0) { LogFailures(outcome.Failed); }
     }
 
-    /// Preferences are per user and belong to the user, not the app. Quiet hours and mutes are
-    /// honoured for Normal and Low; High bypasses both, which is why urgent must stay rare.
+    /// Preferences are per user and belong to the user, not the app. Mutes win at every priority;
+    /// quiet hours hold for Normal and Low and High bypasses them, which is why urgent must stay rare.
     private void SetPreferences(string userId, TimeZoneInfo userZone, bool wantsEmail)
     {
         // The window is stored as UTC times of day; the user picked local ones.

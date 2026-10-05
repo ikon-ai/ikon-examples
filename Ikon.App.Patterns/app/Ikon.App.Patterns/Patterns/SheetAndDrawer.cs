@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: sheet-and-drawer — see docs/patterns/sheet-and-drawer.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class SheetAndDrawer : IPatternDemo
 {
     public string Slug => "sheet-and-drawer";
@@ -9,7 +9,7 @@ internal sealed class SheetAndDrawer : IPatternDemo
     public string Category => "Modals & overlays";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-sheet-and-drawer
+    #region example:pattern-sheet-and-drawer
     private readonly ClientReactive<bool> _filtersOpen = new(false);
     private readonly ClientReactive<bool> _actionsOpen = new(false);
 
@@ -32,9 +32,9 @@ internal sealed class SheetAndDrawer : IPatternDemo
                     onClick: () => _filtersOpen.Value = false,
                     content: v => v.Text(text: "Apply")));
 
-            // Drawer comes from the BOTTOM with a drag handle, which is the touch idiom: an
-            // action sheet, a picker, a confirm the thumb can reach. showHandle is what tells a
-            // user it can be dragged away.
+            // Drawer comes from the BOTTOM with a handle bar, which is the touch idiom: an
+            // action sheet, a picker, a confirm the thumb can reach. The handle is only a visual
+            // cue -- nothing drags, so each action closes the drawer itself.
             row.Drawer(
                 open: _actionsOpen.Value,
                 onOpenChange: async open => _actionsOpen.Value = open,

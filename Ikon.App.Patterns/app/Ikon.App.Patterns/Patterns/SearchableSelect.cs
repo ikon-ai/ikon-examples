@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: searchable-select — see docs/patterns/searchable-select.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class SearchableSelect : IPatternDemo
 {
     public string Slug => "searchable-select";
@@ -9,7 +9,7 @@ internal sealed class SearchableSelect : IPatternDemo
     public string Category => "Forms & input";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-searchable-select
+    #region example:pattern-searchable-select
     private static readonly string[] Countries =
         ["Finland", "France", "Germany", "Greece", "Iceland", "Ireland", "Italy"];
 
@@ -18,15 +18,12 @@ internal sealed class SearchableSelect : IPatternDemo
 
     private void Render(IView view)
     {
-        // Combobox is STATELESS about the search: it renders the options it is handed and reports
-        // what was typed. Filtering is the app's job, which is what lets the same component serve
-        // a fixed list, a database query or a remote search.
-        var matches = string.IsNullOrWhiteSpace(_search.Value)
-            ? Countries
-            : Countries.Where(c => c.Contains(_search.Value, StringComparison.OrdinalIgnoreCase)).ToArray();
-
         view.Combobox(
-            options: matches.Select(c => new SelectOption(c, c)).ToList(),
+            // The FULL list, every render. Combobox narrows it itself to the options whose label
+            // contains the trimmed search text, ignoring case, and it looks the trigger's label up
+            // in this list -- filter it here and the selection blanks to the placeholder whenever
+            // the typed text excludes the chosen option.
+            options: Countries.Select(c => new SelectOption(c, c)).ToList(),
             value: _country.Value,
             onValueChange: async country => _country.Value = country,
 

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: persistent-collections — see docs/patterns/persistent-collections.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class PersistentCollections : IPatternDemo
 {
     public string Slug => "persistent-collections";
@@ -9,10 +9,10 @@ internal sealed class PersistentCollections : IPatternDemo
     public string Category => "State";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-persistent-collections
+    #region example:pattern-persistent-collections
     // Collection state uses the reactive COLLECTION types. Wrapping a mutable collection --
-    // PersistentReactive<Dictionary<K,V>>, Reactive<List<T>> -- is build error IKON002 in an app
-    // project, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
+    // PersistentReactive<Dictionary<K,V>>, Reactive<List<T>> -- is analyzer warning IKON002, a build
+    // error in codegen's sandbox build, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
     // helpers exist for legacy code that already has such a wrapper, not for new declarations.
     //
     // Scope is the first choice, and it is three-way:

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: generated-image-with-result — see docs/patterns/generated-image-with-result.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class GeneratedImageWithResult : IPatternDemo
 {
     public string Slug => "generated-image-with-result";
@@ -9,7 +9,7 @@ internal sealed class GeneratedImageWithResult : IPatternDemo
     public string Category => "Image & video";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-generated-image-with-result
+    #region example:pattern-generated-image-with-result
     private readonly Reactive<ImageGeneratorResult?> _image = new(null);
     private readonly Reactive<bool> _busy = new(false);
     private readonly Reactive<string?> _error = new(null);

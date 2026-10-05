@@ -21,7 +21,7 @@ internal sealed class EmbeddedCodingAgentTools : IPatternDemo
     private Task<string> ToolBuildApp() => throw new NotImplementedException();
     private Task<string> ToolSaveToGit(string message) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-embedded-coding-agent-tools
+    #region example:pattern-embedded-coding-agent-tools
     private void RegisterTools(EmergePass<AgentResponse> pass)
     {
         pass.AddTool(Tool.Of("ReadFile",

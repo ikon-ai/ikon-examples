@@ -1,6 +1,6 @@
 // ReSharper disable RedundantUsingDirective.Global
 
-// <ikon-usings> Managed by `ikon app update`. Do not edit; add your own usings below this block.
+// <ikon-usings> Managed by `ikon update`. Do not edit; add your own usings below this block.
 global using Ikon.AI.Classification;
 global using Ikon.AI.Decisions;
 global using Ikon.AI.Embeddings;
@@ -64,3 +64,20 @@ global using System;
 // `IView` as a friendly alias for `UIView`
 global using IView = Ikon.Parallax.UIView;
 // </ikon-usings>
+
+// The examples use these nested namespaces as the guides do, without a using of their own.
+global using System.Threading.Channels;
+global using Ikon.AI.DepthEstimation;
+global using Ikon.AI.ImageSegmentation;
+global using Ikon.AI.ImageUpscaling;
+global using Ikon.AI.MeshGeneration;
+global using Ikon.AI.MusicGeneration;
+global using Ikon.AI.Provenance;
+global using Ikon.AI.Reranking;
+global using Ikon.AI.Utils;
+global using Ikon.App.Client;
+global using Ikon.App.Triggers;
+global using Ikon.Common.Core.Email;
+global using Ikon.Crosswind;
+global using Ikon.Pipeline;
+global using Ikon.Pipeline.Items;

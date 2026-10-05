@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: chatbot-streaming — see docs/patterns/chatbot-streaming.md.
-// This example is self-contained: the docsnippet region carries the whole conversation state, the
+// This example is self-contained: the example region carries the whole conversation state, the
 // streaming send, and the transcript/input UI.
 internal sealed class ChatbotStreaming : IPatternDemo
 {
@@ -10,7 +10,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
     public string Category => "Chat";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-chatbot-streaming
+    #region example:pattern-chatbot-streaming
     public sealed record ChatMessage(string Role, string Text);
 
     private readonly ReactiveList<ChatMessage> _transcript = new();
@@ -43,17 +43,27 @@ internal sealed class ChatbotStreaming : IPatternDemo
             // Run<string> is what makes those chunks readable. Every other T
             // turns JSON mode on, and then the chunks ARE the JSON: the bubble
             // fills up with {"Reply":"He… instead of the reply.
+            //
+            // The user's turn goes into _ctx itself rather than pass.Command:
+            // Command reaches only that one generation, so Completed.Context
+            // would carry the model's replies and none of the user's messages.
+            _ctx = _ctx.Add(new MessageBlock(MessageBlockRole.User, text));
             var sb = new System.Text.StringBuilder();
             await foreach (var ev in Emerge.Run<string>(LLMModel.Claude46Sonnet, _ctx, pass =>
             {
                 pass.SystemPrompt = "You are a helpful assistant. Reply concisely.";
-                pass.Command = text;
             }))
             {
                 if (ev is ModelText<string> token)
                 {
                     sb.Append(token.Text);
                     _streaming.Value = sb.ToString();
+                }
+                else if (ev is Retry<string>)
+                {
+                    // The generation starts over; text streamed before the Retry is superseded.
+                    sb.Clear();
+                    _streaming.Value = "";
                 }
                 else if (ev is Completed<string> done)
                 {
@@ -66,9 +76,15 @@ internal sealed class ChatbotStreaming : IPatternDemo
 
                     _streaming.Value = "";
                 }
+                else if (ev is Stopped<string>)
+                {
+                    // Enumerating a run hands back a stop as an event, not an exception.
+                    _transcript.Add(new ChatMessage("System", "The assistant didn't answer — send it again."));
+                    _streaming.Value = "";
+                }
             }
         }
-        catch (EmergenceStoppedException)
+        catch (AIException)
         {
             // Visible, and in the reader's language — never the exception text, which names a
             // provider and a socket to someone who wanted an answer.

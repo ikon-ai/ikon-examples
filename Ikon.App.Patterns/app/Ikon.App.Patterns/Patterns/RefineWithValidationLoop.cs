@@ -3,7 +3,7 @@ namespace Ikon.App.Patterns.Patterns;
 using Microsoft.CodeAnalysis.Scripting;
 
 // Pattern: refine-with-validation-loop — see docs/patterns/refine-with-validation-loop.md.
-// The docsnippet region is the auto-correcting generate/compile/re-prompt loop; the stubs outside it
+// The example region is the auto-correcting generate/compile/re-prompt loop; the stubs outside it
 // stand in for the caller's structured-output shape, its prompt corpus and its Roslyn script host.
 internal sealed class RefineWithValidationLoop : IPatternDemo
 {
@@ -29,7 +29,7 @@ internal sealed class RefineWithValidationLoop : IPatternDemo
 
     private static ScriptOptions CreateScriptOptions() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-refine-with-validation-loop
+    #region example:pattern-refine-with-validation-loop
     private const int MaxAutoRetries = 2;
 
     private async Task<(UICodeResponse Response, string? ValidationError)> GenerateUIWithRefinementAsync(
@@ -59,9 +59,12 @@ internal sealed class RefineWithValidationLoop : IPatternDemo
                         : $"## User Request\n{description}\n\nGenerate the UI code.";
             });
 
-            opt.Refinement(s =>
+            opt.ShouldContinue = async (result, _) =>
             {
-                s.Command = $"""
+                validationError = await ValidateSyntaxAsync(result.Code);
+                // opt.Refinement(...) would run once at configuration and freeze initialError into the prompt;
+                // the executor reads RefinementScope.Command afresh right after this returns.
+                opt.RefinementScope.Command = $"""
                     ## User Request
                     {description}
 
@@ -70,15 +73,12 @@ internal sealed class RefineWithValidationLoop : IPatternDemo
 
                     Please fix the error and generate corrected code.
                     """;
-            });
-
-            opt.ShouldContinue = async (result, _) =>
-            {
-                validationError = await ValidateSyntaxAsync(result.Code);
                 return validationError != null;     // true == do another refinement
             };
         });
 
+        // ShouldContinue never sees the last refinement's output, so check what is returned.
+        validationError = await ValidateSyntaxAsync(response.Code);
         return (response, validationError);
     }
 

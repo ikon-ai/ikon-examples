@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: voice-effect-chain — see docs/patterns/voice-effect-chain.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class VoiceEffectChain : IPatternDemo
 {
     public string Slug => "voice-effect-chain";
@@ -11,7 +11,7 @@ internal sealed class VoiceEffectChain : IPatternDemo
 
     private Audio Audio => throw new NotImplementedException();
 
-    #region docsnippet:pattern-voice-effect-chain
+    #region example:pattern-voice-effect-chain
     private readonly ClientReactive<string> _character = new("narrator");
 
     /// <summary>
@@ -26,7 +26,7 @@ internal sealed class VoiceEffectChain : IPatternDemo
         "robot" => [new RobotVoiceAudioEffect(carrierFrequencyHz: 110, mix: 0.8f, drive: 0.4f)],
         "hall" => [new ReverbAudioEffect(), new DelayAudioEffect(delayMs: 180, feedback: 0.3f, mix: 0.25f)],
         "retro" => [new BitCrusherAudioEffect(bitDepth: 8, downsampleFactor: 3, mix: 0.7f),
-                    new SaturationAudioEffect(drive: 0.5f, mix: 0.6f)],
+                    new SaturationAudioEffect(drive: 3.0f, mix: 0.6f)],
         _ => [],
     };
 

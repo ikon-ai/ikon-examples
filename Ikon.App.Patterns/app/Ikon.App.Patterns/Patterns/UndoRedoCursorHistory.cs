@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: undo-redo-cursor-history — see docs/patterns/undo-redo-cursor-history.md.
-// ResolveActiveBot/RedoActiveBotAsync stand in for the app's selection + redo wiring; the docsnippet
+// ResolveActiveBot/RedoActiveBotAsync stand in for the app's selection + redo wiring; the example
 // region is the canonical timeline model, save/undo transforms, and cursor-gated action buttons.
 internal sealed class UndoRedoCursorHistory : IPatternDemo
 {
@@ -20,7 +20,7 @@ internal sealed class UndoRedoCursorHistory : IPatternDemo
 
     private Task RedoActiveBotAsync() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-undo-redo-cursor-history
+    #region example:pattern-undo-redo-cursor-history
     public record BotVersion(string Code, long AtTicks);
 
     public record Bot(

@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: chat-with-tool-calls — see docs/patterns/chat-with-tool-calls.md.
 // The stubs outside the region stand in for the chat entry/session model, the tool registration and
-// the persistence the app owns; the docsnippet region is the canonical body the doc extracts.
+// the persistence the app owns; the example region is the canonical body the doc extracts.
 internal sealed class ChatWithToolCalls : IPatternDemo
 {
     public string Slug => "chat-with-tool-calls";
@@ -41,7 +41,7 @@ internal sealed class ChatWithToolCalls : IPatternDemo
 
     private Task PersistMessageBlockAsync(Guid caseId, MessageBlock message, string? userId) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-chat-with-tool-calls
+    #region example:pattern-chat-with-tool-calls
     private async Task SendChatMessageAsync(string userMessage, Guid caseId)
     {
         _chatIsProcessing.Value = true;
@@ -62,7 +62,6 @@ internal sealed class ChatWithToolCalls : IPatternDemo
             await foreach (var ev in Emerge.Run<ChatResponse>(model, session.BuildKernelContext(), pass =>
             {
                 pass.SystemPrompt = systemPrompt;
-                pass.Command = userMessage;
                 pass.Temperature = 0.3;
                 pass.MaxIterations = 15;
                 RegisterChatTools(pass, caseId);

@@ -15,7 +15,7 @@ internal sealed class DepthAndAtmosphere : IPatternDemo
     private void HeroBody(UIView view) => throw new NotImplementedException();
     private void InputRow(UIView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-depth-and-atmosphere
+    #region example:pattern-depth-and-atmosphere
     private void Render(IView view)
     {
         // Four depth recipes, weakest to strongest. Pick ONE as the app's default card treatment.

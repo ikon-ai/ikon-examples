@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: record-list-toolbar — see docs/patterns/record-list-toolbar.md.
-// The docsnippet region is the control strip plus the derived query it drives; the stubs outside it
+// The example region is the control strip plus the derived query it drives; the stubs outside it
 // stand in for the record model, the store the strip filters, and the CSV the export button writes.
 internal sealed class RecordListToolbar : IPatternDemo
 {
@@ -27,7 +27,7 @@ internal sealed class RecordListToolbar : IPatternDemo
     private static string BuildCsv(IReadOnlyList<Contact> rows) =>
         string.Join("\n", rows.Select(c => $"{c.Name},{c.Company},{c.LastTouched:yyyy-MM-dd}"));
 
-    #region docsnippet:pattern-record-list-toolbar
+    #region example:pattern-record-list-toolbar
     // Per client: a plain Reactive<T> is one value for everyone, so one user's search box would
     // filter every other user's list. The store below the controls stays shared.
     private readonly ClientReactive<string> _search = new("");

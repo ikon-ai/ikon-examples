@@ -30,7 +30,7 @@ internal sealed class GlobalKeyboardShortcuts : IPatternDemo
     private void UpdateEventStatus(string eventId, EventStatus status) => throw new NotImplementedException();
     private void NavigateEventList(int direction) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-global-keyboard-shortcuts
+    #region example:pattern-global-keyboard-shortcuts
     private void Render(IView view)
     {
         view.Column(["h-screen w-full bg-zinc-950"], content: view =>

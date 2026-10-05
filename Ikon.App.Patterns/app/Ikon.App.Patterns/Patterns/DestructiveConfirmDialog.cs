@@ -1,26 +1,70 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: destructive-confirm-dialog — see docs/patterns/destructive-confirm-dialog.md.
-// The stubs outside the region stand in for the bot list, the row a trigger fires from, and the
-// delete operation so the id-driven dialog body the doc extracts compiles on its own.
+// The seeded bot list and the in-memory delete outside the region stand in for the app's stored
+// bots, so the id-driven dialog the doc extracts can be opened, cancelled and confirmed.
 internal sealed class DestructiveConfirmDialog : IPatternDemo
 {
     public string Slug => "destructive-confirm-dialog";
     public string Title => "Destructive confirm dialog";
     public string Category => "Interaction";
-    public void RenderDemo(IView view) => RenderDeleteBotDialog(view);
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-2 max-w-md"], content: list =>
+        {
+            foreach (var bot in _bots.Value)
+            {
+                list.Row(["items-center gap-3 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800"], content: row =>
+                {
+                    row.Text(["text-lg"], bot.Avatar);
+                    row.Column(["flex-1"], content: info =>
+                    {
+                        info.Text(["text-sm text-slate-100"], bot.Name);
+                        info.Text(["text-xs text-slate-500"], $"{bot.History.Count} saved version(s)");
+                    });
+                    RenderDeleteTrigger(row, bot);
+                });
+            }
+
+            if (_bots.Value.Count == 0)
+            {
+                list.Text(["text-sm text-slate-500"], "All bots deleted");
+            }
+
+            list.Button([Button.OutlineSm, "self-start"], text: "Restore sample bots",
+                onClick: async () =>
+                {
+                    _bots.Clear();
+                    _bots.AddRange(SampleBots);
+                });
+        });
+
+        RenderDeleteBotDialog(view);
+    }
 
     private sealed record Bot(string Id, string Name, string Avatar, IReadOnlyList<string> History);
-    private readonly ReactiveList<Bot> _bots = new();
-    private readonly IView actionRow = null!;
-    private readonly Bot bot = null!;
-    private Task DeleteBotAsync(string botId) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-destructive-confirm-dialog
+    private static readonly Bot[] SampleBots =
+    [
+        new("bot-sarge", "Sergeant Snark", "🪖", ["v1", "v2", "v3"]),
+        new("bot-luna", "Luna the Oracle", "🔮", ["v1"]),
+        new("bot-chef", "Chef Brisket", "🍖", ["v1", "v2"]),
+    ];
+
+    private readonly ReactiveList<Bot> _bots = new(SampleBots);
+
+    private Task DeleteBotAsync(string botId)
+    {
+        _bots.RemoveAll(b => b.Id == botId);
+        return Task.CompletedTask;
+    }
+
+    #region example:pattern-destructive-confirm-dialog
     private readonly ClientReactive<string?> _deleteBotId = new(null);
 
     // Trigger from any row
-    private void RenderDeleteTrigger(IView view)
+    private void RenderDeleteTrigger(IView actionRow, Bot bot)
     {
         actionRow.Button(
             [Button.GhostSm, "text-[10px] py-0.5 px-1.5 text-rose-300/80"],

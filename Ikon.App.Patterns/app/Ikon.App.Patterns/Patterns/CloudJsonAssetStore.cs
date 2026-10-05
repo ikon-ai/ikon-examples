@@ -9,7 +9,7 @@ internal sealed class CloudJsonAssetStore(IAppBase app) : IPatternDemo
     public string Title => "Cloud JSON asset store";
     public string Category => "Persistence";
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Backend pattern with no standalone UI: persists a JSON index to the space-scoped asset store with optimistic concurrency. See the source and docs/patterns/cloud-json-asset-store.md.");
+        "Backend pattern with no standalone UI: persists a JSON index to the space-scoped asset store with plain writes and no concurrency check. See the source and docs/patterns/cloud-json-asset-store.md.");
 
     private sealed record Dashboard(string Id, string Name);
 
@@ -21,7 +21,7 @@ internal sealed class CloudJsonAssetStore(IAppBase app) : IPatternDemo
     private readonly ReactiveList<Dashboard> _dashboards = new();
     private readonly Reactive<bool> _isLoading = new(false);
 
-    #region docsnippet:pattern-cloud-json-asset-store
+    #region example:pattern-cloud-json-asset-store
     private AssetUri DashboardIndexUri =>
         new(AssetClass.CloudJson, "monitor/dashboards.json", spaceId: app.GlobalState.SpaceId);
 
@@ -50,9 +50,9 @@ internal sealed class CloudJsonAssetStore(IAppBase app) : IPatternDemo
                 }
             }
         }
-        catch
+        catch (Exception ex) when (ex is FileNotFoundException or JsonException)
         {
-            // First read is expected-empty (or corrupt) — seed defaults rather than throwing
+            // First read is expected-empty (or corrupt) — seed defaults rather than throwing; a backend outage must propagate, or this save would wipe the stored index
             _dashboards.Clear();
             await SaveDashboardsAsync();
         }

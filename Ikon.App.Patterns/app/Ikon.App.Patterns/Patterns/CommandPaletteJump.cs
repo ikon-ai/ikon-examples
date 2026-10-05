@@ -8,17 +8,41 @@ internal sealed class CommandPaletteJump : IPatternDemo
     public string Slug => "command-palette-jump";
     public string Title => "Command palette jump";
     public string Category => "Navigation";
-    public void RenderDemo(IView view) => RenderCommandPalette(view);
+
+    public void RenderDemo(IView view)
+    {
+        view.KeyboardListener(keys: ["k"], requireCtrlOrMeta: true, preventDefault: true,
+            onKeyDown: async _ => _paletteOpen.Value = !_paletteOpen.Value);
+
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Button(["self-start px-3 py-1.5 rounded-md bg-zinc-800 ring-1 ring-zinc-700 text-sm text-zinc-100 hover:bg-zinc-700"],
+                "Open command palette (Ctrl+K)",
+                onClick: async () => _paletteOpen.Value = true);
+
+            var focused = _focusedStreamId.Value is { } id && _streams.TryGetValue(id, out var stream) ? stream.CameraLabel : "none";
+            col.Text(["text-sm text-zinc-400"],
+                $"Section: {_activeSection.Value} · Focused camera: {focused} · Audio: {(_audioMuted.Value ? "muted" : "on")} · Add camera dialog: {(_addCameraOpen.Value ? "open" : "closed")}");
+        });
+
+        RenderCommandPalette(view);
+    }
 
     private sealed record CameraStream(string StreamId, string CameraLabel);
 
-    private readonly ConcurrentDictionary<string, CameraStream> _streams = new();
+    private readonly ConcurrentDictionary<string, CameraStream> _streams = new(new Dictionary<string, CameraStream>
+    {
+        ["cam-lobby"] = new("cam-lobby", "Lobby entrance"),
+        ["cam-dock"] = new("cam-dock", "Loading dock"),
+        ["cam-lot-b"] = new("cam-lot-b", "Parking lot B"),
+        ["cam-server"] = new("cam-server", "Server room"),
+    });
     private readonly ClientReactive<string> _activeSection = new("cameras");
     private readonly ClientReactive<bool> _addCameraOpen = new(false);
     private readonly ClientReactive<bool> _audioMuted = new(false);
     private readonly ClientReactive<string?> _focusedStreamId = new(null);
 
-    #region docsnippet:pattern-command-palette-jump
+    #region example:pattern-command-palette-jump
     private readonly ClientReactive<bool> _paletteOpen = new(initialValue: false);
     private readonly ClientReactive<string> _paletteQuery = new(initialValue: "");
 

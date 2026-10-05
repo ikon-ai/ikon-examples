@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: public-endpoint-host — see docs/patterns/public-endpoint-host.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class PublicEndpointHost : IPatternDemo
 {
     public string Slug => "public-endpoint-host";
@@ -15,7 +15,7 @@ internal sealed class PublicEndpointHost : IPatternDemo
     private IAppBase App => throw new NotImplementedException();
     private Task HandleWebhookAsync(string body) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-public-endpoint-host
+    #region example:pattern-public-endpoint-host
     private readonly Reactive<string?> _publicUrl = new(null);
     private AppEndpointHost? _host;
 
@@ -32,8 +32,8 @@ internal sealed class PublicEndpointHost : IPatternDemo
             context.Response.StatusCode = 204;
         });
 
-        // Marks external traffic so an endpoint-served instance is not reaped as idle while it is
-        // still doing work.
+        // Called once per inbound request. It holds nothing active on its own, and StartAsync installs
+        // the hook only if it is already set, so it has to be assigned before StartAsync.
         _host.OnRequest = () => Log.Instance.Debug("endpoint hit");
 
         // StartAsync returns as soon as the host is SERVING and keeps running in the background;

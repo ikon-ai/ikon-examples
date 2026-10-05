@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: overlay-selection — see docs/patterns/overlay-selection.md.
-// The docsnippet region shows all four overlay shapes side by side so the choice between them is
+// The example region shows all four overlay shapes side by side so the choice between them is
 // legible in one screen; the stubs outside it stand in for the row model, the store, and the detail
 // and filter bodies each overlay hosts.
 internal sealed class OverlaySelection : IPatternDemo
@@ -28,7 +28,7 @@ internal sealed class OverlaySelection : IPatternDemo
 
     private void DeleteRow(string id) => _rows.RemoveAll(r => r.Id == id);
 
-    #region docsnippet:pattern-overlay-selection
+    #region example:pattern-overlay-selection
     private readonly Reactive<Row?> _inspecting = new(null);
     private readonly Reactive<string?> _pendingDelete = new(null);
     private readonly ClientReactive<bool> _filterOpen = new(false);

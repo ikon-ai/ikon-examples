@@ -20,7 +20,7 @@ internal sealed class CopyAndShareActionRow : IPatternDemo
 
     private string FormatTimeInClientTimezone(DateTime timestamp) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-copy-and-share-action-row
+    #region example:pattern-copy-and-share-action-row
     private void RenderTranscriptContent(UIView view)
     {
         var transcriptText = GetTranscriptAsText();

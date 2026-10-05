@@ -19,7 +19,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
         public string SelectBuilding(string id) => throw new NotImplementedException();
     }
 
-    #region docsnippet:pattern-orchestrator-thread-with-tools
+    #region example:pattern-orchestrator-thread-with-tools
     private const string PersonaName = "oiva";
 
     private Orchestrator _mind = null!;
@@ -33,7 +33,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
             SystemPrompt: "You are Oiva — a building maintenance assistant. "
                 + "Use the tools to ground every claim. Reply briefly.",
             Skills: [new BuildingSkill(this)],
-            Reasoning: new Reasoning(Capability.Standard, ModelFamily.Claude, Temperature: 0.4, MaxOutputTokens: 8000)));
+            Reasoning: new Reasoning(Capability.Standard, ModelFamily.Claude, Temperature: 0.4, MaxOutputTokensPerPass: 8000)));
         await _mind.ResumeAsync();
 
         _thread = await _mind.CreateThreadAsync(

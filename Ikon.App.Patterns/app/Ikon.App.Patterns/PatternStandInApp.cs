@@ -6,15 +6,18 @@ namespace Ikon.App.Patterns;
 // Stand-in IAppBase for the render smoke-test: the app-ctor patterns store the handle but only reach
 // into it on interaction, never during a default-state render, so every member here throws. If a
 // pattern ever dereferences the app from its render path, the smoke-test surfaces it as a throw.
-public sealed class PatternStandInApp : IAppBase
+public sealed class PatternStandInApp : IApp<SessionIdentity, ClientParameters>
 {
+    public SessionIdentity SessionIdentity => throw new NotImplementedException();
+    public IClientCollection<ClientParameters> Clients => throw new NotImplementedException();
     public int SessionId => throw new NotImplementedException();
     public ValueTask SendMessageAsync(ProtocolMessage message) => throw new NotImplementedException();
     public ValueTask SendMessageAsync(IProtocolMessagePayload payload) => throw new NotImplementedException();
     public IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null) => throw new NotImplementedException();
-    public GlobalState GlobalState => throw new NotImplementedException();
     // Backed rather than thrown: a pattern that builds a `UI` (or other app-bound object) in a field
-    // initializer touches these at construction time, before any render.
+    // initializer touches these at construction time, before any render, and the AGENTS.md examples
+    // render a join URL from the session's space.
+    public GlobalState GlobalState { get; } = new();
     public ReactiveGlobalState ReactiveGlobalState { get; } = new();
     private readonly Reactive<IReadOnlyList<string>> _mounts = new(["ikon-ui"]);
     public Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default) => throw new NotImplementedException();

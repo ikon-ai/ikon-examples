@@ -23,7 +23,7 @@ internal sealed class FileUploadWithProgress : IPatternDemo
     private Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args) => throw new NotImplementedException();
     private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-file-upload-with-progress
+    #region example:pattern-file-upload-with-progress
     private sealed class UploadTracker
     {
         public string UploadId = "";

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: busy-flag-loading — see docs/patterns/busy-flag-loading.md.
-// The docsnippet region below is the canonical body the doc extracts; the stub outside it stands in
+// The example region below is the canonical body the doc extracts; the stub outside it stands in
 // for the caller's real async work.
 internal sealed class BusyFlagLoading : IPatternDemo
 {
@@ -12,7 +12,7 @@ internal sealed class BusyFlagLoading : IPatternDemo
 
     private Task SlowOperationAsync() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-busy-flag-loading
+    #region example:pattern-busy-flag-loading
     private readonly Reactive<bool> _busy = new(false);
     private readonly Reactive<string?> _error = new(null);
 

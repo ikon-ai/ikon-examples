@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: clickable-reference-card-in-chat — see docs/patterns/clickable-reference-card-in-chat.md.
 // The stubs outside the region stand in for the dialog state, the badge/icon helpers and the entity
-// lookup the app owns; the docsnippet region is the canonical body the doc extracts.
+// lookup the app owns; the example region is the canonical body the doc extracts.
 internal sealed class ClickableReferenceCardInChat : IPatternDemo
 {
     public string Slug => "clickable-reference-card-in-chat";
@@ -20,8 +20,6 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
 
     private sealed record ChatAnswer(string Message);
 
-    private readonly EmergePass<ChatAnswer> pass = null!;
-
     private string T(string key) => throw new NotImplementedException();
 
     private static string[] GetEntityTypeBadgeStyle(EntityType entityType) => throw new NotImplementedException();
@@ -32,7 +30,7 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
 
     private Task<string> ReferEntitiesAsync(string caseId, string[] entityNames) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-clickable-reference-card-in-chat
+    #region example:pattern-clickable-reference-card-in-chat
     internal sealed class ChatMessageEntry
     {
         public string Id { get; } = Guid.NewGuid().ToString();
@@ -96,7 +94,9 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
         });
     }
 
-    private void RegisterReferTool()
+    // Call from the Emerge.Run configure callback: it runs on a cleared pass before every
+    // iteration, so a tool added once outside it is gone after the first turn.
+    private void RegisterReferTool(EmergePass<ChatAnswer> pass)
     {
         pass.AddTool(Tool.Of("refer_entities",
             "Display interactive entity reference cards in the chat for one or more entities. " +

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: disclosure-surfaces — see docs/patterns/disclosure-surfaces.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class DisclosureSurfaces : IPatternDemo
 {
     public string Slug => "disclosure-surfaces";
@@ -11,7 +11,7 @@ internal sealed class DisclosureSurfaces : IPatternDemo
 
     private sealed record Faq(string Id, string Question, string Answer);
 
-    #region docsnippet:pattern-disclosure-surfaces
+    #region example:pattern-disclosure-surfaces
     private static readonly Faq[] Faqs =
     [
         new("shipping", "When does it ship?", "Within two working days."),

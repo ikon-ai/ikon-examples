@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: ai-prefill-form-from-description — see docs/patterns/ai-prefill-form-from-description.md.
 // The stubs outside the region stand in for the wizard state and the extraction shape the app owns;
-// the docsnippet region is the canonical body the doc extracts.
+// the example region is the canonical body the doc extracts.
 internal sealed class AiPrefillFormFromDescription : IPatternDemo
 {
     public string Slug => "ai-prefill-form-from-description";
@@ -27,7 +27,7 @@ internal sealed class AiPrefillFormFromDescription : IPatternDemo
         public string Email { get; set; } = "";
     }
 
-    #region docsnippet:pattern-ai-prefill-form-from-description
+    #region example:pattern-ai-prefill-form-from-description
     private async Task RunWizardAiPrefillAsync()
     {
         if (string.IsNullOrWhiteSpace(_newCaseDescription.Value) || _wizardAiPrefillApplied.Value)

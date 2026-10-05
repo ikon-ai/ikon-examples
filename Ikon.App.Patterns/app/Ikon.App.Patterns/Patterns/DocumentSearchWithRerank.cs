@@ -6,7 +6,7 @@ using Ikon.AI.Retrieving;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: document-search-with-rerank — see docs/patterns/document-search-with-rerank.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class DocumentSearchWithRerank : IPatternDemo
 {
     public string Slug => "document-search-with-rerank";
@@ -14,7 +14,7 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
     public string Category => "Web & data";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-document-search-with-rerank
+    #region example:pattern-document-search-with-rerank
     // Indexed once, at startup or behind an upload -- the expensive step never sits in the search handler.
     private readonly Retriever _retriever = new();
     private readonly ClientReactiveList<string> _hits = new();

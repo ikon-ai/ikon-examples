@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: form-state-submit — see docs/patterns/form-state-submit.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class FormStateSubmit : IPatternDemo
 {
     public string Slug => "form-state-submit";
@@ -13,7 +13,7 @@ internal sealed class FormStateSubmit : IPatternDemo
 
     internal sealed record Invite(string Email = "", string Role = "member");
 
-    #region docsnippet:pattern-form-state-submit
+    #region example:pattern-form-state-submit
     // FormState owns the draft, the busy flag, the dirty flag and the errors, so none of those
     // become four separate reactives that can disagree with each other.
     private readonly FormState<Invite> _form = new(() => new Invite());

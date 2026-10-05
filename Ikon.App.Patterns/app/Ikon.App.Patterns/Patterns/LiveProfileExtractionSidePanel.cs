@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: live-profile-extraction-side-panel — see docs/patterns/live-profile-extraction-side-panel.md.
-// The docsnippet region runs a background extraction after each chat turn and merges only non-empty
+// The example region runs a background extraction after each chat turn and merges only non-empty
 // fields into the reactive profile; the stubs outside it stand in for the chat log and the profile
 // record the side panel renders.
 internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
@@ -25,7 +25,7 @@ internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
     private readonly ReactiveList<ChatTurn> _messages = new();
     private readonly Reactive<CustomerProfile> _profile = new(new CustomerProfile());
 
-    #region docsnippet:pattern-live-profile-extraction-side-panel
+    #region example:pattern-live-profile-extraction-side-panel
     private async Task ExtractProfileAsync()
     {
         var recent = _messages.TakeLast(6)

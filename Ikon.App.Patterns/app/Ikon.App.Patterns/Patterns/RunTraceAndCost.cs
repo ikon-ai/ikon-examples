@@ -1,17 +1,40 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: run-trace-and-cost — see docs/patterns/run-trace-and-cost.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class RunTraceAndCost : IPatternDemo
 {
     public string Slug => "run-trace-and-cost";
     public string Title => "What a run cost and what it did";
     public string Category => "Conversational AI";
-    public void RenderDemo(IView view) => Render(view);
 
     private sealed record Answer(string Text);
 
-    #region docsnippet:pattern-run-trace-and-cost
+    // The gallery never calls the model: the buttons load the trace of a run that finished and of
+    // one that hit its output cap, the two branches the render takes.
+    private static readonly EmergenceTrace CompletedTrace = new(
+        iterations: 2, toolCalls: 0, duration: TimeSpan.FromSeconds(4.8), finishReason: "end_turn",
+        inputTokens: 1_840, cachedInputTokens: 12_400, outputTokens: 612);
+
+    private static readonly EmergenceTrace TruncatedTrace = new(
+        iterations: 1, toolCalls: 0, duration: TimeSpan.FromSeconds(21.3), finishReason: "max_tokens",
+        inputTokens: 2_215, cachedInputTokens: 12_400, outputTokens: 8_192);
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Row(["gap-2 flex-wrap"], content: row =>
+            {
+                row.Button([Button.OutlineSm], text: "Show a completed run", onClick: async () => _trace.Value = CompletedTrace);
+                row.Button([Button.OutlineSm], text: "Show a run cut short", onClick: async () => _trace.Value = TruncatedTrace);
+            });
+            col.Text(["text-xs text-zinc-400"], "Sample traces; no model is called");
+            Render(col);
+        });
+    }
+
+    #region example:pattern-run-trace-and-cost
     private readonly ClientReactive<EmergenceTrace?> _trace = new(null);
     private readonly ClientReactiveList<string> _activity = new();
 
@@ -55,19 +78,12 @@ internal sealed class RunTraceAndCost : IPatternDemo
 
         view.Column(["gap-1"], content: col =>
         {
-            // CachedInputTokens is a SUBSET of InputTokens, not an addition -- summing them
-            // double-counts the cached read and overstates the bill.
+            // InputTokens already excludes the cached read, so the two are shown side by side and
+            // the request's total input is their sum plus CacheCreationInputTokens.
             col.Text(["text-muted-foreground text-xs"],
-                text: $"{trace.InputTokens:N0} in ({trace.CachedInputTokens:N0} cached), "
+                text: $"{trace.InputTokens:N0} in + {trace.CachedInputTokens:N0} cached, "
                     + $"{trace.OutputTokens:N0} out, {trace.Duration.TotalSeconds:0.0}s, "
                     + $"{trace.Iterations} iterations, {trace.ToolCalls} tool calls");
-
-            // IsTruncated is the one to branch on: the run hit the output cap, so the result is
-            // half-formed rather than wrong, and re-running with a bigger budget is the fix.
-            if (trace.IsTruncated)
-            {
-                col.Text(["text-destructive text-sm"], text: "Answer was cut short — ask for less at once.");
-            }
 
             // ToolCallHistory is what the model actually did, in order: the audit trail for
             // "why did it answer that".

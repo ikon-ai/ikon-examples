@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: shared-list-ai-cleanup — see docs/patterns/shared-list-ai-cleanup.md.
-// The whole example is self-contained, so the docsnippet region carries CRUD, the AI transform and the
+// The whole example is self-contained, so the example region carries CRUD, the AI transform and the
 // UI together — no stubs are needed outside it.
 internal sealed class SharedListAiCleanup : IPatternDemo
 {
@@ -10,7 +10,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
     public string Category => "AI";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-shared-list-ai-cleanup
+    #region example:pattern-shared-list-ai-cleanup
     public sealed record TodoItem(string Id, string Text);
 
     private readonly ReactiveList<TodoItem> _items = new();

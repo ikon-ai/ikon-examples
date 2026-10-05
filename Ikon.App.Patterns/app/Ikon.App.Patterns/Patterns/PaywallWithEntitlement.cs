@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: paywall-with-entitlement — see docs/patterns/paywall-with-entitlement.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class PaywallWithEntitlement : IPatternDemo
 {
     public string Slug => "paywall-with-entitlement";
@@ -11,7 +11,7 @@ internal sealed class PaywallWithEntitlement : IPatternDemo
 
     private static void RenderProContent(IView view) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-paywall-with-entitlement
+    #region example:pattern-paywall-with-entitlement
     private const string ProOfferId = "pro-monthly";
 
     private readonly ClientReactive<string?> _checkoutUrl = new(null);

@@ -11,7 +11,7 @@ internal sealed class MultiUserGame : IPatternDemo
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
         "Multi-user pattern with no standalone demo surface: shared vs per-client reactive state driven by a host client that advances the stage for everyone. See the source and docs/patterns/multi-user-game.md.");
 
-    #region docsnippet:pattern-multi-user-game
+    #region example:pattern-multi-user-game
     // Host detection lives in ClientParams. The host client connects with `?host=true` query param.
     public record SessionIdentity(string Id);
     public record ClientParams(string Id = "", bool Host = false);
@@ -49,10 +49,9 @@ internal sealed class MultiUserGame : IPatternDemo
 
         private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx)
         {
-            // ReactiveScope inside event handlers needs an explicit ClientScope —
+            // The platform raises this handler inside the joining client's UserScope and ClientScope,
+            // so ClientReactive<T>.Value already reads/writes for THIS client — no ReactiveScope.Use needed.
             // ctx.ClientSessionId is the int identity for this client.
-            using var _ = ReactiveScope.Use(new ClientScope(ctx.ClientSessionId));
-            // Now ClientReactive<T>.Value reads/writes for THIS specific client.
         }
 
         private async Task OnClientLeftAsync(Ikon.Common.Core.Protocol.Context ctx)
@@ -111,7 +110,7 @@ internal sealed class MultiUserGame : IPatternDemo
     public record Question(string Prompt, string[] Choices, int CorrectIndex);
     #endregion
 
-    // Outside the docsnippet: the question bank is part of the pattern's shared state, but the trimmed
+    // Outside the example: the question bank is part of the pattern's shared state, but the trimmed
     // example advances the stage without rendering questions. Reference it so the warnings-as-errors
     // build does not flag the field no method above reads.
     partial class LiveQuizApp

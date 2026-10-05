@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: nav-and-menu-rows — see docs/patterns/nav-and-menu-rows.md.
-// The docsnippet region is the three navigation surfaces side by side — page tabs, a sidebar rail
+// The example region is the three navigation surfaces side by side — page tabs, a sidebar rail
 // and a menu row — because the point of the pattern is which token each one takes. The stubs
 // outside it stand in for the sections a real app would route between.
 internal sealed class NavAndMenuRows : IPatternDemo
@@ -24,7 +24,7 @@ internal sealed class NavAndMenuRows : IPatternDemo
     private static void RenderSectionBody(IView view, string label) =>
         view.Text([Text.Body, "p-4"], text: label);
 
-    #region docsnippet:pattern-nav-and-menu-rows
+    #region example:pattern-nav-and-menu-rows
     private readonly ClientReactive<string> _section = new("overview");
     private readonly ClientReactive<bool> _menuOpen = new(false);
     private readonly ClientReactive<string> _density = new("Comfortable");
@@ -61,7 +61,8 @@ internal sealed class NavAndMenuRows : IPatternDemo
         });
 
         // A menu row is a Button wearing Menu.Item — a full-width transparent row that highlights
-        // on hover. Menu.Content must reach contentStyle: or the panel renders transparent.
+        // on hover. DropdownMenu paints Menu.Content itself; a custom contentStyle: without it (or
+        // "default") renders the panel transparent.
         view.DropdownMenu(
             open: _menuOpen.Value,
             onOpenChange: async open => _menuOpen.Value = open,
@@ -93,7 +94,7 @@ internal sealed class NavAndMenuRows : IPatternDemo
             value: _density.Value,
             onValueChange: async value => _density.Value = value,
             listStyle: [Tabs.List],
-            triggerStyle: [Tabs.Trigger],
+            triggerStyle: [Tabs.Trigger, "flex-1"],
             tabs:
             [
                 new TabItem("Comfortable", "Comfortable", _ => { }),

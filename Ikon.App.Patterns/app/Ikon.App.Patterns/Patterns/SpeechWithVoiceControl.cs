@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: speech-with-voice-control — see docs/patterns/speech-with-voice-control.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class SpeechWithVoiceControl : IPatternDemo
 {
     public string Slug => "speech-with-voice-control";
@@ -11,7 +11,7 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
 
     private Audio Audio => throw new NotImplementedException();
 
-    #region docsnippet:pattern-speech-with-voice-control
+    #region example:pattern-speech-with-voice-control
     private readonly ClientReactive<string?> _error = new(null);
 
     /// <summary>
@@ -21,21 +21,22 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
     /// </summary>
     private async Task NarrateAsync(string text)
     {
-        // No speed: the default model is ElevenLabs, which ignores it. Pass one only with an
-        // OpenAI or Google model, e.g. model: SpeechGeneratorModel.Gpt4OmniMiniTts, speed: 0.95.
-        await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", instructions: "calm, unhurried");
+        // Instructions need ElevenLabs v3; the default ElevenFlash25 refuses them. No speed:
+        // ElevenLabs refuses any but 1.0. Pass one only with an OpenAI, Google or Azure model, e.g.
+        // model: SpeechGeneratorModel.Gpt4OmniMiniTts, speed: 0.95.
+        await Audio.SpeakAsync(MediaTargets.Everyone, text, model: SpeechGeneratorModel.Eleven3, voice: "Sarah", instructions: "calm, unhurried");
     }
 
     /// <summary>
     /// The config form, for generator settings SpeakAsync does not expose. Streaming chunk-by-chunk
     /// is what lets playback start before generation finishes. This does NOT give you two speakers
-    /// at once: every SpeakChunk goes through the app's single speech mixer, which holds one
+    /// at once: every SpeakChunk to the same clients goes through one speech mixer, which holds one
     /// utterance at a time, so a second voice's chunks interrupt the first with a fade. Genuine
     /// overlap means leaving the speech lane -- see OverlapAsync below.
     /// </summary>
     private async Task SpeakWithConfigAsync(string line)
     {
-        using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
+        using var generator = new SpeechGenerator(SpeechGeneratorModel.Eleven3);
 
         try
         {
@@ -43,8 +44,8 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
             {
                 Text = line,
                 VoiceId = "Sarah",
-                // Speed is honoured by OpenAI and Google and IGNORED by ElevenLabs -- null keeps
-                // the model's own default rather than pretending to set one.
+                // Speed is honoured by OpenAI, Google and Azure; ElevenLabs throws
+                // NonRetryableAIException for anything but null or 1.0, so null is required here.
                 Speed = null,
                 Instructions = "warm, close-mic",
             }))

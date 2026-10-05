@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: best-of-with-rubric — see docs/patterns/best-of-with-rubric.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class BestOfWithRubric : IPatternDemo
 {
     public string Slug => "best-of-with-rubric";
@@ -9,7 +9,7 @@ internal sealed class BestOfWithRubric : IPatternDemo
     public string Category => "Conversational AI";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-best-of-with-rubric
+    #region example:pattern-best-of-with-rubric
     private sealed record Tagline(string Text, IReadOnlyList<string> Keywords);
 
     // What a reader makes of a tagline, each axis in [0, 1]. A quick judge model fills it, so the
@@ -58,8 +58,8 @@ internal sealed class BestOfWithRubric : IPatternDemo
             options.Count = 4;
 
             // ScoreDetailedAsync is the judge's rubric: it ranks the candidates and hands the
-            // breakdown to the critic. Set no scorer and every candidate scores 0.0 -- the FIRST
-            // one then always wins, after paying for all Count runs.
+            // breakdown to the critic. With Count above 1 and no scorer, BestOf throws before
+            // the first candidate rather than pay for runs it could not tell apart.
             options.ScoreDetailedAsync = async (candidate, _) => judged[candidate] = await JudgeAsync(candidate, brief);
 
             // Configuring the critic also ENABLES it; an explicitly configured critic that never

@@ -21,7 +21,7 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
 
     private void ClearStaleAutoSaveStatus() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-client-autosave-loop
+    #region example:pattern-client-autosave-loop
     private readonly ConcurrentDictionary<int, CancellationTokenSource?> _autoSaveCts = new();
 
     private void StartAutoSaveLoop(int clientId)
@@ -35,23 +35,8 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
     {
         if (_autoSaveCts.TryRemove(clientId, out var cts) && cts != null)
         {
-            try
-            {
-                cts.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Racing disconnect paths may have already disposed this CTS
-            }
-
-            try
-            {
-                cts.Dispose();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Already disposed by a concurrent leave — nothing to clean up
-            }
+            cts.Cancel();
+            cts.Dispose();
         }
     }
 

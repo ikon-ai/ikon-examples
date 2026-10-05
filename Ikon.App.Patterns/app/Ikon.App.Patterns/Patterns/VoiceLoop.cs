@@ -2,7 +2,7 @@
 
 // Pattern: voice-loop — see docs/patterns/voice-loop.md.
 // `app` is the App's primary-constructor handle and UI is its view root; both stand outside the region.
-// The docsnippet region is the canonical push-to-talk mic → STT → LLM → TTS loop.
+// The example region is the canonical push-to-talk mic → STT → LLM → TTS loop.
 internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
 {
     public string Slug => "voice-loop";
@@ -12,7 +12,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
 
     private UI UI { get; } = new(app, new IkonTheme());
 
-    #region docsnippet:pattern-voice-loop
+    #region example:pattern-voice-loop
     public sealed record VoiceTurn(string Role, string Text);
 
     private Audio Audio { get; } = new(app);
@@ -27,7 +27,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
     public Task Main()
     {
         // The stream is the open microphone, and it OUTLIVES a press: it begins once and ends
-        // when the page closes. Waiting for AudioInputStreamEndAsync to act on a release means
+        // when the page closes, the button unmounts or the device changes. Waiting for AudioInputStreamEndAsync to act on a release means
         // nothing happens until then. It carries the format and is where that is forgotten.
         Audio.AudioInputStreamBeginAsync += async args =>
         {

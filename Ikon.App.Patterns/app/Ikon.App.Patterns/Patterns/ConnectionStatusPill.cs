@@ -27,7 +27,7 @@ internal sealed class ConnectionStatusPill : IPatternDemo
 
     private (SentinelMode Mode, DateTime? At) ComputeNextScheduleFlip() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-connection-status-pill
+    #region example:pattern-connection-status-pill
     private void RenderTopStatusPill(UIView view)
     {
         var camCount = _streams.Count;

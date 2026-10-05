@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: offline-recording-archive — see docs/patterns/offline-recording-archive.md.
-// The docsnippet region is the repair loop: record on the device, take the archive when it lands,
+// The example region is the repair loop: record on the device, take the archive when it lands,
 // re-derive the track from complete data. app.Recordings throws on a host with no device attached,
 // so the service calls stay out of the render path the gallery drives.
 internal sealed class OfflineRecordingArchive(IAppBase app) : IPatternDemo
@@ -22,7 +22,7 @@ internal sealed class OfflineRecordingArchive(IAppBase app) : IPatternDemo
         return outings;
     }
 
-    #region docsnippet:pattern-offline-recording-archive
+    #region example:pattern-offline-recording-archive
     /// Subscribe in OnStarting. The upload may arrive DAYS later, from a session that never rendered
     /// anything — a phone that finally found signal — so nothing about this can hang off a client.
     private void Wire()

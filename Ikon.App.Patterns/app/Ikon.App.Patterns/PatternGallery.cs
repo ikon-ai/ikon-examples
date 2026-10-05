@@ -1,3 +1,4 @@
+using Ikon.App.Patterns.Examples;
 using Ikon.App.Patterns.Patterns;
 
 namespace Ikon.App.Patterns;
@@ -7,15 +8,16 @@ namespace Ikon.App.Patterns;
 // test its stand-in. Generated membership; keep it in sync with the Patterns/ folder.
 public static class PatternGallery
 {
-    public static IReadOnlyList<IPatternDemo> Create(IAppBase app) =>
+    public static IReadOnlyList<IPatternDemo> Create(IApp<SessionIdentity, ClientParameters> app) =>
     [
+        .. ExampleGallery.Create(),
         new AiPrefillFormFromDescription(),
         new AnnotationDrawOverlay(),
         new AudioReactiveVisuals(),
         new BackgroundProcessingPipeline(),
         new BatchedTurnWindow(),
         new BestOfWithRubric(),
-        new BillingHistoryAndRefunds(),
+        new BillingHistoryAndRefunds(app),
         new BoardMoveWithoutDrag(),
         new BusyFlagLoading(),
         new CameraCaptureToVision(),
@@ -103,7 +105,7 @@ public static class PatternGallery
         new SpeechWithVoiceControl(),
         new StatusPill(),
         new StreamingAgentStatus(),
-        new SubscriptionManagement(),
+        new SubscriptionManagement(app),
         new TaggedModelOutput(),
         new ThemeCommitment(app),
         new ThresholdDrivenRegenerate(),
@@ -120,5 +122,6 @@ public static class PatternGallery
         new VoiceLoop(app),
         new WebResearch(),
         new ZeroResultsState(),
+        new AgentGuideExamples(app),
     ];
 }

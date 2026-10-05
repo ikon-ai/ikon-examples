@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: background-processing-pipeline — see docs/patterns/background-processing-pipeline.md.
 // The stubs outside the region stand in for the identity state, the case-file status writes and the
-// per-stage extraction helpers the app owns; the docsnippet region is the canonical body the doc extracts.
+// per-stage extraction helpers the app owns; the example region is the canonical body the doc extracts.
 internal sealed class BackgroundProcessingPipeline : IPatternDemo
 {
     public string Slug => "background-processing-pipeline";
@@ -40,7 +40,7 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
 
     private Task RunFileClassificationAsync(Guid caseFileId, string tenantId) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-background-processing-pipeline
+    #region example:pattern-background-processing-pipeline
     private async Task HandleFileUploadCompleteAsync(
         Guid caseId, string uploadId, Guid caseFileId,
         string fileName, string mimeType, long fileSize, AssetUri assetUri, string hash)

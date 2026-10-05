@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: form-field-discipline — see docs/patterns/form-field-discipline.md.
-// The docsnippet region is a whole form: persistent labels, per-field errors that survive a failed
+// The example region is a whole form: persistent labels, per-field errors that survive a failed
 // submit, and a review step before the consequential action. The stub outside it stands in for the
 // thing the form actually does once confirmed.
 internal sealed class FormFieldDiscipline : IPatternDemo
@@ -13,7 +13,7 @@ internal sealed class FormFieldDiscipline : IPatternDemo
 
     private void CreateAccount() => _confirming.Value = false;
 
-    #region docsnippet:pattern-form-field-discipline
+    #region example:pattern-form-field-discipline
     // A form is one person's: per client, or every connected client types into the same fields.
     private readonly ClientReactive<string> _name = new("");
     private readonly ClientReactive<string> _email = new("");
@@ -93,14 +93,17 @@ internal sealed class FormFieldDiscipline : IPatternDemo
         {
             field(v);
 
-            if (_errors.ContainsKey(key))
+            v.Box([FormField.Support], content: support =>
             {
-                v.Row([Layout.Row.Xs, "text-error-primary"], content: row =>
+                if (_errors.ContainsKey(key))
                 {
-                    row.Icon([Icon.Xs], name: "circle-alert");
-                    row.Text(["text-xs"], text: _errors[key]);
-                });
-            }
+                    support.Row([Layout.Row.Xs, "text-error-primary"], content: row =>
+                    {
+                        row.Icon([Icon.Xs], name: "circle-alert");
+                        row.Text(["text-xs"], text: _errors[key]);
+                    });
+                }
+            });
         });
     }
     #endregion

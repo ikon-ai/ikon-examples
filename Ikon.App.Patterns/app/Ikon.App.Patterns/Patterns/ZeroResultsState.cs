@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: zero-results-state — see docs/patterns/zero-results-state.md.
-// The docsnippet region is the three-way branch plus the shared empty-state renderer; the stubs
+// The example region is the three-way branch plus the shared empty-state renderer; the stubs
 // outside it stand in for the record model, the store, the derived query and the three actions each
 // state offers. The demo renders the genuinely-empty case, which is what a cold-booted app shows.
 internal sealed class ZeroResultsState : IPatternDemo
@@ -33,7 +33,7 @@ internal sealed class ZeroResultsState : IPatternDemo
     private static void RenderRecipeCard(IView view, Recipe recipe) =>
         view.Box([Card.Default, "p-3"], content: v => v.Text([Text.Body], text: recipe.Title));
 
-    #region docsnippet:pattern-zero-results-state
+    #region example:pattern-zero-results-state
     private readonly Reactive<string> _search = new("");
     private readonly Reactive<string?> _loadError = new(null);
 

@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: pan-zoom-split-layout — see docs/patterns/pan-zoom-split-layout.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class PanZoomSplitLayout : IPatternDemo
 {
     public string Slug => "pan-zoom-split-layout";
@@ -9,7 +9,7 @@ internal sealed class PanZoomSplitLayout : IPatternDemo
     public string Category => "Layout & navigation";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-pan-zoom-split-layout
+    #region example:pattern-pan-zoom-split-layout
     private readonly ClientReactive<double> _scale = new(1);
     private readonly ClientReactive<double> _panelWidth = new(280);
 

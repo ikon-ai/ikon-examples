@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: board-move-without-drag — see docs/patterns/board-move-without-drag.md.
-// The docsnippet region is the board plus the per-card Move menu that makes it operable without a
+// The example region is the board plus the per-card Move menu that makes it operable without a
 // pointer; the drag wiring itself is the drag-and-drop guide's, and wraps this unchanged.
 internal sealed class BoardMoveWithoutDrag : IPatternDemo
 {
@@ -29,7 +29,7 @@ internal sealed class BoardMoveWithoutDrag : IPatternDemo
         ]);
     }
 
-    #region docsnippet:pattern-board-move-without-drag
+    #region example:pattern-board-move-without-drag
     private readonly ClientReactive<string?> _menuOpenFor = new(null);
 
     /// The ONE move operation. Drag calls it from onDragEnd; the menu calls it from a click. Both

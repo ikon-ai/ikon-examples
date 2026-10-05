@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: generated-video-with-playback — see docs/patterns/generated-video-with-playback.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class GeneratedVideoWithPlayback : IPatternDemo
 {
     public string Slug => "generated-video-with-playback";
@@ -9,7 +9,7 @@ internal sealed class GeneratedVideoWithPlayback : IPatternDemo
     public string Category => "Image & video";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-generated-video-with-playback
+    #region example:pattern-generated-video-with-playback
     private readonly Reactive<string?> _videoUrl = new(null);
     private readonly Reactive<bool> _busy = new(false);
     private readonly Reactive<string?> _error = new(null);

@@ -8,9 +8,25 @@ internal sealed class ToastNotifications : IPatternDemo
     public string Slug => "toast-notifications";
     public string Title => "Toast notifications";
     public string Category => "Feedback";
-    public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-toast-notifications
+    public void RenderDemo(IView view)
+    {
+        view.Row(["gap-2 flex-wrap"], content: row =>
+        {
+            row.Button(["px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm"], "Save draft",
+                onClick: async () => ShowToast("Draft saved"));
+            row.Button(["px-3 py-1.5 rounded-md bg-zinc-700 text-white text-sm"], "Share link",
+                onClick: async () => ShowToast("Link copied to clipboard", "info"));
+            row.Button(["px-3 py-1.5 rounded-md bg-amber-600 text-white text-sm"], "Go offline",
+                onClick: async () => ShowToast("Connection lost, retrying in 5 s", "warn"));
+            row.Button(["px-3 py-1.5 rounded-md bg-rose-600 text-white text-sm"], "Upload oversized file",
+                onClick: async () => ShowToast("Upload failed: file is over 25 MB", "error"));
+        });
+
+        Render(view);
+    }
+
+    #region example:pattern-toast-notifications
     private const int ToastLifetimeMs = 3000;
 
     private readonly ClientReactive<(string Text, string Tone, DateTime At)?> _toast =

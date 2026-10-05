@@ -11,14 +11,14 @@ internal sealed class ThemeCommitment(IAppBase app) : IPatternDemo
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
         "Configuration pattern with no standalone UI: commits the whole brand cluster — palette, radius, density and fonts — in one IkonTheme at the UI declaration site. See the source and docs/patterns/theme-commitment.md.");
 
-    #region docsnippet:pattern-theme-commitment
+    #region example:pattern-theme-commitment
     // Pasted at the top of your App class — the Coder's standard styling step.
     // ONE line commits the whole brand cluster: ["primary"] expands to the CTA and
     // solid fills (+ hovers), focus rings, brand borders, brand icons, and brand text tiers.
     private UI UI { get; } = new(app, new IkonTheme
     {
         ["primary"]            = "amber-400",
-        ["primary-foreground"] = "#0A0A0A",   // text on brand fills — only needed for LIGHT brand steps (white default)
+        ["primary-foreground"] = "#0A0A0A",   // text on brand fills — optional: picked by contrast when unset
 
         ["background"]       = "zinc-950",
         ["foreground"]       = "zinc-50",
@@ -28,7 +28,7 @@ internal sealed class ThemeCommitment(IAppBase app) : IPatternDemo
 
         ["radius"]           = "rounded-2xl",
         ["density"]          = "comfortable",   // compact | comfortable | airy — whole-app whitespace
-        ["font-heading"]     = "Crimson Pro",   // literal family name — Google Fonts import is automatic
+        ["font-heading"]     = "Crimson Pro",   // literal family name — self-hosted baseline family; others get an automatic Google Fonts import
 
         DarkMode = new IkonTheme
         {

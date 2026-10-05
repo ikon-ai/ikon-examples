@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: llm-vision-cache — see docs/patterns/llm-vision-cache.md.
-// The docsnippet region describes a record's photos once with a cheap vision model and persists the
+// The example region describes a record's photos once with a cheap vision model and persists the
 // result; the stubs outside it stand in for the persistence layer the cache reads through.
 internal sealed class LlmVisionCache : IPatternDemo
 {
@@ -14,7 +14,7 @@ internal sealed class LlmVisionCache : IPatternDemo
     private static Task<VisualDescription?> ReadAsync(string id) => throw new NotImplementedException();
     private static Task WriteAsync(string id, VisualDescription description) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-llm-vision-cache
+    #region example:pattern-llm-vision-cache
     public record VisualDescription(string Overview, string ExteriorColor,
         string Condition, string InteriorNotes, string NotableFeatures);
 

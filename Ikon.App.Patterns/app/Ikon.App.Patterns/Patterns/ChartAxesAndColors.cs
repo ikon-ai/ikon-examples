@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: chart-axes-and-colors — see docs/patterns/chart-axes-and-colors.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ChartAxesAndColors : IPatternDemo
 {
     public string Slug => "chart-axes-and-colors";
@@ -9,7 +9,7 @@ internal sealed class ChartAxesAndColors : IPatternDemo
     public string Category => "Visualization";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-chart-axes-and-colors
+    #region example:pattern-chart-axes-and-colors
     // Both records are object-initialized with REQUIRED members, not positional -- there is no
     // two-argument constructor. LineChartPoint.X is `object` on purpose: a string label for point
     // scales, a number for linear and time ones.
@@ -56,8 +56,9 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             // anything a reader has to take a number from.
             axisRight: new AxisConfig { Hidden = true },
 
-            // One scheme for the whole chart keeps series colours consistent; an explicit colors
-            // list overrides it when a series has a meaning attached to its colour.
+            // One scheme for the whole chart keeps series colours consistent, but only under a
+            // theme whose Colors is null: the default DefaultLight palette overrides it, as does
+            // an explicit colors list when a series has a meaning attached to its colour.
             colorScheme: ChartColorScheme.Category10,
             enableGridY: true,
             enablePoints: true);

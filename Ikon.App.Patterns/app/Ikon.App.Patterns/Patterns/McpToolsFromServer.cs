@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: mcp-tools-from-server — see docs/patterns/mcp-tools-from-server.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class McpToolsFromServer : IPatternDemo
 {
     public string Slug => "mcp-tools-from-server";
@@ -9,7 +9,7 @@ internal sealed class McpToolsFromServer : IPatternDemo
     public string Category => "Web & data";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-mcp-tools-from-server
+    #region example:pattern-mcp-tools-from-server
     private readonly ClientReactiveList<string> _toolNames = new();
     private readonly ClientReactive<string?> _output = new(null);
     private McpClient? _client;
@@ -59,7 +59,12 @@ internal sealed class McpToolsFromServer : IPatternDemo
     {
         view.Column(["gap-2"], content: col =>
         {
-            col.Button(text: "Connect", onClick: async () => _client = await ConnectAsync("https://mcp.example.com", "token"));
+            col.Button(text: "Connect", onClick: async () =>
+            {
+                var client = await ConnectAsync("https://mcp.example.com", "token");
+                _client?.Dispose();
+                _client = client;
+            });
             col.Button(text: "Search", disabled: _client is null, onClick: async () => await CallAsync(_client!, "search", "ikon"));
 
             foreach (var name in _toolNames)

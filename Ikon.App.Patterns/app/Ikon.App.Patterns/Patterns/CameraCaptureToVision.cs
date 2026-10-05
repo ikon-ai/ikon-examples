@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: camera-capture-to-vision — see docs/patterns/camera-capture-to-vision.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class CameraCaptureToVision : IPatternDemo
 {
     public string Slug => "camera-capture-to-vision";
@@ -11,7 +11,7 @@ internal sealed class CameraCaptureToVision : IPatternDemo
 
     private sealed record Reading(string Text);
 
-    #region docsnippet:pattern-camera-capture-to-vision
+    #region example:pattern-camera-capture-to-vision
     private readonly ClientReactive<string?> _result = new(null);
     private readonly ClientReactive<string?> _error = new(null);
 
@@ -52,9 +52,15 @@ internal sealed class CameraCaptureToVision : IPatternDemo
         }
         catch (NotSupportedException)
         {
-            // A client without a camera throws rather than returning empty -- say so plainly
-            // instead of leaving a button that appears to do nothing.
-            _error.Value = "This device has no camera.";
+            // A client that cannot capture at all throws rather than returning empty -- say so
+            // plainly instead of leaving a button that appears to do nothing.
+            _error.Value = "This device can't capture photos.";
+        }
+        catch (FunctionCallException)
+        {
+            // A capture that fails on the client (no camera, permission denied, cancelled)
+            // comes back as the remote call's failure.
+            _error.Value = "Couldn't use the camera.";
         }
         catch (EmergenceStoppedException)
         {

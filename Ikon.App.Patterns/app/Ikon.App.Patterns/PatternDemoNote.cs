@@ -13,4 +13,12 @@ public static class PatternDemoNote
             card.Text(["text-sm text-[#A8A29E] leading-relaxed"], note);
         });
     }
+
+    // One line under an example that draws nothing of its own (it wires a callback or mutates
+    // state), or draws only empty styled containers: what the reader is looking at, or what the
+    // example did.
+    public static void RenderCaption(IView view, string note)
+    {
+        view.Text(["text-sm text-[#A8A29E] leading-relaxed max-w-2xl mt-1"], note);
+    }
 }

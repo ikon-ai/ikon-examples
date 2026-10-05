@@ -1,24 +1,33 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: status-pill — see docs/patterns/status-pill.md.
-// The record and the four fields stand in for the caller's real row/card data the chips label.
+// The record and the four fields stand in for the caller's real row/card data the chips label. The
+// demo draws the chips on the theme's own card surface, so switching the app between light and dark
+// shows the claim the pattern makes.
 internal sealed class StatusPill : IPatternDemo
 {
     public string Slug => "status-pill";
     public string Title => "Status pill";
     public string Category => "Feedback";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Theme-safe status chip recipes — neutral, brand-tinted, alpha-accent and solid-accent — that read correctly on both light and dark surfaces without variants. See the source and docs/patterns/status-pill.md.");
 
     private sealed record Recipe(string Category);
-    private readonly Recipe recipe = null!;
-    private readonly int done = 0;
-    private readonly int goal = 0;
-    private readonly Reactive<string?> _filter = new(null);
+    private readonly Recipe recipe = new("Weeknight dinners");
+    private readonly int done = 3;
+    private readonly int goal = 5;
+    private readonly Reactive<string?> _filter = new("vegetarian");
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Row(["flex-wrap items-center gap-2 rounded-xl p-4 bg-card border border-secondary"], content: row => Render(row));
+            col.Text(["text-xs text-zinc-400"], _filter.Value is { } filter ? $"Active filter: {filter} (press All to clear)" : "Active filter: none");
+        });
+    }
 
     private void Render(IView view)
     {
-        #region docsnippet:pattern-status-pill
+        #region example:pattern-status-pill
         /// Theme-safe chip recipes for ADAPTIVE apps — each works on light AND dark without variants.
 
         // 1. NEUTRAL chip (default for categories/tags) — fully semantic, flips automatically.

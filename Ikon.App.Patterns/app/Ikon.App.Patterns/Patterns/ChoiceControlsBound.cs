@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: choice-controls-bound — see docs/patterns/choice-controls-bound.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ChoiceControlsBound : IPatternDemo
 {
     public string Slug => "choice-controls-bound";
@@ -9,7 +9,7 @@ internal sealed class ChoiceControlsBound : IPatternDemo
     public string Category => "Forms & input";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-choice-controls-bound
+    #region example:pattern-choice-controls-bound
     private readonly UserReactive<string> _plan = new("standard");
     private readonly UserReactive<bool> _notify = new(true);
     private readonly UserReactive<double> _volume = new(0.5);
@@ -40,8 +40,8 @@ internal sealed class ChoiceControlsBound : IPatternDemo
             // does not compile. bind: lives here and takes a Reactive<double>.
             col.Slider(["w-full"], label: "Volume", min: 0, max: 1, step: 0.05, bind: _volume);
 
-            // The scalar convenience overload is value-FIRST: the one exception to the
-            // style-array-first rule.
+            // The scalar convenience overload is value-FIRST, like the text-first overloads
+            // of Button and Text.
             col.Slider(_volume.Value, style: ["w-full"], min: 0, max: 1, step: 0.05,
                 onValueChange: async v => _volume.Value = v);
 

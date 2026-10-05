@@ -8,7 +8,7 @@ internal sealed class PushToTalkButton : IPatternDemo
     public string Category => "Voice";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-push-to-talk-button
+    #region example:pattern-push-to-talk-button
     private readonly ClientReactive<bool> _micBlocked = new(false);
 
     private void Render(IView view)

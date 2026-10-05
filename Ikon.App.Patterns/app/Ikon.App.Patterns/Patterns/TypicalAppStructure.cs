@@ -13,8 +13,8 @@ internal sealed class TypicalAppStructure : IPatternDemo
     public string Category => "Layout";
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title, "The canonical app skeleton — session identity, client parameters, UI root, and header/main regions — see docs/patterns/typical-app-structure.md.");
 
-    #region docsnippet:pattern-typical-app-structure
-    // Program entry, a top-level statement in Program.cs (one per app):  return await App.Run(args);
+    #region example:pattern-typical-app-structure
+    // Program entry, the top-level first line of the app class's own file (one per app, no Program.cs):  return await App.Run(args);
 
     public sealed record SessionIdentity(string? UserId);
     public sealed record ClientParameters(string ClientName);

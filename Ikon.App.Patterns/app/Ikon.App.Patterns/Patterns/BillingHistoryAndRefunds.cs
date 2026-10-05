@@ -1,17 +1,43 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: billing-history-and-refunds — see docs/patterns/billing-history-and-refunds.md.
-// The docsnippet region below is the canonical body the doc extracts.
-internal sealed class BillingHistoryAndRefunds : IPatternDemo
+// The example region below is the canonical body the doc extracts. The gallery never runs Main, so
+// nothing reads a real ledger: the demo loads sample rows covering each branch the render takes
+// (paid, partly refunded, fully refunded, failed, pending).
+internal sealed class BillingHistoryAndRefunds(IApp<SessionIdentity, ClientParameters> app) : IPatternDemo
 {
     public string Slug => "billing-history-and-refunds";
     public string Title => "Billing history, receipts and refunds";
     public string Category => "Platform mechanics";
-    public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-billing-history-and-refunds
+    private static readonly Payment[] SamplePayments =
+    [
+        new("pay_demo_4821", PaymentProvider.Stripe, PaymentStatus.Paid, PaymentKind.Subscription, "pro-monthly", 900, "EUR", 0, new DateTimeOffset(2026, 9, 1, 8, 12, 0, TimeSpan.Zero)),
+        new("pay_demo_4710", PaymentProvider.Stripe, PaymentStatus.Paid, PaymentKind.OneTime, "credit-pack-500", 2500, "EUR", 1000, new DateTimeOffset(2026, 8, 17, 14, 40, 0, TimeSpan.Zero)),
+        new("pay_demo_4655", PaymentProvider.Stripe, PaymentStatus.Paid, PaymentKind.Subscription, "pro-monthly", 900, "EUR", 900, new DateTimeOffset(2026, 8, 1, 8, 12, 0, TimeSpan.Zero)),
+        new("pay_demo_4602", PaymentProvider.Stripe, PaymentStatus.Failed, PaymentKind.OneTime, null, 4900, "EUR", 0, new DateTimeOffset(2026, 7, 22, 19, 5, 0, TimeSpan.Zero)),
+        new("pay_demo_4598", PaymentProvider.Stripe, PaymentStatus.Pending, PaymentKind.OneTime, "credit-pack-100", 600, "EUR", 0, new DateTimeOffset(2026, 7, 21, 9, 30, 0, TimeSpan.Zero)),
+    ];
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Button([Button.OutlineSm, "self-start"], text: "Load sample billing history",
+                onClick: async () => _payments.ReplaceAll(SamplePayments));
+            col.Text(["text-xs text-zinc-400"],
+                "Sample rows that exist at no payment provider, so Refund has no real payment to act on");
+            Render(col);
+        });
+    }
+
+    #region example:pattern-billing-history-and-refunds
     private readonly ClientReactiveList<Payment> _payments = new();
     private readonly ClientReactive<string?> _notice = new(null);
+
+    // Nothing pushes the ledger to the app: read it when the customer arrives, and again after
+    // every refund.
+    public void Main() => app.OnClientJoined(async _ => await RefreshAsync());
 
     private async Task RefreshAsync()
     {
@@ -28,7 +54,7 @@ internal sealed class BillingHistoryAndRefunds : IPatternDemo
             payment.Id, reason: "requested by customer");
 
         _notice.Value = refund.Status == RefundStatus.Unknown
-            ? "Refund submitted; the provider has not confirmed it yet."
+            ? "Refund submitted; the provider reported a status we do not map."
             : $"Refund {refund.Status} ({refund.Reference})";
 
         // OfferId is null for an ad-hoc charge, which granted no entitlement to check.
@@ -67,7 +93,7 @@ internal sealed class BillingHistoryAndRefunds : IPatternDemo
                             + $"({(payment.Kind == PaymentKind.Subscription ? "subscription" : "one-off")})");
 
                     // AmountRefundedMinor is what separates a partly-refunded payment from a
-                    // whole one; Status alone still reads Paid.
+                    // whole one; after a partial refund Status still reads Paid.
                     if (payment.AmountRefundedMinor > 0)
                     {
                         row.Text(["text-muted-foreground text-sm"],

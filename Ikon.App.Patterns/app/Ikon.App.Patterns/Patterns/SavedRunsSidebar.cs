@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: saved-runs-sidebar — see docs/patterns/saved-runs-sidebar.md.
-// The docsnippet region keeps a cheap per-user CloudJson index and loads heavier per-item assets on
+// The example region keeps a cheap per-user CloudJson index and loads heavier per-item assets on
 // demand; the stubs outside it stand in for the host app, its user resolution and its load-into-editor.
 internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
 {
@@ -13,7 +13,7 @@ internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
     private string ResolveUserId() => throw new NotImplementedException();
     private Task LoadTranscriptAsync(TranscriptEntry entry) => throw new NotImplementedException();
 
-    #region docsnippet:pattern-saved-runs-sidebar
+    #region example:pattern-saved-runs-sidebar
     public sealed record TranscriptEntry(
         string Id, string FileName, string AudioAssetUri, string TranscriptAssetUri,
         string Language, double DurationSeconds, string Summary,

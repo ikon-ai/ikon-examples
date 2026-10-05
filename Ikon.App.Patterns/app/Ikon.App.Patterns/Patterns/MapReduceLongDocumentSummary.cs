@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: mapreduce-long-document-summary — see docs/patterns/mapreduce-long-document-summary.md.
-// The docsnippet region splits a long document into fixed-size chunks, summarizes each in parallel,
+// The example region splits a long document into fixed-size chunks, summarizes each in parallel,
 // and reduces the per-chunk summaries into one cohesive result. The example is self-contained.
 internal sealed class MapReduceLongDocumentSummary : IPatternDemo
 {
@@ -11,7 +11,7 @@ internal sealed class MapReduceLongDocumentSummary : IPatternDemo
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
         "Backend pattern with no standalone UI: splits a long document into fixed-size chunks, summarizes each in parallel, and reduces them into one cohesive summary. See the source and docs/patterns/mapreduce-long-document-summary.md.");
 
-    #region docsnippet:pattern-mapreduce-long-document-summary
+    #region example:pattern-mapreduce-long-document-summary
     public sealed class TranscriptChunkSummary
     {
         public string Summary { get; set; } = string.Empty;

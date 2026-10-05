@@ -5,7 +5,7 @@ using Ikon.Common.Core.Email;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: reach-an-absent-user — see docs/patterns/reach-an-absent-user.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ReachAnAbsentUser : IPatternDemo
 {
     public string Slug => "reach-an-absent-user";
@@ -17,14 +17,14 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
 
     private IAppBase App => throw new NotImplementedException();
 
-    #region docsnippet:pattern-reach-an-absent-user
+    #region example:pattern-reach-an-absent-user
     /// <summary>
     /// SendToUserAsync already falls back to offline OS push when the user has no connected
     /// session, so the list is never empty: it holds one row per connected session, or a single
     /// OfflinePush row when nobody was connected. Which channel a row came from decides which of
     /// its fields carries the outcome.
     /// </summary>
-    private async Task NotifyAsync(string userId, string title, string body)
+    private async Task NotifyAsync(string userId, string email, string title, string body)
     {
         // Title is a REQUIRED positional argument; the rest are optional named ones.
         // A Tag is what stops a device that is BOTH connected and pushed showing the same thing
@@ -40,7 +40,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
                 // nothing. Delivered is whether the push hub took it, and Error is why not.
                 if (!result.Delivered)
                 {
-                    await EmailFallbackAsync(userId, title, body);
+                    await EmailFallbackAsync(email, title, body);
                     return;
                 }
 
@@ -48,12 +48,13 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
             }
 
             // On a session row, permission is requested lazily on the first actual SEND, not when
-            // the app opens -- so Default means "never asked yet", and this send is what asked.
-            if (result.Permission is NotificationPermission.Denied or NotificationPermission.Unsupported)
+            // the app opens -- so Default means this send asked and got no answer (dismissed, or
+            // queued until the user's next gesture), and nothing was shown.
+            if (result.Permission is NotificationPermission.Default or NotificationPermission.Denied or NotificationPermission.Unsupported)
             {
-                // Denied is a choice the user can change; Unsupported is a browser that has no
-                // such feature. Neither is worth retrying, and both mean another channel.
-                await EmailFallbackAsync(userId, title, body);
+                // Denied is a choice the user can change; Unsupported is a client with no such
+                // feature, or a session whose show call threw or failed. All mean another channel.
+                await EmailFallbackAsync(email, title, body);
                 return;
             }
         }
@@ -64,11 +65,13 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
     /// silently rewriting the from-address, so the fallback is to resend with no sender fields
     /// and deliver from the platform's own address.
     /// </summary>
-    private async Task EmailFallbackAsync(string userId, string subject, string body)
+    private async Task EmailFallbackAsync(string email, string subject, string body)
     {
-        EmailService email = App.Email;
+        EmailService emailService = App.Email;
+        // To is an email address -- the backend rejects anything else, so an Ikon user id here
+        // fails the send. Keep the address from the user's profile alongside their id.
         var request = new EmailSendRequest(
-            To: userId,
+            To: email,
             Subject: subject,
             HtmlBody: $"<p>{body}</p>",
             // A text body is not optional in practice: some clients show nothing without it.
@@ -78,11 +81,11 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
 
         try
         {
-            await email.SendAsync(request);
+            await emailService.SendAsync(request);
         }
         catch (EmailSenderNotAvailableException)
         {
-            await email.SendAsync(request with { SenderDisplayName = null, SenderDomain = null });
+            await emailService.SendAsync(request with { SenderDisplayName = null, SenderDomain = null });
         }
     }
     #endregion

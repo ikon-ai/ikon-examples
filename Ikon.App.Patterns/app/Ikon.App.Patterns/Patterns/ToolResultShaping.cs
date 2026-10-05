@@ -1,7 +1,7 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tool-result-shaping — see docs/patterns/tool-result-shaping.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ToolResultShaping : IPatternDemo
 {
     public string Slug => "tool-result-shaping";
@@ -16,7 +16,7 @@ internal sealed class ToolResultShaping : IPatternDemo
     private static Task<Invoice[]> LookupAsync(string customer) => throw new NotImplementedException();
     private static Task<byte[]> RenderChartAsync() => throw new NotImplementedException();
 
-    #region docsnippet:pattern-tool-result-shaping
+    #region example:pattern-tool-result-shaping
     /// <summary>
     /// A tool can return the value alone, or a FunctionResult that FRAMES it. The prefix and
     /// suffix are written into the model's transcript around the result, which is where you put

@@ -3,7 +3,7 @@ using Ikon.Common.Core.Functions;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: client-callable-functions — see docs/patterns/client-callable-functions.md.
-// The docsnippet region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts.
 internal sealed class ClientCallableFunctions : IPatternDemo
 {
     public string Slug => "client-callable-functions";
@@ -11,7 +11,7 @@ internal sealed class ClientCallableFunctions : IPatternDemo
     public string Category => "App structure";
     public void RenderDemo(IView view) => Render(view);
 
-    #region docsnippet:pattern-client-callable-functions
+    #region example:pattern-client-callable-functions
     // Every method here is advertised over the protocol, because [RegisterAll] sets the default and
     // each [Function] inherits it. Without the class attribute a bare [Function] is Local: callable
     // in-process and invisible to a client, which is the quiet version of "my endpoint 404s".
