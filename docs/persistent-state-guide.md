@@ -1,4 +1,4 @@
-<!-- checked-against: 00ce3502a7d1ca4153722cc3 -->
+<!-- checked-against: 00ce350206f289b2aa353cb5 -->
 
 # Ikon Persistent State Guide
 

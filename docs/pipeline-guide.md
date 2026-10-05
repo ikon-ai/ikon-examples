@@ -1,4 +1,4 @@
-<!-- checked-against: 40ccf3bd4171f4eee941295a -->
+<!-- checked-against: 646110f43b15e3fe6d04459b -->
 
 # Ikon Pipeline Guide
 
@@ -60,7 +60,7 @@ Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit
 
 <!-- ikon-example: pipeline-run -->
 ```csharp
-using var pipelineRunner = new PipelineRunner();
+await using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
 
 List<Item> inputItems = [];
@@ -86,7 +86,7 @@ foreach (var outputItem in outputItems)
 
 <!-- ikon-example: pipeline-run-enumerable -->
 ```csharp
-using var pipelineRunner = new PipelineRunner();
+await using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
 
 List<Item> inputItems = [];
@@ -110,7 +110,7 @@ await foreach (var outputItem in pipelineRunner.RunAsEnumerable(inputItems))
 
 <!-- ikon-example: pipeline-run-config -->
 ```csharp
-using var pipelineRunner = new PipelineRunner();
+await using var pipelineRunner = new PipelineRunner();
 
 var pipelineRunnerConfig = new PipelineRunner.Config
 {
@@ -172,7 +172,7 @@ Pass a `CancellationToken` when invoking the pipeline to halt execution cooperat
 
 <!-- ikon-example: pipeline-run-cancel -->
 ```csharp
-using var pipelineRunner = new PipelineRunner();
+await using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
 
 List<Item> inputItems = [];
@@ -513,7 +513,7 @@ Supply a configuration instance, enable persistent caching, and provide rich inp
 
 <!-- ikon-example: pipeline-run-advanced -->
 ```csharp
-using var pipelineRunner = new PipelineRunner();
+await using var pipelineRunner = new PipelineRunner();
 
 var myPipelineConfig = new AdvancedPipeline.Config
 {
