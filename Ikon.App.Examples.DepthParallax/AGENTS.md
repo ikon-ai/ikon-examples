@@ -74,7 +74,7 @@ thousands — read the text first and screenshot only when the question is about
 
 A script worth keeping becomes a **check gate**: `.ikon/gates/<name>.toml` (the name in lower-case
 letters, digits and `-`) with `kind = "check"`, an optional `description`, `blocking = false` for one
-that reports without failing the run, and the script in `steps`, one step per line (`#` starts a
+that reports without failing the run (except under `--regression`, where every failed gate fails it), and the script in `steps`, one step per line (`#` starts a
 comment). A gate that creates data leaves none behind for the next run to trip over.
 `ikon test` runs every gate against the local run or, with `--target`/`--app-id`,
 the deployed app; `ikon test <name>` runs one. The gate that shows a defect is the change's
