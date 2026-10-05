@@ -1,5 +1,7 @@
+<!-- checked-against: 895c8237c269ef79319cb297 -->
+
 # Ikon.Parallax Library Overview
-<!-- checked-against: 944622695784dd21 -->
+
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -10,7 +12,7 @@ The name "Parallax" reflects the library's core capability: different clients ca
 
 ### Reactive UI Updates
 
-Ikon.Parallax uses the reactive system from `Ikon.Common.Core.Reactive`. When a reactive value changes, only the UI components that depend on that value are re-rendered. The framework tracks dependencies automatically during rendering — reading `_count.Value` inside a UI lambda registers the dependency; there is no explicit subscription API.
+Ikon.Parallax uses the reactive system from `Ikon.Common.Core.Reactive`. When a reactive value changes, only the UI components that depend on that value are re-rendered. The framework tracks dependencies automatically during rendering — reading `_count.Value` inside a UI lambda registers the dependency, so rendering needs no explicit subscription. Code outside rendering can subscribe to `ValueChanged` or `ValueChangedAsync`.
 
 <!-- ikon-example: px-reactive-ui-updates -->
 ```csharp
@@ -70,12 +72,13 @@ public async Task Main()
 
 When `_counter.Value` changes, the Column whose content reads it re-renders (unchanged containers elsewhere are reused from cache), and only the diff — the Text's new text — is sent to clients.
 
-Committing to a brand happens in the `IkonTheme` initializer — an indexer-keyed object initializer where each entry sets one theme token:
+Committing to a brand happens in the `IkonTheme` initializer — an indexer-keyed object initializer where each entry sets one theme key, and a key such as `primary` or `foreground` expands to a cluster of tokens. Base overrides restyle the light scheme, so a brand-locked look sets `Mode = ThemeMode.Fixed` (or pairs a `DarkMode`), as this snippet does; left `Adaptive` with no `DarkMode` and a surface (`background`, `card`, `popover` or `foreground`) pinned, it logs a half-committed-theme warning:
 
 <!-- ikon-example: px-setting-up-a-ui-2 -->
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {
+    Mode = ThemeMode.Fixed,
     ["primary"] = "amber-400",
     ["background"] = "zinc-950",
 });
@@ -158,7 +161,7 @@ private readonly UserReactive<string> _language = new("en");
 
 In UI lambdas and action handlers you just read and write `.Value` — the active scope resolves the right per-client or per-user slot implicitly. This is the "parallax" effect: the same UI code produces different views for different clients.
 
-To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory, and `UserReactive` and `UserReactiveList` a seeding constructor (`ClientReactiveList` and `MountReactiveList` take only a fixed initial list):
+To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory, and `UserReactive`, `UserReactiveList`, `ClientReactiveList` and `MountReactiveList` a seeding constructor (a fixed initial list shares its items by reference across scopes, so seed mutable items per scope):
 
 <!-- ikon-example: px-shared-per-client-per-user-per-mount-2 -->
 ```csharp
@@ -171,7 +174,7 @@ private readonly UserReactiveList<string> _cart =
 
 ### Reactive Collections: ReactiveList and ReactiveDictionary
 
-List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build error IKON002 in an app project: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
+List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build warning IKON002, an error in the codegen build and in-repo apps: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
 
 <!-- ikon-example: px-reactive-collections-reactivelist-and-reactivedictionary -->
 ```csharp
@@ -197,7 +200,7 @@ Both come in the same scoped variants as the scalars: `ClientReactiveList<T>` / 
 
 ### Background Work: the *For Methods
 
-`.Value` works wherever the scope is active — inside `UI.Root()`, an action callback, or a `ReactiveScope.Use(new ClientScope(...))` block. Background work (a `Task.Run` loop, a timer, an endpoint handler) carries no client scope, so `.Value` there throws rather than writing to nowhere. Name the target instead with the `*For` methods, capturing the id while the scope is still active:
+`.Value` works wherever the scope is active — inside `UI.Root()`, an action callback, or a `ReactiveScope.Use(new ClientScope(...))` block. A `Task.Run` started inside a scoped callback inherits that scope, but work started outside any scope (a loop started from `Main`, a timer, an endpoint handler) carries no client scope, so `.Value` there throws rather than writing to nowhere. Name the target instead with the `*For` methods, capturing the id while the scope is still active:
 
 <!-- ikon-example: px-background-work-the-for-methods -->
 ```csharp
@@ -387,7 +390,7 @@ view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
     style: ["default", "absolute bottom-2 end-2"]);
 ```
 
-The default wording follows the kind, in English; pass `text:` for a product whose own voice says it
+The default wording follows the kind and the variant, in English (`Pill` gets the short "AI" / "AI-generated"); `note:` renders only on `Banner` and is dropped by the other variants; pass `text:` for a product whose own voice says it
 better or a market whose regulator words it differently. It renders themed from
 `Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
 rather than as the app's own output.
@@ -491,14 +494,14 @@ Note that `style:` on a composite is the **outermost container**, not the contro
 `ColorPicker` and `Select` it is the wrapper, and the thing that looks like the control is `triggerStyle:`.
 
 **Some bases always apply.** A handful of components carry classes they cannot function without — the layout
-primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scrollbar/thumb, `Select`'s parts,
+primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scrollbar/thumb, `Select`'s parts, `Slider`'s root,
 `ResizableSplit`, and size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`).
 There your array is *appended* to that base rather than replacing it, and later classes win:
 
 <!-- ikon-example: px-merge-semantics-the-default-marker-3 -->
 ```csharp
 view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full px-8 — the viewport still fills, and scrolls
+view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] px-8 — the viewport still fills, and scrolls
 ```
 
 You never need `"default"` on these, and you cannot remove the base — override it instead (`min-h-[300px]` beats
@@ -665,7 +668,7 @@ view.PanZoom(
 
 Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
 
-What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled — a `DndContext` or a click handler in the content still works, but its coordinates are screen-space. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
+What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled, and the viewport captures every primary pointer press to pan — a drag that starts on the content, a `DndContext` item's included, pans the view too. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
 
 ## The Ikon O
 
@@ -849,7 +852,7 @@ Route snapshots cover concrete paths that exist at deploy time. Two situations n
 - **Identity-split pages** — the deferred-login pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots.
 - **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
 
-Seed rules cover both. Each entry is `"pattern:variantId"` (the same colon-separated shape as `Databases`), listed per login state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
+Seed rules cover both. Each entry is `"pattern:variantId"`, listed per login state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
 
 ```toml
 [BootSnapshot]

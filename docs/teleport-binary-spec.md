@@ -1,5 +1,7 @@
+<!-- checked-against: 1a5ef762537a686098e26ea9 -->
+
 # Teleport message binary specification
-<!-- checked-against: 9cedbcbf537a6860 -->
+
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
@@ -10,7 +12,6 @@ order is writer-defined, so two encodings of the same message are not guaranteed
 
 | Property    | Value                    |
 |-------------|--------------------------|
-| Extension   | `.tpx`                   |
 | MIME Type   | `application/x-teleport` |
 | Encoding    | Little-endian binary     |
 | JSON Mirror | One-way (binary→JSON), for debugging |
@@ -204,7 +205,9 @@ JSON→binary direction.
 Rules:
 - Every object includes _v for version.
 - Field order is semantically irrelevant.
-- Dict keys are serialized as strings (canonical JSON of the key).
+- Dict keys are serialized as the key's plain invariant text, not its JSON encoding: a String key
+  as-is, Bool as true/false, numbers in invariant culture, Guid in "D" form, Binary as base64. A Null
+  key, which the binary format accepts, makes the mirror throw DictMalformed.
 - Without a schema document, field names render as 8-hex-digit field ids, and Binary/Guid
   values render as plain strings indistinguishable from String fields — the JSON form is a
   debugging mirror, not a lossless round-trip format.
@@ -328,7 +331,8 @@ public static byte[] WriteConfig()
 `TeleportObjectReader.Create` checks the root object's markers and exposes its `Version`;
 `TryReadField` yields each field's id and typed value in wire order. Nested arrays and objects are read
 through `AsArray()` and `AsObject()`. A field whose id the reader does not match needs no handling —
-its payload has already been stepped over.
+its payload has already been stepped over. Each `As*` accessor throws `BadType` when the wire type is
+not exactly the one asked for, so a reader facing an untrusted peer checks `field.Type` first, as §7 does.
 
 <!-- ikon-example: teleport-binary-read -->
 ```csharp
@@ -405,7 +409,7 @@ public static (int Timeout, bool UseCache, List<(string Host, uint Port)> Peers)
 |-----------------|--------------------------|
 | Underflow       | not enough bytes         |
 | BadMarker       | missing 0xA1             |
-| BadType         | unknown type code        |
+| BadType         | unknown type code; an `As*` accessor called on a value of another type (no widening) |
 | InvalidLength   | payload length mismatch, missing 0xA2, non-zero field flags |
 | DepthOverflow   | nesting too deep         |
 | InvalidUtf8     | invalid UTF-8 sequence   |
@@ -435,7 +439,7 @@ Readers must validate bounds, enforce max lengths and depth, and reject malforme
 When names are unknown:
 
 ```json
-{ "_v": 1, "5f1c9a6e": 1500, "2f7a6b8c": true }
+{ "_v": 1, "18c1e5c1": 1500, "4ef1e0d1": true }
 ```
 
 The runtime does not provide a JSON→binary decoder; this projection is for inspection, not round-tripping.

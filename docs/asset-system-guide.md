@@ -1,5 +1,7 @@
+<!-- checked-against: fd8ad941d6336ab7073ba358 -->
+
 # Asset System Developer Guide
-<!-- checked-against: 6df527393012cd99 -->
+
 ## Overview
 
 The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.
@@ -31,7 +33,7 @@ Key rules:
 | `CloudFilePublic` | `cloud-file-public` | Same backing service as `CloudFile` but exposes public URLs for assets meant to be shared openly. |
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
 
-Each storage reports what metadata it has through `AssetMetadata` — MIME type, byte size, update timestamp and tags on the cloud classes, plus a download URL on `CloudFile`/`CloudFilePublic` and the backend-specific identifier on `CloudJson` only, just size, update timestamp and path on `LocalFile`, and just size and resource name on `EmbeddedFile` — so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
+Each storage reports what metadata it has through `AssetMetadata` — MIME type, byte size, update timestamp and tags on the cloud classes, plus a download URL on `CloudFile`/`CloudFilePublic` and the backend-specific identifier on `CloudJson` only, just size, update timestamp and path on `LocalFile`, and just size and resource name on `EmbeddedFile` (a `ListAsync` entry carries only the resource name, so its `Size` is null) — so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
 Public cloud files can additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. It is present when the app's asset storage is served through the platform's own origin, which is the default, and absent when an app keeps its assets in storage the platform does not front — so treat it as optional and fall back to the absolute URL: `metadata.SameOriginUrl ?? metadata.Url`. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already does this for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
 
@@ -59,7 +61,7 @@ await assets.WriteAsync(
 
 ### `GetWriteStreamAsync`
 
-`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). A write that fails before dispose still commits what was written, so prefer `WriteAsync` unless you need the stream itself. On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes; without a size the whole object is buffered in memory and uploaded when the stream is disposed.
+`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). A write that fails before dispose still commits what was written, so prefer `WriteAsync` unless you need the stream itself. On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes (the `LastModified` conflict check then runs when the stream is opened); without a size the whole object is buffered in memory and uploaded when the stream is disposed.
 
 <!-- ikon-example: asset-guide-write-stream -->
 ```csharp
@@ -113,7 +115,7 @@ await assets.SetBytesAsync(thumbnailUri, thumbnailBytes, new AssetMetadata(mimeT
 
 ### `SetAsync<T>`
 
-`SetAsync<T>` serializes arbitrary reference types to JSON (unless the value is already `string` or `byte[]`) and writes the result using `SetTextAsync`. This is a convenient way to persist strongly typed settings without manual serialization.
+`SetAsync<T>` serializes arbitrary reference types to JSON and writes the result using `SetTextAsync`; a `string` is written as-is through `SetTextAsync` and a `byte[]` through `SetBytesAsync`. This is a convenient way to persist strongly typed settings without manual serialization.
 
 <!-- ikon-example: asset-guide-set-typed -->
 ```csharp
@@ -214,4 +216,4 @@ When an asset must not be overwritten blindly, follow this pattern:
 2. Carry `metadata.LastModified` forward into `SetTextAsync` or `SetBytesAsync` via `AssetMetadata`.
 3. Handle `AssetUpdateConflictException` (or check `AssetWriteResult.IsConflict`) to trigger a re-read and retry.
 
-This approach is supported across the `CloudFile`, `CloudFilePublic`, `CloudJson` and `LocalFile` backends. Only `CloudJson` passes the check to the Hub service as `ifUpdatedAt`, atomic with the write; the others compare the timestamp just before writing, so a concurrent write can still slip between the check and the upload.
+This approach is supported across the `CloudFile`, `CloudFilePublic`, `CloudJson` and `LocalFile` backends. `CloudJson` passes the check to the Hub service as `ifUpdatedAt`, atomic with the write, and `LocalFile` repeats it at commit under the store's per-path lock, so only an edit made outside the store can slip in. `CloudFile` and `CloudFilePublic` compare the timestamp just before uploading, so a concurrent write can still slip between the check and the upload.

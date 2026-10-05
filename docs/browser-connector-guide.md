@@ -1,5 +1,7 @@
+<!-- checked-against: 7682fc1bfce806bb1db2ce01 -->
+
 # Browser Connector Guide
-<!-- checked-against: 9ca58214c8e22577 -->
+
 This guide covers `Ikon.Connectors.Browser` — a real, Playwright-driven browser operated by an agent or by your code — for app developers automating websites from an Ikon app.
 
 ## Browser
@@ -11,7 +13,7 @@ This guide covers `Ikon.Connectors.Browser` — a real, Playwright-driven browse
 | `WebAgent.OperateAsync` | An LLM agent subthread | You have an objective in natural language and want the agent to figure out the clicks. Needs an `AgentThread` (from `Ikon.Agent`) and a registered browser-operator persona. |
 | `BrowserSession` | Your code | You know the exact actions — scripted navigation, screenshots, page evaluation. No LLM involved. |
 
-A failure the browser cannot turn into a result is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"browser"`; a replay given inputs that do not match its flow is one. Most of what goes wrong on a page is not an exception: an action that did not work is a result with `Ok` false, and a run that did not reach its objective has an `Outcome` that says so.
+A replay given inputs that do not match its flow, or a flow that fills a saved card or identity detail, is refused with a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"browser"`. Other failures the browser cannot turn into a result keep their own types: starting a session that is already started, or one whose Playwright browser install fails or whose Ikon Connect extension is not connected, throws `InvalidOperationException`, as does navigating, marking, screenshotting or evaluating on a session that is not started (its `ExecuteAsync` returns a result with `Ok` false instead), and a Playwright launch failure is a `PlaywrightException` — `WebAgent.OperateAsync` passes these through from the browser it starts. Most of what goes wrong on a page is not an exception: an action that did not work is a result with `Ok` false, and a run that did not reach its objective has an `Outcome` that says so.
 
 ### Agentic operation
 
@@ -37,7 +39,7 @@ if (run.Outcome == WebOutcome.Succeeded)
 
 A site that is not your own app decides what the browser loads next, and the agent can press anything on it. Three options make that safe to hand to a person:
 
-- `PublicInternetOnly: true` confines the browser to public addresses. Every request is made by the platform's guarded HTTP client, so no page can reach the network your app runs in, and certificates are validated. Every `WebAgentOptions` states it; `false` is only for your own app on localhost or a private address.
+- `PublicInternetOnly: true` confines the browser to public addresses. Every HTTP request is made by the platform's guarded HTTP client, so no page can fetch from the network your app runs in, and certificates are validated. A WebSocket's host is checked once when it opens and Chromium then connects itself, so a DNS-rebinding server can still move a WebSocket between the check and the connect. Every `WebAgentOptions` states it; `false` is only for your own app on localhost or a private address.
 - `ReviewWrite` is asked before every action that could change something on the site — a click on a submit, send, pay or delete control, Enter outside a search field, and anything the classifier does not recognise. The action runs only on `WebApproval.Allow`; `WebApproval.Deny(reason)` is reported to the agent, which does not try it again. The `WebActionReview` carries a one-line `Description` and a JPEG `Screenshot` of the page. Nobody answering must be a refusal, so bound the wait.
 - `OnProgress` hands you a `WebProgress` — step number, URL, what just happened, and a JPEG `Screenshot` — after every observation, for a live view.
 
@@ -89,7 +91,7 @@ The action vocabulary is a tagged union: `Navigate`, `Click`, `Fill`, `FillLogin
 
 The agent needs only an `IWebPage` — navigate, screenshot (PNG and JPEG), mark the elements, execute an action, the current URL, stage files and take downloads, report saved logins, and dispose — and `BrowserSession` is the one in your process. `WebAgentOptions.OpenPage` hands a run a page that lives elsewhere instead, such as a browser on a person's own computer driven over a connection of your own; the run disposes the page it opened, and `Headless` and `PublicInternetOnly` are then for the opener to honour. A page reached over a network should also implement `IWebPage.ObserveAsync`, which returns the marks and a screenshot as one `WebObservation`: the agent observes after every step, and the default asks for each in turn.
 
-`BrowserSession.StartPersistentAsync(profileDirectory, headless)` starts on a profile kept in a directory, so its cookies, saved passwords and sign-ins survive from one session to the next: a person signs in to a site once in that profile and every later run is signed in. Only one session can hold a profile at a time; `NewTabAsync` opens another tab on the same profile, so several agents can work at once on one set of sign-ins, and disposing a tab closes only that tab. `Closed` is raised when the person closes the window, or the tab. `AddCookiesAsync` puts `BrowserCookie`s into the session's jar — into the profile, for a persistent session — which is how a host brings in the sign-ins of the browser the person already uses.
+`BrowserSession.StartPersistentAsync(profileDirectory, publicInternetOnly, headless)` starts on a profile kept in a directory, so its cookies, saved passwords and sign-ins survive from one session to the next: a person signs in to a site once in that profile and every later run is signed in. `publicInternetOnly` confines it as it does `StartAsync`; `false` leaves private and local addresses reachable. Only one session can hold a profile at a time; `NewTabAsync` opens another tab on the same profile, so several agents can work at once on one set of sign-ins, and disposing a tab closes only that tab. `Closed` is raised when the person closes the window, or the tab. `AddCookiesAsync` puts `BrowserCookie`s into the session's jar — into the profile, for a persistent session — which is how a host brings in the sign-ins of the browser the person already uses.
 
 ### Files in and out
 
@@ -97,7 +99,7 @@ A run can hand a site files and bring files back. `WebAgentOptions.Files` lists 
 
 ### Saved logins
 
-An agent signs in without ever seeing a password. Give the page an `ILoginVault` — `BrowserSession.Logins` — and each observation lists the `SavedLogin`s that cover the current page, by id and label only. The agent calls `use_login`, which is `WebAction.FillLogin(target, loginId, field)` with a `LoginField` of `Username`, `Password` or `OneTimeCode`, and the browser asks the vault for that one value at the moment it fills the field. The value never reaches the model, the step trace or a distilled flow, so a replayed flow signs in again through the vault.
+An agent signs in without ever seeing a password. Give the page an `ILoginVault` — `BrowserSession.Logins` — and each observation lists the `SavedLogin`s that cover the current page, by id and label only. The agent calls `use_login`, which is `WebAction.FillLogin(target, loginId, field)` with a `LoginField` of `Username`, `Password` or `OneTimeCode`, and the browser asks the vault for that one value at the moment it fills the field. The value never reaches the model, the step trace or a distilled flow, so a replayed flow signs in again through the vault — when replayed with `WebAgent.ReplayAsync(page, flow, inputs)` on a page that has one, since `WebAgent.ReplayAsync(flow, inputs, headless, publicInternetOnly)` opens a browser with no saved logins or passkeys, where such a step fails.
 
 A login fills only where `SavedLogin.Covers` holds for the document the field is in — https on the login's site or a subdomain of it, plain http only on loopback — so a frame from another site, or a look-alike host, gets nothing; a password fills only into a password field. `ILoginVault.RevealAsync` returns null to refuse, and a vault that holds the secret checks the page itself rather than trusting its caller. `IWebPage.SavedLoginsAsync` is what a page reports; a page on a person's computer answers from the vault there. A `SavedLogin` with `AskFirst` is filled only after `ReviewWrite` approves it, as a write would be; with no reviewer the agent is told to leave the sign-in to the person. `WebAgent.ReplayAsync` stops at a step that fills such a login, since a replay asks nobody.
 
@@ -125,7 +127,7 @@ var filled = await session.ExecuteAsync(
     new WebAction.FillDetail(new WebTarget(Role: "textbox", Name: "Card number"), "personal-visa", "number"));
 ```
 
-A detail fills only where `SavedDetail.MayFill` holds both for the page and for the document the field is in — https, or plain http on loopback — and that document may be a frame from another host, as a payment provider's card form is. A field where `SavedDetail.IsSecret` holds, a card's number and security code, is masked on the page once filled, and no filled field's value is read back into an observation. In an agent run the person is asked through `ReviewWrite` before the first fill of a detail on a site, and the rest of that detail's fields then fill there without asking again; with no reviewer the fill is refused and the agent is told to leave the form to the person. Submitting the form is a write of its own, reviewed as any other. `WebAgent.ReplayAsync` refuses a flow that holds a `WebAction.FillDetail`, since a replay asks nobody. `IWebPage.SavedDetailsAsync` is what a page reports, and a page that keeps none reports none.
+A detail fills only where `SavedDetail.MayFill` holds both for the page and for the document the field is in — https, or plain http on loopback — and that document may be a frame from another host, as a payment provider's card form is. A field where `SavedDetail.IsSecret` holds, every card field but `SavedDetail.ExpiryField` and `SavedDetail.NameField`, is masked on the page once filled, and no filled field's value is read back into an observation. In an agent run the person is asked through `ReviewWrite` before the first fill of a detail on a site, and the rest of that detail's fields then fill there without asking again; with no reviewer the fill is refused and the agent is told to leave the form to the person. Submitting the form is a write of its own, reviewed as any other. `WebAgent.ReplayAsync` refuses a flow that holds a `WebAction.FillDetail`, since a replay asks nobody. `IWebPage.SavedDetailsAsync` is what a page reports, and a page that keeps none reports none.
 
 ### Distill and replay
 

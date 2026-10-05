@@ -1,5 +1,7 @@
+<!-- checked-against: 310ce0e34f26b43997b724c9 -->
+
 # Ikon.App.Email Guide
-<!-- checked-against: 015158634f26b439 -->
+
 Send transactional email from your app and read the mail delivered to your app — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point, available to every app. Each message sent is
@@ -22,7 +24,10 @@ await app.Email.SendAsync(new EmailSendRequest(
 
 The send is **accepted, not delivered**: a successful return means the platform queued the message,
 and transient delivery failures are retried server-side. A recipient that is undeliverable or
-suppressed (it bounced or complained before) is refused at send time with a request failure. Missing
+suppressed (it bounced or complained before) is refused at send time with a request failure (an
+`HttpRequestException` carrying a 422); undeliverable includes the reserved domains `example.com`,
+`example.net`, `example.org` and the `.test`, `.example`, `.invalid` and `.localhost` TLDs, so replace
+the `To` above with a real address before running it. Missing
 fields and the limits below, except the metadata key count, throw `ArgumentException` locally, before
 anything is sent; a malformed `To` or `ReplyTo` address and too many metadata keys are rejected by the
 backend and surface as a `UserException`.

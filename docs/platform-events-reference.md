@@ -1,5 +1,7 @@
+<!-- checked-against: e911b14036645cb417198061 -->
+
 # Ikon Platform Events
-<!-- checked-against: 8edce67836645cb4 -->
+
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -34,12 +36,13 @@ tag it or not. Keep personal data out of event parameters regardless; this is a 
 feature to rely on.
 
 No event records a client IP address. Where a client connected from is reported as a country, region
-and city by `client_geo` below, resolved at the network edge — the address itself is never read into
-the platform, so it cannot appear in an event or be retained anywhere.
+and city by `client_geo` below, resolved at the network edge without the platform reading the
+address. The platform does read client addresses elsewhere — audit records and security logs keep
+them — but never into an event.
 
 ## Reading a failure event
 
-Every event that reports something going wrong carries a `class` parameter, so you can separate the
+Most events that report something going wrong carry a `class` parameter, so you can separate the
 ones that need someone's attention from the ones that are the platform working as designed. The name
 of an event tells you what happened; `class` tells you whose problem it is.
 
@@ -53,6 +56,10 @@ of an event tells you what happened; `class` tells you whose problem it is.
 
 **Count `defect`, `dependency` and `provider_credit`; ignore the rest.** A dashboard built on event
 *names* alone counts a missing `--yes` flag the same as a crash.
+
+A few failure events carry no `class` — `ikon_server_oom`, `client_rejected_limit`,
+`client_rejected_memory`, `client_authentication_failed`, `billing_checkout_failed` and
+`billing_invoice_payment_failed` — so count those by name.
 
 `provider_credit` is separate from `dependency` because the two need different people: a dependency
 failure is watched until it clears on its own, and a credit failure clears only when somebody pays.
@@ -143,8 +150,9 @@ Crawlers are excluded — a large share of what reaches the router is vulnerabil
 counting them would inflate the denominator of any completion rate built on this.
 
 `country` is resolved at the network edge from the connection, never from an IP address, and is
-`unknown` when the edge could not place the client. `tenant` is your app's domain; the app's id is on
-the row itself.
+`unknown` when the edge could not place the client. `tenant` is your app's tenant name, the label of
+its platform subdomain, even when the page was served on a custom domain; the app's id is on the row
+itself.
 
 ## Client placement
 
@@ -152,8 +160,8 @@ the row itself.
 |---|---|---|
 | `client_geo` | A client opened an app session, and the network edge was able to place it | `appSession`, `authSession`, `country` (ISO 3166-1 alpha-2), `subdivision`, `city`, `rttMsec` |
 
-Resolved by the load balancer from the connection itself, so **the client's IP address is never read
-by the platform** — only the placement it implies is recorded. Nothing is emitted when the edge could
+Resolved by the load balancer from the connection itself, so **the client's IP address is not read
+to produce it** — only the placement it implies is recorded. Nothing is emitted when the edge could
 not place the client, or for a request that did not reach us through it (local development, for
 instance), so absence of a row is normal and is not a failure.
 
@@ -204,7 +212,7 @@ supplied a trace id, so an event with no trace id produces no rows at all.
 
 | Event | Source | Payload |
 |---|---|---|
-| `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, `snapshotSeeded`, plus the asset fields below |
+| `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
 | `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
@@ -258,7 +266,9 @@ zero of them. Successful calls are not tracked individually.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
 `RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`
-and for a call the caller cancelled itself. A call that `failed` otherwise is classed by the error the
+and for a call the caller cancelled itself, and for a spend limit or policy denial the far side
+enforced on purpose (one whose limit check itself failed stays `dependency`, as on the server). A call
+that `failed` otherwise is classed by the error the
 far side threw, by the same rule the AI operation's own `{eventName}_failed` row uses (below): a
 refused prompt is `expected`, a request the model rejects is `user_error`, an empty provider account
 is `provider_credit`, and everything else is `dependency`.

@@ -1,5 +1,6 @@
+<!-- checked-against: 31ddd0007bb5926ee3b0c442 -->
+
 # Ikon AI TypeScript SDK
-<!-- checked-against: b24ff9287bb5926e -->
 
 The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 22+ (it needs a global `WebSocket`, which earlier Node.js versions lack).
 
@@ -146,7 +147,7 @@ The client tracks its connection state via the `connectionState` property. Live 
 | `connecting` | Authentication and connection in progress |
 | `connected` | Protocol channels connected; the session is joined (GlobalState received, `onJoined` run) shortly after |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
-| `offline` | Disconnected (timeout, server stopped, user-initiated). An unsupported browser or an internal failure leaves its error on `client.lastError`; a timeout or a failed connect reports only through `onError` |
+| `offline` | Disconnected (timeout, server stopped, user-initiated). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
 
 The `ConnectionState` union also includes deprecated states (`idle`, `connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
 
@@ -174,7 +175,7 @@ if (isOffline(client.connectionState)) {
 <!-- ikon-example: ts-sdk-config-callbacks -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
 
   // Connection state changes
   onConnectionStateChange: (state) => {
@@ -222,20 +223,20 @@ console.log(client.sessionId);
 // GlobalState is null until it arrives, which can be after connect() resolves; onJoined marks it
 console.log(client.globalState);
 
-// Disconnect (connect() runs once per client; to connect again, build a new client)
-client.disconnect();
-
-// Access the last error (set when an unsupported browser or an internal failure took the client offline)
-if (client.lastError) {
-  console.error(client.lastError);
-}
-
-// Notify the server of client context changes
+// Notify the server of client context changes (only while connected)
 client.sendUpdateClientContext({
   viewportWidth: window.innerWidth,
   viewportHeight: window.innerHeight,
   theme: 'dark',
 });
+
+// Disconnect (connect() runs once per client; to connect again, build a new client)
+client.disconnect();
+
+// Access the last error (set when an unsupported browser, an internal failure or a failed preview-mode connect took the client offline)
+if (client.lastError) {
+  console.error(client.lastError);
+}
 ```
 
 ### Automatic Reconnection
@@ -245,12 +246,12 @@ The SDK automatically attempts to reconnect when the connection is lost unexpect
 <!-- ikon-example: ts-sdk-reconnection -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Slow-connection threshold (drives isConnectingSlow in the React layer)
     connectionTimeoutMs: 180000,        // Connection timeout (3 minutes)
     reconnectBackoffMs: 2000,          // Fixed delay between reconnect attempts
-    maxReconnectAttempts: 2,           // Attempts before falling back to full re-authentication
+    maxReconnectAttempts: 2,           // Attempts before a soft reconnect against the cached entrypoints, then full re-authentication
   },
 });
 ```
@@ -330,13 +331,13 @@ unsubscribe();
 // Send a protocol message
 client.sendProtocolMessage(message);
 
-// Send an action call
-client.sendActionCall('action-guid-here', JSON.stringify({ key: 'value' }));
+// Send an action call: actionId is a UI node's action id (a GUID, such as a button's onClickId)
+client.sendActionCall(actionId, JSON.stringify({ key: 'value' }));
 ```
 
 ## Functions
 
-The SDK provides a function registry system that allows you to register callable functions that can be invoked by the server or other connected clients.
+The SDK provides a function registry system that allows you to register callable functions that the app server can invoke. The server offers a browser client's functions to the app: the app can call them, and another browser client cannot, though it may see them listed (the server normally relays the registrations to the app alone).
 
 ### Function Registry
 
@@ -375,7 +376,8 @@ const unregister = client.functionRegistry.register(
   (name) => `Hello, ${name as string}!`
 );
 
-// Later: unregister
+// Later: unregister. Local only: the server is not told, so callers still see the function and get
+// 'Unknown function' back from this client.
 unregister();
 ```
 
@@ -426,7 +428,7 @@ client.functionRegistry.register(
 
 ### Remote Function Calling
 
-Call functions registered by the app server or by other connected clients:
+Call functions the app server registers (another browser client's functions are not reachable):
 
 <!-- ikon-example: ts-sdk-remote-call -->
 ```ts
@@ -442,8 +444,8 @@ console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
 // Get a specific remote function
 const func = client.functionRegistry.getRemoteFunction('remoteGreet');
 
-// Handle remote call errors. Only a remote failure is a FunctionCallError; not connected, an unknown
-// name, a missing instanceId, the fixed 30 s timeout and a disconnect reject with a plain Error.
+// Handle remote call errors. Only a remote failure or an unparseable result is a FunctionCallError; not
+// connected, an unknown name, a missing instanceId, the fixed 30 s timeout and a disconnect reject with a plain Error.
 try {
   await client.functionRegistry.call('riskyOperation');
 } catch (error) {
@@ -489,7 +491,7 @@ const capture = await client.ensureMediaCapture();
 <!-- ikon-example: ts-sdk-media-config -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   audio: {
     performance: { preferWebCodecs: true },
     background: { allowOnDesktop: true, allowOnMobile: false },
@@ -517,7 +519,7 @@ The SDK supports WebRTC for audio and video transport. It is enabled by default 
 <!-- ikon-example: ts-sdk-webrtc -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   webRtc: { enabled: false },  // disable WebRTC; default is true
 });
 
@@ -622,7 +624,7 @@ The `sdk-ui` library is designed to be framework-agnostic. For React integration
 <!-- ikon-example: ts-sdk-timeouts -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Default: 5000
     connectionTimeoutMs: 180000,        // Default: 180000 (3 minutes)
@@ -721,7 +723,7 @@ app state.
 | `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`) |
 | `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific Ikon server, for shareable preview links. Carries a credential — treat the link like one |
 | `ikon-session` | session identity hash | Join a specific live session instead of resolving one by identity |
-| `ikon-same-origin` | `true`, `false` | Route API and auth calls through the app's own origin. On by default for deployed apps |
+| `ikon-same-origin` | `true`, `false` | Route API and auth calls through the app's own origin. On by default for deployed apps. `true` cannot turn it on in local dev; in the cloud it only wins over a configured auth URL override |
 | `ikon-debug` | `true` | Verbose SDK logging, and the devtools extension |
 | `ikon-debug-overlay` | `true` | The on-screen debug panel. `ikon-debug` does not imply it |
 | `ikon-inspect` | `true` | The element inspection overlay |
@@ -729,7 +731,7 @@ app state.
 | `ikon-lang` | e.g. `en`, `fi` | Override language detection |
 | `ikon-audio`, `ikon-video`, `ikon-webrtc` | `true`, `false` | Force audio, video or WebRTC on or off |
 | `ikon-ice-transport` | `relay`, `all` | Force the WebRTC ICE policy. `relay` gathers TURN candidates only, which is how the relay path gets verified |
-| `ikon-retry` | `false` | Fail fast instead of retrying auth and channel connects |
+| `ikon-retry` | `false` | Fail fast: one provisioning attempt, no channel reconnects, and no reconnect or reauth after a lost connection (the auth connect still retries) |
 | `ikon-snapshot` | `true` | Connect as a build-time snapshot client |
 | `ikon-feedback` | present | Open the feedback sheet once the app is live, as a tap on the feedback button does. Only for a user who is offered the feedback overlay |
 
@@ -754,7 +756,7 @@ By default, the SDK auto-registers browser convenience functions (getTheme, setT
 <!-- ikon-example: ts-sdk-browser-functions -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   disableBrowserFunctions: true,
 });
 ```
@@ -772,7 +774,8 @@ A plain left-click on a same-origin `<a href>` is turned into an in-place route 
 pushes the history entry and tells the server the URL moved — the same signal a back/forward gesture
 sends — so the app switches route without reloading the document, dropping the connection or minting
 a new client session. On the server this arrives as `app.Navigation.PathChangedAsync`, so one router
-serves link clicks, history gestures and cold loads alike.
+serves link clicks and history gestures alike; a cold load or reload raises nothing, and its path is
+`app.Navigation.CurrentPath`.
 
 The `href` stays in the DOM, so new-tab, copy-link, the status-bar preview and crawlers are
 unaffected. These always navigate natively: modified and middle clicks, `target` links, `download`
@@ -794,7 +797,7 @@ does not route:
 <!-- ikon-example: ts-sdk-intercept-links -->
 ```ts
 const client = new IkonClient({
-  // ... authentication config ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   interceptInternalLinks: false,
 });
 ```
@@ -863,7 +866,7 @@ In a browser the protocol runs in a Web Worker, and errors raised there reach `o
 import { AuthenticationError } from '@ikonai/sdk';
 
 const client = new IkonClient({
-  // ...
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
   onError: (error) => {
     if (error instanceof AuthenticationError) {
       console.error('Authentication failed:', error.message);

@@ -1,5 +1,7 @@
+<!-- checked-against: aa0183c67f6d3374e3b0c442 -->
+
 # Authenticating the Ikon tool in CI
-<!-- checked-against: 9bc02d3a7f6d3374 -->
+
 How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
 
 ## The short version
@@ -42,7 +44,8 @@ Created service token 'my-pipeline' (id 68f2a1c9e4b17d3a5c9012ab), valid until 2
 
 ikon_svc_kZ8vQ2mR7tX...
 
-This is the only time the token is shown. Store it in your CI secret store as IKON_SERVICE_TOKEN.
+This is the only time the token is shown. Store it in your CI secret store as IKON_SERVICE_TOKEN — the tool reads it from there and exchanges it for a short-lived token on each run.
+It carries your own access to the platform, so treat it as a password. Revoke it with 'ikon auth token revoke'.
 ```
 
 Only a hash of it is stored on our side, so it cannot be shown again — if you lose it, revoke it and create another.
@@ -68,9 +71,9 @@ Set two environment variables in your CI configuration, and a third only for com
 | `IKON_SPACE_ID` | Optional. The id of the app to act on, for commands run outside a linked app project; `ikon deploy` and `ikon bundle` never need it. The variable keeps the platform's own word for a cloud app, a space. |
 | `IKON_BACKEND_ENV` | `dev` or `prod` — which platform the pipeline runs against. |
 
-`ikon deploy` and `ikon bundle` do not read `IKON_SPACE_ID` or take `--app-id`: they act only on the app the project's `ikon-config` file for the environment is linked to, so commit that linked file and the variable is not needed for them. For commands that resolve an app outside a project, `IKON_SPACE_ID` stands in for the organisation and app defaults that `ikon default set` sets, which live in the login file on your own machine that a CI runner does not have; you can pass `--app-id` on each such command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`.
+`ikon deploy` and `ikon bundle` do not read `IKON_SPACE_ID` or take `--app-id`: they act only on the app the project's `ikon-config` file for the environment is linked to, so commit that linked file and the variable is not needed for them. For commands that resolve an app outside a project, `IKON_SPACE_ID` stands in for the organisation and app defaults that `ikon default set` sets, which live in the login file on your own machine that a CI runner does not have; you can pass `--app-id` on each such command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`. `ikon release` and `ikon pipeline --dll-path` are the exceptions: in an unlinked project they fall back to `IKON_SPACE_ID`, then the saved default, and act on that app.
 
-`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. On your own machine that choice comes from your login or `ikon default set`; a CI runner has neither. The tool then looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
+`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. Without the variable or a flag, the tool first looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present; only then does it use the default your login or `ikon default set` saved on your own machine, and a CI runner has neither — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
 
 Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on. No browser, no prompts.
 

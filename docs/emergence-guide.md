@@ -1,6 +1,8 @@
+<!-- checked-against: 5ec9b74602fcf6d3d0cb7d23 -->
+
 # Ikon.AI.Emergence Guide
-<!-- checked-against: 27ae7832015dce3e -->
-Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
+
+Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to scored candidate search and document-tree navigation.
 
 ## Core Concepts
 
@@ -173,11 +175,12 @@ var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, cont
 }).FinalAsync();
 ```
 
-The `EmergePass<T>` configure callback is invoked before every iteration on the same pass — settings and `Tools` carry over, only a `Stop` is cleared, and adding a tool whose name is already there replaces it — so tools added on the first iteration stay offered, but keep side effects idempotent, because they repeat once per iteration (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
+The `EmergePass<T>` configure callback is invoked before every iteration on the same pass — settings and `Tools` carry over, only a `Stop` and what was interjected are cleared, and adding a `Function` to `Tools` whose name is already there replaces it (`AddTool` instead skips it) — so tools added on the first iteration stay offered, but keep side effects idempotent, because they repeat once per iteration (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
 
 - `pass.Iteration` — current iteration number
 - `pass.HasFunctionResults` / `pass.HasNewFunctionResults` — whether tool results exist in context
 - `pass.Stop(reason?)` — early termination from within the callback
+- `pass.Interject(text)` (or a `MessageBlock`) — words the model reads before its next turn, after the results of the tools it just called: how a person steers a run that is already working. A run whose model has started its final reply, or that stops before its next iteration (`Stop`, or an iteration, tool-call or wall-time budget spent), ends without reading them, and its context does not contain them
 
 **Options:**
 - `SystemPrompt` - System instruction
@@ -234,7 +237,7 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
 - `EnableCritic` - Run a critic pass over the winning candidate (default: false). On its own it works: the winner and its score are appended to the critic scope's `Command`
 - `Critic(Action<EmergeScope<T>>)` - Configure the critic scope. Calling this also sets `EnableCritic = true`, so a configured critic always runs; set `EnableCritic = false` afterward only if you are pre-configuring a critic to toggle on later
-- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. The breakdown is non-null exactly when `ScoreDetailed` or `ScoreDetailedAsync` produced one
+- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. Its string replaces the critic's whole `Command`, so it must carry the winning candidate itself; only the default feedback appends it. The breakdown is non-null exactly when `ScoreDetailed` or `ScoreDetailedAsync` produced one
 - `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
 Multi-axis scoring with a critic that is told which axis was weakest. Each metric callback returns a score in `[0, 1]` — anything outside is clamped, so a 0..10 or 0..100 rubric must be divided by its maximum or every candidate ties at 1.0:
@@ -252,7 +255,7 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 
     opt.EnableCritic = true;
     opt.BuildCriticFeedback = (answer, breakdown) =>
-        $"Weakest axis: {breakdown!.Weakest!.Name}. Improve it:\n{breakdown.FormatBreakdown()}";
+        $"Answer: {JsonSerializer.Serialize(answer)}\nWeakest axis: {breakdown!.Weakest!.Name}. Improve it:\n{breakdown.FormatBreakdown()}";
 });
 ```
 
@@ -290,10 +293,10 @@ var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.
 ```
 
 **Options:**
-- `Chunks` - Pre-split input chunks (takes precedence if set)
-- `Input` + `Split` - Or provide input with a split function (used only if `Chunks` is null)
+- `Chunks` - Pre-split input chunks
+- `Input` + `Split` - Or provide input with a split function; set `Chunks` or `Input`, not both (the run throws `ArgumentException`)
 - `MaxParallel` - Concurrency for map phase (default: 4; must be at least 1, otherwise the setter throws `ArgumentOutOfRangeException`)
-- `Map(Action<EmergeScope<TChunk>>)` - Configure chunk processing
+- `Map(Action<EmergeScope<TMapped>>)` - Configure chunk processing (the scope is typed by the map output)
 - `Reduce(Action<EmergeScope<TResult>>)` - Configure reduction
 
 **Context flow:** Map runs use isolated contexts. All map outputs are collected in input order and serialized as JSON into Reduce's `Command`; Reduce runs on the caller's context. If any chunk stops or produces no result, Reduce never runs and the run stops with `ChunksFailed` (`NoMappedResults` when every chunk did), so awaiting it throws `EmergenceStoppedException`. Setting neither `Chunks` nor `Input` stops it with `NoInputOrChunks`.
@@ -468,7 +471,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
 - `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments
 - `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
-- `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
+- `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool; since `AddTool` keeps the first registration of a name and the configure callback re-runs on the same pass, re-adding the copy with new values on a later iteration is silently dropped — remove the old one from `pass.Tools` first
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
 **Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes without a result: the `Completed<T>` event carries `HasResult` false, and awaiting the run throws `EmergenceStoppedException` saying so, for a value-type `T` as much as a reference type, rather than returning a `default(T)` that looks real.
@@ -557,7 +560,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `Temperature` | `double?` | Sampling temperature |
 | `MaxOutputTokens` | `int?` | Maximum output tokens |
 | `ReasoningEffort` | `ReasoningEffort?` | Reasoning effort level; carried over to a token budget on a model that reads one |
-| `ReasoningTokenBudget` | `int?` | Token budget for reasoning; refused by a model that reads an effort instead |
+| `ReasoningTokenBudget` | `int?` | Token budget for reasoning; dropped by an OpenAI model that reads an effort instead, refused by a Gemini 3 one |
 | `Timeout` | `TimeSpan?` | Request timeout |
 | `Regions` | `IReadOnlyList<ModelRegion>?` | Model region preferences |
 | `MaxIterations` | `int?` | Max agentic iterations |
@@ -565,7 +568,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `MaxInvalidJsonReplies` | `int?` | Consecutive unparseable JSON replies before stopping with `InvalidJson` (default 3) |
 | `MaxWallTime` | `TimeSpan?` | Max wall clock time |
 | `MaxRetries` | `int?` | Max retries on transient failures |
-| `RetryDelay` | `TimeSpan?` | Delay between retries |
+| `RetryDelay` | `TimeSpan?` | Base of the exponential backoff: retry n waits `RetryDelay * 2^(n-1)` (default 2 seconds), or a provider's longer Retry-After, capped at 2 minutes |
 | `SystemPrompt` | `string?` | System instruction |
 | `Command` | `string?` | User command |
 | `Tools` | `IList<Function>` | Available tools |

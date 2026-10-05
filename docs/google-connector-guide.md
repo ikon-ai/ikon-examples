@@ -1,5 +1,7 @@
+<!-- checked-against: a8d8f6c74e70697639f7603e -->
+
 # Google Connector Guide
-<!-- checked-against: 6af2c50c620b1bc4 -->
+
 This guide covers `Ikon.Connectors.Google` — Google Workspace's Drive, Gmail, Calendar, Docs, Sheets, Slides, Contacts, Tasks, Meet, Chat and Forms, over Google's REST APIs — for app developers wiring a person's Google account into an Ikon app.
 
 ## Google Workspace
@@ -13,7 +15,7 @@ var drive = new Drive(tokens);
 var gmail = new Gmail(tokens);
 ```
 
-Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is an access failure. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request.
+Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is an access failure. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request, except that a calendar id or sharing rule id may hold `#` and `%`.
 
 ### Signing in
 
@@ -412,7 +414,7 @@ These three name things by Google's resource names — `spaces/jQCFfuBOdN5z`, `c
 
 `GoogleMeet.CreateSpaceAsync` makes a `MeetSpace` with a link to join it. `MeetSpaceSettings` sets who joins without knocking (`MeetAccess`), moderation, and whether every conference is recorded, transcribed or summarised from its start. `GetSpaceAsync` also takes a meeting code, and `UpdateSpaceAsync` changes only the settings given. `AddMemberAsync` invites people ahead of time, as `MeetMember`s, optionally as co-hosts. `EndConferenceAsync` ends a meeting in progress.
 
-What a meeting leaves behind is read from its `MeetConference`: `ListParticipantsAsync` returns `MeetParticipant`s, each with a `MeetParticipantKind` (signed in, anonymous or by phone), with each one's `MeetParticipantSession`s. `ListRecordingsAsync`, `ListTranscriptsAsync` and `ListSmartNotesAsync` return `MeetArtifact`s naming the Drive file or Google Doc each was written to. `ListTranscriptEntriesAsync` reads a transcript as `MeetTranscriptEntry` lines with speaker and time. Google keeps conferences and transcript entries for 30 days.
+What a meeting leaves behind is read from its `MeetConference`: `ListParticipantsAsync` returns `MeetParticipant`s, each with a `MeetParticipantKind` (signed in, anonymous or by phone), and `ListParticipantSessionsAsync` takes one's `Name` and returns its `MeetParticipantSession`s. `ListRecordingsAsync`, `ListTranscriptsAsync` and `ListSmartNotesAsync` return `MeetArtifact`s naming the Drive file or Google Doc each was written to. `ListTranscriptEntriesAsync` reads a transcript as `MeetTranscriptEntry` lines with speaker and time. Google keeps conferences and transcript entries for 30 days.
 
 <!-- ikon-example: connectors-meet -->
 ```csharp

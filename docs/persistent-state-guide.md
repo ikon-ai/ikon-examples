@@ -1,5 +1,7 @@
+<!-- checked-against: 00ce3502a7d1ca4153722cc3 -->
+
 # Ikon Persistent State Guide
-<!-- checked-against: a7edd326b8c01c4f -->
+
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -60,8 +62,9 @@ private readonly PersistentUserReactiveList<Recipe> _recipes = new(
 ```
 
 Per-user state is partitioned by the `UserScope` that is active, and only UI callbacks and
-rendering run inside one. `Main()`, the constructor, `Task.Run` loops, timers and endpoint
-handlers run with **no** user active, so reading or adding to a user-scoped value there throws
+rendering run inside one (a `Task.Run` started from a callback inherits its scope). `Main()`, the
+constructor, `Task.Run` loops started from either, timers and endpoint handlers run with **no**
+user active, so reading or adding to a user-scoped value there throws
 (`Cannot read reactive variable '_recipes': it is partitioned per UserScope, and no UserScope is
 active`). To touch one user's partition from such a place, capture the id where the scope exists
 (`var userId = ReactiveScope.UserId;` inside the callback) and use the per-user accessors —
@@ -80,7 +83,8 @@ private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
 // byte[] payloads stay on asset storage automatically — no backend parameter needed
 private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 
-// Public asset URL needed (uploaded images, published files)
+// Public asset URL needed (never sensitive data) — the URL serves the stored JSON wrapper,
+// not the raw bytes, so it is no image src; serve media through app.Files.Public
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
 
@@ -111,15 +115,16 @@ Postgres, asset storage is for binaries and public files:
   names a database it was not given.
 - `Private` — S3-backed private cloud file, explicitly. Pick it only when a structured value must
   stay on asset storage despite the default.
-- `Public` — asset storage with a public URL on `PublicUrl`. **Only** when the value will be
-  linked to from the open web. Don't use for anything sensitive.
+- `Public` — asset storage with a public URL on `PublicUrl`: the URL of the stored JSON envelope
+  (`application/json`) wrapping the value, not of the value's own bytes, so it is no image or file
+  link — serve media through `app.Files.Public`. Don't use for anything sensitive.
 - `Postgres` — a row in a postgres DB of the app's own, created with
   `ikon db create --name <name>`. If the app holds only one such database, omit
   `postgresDatabase`; with several, name the one you want. Omitted, the first postgres database is
   used, which can be the built-in `app`; a named database the app lacks logs one error and that
   value is never saved.
 
-Existing data migrates by itself: when a structured value first loads from the `app` database and finds
+Existing data migrates by itself: when a structured value first loads from the app's state database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits
 the row. The old asset blob is left in place. Apps already using a named database with
 `backend: PersistenceBackend.Postgres` are untouched by all of this.
@@ -152,18 +157,21 @@ migration.
 
 A move that cannot finish is undone: the database stays on its current tier, unchanged and
 writable again (unless it is over its storage quota), and `ikon db list` shows the move as
-`failed` with the reason. Nothing needs cleaning up before you try again, to the same tier or
+`failed` (it does not print why). Nothing needs cleaning up before you try again, to the same tier or
 another. A database holding a single row too large to move — tens of megabytes as text on the
-shared tiers — is refused before anything changes.
+shared tiers — is refused before anything changes, as is one larger than the target tier's storage
+(1 GB on `shared`, 10 GB on `dedicated-small`) or one with tables under row-level security or
+extensions installed outside the `public` schema.
 
 ## The `key:` parameter — loops and refactor-proof state
 
 <!-- ikon-example: persistent-dynamic-keys -->
 ```csharp
-// WRONG — every loop iteration creates a reactive with the SAME stable id.
+// WRONG — without a key, each iteration's stable id follows its position in the loop, not the
+// camera: reorder the cameras or run the method again and every id shifts.
 foreach (var camera in cameras)
 {
-    var baseline = new PersistentSessionReactive<byte[]>([]);  // collisions!
+    var baseline = new PersistentSessionReactive<byte[]>([]);  // id is the loop position
 }
 
 // RIGHT — explicit stable key derived from the dynamic identity.
@@ -177,13 +185,13 @@ foreach (var camera in cameras)
 
 Pass a stable identifier the app owns. Not `Guid.NewGuid()` — that changes on every restart and orphans the old data. Don't reuse the same key across different types or scopes.
 
-Without `key:`, a field's stored value is found by its declaring source file's path under the app root, the constructing member's name, `T`, and its order among same-typed persistent reactives built in that member. Renaming or moving the file or field, or reordering such siblings, silently starts from the initial value and orphans the stored one. That is fine for state you can afford to lose; pass a fixed `key:`, unique within the app, for state that must survive refactoring, and always when constructing reactives in a loop or based on runtime identity.
+Without `key:`, a field's stored value is found by its declaring source file's path under the app root, the constructing member's name, `T`, and its order among same-typed persistent reactives built in that member. Renaming or moving the file or field, or reordering such siblings, silently starts from the initial value and orphans the stored one. That is fine for state you can afford to lose; pass a fixed `key:`, unique within the app, for state that must survive refactoring, and always when constructing reactives in a loop or based on runtime identity. Either way, a stored value is loaded back only into a reactive that exists once the app instance is constructed (a field, or one built in the constructor); one constructed later — in `Main()` or a handler — is saved at shutdown but always starts from its initial value, so run a loop like the one above in the constructor.
 
 ## Save semantics
 
-- **Load**: parallel for all persistent reactives, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
+- **Load**: parallel for all persistent reactives that exist once the app instance is constructed, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
 - **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown).
-- **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.Databases`.
+- **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.DatabaseAsync()`.
 
 ## Erasing a user's state
 
@@ -263,7 +271,8 @@ preserved forever. Retire a key only when this build owns deciding what it means
 
 Boundaries: the contract applies to single-value `Persistent…Reactive<T>` where `T` is a data-`.tp`
 root — the collection variants keep plain behavior for now. Nested `[obsolete.Section]` entries are
-neither migrated nor preserved by the state contract yet: **don't retire nested fields on persisted
+not migrated by the state contract yet — a retired key inside a nested section is kept as an
+unknown key and written back on every save: **don't retire nested fields on persisted
 types**; keep ledger entries at the root. Plain records keep today's behavior exactly; nothing opts
 in until the type is a Teleport data schema.
 
@@ -276,7 +285,7 @@ in until the type is a Teleport data schema.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
 - ❌ Writing a reactive from inside a render lambda (`if (_boxes.Count == 0) _boxes.Add(new Box())` in the middle of `UI.Root(...)`). The platform drops the change notification of a write made while it renders — nothing re-renders from it — and logs `update was ignored because it was done within a reactive callback, at <call site>` once per site. Render only reads; create-if-missing belongs in the event handler that needs it (the switch that enables the feature, the button that adds the item) or in a lifecycle callback such as `app.OnClientJoined`. When the render needs something to show before it exists, render a detached placeholder value and let the first edit handler store it.
 - ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
-- ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.Databases` directly.
+- ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.DatabaseAsync()` directly.
 
 ## When to drop down to `Asset.Instance` directly
 

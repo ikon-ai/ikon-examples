@@ -1,5 +1,7 @@
+<!-- checked-against: 482498c1d952876205447f06 -->
+
 # Procountor Connector Guide
-<!-- checked-against: b13e5211d9528762 -->
+
 This guide covers `Ikon.Connectors.Procountor` — reading customers, sales invoices and their payments from Procountor (Finago) — for app developers wiring a company's accounting figures into an Ikon app.
 
 ## Procountor

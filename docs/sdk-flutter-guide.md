@@ -1,5 +1,6 @@
+<!-- checked-against: 148295c6f38cd6e9e3b0c442 -->
+
 # Flutter SDK Guide
-<!-- checked-against: d70e1656f38cd6e9 -->
 
 ## Overview
 
@@ -134,7 +135,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk: ^1.0.0
+  ikon_sdk: ^1.11.0
+
+flutter:
+  uses-material-design: true
 ```
 
 ### 3. lib/main.dart
@@ -213,8 +217,8 @@ class _IkonScreenState extends State<IkonScreen> {
     if (_state != IkonConnectionState.connected || _uiCore == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    // Paints the status-bar and home-indicator strips in the streamed page's own background
-    // colour; a plain Scaffold + SafeArea shows the Material theme's colour there instead.
+    // Paints the status-bar and home-indicator strips in the colours along the streamed page's top
+    // and bottom edges; a plain Scaffold + SafeArea shows the Material theme's colour there instead.
     return IkonPageScaffold(child: IkonParallaxView(uiCore: _uiCore!, client: _client));
   }
 }
@@ -308,8 +312,8 @@ flutter build web --dart-define=IKON_PORT=8443
 ```
 
 These builds still connect to a local server. A build for a deployed space needs the
-`IKON_DEPLOYED`, `IKON_SPACE_ID`, `IKON_AUTH_URL`, `IKON_SERVER_HOST` and `IKON_AUTH_*`
-dart-defines, which `ikon bundle --flutter-android|--flutter-ios|--flutter-web` injects.
+`IKON_SPACE_ID`, `IKON_AUTH_URL`, `IKON_SERVER_HOST` and `IKON_AUTH_*`
+dart-defines (a non-empty `IKON_SPACE_ID` is what makes the app treat itself as deployed), which `ikon bundle --flutter-android|--flutter-ios|--flutter-web` injects.
 
 ## Authentication
 
@@ -378,9 +382,16 @@ final result = await auth.authenticateApiKey(
   apiKey: 'my-api-key',
 );
 
-// What the connect* helpers do for you: connect, register the built-in client functions, then
-// send the ready message without which the app never sees the client join.
+// What the connect* helpers do for you: wire reauth, connect, register the built-in client
+// functions, then send the ready message without which the app never sees the client join.
+// Without configureReauth a reconnect never re-authenticates once the cached tickets expire,
+// and client.assetBaseUrl resolves root-relative images against the per-session socket host.
 final client = IkonClient(IkonClientConfig.fromAuthResult(result));
+client.configureReauth(
+  authenticator: auth,
+  connectUrl: result.connectUrl,
+  hardReauth: () => auth.authenticateApiKey(spaceId: 'my-space-id', apiKey: 'my-api-key'),
+);
 await client.connect();
 registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
 client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
@@ -497,7 +508,7 @@ The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 
 **Visual:** background color, border (all sides), border radius, opacity, shadow (sm through 2xl), gradient (linear, 8 directions)
 
-**Typography:** font size/weight/family, line height, letter spacing, text align, text color, italic, text decoration (underline/line-through), text overflow (ellipsis/clip), truncate, max lines, text transform (uppercase/lowercase/capitalize), white space
+**Typography:** font size/weight/family, line height, letter spacing, text align, text color, italic, text decoration (underline/line-through), text overflow (ellipsis/clip), truncate, max lines, text transform (uppercase/lowercase/capitalize). `whitespace-*` classes have no effect on Flutter; `truncate` works through max lines and ellipsis
 
 **Interactive:** cursor, visibility (hidden/invisible/visible)
 

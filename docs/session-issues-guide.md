@@ -1,5 +1,7 @@
+<!-- checked-against: d2c06815e3b0c442e3b0c442 -->
+
 # Session issues
-<!-- checked-against: 7a6ff24fe3b0c442 -->
+
 Session issue analysis turns your app's warning and error logs into a short list of named problems
 you can act on, without reading a log. It is off by default; an admin of the app switches it on with
 `ikon autopilot set --analysis enable`. Analysis runs use AI models billed to your app, and
@@ -17,7 +19,8 @@ values it affects. One distinct problem becomes one issue, however many times it
 Each **new** issue is classified once by an AI model into a title, a category (`app-defect`,
 `platform-defect`, `configuration`, `integration`, `capacity`, or `noise`), a severity, who is
 affected, a likely cause, and a suggested action. Known issues are counted without any model call,
-except one still unnamed, which a later run with classification budget to spare offers to the model again.
+except one still unnamed, which a later run with classification budget to spare offers to the model again
+if the issue recurred in that run's window — one that never recurs stays unnamed.
 An issue the model has not named yet shows its normalized template instead — unnamed, never
 invisible.
 
@@ -49,7 +52,9 @@ evidence.
 
 - **CLI** — `ikon issue list` lists what is wrong right now; `--state likely-fixed` is the review
   queue, `--deployment-version` answers "did my deploy break this". `ikon issue show <id>`
-  has the full detail and sample; `ikon issue set <id> --state …` changes the state;
+  has the full detail and sample; `ikon issue set <id> --state …` changes the state
+  (muted and likely-fixed go only to open or resolved, and resolved goes nowhere — only a new
+  occurrence reopens it);
   `ikon issue merge <id> --into <id>` folds an issue into another that is the same problem.
   `ikon autopilot history --job analysis` lists the analysis runs behind the issues — an empty issue list means
   either nothing is wrong or nothing has run yet, and only the run history tells them apart.
@@ -66,4 +71,4 @@ Your app is analysed on a fixed cadence — daily by default; `ikon autopilot se
 `ikon autopilot set --analysis-cadence hourly` analyses it more often. Model usage appears in your app's
 own costs (`ikon costs`) like any other AI call, bounded by one classification per distinct new
 problem and a daily cap. An organisation out of credits is still analysed and counted, but its new
-issues open unnamed until credit returns.
+issues open unnamed, and one is named only when it recurs in a later run that has credit.

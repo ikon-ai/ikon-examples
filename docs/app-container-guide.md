@@ -1,5 +1,7 @@
+<!-- checked-against: a39ac992ec051420db3691ae -->
+
 # App Container Guide
-<!-- checked-against: f91c508595057f85 -->
+
 How an Ikon AI app gets a native program, system library or font that the platform's server image
 does not have: in its `tools/` folder, or by shipping its own Dockerfile. Read this before an app
 starts a process other than `ffmpeg`.
@@ -24,7 +26,7 @@ Put programs in `tools/<runtime>/` at the app root, one folder per platform they
 | Folder | Used by |
 |---|---|
 | `tools/linux-x64/` | the deployed app, always |
-| `tools/win-x64/`, `tools/osx-arm64/`, `tools/linux-x64/` | `ikon run` on that kind of machine |
+| `tools/win-x64/`, `tools/osx-arm64/`, `tools/linux-x64/`, or the `arm64`/`x64` counterpart | `ikon run` on that kind of machine |
 
 `ikon deploy` puts `tools/linux-x64/` in the bundle, and the server puts it first on the app's
 `PATH`, so the app starts a program by name. A `lib/` folder inside it is on `LD_LIBRARY_PATH`, for
@@ -36,10 +38,20 @@ Apps that share a server process with other apps (hosted mode) get no `PATH` cha
 programs would shadow another's. Hosted mode is something Ikon turns on per space; an app that ships
 tools should stay off it.
 
-A program that is too large to keep in the repository is better fetched at deploy time than
-committed: a `[Package] PrePackage` step can download it, check its SHA-256, and unpack it into
-`IKON_BUNDLE_TOOLS_DIR`, which is the deployed `tools/linux-x64/`. A program that needs its whole
-folder beside it gets a small launcher script there:
+A program that is too large to keep in the repository is better downloaded than committed. Name the
+script that downloads it in `ikon-config.toml`:
+
+```toml
+[Tools]
+Fetch = ["python3 scripts/fetch_tools.py"]
+```
+
+The tool runs it before `ikon run`, `ikon run --container`, `ikon bundle` and `ikon deploy`, with
+`IKON_TOOLS_RUNTIME` naming the runtime (`linux-x64` for a deploy) and `IKON_TOOLS_DIR` the
+`tools/<runtime>/` folder to fill. It runs every time, so the script keeps its download, checks the
+SHA-256, returns at once when the folder is complete, and does nothing for a runtime it has no
+program for. Add the folder to `.gitignore`. On Windows `python3` at the start of the command runs
+`python`. A program that needs its whole folder beside it gets a small launcher script there:
 
 ```sh
 #!/bin/sh
@@ -108,7 +120,7 @@ image on it. Sessions keep starting on the previous image until the new one is r
 | `container/` folder | 100 MB. Download large files in the Dockerfile instead of shipping them. |
 | Build time | 30 minutes |
 | Built image | 10 GB uncompressed |
-| Builds per app | 20 per day |
+| Builds per space | 20 per day, shared by every app in the space |
 
 Every image is scanned for known vulnerabilities. The findings are reported, never block a deploy.
 
@@ -128,10 +140,21 @@ using var renode = Process.Start(new ProcessStartInfo("renode", ["--disable-gui"
 
 Files the program reads that belong to the app, such as firmware or scenes, ship in the bundle's
 `Data/` and are read from `app.DataDirectory`. A `[Package] PrePackage` step writes generated ones
-into `IKON_BUNDLE_APP_DIR`; a binary or `#!` script written there keeps its execute bit.
+into `$IKON_BUNDLE_APP_DIR/Data/`; a binary or `#!` script written under `IKON_BUNDLE_APP_DIR` keeps its execute bit.
 
 ## Local runs
 
 `ikon run` runs the app on your machine, not in the image. A program in `tools/` for your machine's
 runtime is on `PATH` as it is in the cloud; one installed by `container/Dockerfile` has to be
 installed locally as well, or found through an environment variable the app reads.
+
+`ikon run --container` runs it in a Linux container instead, which is how to try `tools/linux-x64`
+(`tools/linux-arm64` on an Arm machine) or `container/Dockerfile` on Windows or macOS before deploying. It needs Podman or Docker
+(`ikon install podman` installs Podman). The tool builds the platform's server image with Node.js
+locally, the first time in a few minutes, then your `container/Dockerfile` on top of it, and serves
+the app from it on `localhost` as a plain run does. It differs from a plain run in three ways:
+
+- C# changes do not hot-reload. Stop the run and start it again to pick one up.
+- The frontend is served from the published SDK packages, and its dependencies are installed for
+  Linux into a volume of their own, so the first start runs `npm install`.
+- `--host`, `--host-lan`, `--host-public` and the `--flutter` options are not available.

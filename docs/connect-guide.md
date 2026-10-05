@@ -1,5 +1,7 @@
+<!-- checked-against: 5bfcfd4d12d42310e3b0c442 -->
+
 # Connecting your computer to an Ikon app
-<!-- checked-against: d256dc9612d42310 -->
+
 How to connect a computer of yours to an Ikon app with Ikon Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
 the computer's own browser. For app developers; everything here works
@@ -33,8 +35,10 @@ ikon service install
 `install` checks which coding agents the machine has and sets up what they need — including tmux,
 which lets a terminal and the board share one session (macOS and Linux; Windows can run and watch
 sessions but not share them). On macOS it also lets an app's **Connect this computer** link open
-here; elsewhere, paste a link after `ikon connect`. On macOS, Windows and Linux it starts Ikon
-Connect at login, so a computer that restarted is back without a command; `--no-links` and
+here; elsewhere, paste a link after `ikon connect`. On macOS and Windows it starts Ikon
+Connect at login, and on Linux at boot (at login when lingering cannot be enabled, and the tool
+prints the `sudo loginctl enable-linger` command that changes that), so a computer that restarted
+is back without a command; `--no-links` and
 `--no-start-at-login` leave either out, or undo it. Without it, run `ikon service run` yourself.
 
 ## 2. Connect an app
@@ -44,9 +48,10 @@ ikon connect https://your-app.example.com
 ```
 
 The argument is the app — its name, its URL, or its id — and can be left out only while an `ikon run`
-instance of the app project in the current directory is running, which it then connects. The first time, you confirm the app's id, organisation and what it may do
-on your computer. `ikon connect` records the connection and returns: the Ikon service (`ikon service run`, which
-`service install` starts at login) serves every app you connect and picks up a new one within
+instance of the app project in the current directory is running, which it then connects. For a deployed app you confirm the app's id, organisation and what it may do
+on your computer, the first time and again whenever its grants widen or its repository changes; a local
+`ikon run` app is connected without a confirmation. `ikon connect` records the connection and returns: the Ikon service (`ikon service run`, which
+`service install` starts at login, or at boot on Linux) serves every app you connect and picks up a new one within
 seconds. If the service is not running, `ikon connect` says so.
 
 An app has to be in one of your organisations, or be one of Ikon's own — Studio and O, which the
@@ -118,15 +123,17 @@ Preview tab gains a **Phones and simulators** button, opening a Devices view tha
 phone-shaped run target on every connected machine: iOS simulators, Android emulators and
 plugged-in devices, and emulator images that are not running yet. Two verbs per device:
 
-- **Open the app** boots the device if needed and opens the running preview's app on it, signed
+- **Open the app** boots a simulator if needed and opens the running preview's app on it, signed
   in — the same app instance the Preview tab shows, on real phone glass. Android emulators get
   the host-loopback rewrite (`10.0.2.2`) automatically, and a remote machine's devices get your
-  machine's LAN address instead of `localhost`.
+  machine's LAN address instead of `localhost`. An emulator image that is not running shows
+  **Boot** instead: it starts the emulator, and you open the app once it appears as connected.
 - **Live Preview** mirrors the device's screen into Studio. When the machine can encode — an
   Android device encodes on-device, an iOS simulator needs ffmpeg installed beside it — the
   mirror is a live H.264 video stream, fanned out to viewers over the platform's normal video
   path; otherwise it falls back to a ~1.5 s screenshot cadence. Either way a device on another
-  machine — or one whose window is buried — is visible where you work.
+  machine — or one whose window is buried — is visible where you work. Like a watch below, the
+  mirror stops on its own after ten minutes.
 
 The task view offers the same mirror as **Watch device**: Ikon Connect captures the screen every
 few seconds and the board shows it live beside the task. A watch stops on request and times out

@@ -1,5 +1,6 @@
+<!-- checked-against: 202405aaf691273de3b0c442 -->
+
 # Ikon AI C++ SDK
-<!-- checked-against: dbe538b3f691273d -->
 
 The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17, and every example below compiles as C++17.
 
@@ -202,12 +203,17 @@ if (state)
     // Use global state...
 }
 
-// Thread-safe snapshot of the current GlobalState (returns std::nullopt
-// if the client is not connected).
+// Thread-safe snapshot of the current GlobalState. Returns std::nullopt
+// before Connect(), after Disconnect(), and when a Connect() from Idle or a
+// reconnect attempt fails at its auth/token HTTP request. A Connect() retried
+// from Offline keeps the earlier attempt's state, and after a later failure or
+// a dropped connection it returns an empty or stale state.
 std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 ```
 
 ## Sending Messages
+
+`SendMessage` queues the message for a send thread and returns. `Disconnect()` closes the connection without waiting for that queue to drain, so a message still queued when it is called is dropped.
 
 ### Raw Protocol Messages
 
@@ -236,7 +242,7 @@ client.SendMessage(payload);
 
 ## Shared Functions
 
-`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. The client owns one and attaches it itself on connect; get it with `client.Functions()`. A `Shared` function is announced only when registered while connected, and is not re-announced after a reconnect, so register it in `Ready` as below. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
+`FunctionRegistry` lets a client register functions for the app to call and call the functions the app registers; the server offers a client's functions to the app only, not to other clients. The client owns one and attaches it itself on connect; get it with `client.Functions()`. A `Shared` function is announced only when registered while connected, and is not re-announced after a reconnect, so register it in `Ready` as below. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
 <!-- ikon-example: cpp-sdk-shared-functions -->
 ```cpp
@@ -244,7 +250,7 @@ auto& registry = client.Functions();
 
 client.Ready = [&]()
 {
-    // Register a function that other clients can call
+    // Register a function the app can call
     registry.RegisterFunction(
         "Echo",                                       // name
         "Echoes back the first argument",             // description

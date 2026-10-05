@@ -1,5 +1,7 @@
+<!-- checked-against: 07d20269461e26f6afa0cac4 -->
+
 # Ikon Theming Guide
-<!-- checked-against: e8adb505461e26f6 -->
+
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -77,7 +79,7 @@ Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warni
 ## What's NOT in the system
 
 - **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode`, its second spelling `Dark`, and `Light` are the only non-indexer members.
-- **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. The one exception is the label on brand fills: `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]`.
+- **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. Two exceptions: the label on brand fills — `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]` — and a `ThemeMode.Fixed` theme whose background measures dark, which builds on the platform's dark scheme, so the text tiers it leaves unset are light.
 - **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
 
 Committing a full mood takes roughly 10-14 entries: the brand line, the surface/text lines, shape, density, type, motion.
@@ -250,7 +252,7 @@ var theme = new IkonTheme
 };
 ```
 
-An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Its value goes through the smart sniff, so a palette step becomes a colour reference and raw CSS stays as written. Reference it inline via `bg-[var(--hero-glow)]`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
+An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Its value goes through the smart sniff, so a palette step becomes a colour reference and raw CSS stays as written. Reference it inline via `bg-[image:var(--hero-glow)]` — a gradient needs the `image:` hint, since a bare `bg-[var(...)]` emits `background-color`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
 
 ## Density
 
@@ -556,11 +558,11 @@ view.Text(["text-sm text-muted-foreground"], "Caption");
 // Brand-tinted heading.
 view.Text(["text-2xl font-bold text-brand-secondary"], "Section Title");
 
-// Custom variable (declared with a -- prefix in the theme).
-view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
+// Custom variable (declared with a -- prefix in the theme); image: routes a gradient to background-image.
+view.Box(["absolute inset-0 -z-10 bg-[image:var(--hero-glow)] pointer-events-none"]);
 ```
 
-The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, `bg-error-primary`/`bg-error-secondary` (the `["destructive"]` key drives the solid and button members), and the full `bg-success-*`/`bg-warning-*` families.
+The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fill-brand-primary`/`stroke-brand-primary` (icons, from `--fg-brand-primary`); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, `bg-error-primary`/`bg-error-secondary` (the `["destructive"]` key drives the solid and button members), and the full `bg-success-*`/`bg-warning-*` families.
 
 Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) by what the surface is — neither matches `bg-primary` in both schemes — plus `text-foreground` / `border-secondary`.
 
@@ -588,7 +590,7 @@ Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme 
 4. **Adjust the brand** if the user named a specific color — replace the `["primary"]` value (one line commits the whole brand cluster) and the two `-hover` refinements. Keep `["primary-foreground"]` consistent: light step (≤ 500) → `"#0A0A0A"`; dark step (≥ 600) → omit (the readable label is picked by contrast).
 5. **Verify** — the output has ONE `new IkonTheme { ... }` block with an explicit dark story (`Mode = ThemeMode.Fixed` OR a `DarkMode` block, never both), no `Theming.Apply(...)`, no hex beyond what the chosen cookbook block already carries unless the user asked for one, a coherent palette family, and no `["font-body"] = "font-sans"` no-op lines.
 
-The generated code goes at the top of the App class, replacing the default bare `new IkonTheme()`:
+The generated code goes at the top of the App class, replacing the scaffold's whole `new IkonTheme { ... }` block, its `DarkMode` included:
 
 <!-- ikon-example: theming-whole-app -->
 ```csharp

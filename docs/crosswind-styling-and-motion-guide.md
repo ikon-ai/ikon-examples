@@ -1,5 +1,7 @@
+<!-- checked-against: 4546bcbce720ebe4751a516a -->
+
 # Crosswind Styling and Motion Guide
-<!-- checked-against: d1e3e7a526f8f56b -->
+
 ## Overview
 
 Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
@@ -171,7 +173,7 @@ The same applies in reverse for a fixed-light UI: don't strand `text-primary` on
 
 ### Customizing the Theme
 
-For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory, and the only auto-contrast is the `primary-foreground` label picked for `["primary"]` or `["brand"]` when no label is set).
+For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory; the `primary-foreground` label is picked for `["primary"]` or `["brand"]` when no label is set, and a `ThemeMode.Fixed` theme whose background measures dark builds on the dark scheme, so the tokens it leaves unset take their dark values).
 
 ## Utility Classes
 
@@ -304,13 +306,13 @@ Within `motion-[...]`, keyframe steps are comma-separated. Within each step, mul
 string[] Classes =
 [
     // Fade in and slide up
-    "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0]",
+    "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0] motion-duration-500ms",
 
     // Scale pulse
-    "motion-[0:scale-100,50:scale-[1.05],100:scale-100]",
+    "motion-[0:scale-100,50:scale-[1.05],100:scale-100] motion-duration-1000ms motion-loop",
 
     // Complex multi-step animation
-    "motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0]",
+    "motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0] motion-duration-800ms",
 ];
 ```
 

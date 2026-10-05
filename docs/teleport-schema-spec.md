@@ -1,5 +1,7 @@
+<!-- checked-against: 0353fdcca223b623c55b39c2 -->
+
 # Teleport message schema specification
-<!-- checked-against: aaf4747fa223b623 -->
+
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -27,7 +29,7 @@ Teleport schema aligns 1:1 with the Teleport binary format, ensuring that field 
 |------------------------|--------------------------------------|
 | Extension              | `.tp`                                |
 | Syntax                 | TOML 1.0                             |
-| Runtime Representation | Binary `.tpx` (Teleport core format) |
+| Runtime Representation | Binary (Teleport core format)        |
 
 Each file defines a single root message and may contain nested messages and enums; `transforms` and `constraints` are reserved keys the parser ignores.
 
@@ -48,7 +50,7 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | Key              | Required | Description                                                                              |
 |------------------|----------|------------------------------------------------------------------------------------------|
 | `type`           | optional | Message type. Required when defining fields/nested messages.                             |
-| `namespace`      | optional | Root namespace applied to every code generator unless `[namespaces]` overrides it.       |
+| `namespace`      | optional | Root namespace for the C# and TypeScript generators unless `[namespaces]` overrides it.  |
 | `[namespaces]`   | optional | Code generator specific namespaces.                                                      |
 | `version`        | optional | Integer version for message. Required when `type` is present.                            |
 | `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present, unless `data = true`; an app's own schemas may omit it and get an auto-assigned app-local opcode.  |
@@ -108,7 +110,7 @@ string annotated = config.ToToml(new Dictionary<string, IReadOnlyList<string>>
 
 which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: root fields first (one blank line between blocks, each preceded by its doc lines), then one `[FieldName]` section per nested-typed root field in schema order, written compactly with the nested type's doc lines above the header. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, and any other key becomes a trailing `[Key]` block.
 
-The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, a non-optional nested type (a section), or a list of a nested type (one `[[FieldName]]` table per element after the sections, a commented-out `# [[FieldName]]` template when empty, extras keyed `<FieldName>__<index>`); section and table fields are the same scalars/lists. Optional fields, enums, and nesting below sections are rejected.
+The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, or a non-optional nested type (one `[FieldName]` section each, after the root scalars); section fields are the same scalars/lists. Lists of a nested type have no TOML form and are rejected. Optional fields, enums, and nesting below sections are rejected.
 
 #### Binary Codecs
 
@@ -136,9 +138,9 @@ Restrictions: external type references (`Foo:type`) are rejected in data schemas
 A root message may declare `unreliable = true` at the top level to mark every wire message of that type as unreliable by default. The Ikon core server routes such messages through unreliable transports (UDP datagram channel or WebRTC SCTP data channel) when the recipient has one, falling back to the reliable channel otherwise. This removes the need for every call site to remember to set the flag manually when constructing the message.
 
 ```toml
-type = "VoiceFrame"
+type = "AudioShapeFrame"
 version = 1
-opcode = "VOICE_FRAME"
+opcode = "AUDIO_SHAPE_FRAME"
 unreliable = true
 ```
 
@@ -172,7 +174,7 @@ Optional fields are unaffected — they already write nothing when null. The key
 ```toml
 type = "CacheConfig"
 version = 1
-opcode = "CACHE_CONFIG"
+opcode = 0x00020011
 namespace = "Example.Namespace"
 
 [namespaces]
@@ -183,7 +185,7 @@ dart       = "Example.Namespace"
 
 [fields]
 Description = "string"
-Codec       = "AudioCodec"
+Codec       = "AudioCodec:enum"
 SampleRate  = "int32"
 Channels    = "int32"
 BitDepth    = "int32 = 16"
@@ -193,7 +195,7 @@ BitDepth    = "int32 = 16"
 
 ### Namespaces
 
-Set the root namespace with the top-level `namespace` field. This value is used by every code generator unless a language specific override is provided. Leaving `namespace` empty or omitting it entirely removes the namespace.
+Set the root namespace with the top-level `namespace` field. The C# and TypeScript generators use this value unless a language specific override is provided; the platform's own C++ protocol build uses `cpp`, then `namespace`, then `ikon`, an app's C++ output gets no namespace, and the Dart and Rust generators ignore both. Leaving `namespace` empty or omitting it entirely removes the C# and TypeScript namespace, except in an app's own schemas: there C# without a `[namespaces] csharp` entry goes into `<AppName>.Protocol`.
 
 ```toml
 namespace = "Example.Namespace"
@@ -202,11 +204,11 @@ namespace = "Example.Namespace"
 csharp     = "Example.Namespace"  # C#
 typescript = "Example.Namespace"  # TypeScript
 cpp        = "Example.Namespace"  # C++
-dart       = "Example.Namespace"  # Dart
-rust       = "example_namespace"  # Rust
+dart       = "Example.Namespace"  # Dart (accepted, ignored)
+rust       = "example_namespace"  # Rust (accepted, ignored)
 ```
 
-The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, `cpp`, `dart`, and `rust` keys. Set any of those entries to an empty string to suppress the namespace for that specific target while keeping it for the others.
+The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, `cpp`, `dart`, and `rust` keys. Set the `csharp` or `typescript` entry to an empty string to suppress the namespace for that target while keeping it for the others; an empty `cpp` falls back like an absent one.
 
 ### Allowed Field Type Forms
 
@@ -236,7 +238,7 @@ Each field's binary ID is:
 fieldId = xxHash32(fieldName.UTF8, seed = 0)
 ```
 
-This ensures reversible mapping between `.tp` and binary `.tpx` - identical to Teleport binary specification section 2.
+This ensures reversible mapping between `.tp` and the binary form - identical to Teleport binary specification section 2.
 
 Because identity is the name hash, the order fields appear in `[fields]` does not affect the wire
 layout, and reordering is free to group a schema for readability. It is not free for the generated
@@ -497,8 +499,8 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 ### Example CLI
 
 ```bash
-# Generate C# from one or more .tp files
-ikon teleport generate --input ./messages/*.tp --type csharp --output ./generated
+# Generate C# from one or more .tp files (one --input per file; globs are not expanded)
+ikon teleport generate --input ./messages/a.tp --input ./messages/b.tp --type csharp --output ./generated
 
 # Emit C++ headers for a specific schema
 ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generated
@@ -586,7 +588,7 @@ The compiler emits these enums directly into the namespace without generating a 
 | Purpose        | Wire encoding          | Build-time layout definition  |
 
 Together they form a closed system:
-`.tp` (schema) → `.tpx` (binary) → `.json` (mirror)
+`.tp` (schema) → binary → `.json` (mirror)
 
 ## 16. Serializing Hand-Written C# Types
 
@@ -617,7 +619,9 @@ partial fails the build with TPSG001 rather than failing at its first serializat
 
 `TeleportAttribute` serializes every instance property that has both a getter and a setter (`init`
 counts). A get-only property is skipped **silently** — a property meant to be on the wire simply
-will not be. A field is matched on read by the hash of its property name, so a rename is a quiet
+will not be. A settable property of a type the generator cannot carry fails the build with TPSG002
+(support the type or mark it `[TeleportIgnore]`), and only properties declared on the type itself are
+collected, so a base class's properties are silently left off the wire. A field is matched on read by the hash of its property name, so a rename is a quiet
 wire break in both directions unless `TeleportFieldAttribute` pins the id, either to another name
 (`[TeleportField("PanelName")]`) or to a literal id (`[TeleportField(0x1a2b3c4du)]`).
 `TeleportIgnoreAttribute` drops a property from the wire explicitly; on read it keeps whatever the

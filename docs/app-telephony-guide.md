@@ -1,5 +1,7 @@
+<!-- checked-against: de80eba9f6e16a64ecb18f56 -->
+
 # Ikon.App.Telephony Guide
-<!-- checked-against: f87444dd5b86f008 -->
+
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point.
@@ -59,13 +61,13 @@ Leave them out in a non-interactive run and the command names every missing fiel
 than failing on them one at a time. `region` is optional — most European countries have none, and
 `email` defaults to your account's.
 
-Where a regulator has to approve the details — on Twilio, most of Europe — the market list says so,
+Where a regulator has to approve the details — on Twilio, Germany, the UK and Estonia among the common markets — the market list says so,
 and `buy` asks before collecting anything whether to submit for review or choose another market.
 Submitting stops there: nothing is bought or charged until the review is approved, which usually
 takes 1-3 business days. A non-interactive run exits with an error once the details are in review,
 so a script that expected a number does not read the review as one. `ikon phone list` shows the review, and running `buy` again
 once it is approved buys the number under it. A review you no longer want is withdrawn with
-`ikon phone release --review fi`.
+`ikon phone release --review de`.
 
 Some regulators also want a document as a file — Germany, for one, wants an excerpt from the
 commercial register. Interactively `buy` asks for the path; in a script pass it with `--kyc-file`,
@@ -90,7 +92,8 @@ ikon phone list
 ```
 
 lists every number the app holds — market, provider, which is the default sender, and where each
-one's incoming traffic goes — and any regulatory review still waiting on a verdict. `--format json`
+one's incoming traffic goes — and every regulatory review not yet behind a number: one in review, one rejected (with the command
+that resubmits it) or one approved but not yet bought under (with the command that buys it). `--format json`
 or `--format csv` gives the numbers to a script.
 
 ```bash
@@ -122,7 +125,7 @@ destinations are refused for messages and calls alike, before the provider is co
 | --- | --- |
 | `MessageId` | The provider's id, for correlating delivery reports |
 | `From` | The number the message was sent from |
-| `Parts` | Billable segments — a long message is split, and non-GSM characters roughly halve what fits in one |
+| `Parts` | Billable segments — a long message is split, and non-GSM characters roughly halve what fits in one. Text over 2000 characters is refused, not split |
 | `Replyable` | Whether the recipient can answer — see below |
 
 ## Markets, and why `Replyable` matters
@@ -265,8 +268,10 @@ instance. `ikon phone list` shows where each number currently points, and
 `GetNumbersAsync` reports the same to the app.
 
 A running app can also claim inbound for itself with
-`app.Telephony.BindInboundToThisInstanceAsync()`, which is what a developer uses to receive on their
-own machine; that binding is reverted when the process stops.
+`app.Telephony.BindInboundToThisInstanceAsync()`, which points every number the app holds at it and
+is what a developer uses to receive on their own machine. A local run's binding is reverted when the
+process stops by sending every number back to the shared instance, so per-number `ikon phone bind`
+routes from before the run are lost; a binding made from a cloud instance outlives the process.
 
 **Inbound messages are free.** An inbound call is charged like one you place, and counts against
 the same concurrent-call and duration limits.

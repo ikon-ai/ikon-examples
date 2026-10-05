@@ -1,5 +1,7 @@
+<!-- checked-against: 1bd10bd9c69cd05ceb528c3d -->
+
 # Ikon AI C# SDK
-<!-- checked-against: 57a19929bc0e1bb4 -->
+
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -301,8 +303,9 @@ Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500
 
 ### Raw Protocol Messages
 
-`ClientContext` is `null` until the client is connected, so read it only after
-`ReadyAsync` has fired (or guard it). The `!` below is safe because a raw send happens
+`ClientContext` is `null` before the first connect and after a disconnect, and while
+connecting it holds a placeholder until the server's context arrives, so read it only after
+`ReadyAsync` has fired; a null check does not prove the client is connected. The `!` below is safe because a raw send happens
 on a connected client:
 
 <!-- ikon-example: sdk-send-raw -->
@@ -339,7 +342,8 @@ not connected — call it after `ReadyAsync` has fired, never from setup code:
 // then, so set this before the first send — not after.
 client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 
-// Get audio samples (float PCM, range [-1.0, 1.0]) at 8, 12, 16, 24 or 48 kHz; the SDK does not resample
+// Get audio samples (float PCM, range [-1.0, 1.0]) at 8, 12, 16, 24 or 48 kHz in 1 or 2 channels;
+// the SDK does not resample, and a stream's first send throws ArgumentOutOfRangeException otherwise
 ReadOnlyMemory<float> samples = GetAudioSamples();
 
 // Send audio
@@ -421,7 +425,7 @@ Control how audio frames are delivered:
 |------|----------|
 | `Streaming` | Forward frames immediately (lowest latency) |
 | `DelayUntilTotalDurationKnown` | Buffer until the total duration is known, then stream |
-| `DelayUntilIsLast` | Buffer everything, emit all frames when stream ends |
+| `DelayUntilIsLast` | Buffer each segment, emit its frames when its last frame arrives |
 
 The two `Delay*` modes are for clips. A live microphone sends no last frame until it closes, so a segment that buffers past `e.MaxBufferedDuration` (5 minutes by default) is delivered with one warning and the rest of it streams.
 
@@ -438,7 +442,7 @@ client.AudioInputStreamBeginAsync += async e =>
 
 ## Functions
 
-The SDK provides a per-client function registry system that allows you to register callable functions that can be invoked locally or shared with other connected clients via the server. Each `IkonClient` has its own isolated `FunctionRegistry` accessible via `client.FunctionRegistry`.
+The SDK provides a per-client function registry system that allows you to register callable functions that can be invoked locally or offered to the app through the server (never to other clients). Each `IkonClient` has its own isolated `FunctionRegistry` accessible via `client.FunctionRegistry`.
 
 ### Registering Functions
 
@@ -481,12 +485,19 @@ public class MyFunctions
 var myFuncs = new MyFunctions();
 client.FunctionRegistry.RegisterFromInstance(myFuncs);
 
-// Or register from a type (static methods only)
+// Or register from a type: only its static methods (and a [RegisterAll] class's constructors) become callable
 client.FunctionRegistry.RegisterFromType<MyStaticFunctions>();
 
-// Or scan entire assembly
+// Or scan entire assembly (same rule as RegisterFromType)
 client.FunctionRegistry.RegisterFromAssembly(typeof(MyFunctions).Assembly);
 ```
+
+Without an instance, `RegisterFromType` and `RegisterFromAssembly` still register every instance `[Function]` method,
+but as metadata only (`RequiresInstance` is true and there is no callback): calling one locally has nothing to run,
+and a remote call that names no instance is rejected. For `MyFunctions`, whose methods are all instance methods, the
+assembly scan therefore lists `Greet`, `AddAsync` and `CountAsync` without making them callable; use
+`RegisterFromInstance` for those. On a `[RegisterAll]` class the same holds for every public instance method, with or
+without `[Function]`.
 
 **Manual Registration (Lambda/Delegate)**
 
@@ -523,24 +534,26 @@ client.FunctionRegistry.AddFunction(
 Functions can be either local or external:
 
 - **Local** (default): Function is not advertised. In a standalone SDK client a remote caller that names it can still call it; only an Ikon AI App restricts it to its own process.
-- **External**: Function is advertised over the protocol; remote clients can call it.
+- **External**: Function is advertised over the protocol; the app can call it. The server offers a client's functions to the app only, not to other clients.
 
 <!-- ikon-example: sdk-function-visibility -->
 ```csharp
-// Local - only available in this process (default)
+// Local - not advertised (default); only an Ikon AI App keeps remote callers out
 [Function(Visibility = FunctionVisibility.Local)]
 public string LocalOnly() => "local";
 
-// External - advertised over the protocol and callable by other clients
+// External - advertised over the protocol; the app can call it
 [Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
 ```
 
 Registered inside an **Ikon AI App** rather than a standalone client, an `External` function is also
 expected to declare its auth posture — `[RequireLogin]`, `[RequireRole(...)]` or `[AllowAnonymous]`
-on the method, or a policy attached at registration time. The app's startup audit logs a warning for
+on the method, or a policy attached at registration time. The app's startup audit, run once before `Main()`
+over the functions registered by then (the app class's own `[Function]` methods), logs a warning for
 every `External` function with none of them, and throws instead when the app sets
-`<ExternalFunctionsRequireAuth>true</ExternalFunctionsRequireAuth>`. A standalone SDK client runs no
+`<ExternalFunctionsRequireAuth>true</ExternalFunctionsRequireAuth>`. A function registered in
+`Main()` or later is never audited. A standalone SDK client runs no
 such audit.
 
 Visibility can also be overridden where the instance is registered:
@@ -569,7 +582,7 @@ var allFuncs = client.FunctionRegistry.Functions;
 // Find which client sessions have a specific function
 var clientIds = client.FunctionRegistry.GetClientSessionsWithFunction("SharedFunc");
 
-// Wait for a function to become available (useful for coordination between clients)
+// Wait for a function the app registers to become available (other clients' functions never reach this registry)
 bool available = await client.FunctionRegistry.WaitForFunctionAsync(
     "RemoteFunc",
     timeout: TimeSpan.FromSeconds(30)

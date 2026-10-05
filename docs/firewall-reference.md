@@ -1,5 +1,7 @@
+<!-- checked-against: 6a42675431adff65e3b0c442 -->
+
 # Firewall requirements for Ikon AI apps
-<!-- checked-against: 1583fc3b31adff65 -->
+
 For the network administrator opening access to an Ikon AI app. It lists everything that must be
 allowed, and nothing else is required. Nothing here needs a developer.
 
@@ -25,6 +27,7 @@ Outbound only, from user devices. No inbound rules and no VPN are required.
 | `*.ikon-app.ikonai.app` | 9000–19999 | TCP and UDP | App streaming (preferred) |
 | `*.ikon-app.ikonai.app` | 443 | TCP | App streaming (proxy fallback) |
 | `*.ikon-turn.ikonai.app` | 443 | TCP and UDP | Audio and video streaming (proxy fallback) |
+| `assets.prod.ikon.live` | 443 | TCP | Public files the app shows by their absolute link rather than through its own domain |
 | `storage.googleapis.com` | 443 | TCP | Files the app shows you that are not public, fetched through time-limited links |
 
 If the app is served on your own domain instead of `ikonai.app`, replace the first row with that

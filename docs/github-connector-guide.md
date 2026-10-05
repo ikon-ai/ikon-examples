@@ -1,5 +1,7 @@
+<!-- checked-against: 38b87e8b39abc08c9d7cd37f -->
+
 # GitHub Connector Guide
-<!-- checked-against: b0e1c26b39abc08c -->
+
 This guide covers `Ikon.Connectors.GitHub` — issues, pull requests, repository files, sign-in and webhooks — for app developers wiring GitHub into an Ikon app.
 
 ## GitHub
@@ -64,7 +66,7 @@ if (!result.Merged)
 
 The connector also works a repository the way an editor does, without a clone: `GetUserAsync` (a `GitHubUser`), `ListRepositoriesAsync` and `GetRepositoryAsync` (each `GitHubRepository` says whether the token `CanPush`), `ListBranchesAsync` (`GitHubBranch` records), `GetBranchHeadAsync` (null for a missing branch) and `CreateBranchAsync`, `ListTreeAsync` for every file path at a reference (a `GitHubTree`, whose `IsTruncated` says GitHub stopped short on a very large tree), `GetFileAsync` and `PutFileAsync`, and `ListCommitsAsync` (`GitHubCommit` records, newest first). Pull requests have `ListPullRequestsAsync` (filtered by a `GitHubPullRequestState`), `GetPullRequestAsync`, `CreatePullRequestAsync` and `ClosePullRequestAsync`, each returning a `GitHubPullRequest`, and `ReviewPullRequestAsync` with a `GitHubReviewEvent` of `Approve`, `RequestChanges` or `Comment` (the last two need a body).
 
-`GetFileAsync` returns a `GitHubFile` with the `Content` bytes, or null when no file is at the path (nothing, or a directory), and reads a file over one megabyte through its blob; `PutFileAsync` returns the new blob and commit SHAs as a `GitHubWriteResult`. `PutFileAsync` writes one file as one commit; replacing a file needs the `Sha` it was read at as `expectedSha`, and a file that changed since throws `ConnectorException` with `409` — as does another commit reaching the branch first, which only a fresh read of the file tells apart. Listings page by 100 up to `maxPages` and throw `ConnectorPageCapException<T>` past it. A failure's message carries GitHub's own reason (`Validation Failed: A pull request already exists for …`) rather than its JSON:
+`GetFileAsync` returns a `GitHubFile` with the `Content` bytes, or null when no file is at the path (nothing, or a directory), and reads a file over one megabyte through its blob; `PutFileAsync` returns the new blob and commit SHAs as a `GitHubWriteResult`. `PutFileAsync` writes one file as one commit; replacing a file needs the `Sha` it was read at as `expectedSha`, and a file that changed since throws `ConnectorException` with `409` — as does another commit reaching the branch first, which only a fresh read of the file tells apart. `ListRepositoriesAsync`, `ListBranchesAsync` and `ListPullRequestsAsync` page by 100 up to `maxPages` (default 10) and throw `ConnectorPageCapException<T>` past it; `ListCommitsAsync` is one request for `limit` commits (default 40, 1 to 100, else `ArgumentOutOfRangeException`). A failure's message carries GitHub's own reason (`Validation Failed: A pull request already exists for …`) rather than its JSON:
 
 <!-- ikon-example: connectors-github-files -->
 ```csharp

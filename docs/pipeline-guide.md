@@ -1,15 +1,17 @@
+<!-- checked-against: 40ccf3bd4171f4eee941295a -->
+
 # Ikon Pipeline Guide
-<!-- checked-against: a722d69de0a37fc4 -->
+
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
 
 Key capabilities:
 
-- **Reactive scheduling**: The pipeline run specifies the structure of the processing graph. When executed, the caching system determines what needs to be re-processed based on what has changed since the last run (a processor's id or version, the values its call captures, or input changes; an edit to a processor's body alone is not detected until its version is bumped).
+- **Reactive scheduling**: The pipeline run specifies the structure of the processing graph. When executed, the caching system determines what needs to be re-processed based on what has changed since the last run (a processor's id or version, the values an expression-based call captures, or input changes; an edit to a processor's body alone is not detected until its version is bumped).
 - **Fully asynchronous**: Every aspect of the pipeline operates asynchronously, from pipeline definition to runtime execution.
 - **Parallel processing**: Processors run in parallel where dependencies allow, fully utilizing the processing power of the host machine.
-- **Step-level caching**: Every processing step is cached with automatic invalidation based on processor identity, version, configuration, and input state. This avoids unnecessary re-processing and significantly speeds up subsequent runs.
+- **Step-level caching**: Every processing step except a stream-to-stream `TransformStream` is cached with automatic invalidation based on processor identity, version, configuration, and input state; a `*Lambda` step's key carries no captured configuration, so a changed captured value replays the old output unless the step passes `skipCache: true`. This avoids unnecessary re-processing and significantly speeds up subsequent runs.
 - **Flexible execution**: Pipelines can be invoked directly from code or executed with the `ikon` CLI tool.
 - **Distributed execution**: Support for remote host/client modes enables distributing processor execution across multiple machines.
 
@@ -149,14 +151,18 @@ A run reports through `PipelineStatus`: item counts in, processed and out; per-s
 misses; `ProcessFailureCount` and `ProcessRetryCount`; `ErrorLogCount` and `WarningLogCount`;
 `Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; and the accumulated `Usages` map that
 carries whatever the processors metered. Once `TotalFailureCount` (input, process and output
-failures) exceeds `Config.ProcessFailureThreshold` (default 0) the run throws `PipelineException` at
-completion, and a failed item's output is dropped. What succeeded is not lost with it:
+failures) exceeds `Config.ProcessFailureThreshold` (default 0) the run throws `PipelineException`,
+and a failed item's output is dropped. Input and output failures are judged at completion; a processor failure that takes the process
+failure count past the threshold stops the run there and then: items not yet processed never are,
+and outputs are not waited on. What succeeded is not lost with it:
 `PipelineException.CollectedItems` holds the outputs `Run` had collected, and
 `PipelineException.FailedItems` lists the items a processor gave up on (the first 1000; the failure
 count stays exact), each a `PipelineItemFailure` carrying the item, the processor and its last error (input-read and output-write failures are counted, not listed). A pipeline that fails structurally — a malformed
 graph, a pipeline class or config that cannot be constructed — publishes a faulted status and then
 rethrows the original exception: `PipelineException` for the runner's own checks (no public
-constructor, a missing config file, no `Run` method, no terminal step), but a pipeline constructor
+constructor, a missing config file, no `Run` method, no terminal step, a branch that reaches no
+`Output()` or `ForEach()`, and under `KeepRunning` a `TransformGroup` or a `TransformBatch` without
+`maxBatchSize`), but a pipeline constructor
 that throws surfaces as `TargetInvocationException` and a config file that does not parse as
 `JsonException`.
 
@@ -397,6 +403,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // The variable values inside the expression are read and used to calculate a hash for the processor call
         // If any of the variable values change, then possible caching for that processor is skipped and it runs
         // If processor name, version, and expression variables are the same as a previous run, cached results are used
+        // The exception is stream-to-stream TransformStream (below): it is never cached and runs again on every run
 
         // Process each item separately but in parallel
         evenItems = evenItems.Transform(item => MyProcessor(item, host.Config.ConfigValue2, cancellationToken));
@@ -409,6 +416,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         var itemToStreamItems = objectItems.TransformStream(item => MyItemToStreamProcessor(item, host.Config.ConfigValue2, cancellationToken));
 
         // Process multiple input items as a stream and produce multiple output items as a stream
+        // The whole input goes through one call that is not cached, deduplicated, parallelised or retried
         var streamToStreamItems = oddItems.TransformStream(items => MyStreamToStreamProcessor(items, host.Config.ConfigValue2, cancellationToken));
 
         // Merge multiple branches into one
@@ -427,7 +435,8 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
         // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
         // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
-        // replays the output computed with the old value. skipCache: true is the only way to make a lambda step re-run
+        // replays the output computed with the old value. Every lambda step must therefore pass skipCache:
+        // true re-runs it on every run, false keeps that name-only cache and its stale replays
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {
@@ -435,7 +444,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         }, skipCache: true);
 
         // Calling output on any branch outputs those items from the pipeline
-        // Every fork needs its own terminal (Output or ForEach): a fork without one drops its items
+        // Every fork needs its own terminal (Output or ForEach): a fork without one fails the run at start
         groupProcessedItems.Output();
         doNotUseTransformLambdaItems.Output();
     }
@@ -571,6 +580,7 @@ public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
         Log.Instance.Info($"Running in organisation {host.OrganisationId} space {host.SpaceId}");
 
         // ...
+        inputItems.Output();
         await Task.CompletedTask;
     }
 }
@@ -603,7 +613,7 @@ value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name; a short name finds only a public, non-nested class, so name an `internal` or nested one by its fully qualified type name.
 
 ## Reading PDFs
 
@@ -648,7 +658,7 @@ Pipeline runs executed on the Ikon cloud are billed for the CPU time and network
 | `--dll-path` | Load the pipeline from an external assembly. Without it `ikon pipeline` builds the app in the current directory (unless `--no-build`) and runs its DLL. |
 | `--input` | One or more input files, directories (supports wildcards), or asset URIs. Separate multiple paths with commas. |
 | `--recursive` | Recursively enumerate input directories and wildcards. |
-| `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. |
+| `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. A missing file, or a pipeline with no `IPipelineHost<TConfig>` constructor, fails the run with `PipelineException`; it never falls back to the defaults. |
 | `--output` | One or more output destinations (files, directories, or asset URIs) where generated items should be written. Separate multiple paths with commas. |
 
 ### Example Usage
@@ -680,6 +690,7 @@ Before running distributed pipelines:
 ### Defining Remote Processors
 
 Mark processors for remote execution using the `isRemote` parameter in the `[Processor]` attribute.
+Make them `static` on a pipeline class whose constructor takes parameters, such as `IPipelineHost<TConfig>`: host and client each create their own instance of a non-static remote processor's class with a parameterless constructor, and when they cannot, they log a warning and skip that processor, so the host's call fails at once with a `PipelineException` ("Processor not found").
 A stage can also declare what it needs from the machine that runs it through `ProcessorTags` — `Gpu`
 is the one tag today — passed as `tags:` on the `Transform*` builders. The tag is recorded on the
 stage, but dispatch does not route by it: any client can be handed a `Gpu` stage.

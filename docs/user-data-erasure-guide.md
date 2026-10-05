@@ -1,5 +1,7 @@
+<!-- checked-against: d475135c0bc7ed76d6531655 -->
+
 # User Data Erasure
-<!-- checked-against: c0bbecaa0bc7ed76 -->
+
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
 erases the user's personal data centrally, across every app and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.
@@ -36,8 +38,9 @@ merged into the account, the previous ids are erased together with it.
 - **Payment customer PII** — the name and email on the app-payments customer records are cleared in
   place. The customer record itself, its provider linkage, and the financial documents (payments,
   invoices, refunds, subscriptions) are retained under legal (bookkeeping) retention.
-- **Merge records** — as the final step, the records linking the account to its merged-away ids are
-  destroyed. Analytics events keyed by user id (BigQuery) are not deleted; destroying the linkage is
+- **Merge records** — the account's own merge record, which lists its merged-away ids, is deleted with
+  the account; as the final step, once every other step has completed, the merge records of the other
+  closure ids are destroyed and the erased ids are removed from any that remain. Analytics events keyed by user id (BigQuery) are not deleted; destroying the linkage is
   what leaves those ids pseudonymous — after erasure nothing on the platform can map them back to a
   person.
 

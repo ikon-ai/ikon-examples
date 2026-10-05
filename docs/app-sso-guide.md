@@ -1,5 +1,7 @@
+<!-- checked-against: e7dc5d999f11d28f2ba2921c -->
+
 # Ikon.App.Sso Guide
-<!-- checked-against: e4a9e51d9f11d28f -->
+
 Let your business customers sign in to your app through their own directory — Microsoft Entra ID,
 Google Workspace, or any OpenID Connect provider (Okta, Auth0, Keycloak, PingFederate). Their users
 then authenticate under their own conditional-access rules, MFA and offboarding: someone their IT

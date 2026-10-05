@@ -1,5 +1,7 @@
+<!-- checked-against: d53dd512ac6be73c500bc034 -->
+
 # Microsoft Connector Guide
-<!-- checked-against: 6fb16b4feea11d5b -->
+
 This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory and Outlook mail through Microsoft Graph — for app developers wiring Microsoft 365 into an Ikon app.
 
 ## Microsoft: SharePoint and OneDrive
@@ -82,7 +84,7 @@ Every failure is a `ConnectorException` (from `Ikon.Connectors`) with the provid
 
 ### Sites, libraries and files
 
-`GetSiteAsync` takes the site's URL as people copy it from the browser, the `host:/sites/path` form, a composite site id, or `root`, and returns a `SharePointSite` whose `Id` every other site call takes. `ListLibrariesAsync` returns a `DocumentLibrary` for every document library of the site, not only the default "Documents" one; `OneDrive.GetUserDriveAsync` returns one for a person's OneDrive. `DownloadAsync` streams a file; `DownloadAsPdfAsync` has Microsoft convert a Word, Excel, PowerPoint or other office file to PDF first, which is how to read one without an Office parser:
+`GetSiteAsync` takes the site's URL (up to the site itself, not a page or library under it), the `host:/sites/path` form, a composite site id, or `root`, and returns a `SharePointSite` whose `Id` every other site call takes. `ListLibrariesAsync` returns a `DocumentLibrary` for every document library of the site, not only the default "Documents" one; `OneDrive.GetUserDriveAsync` returns one for a person's OneDrive. `DownloadAsync` streams a file; `DownloadAsPdfAsync` has Microsoft convert a Word, Excel, PowerPoint or other office file to PDF first, which is how to read one without an Office parser:
 
 <!-- ikon-example: connectors-sharepoint-files -->
 ```csharp
@@ -358,7 +360,7 @@ await SaveDeltaLinkAsync(delta.DeltaLink);
 
 ### Searching everything
 
-`SearchContentAsync` searches SharePoint and OneDrive through Microsoft Search with a `SharePointSearchQuery`: a KQL query string (`budget filetype:xlsx`, `path:"https://contoso.sharepoint.com/sites/Finance"`), the `SearchEntityType`s to look for, the managed properties to return as `Fields`, and a page (`From` up to 1000, `Size` up to 500). Each `SharePointSearchHit` in the `SharePointSearchResults` says what it is and carries the ids the other calls take — site, drive, list and list item — and a `Summary` with matched terms in `<c0>` tags. It needs `Files.Read.All` or `Sites.Read.All` and does not honour `Sites.Selected` grants; an app-only search covers one geography, which the connector reads from the tenant's root site unless `Region` names it, and sees only content shared beyond its owner unless the tenant has built Microsoft's full index for apps. Results lag uploads and edits by minutes. `OneDrive.SearchAsync` is the narrower search of one drive, and works with `Sites.Selected`.
+`SearchContentAsync` searches SharePoint and OneDrive through Microsoft Search with a `SharePointSearchQuery`: a KQL query string (`budget filetype:xlsx`, `path:"https://contoso.sharepoint.com/sites/Finance"`), the `SearchEntityType`s to look for, the managed properties to return as `Fields`, and a page (`From` up to 1000, `Size` up to 500). Each `SharePointSearchHit` in the `SharePointSearchResults` says what it is and carries the ids the other calls take — site, drive, list and list item — and a `Summary` with matched terms in `<c0>` tags. It needs `Files.Read.All` or `Sites.Read.All` and does not honour `Sites.Selected` grants; an app-only search covers one geography, which the connector reads from the tenant's root site unless `Region` names it, and sees only content shared beyond its owner unless the tenant has built Microsoft's full index for apps. Results lag uploads and edits by minutes. `OneDrive.SearchAsync` is the narrower search of one drive, and does not work under `Sites.Selected` either.
 
 ### Pages
 

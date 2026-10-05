@@ -1,5 +1,7 @@
+<!-- checked-against: 02ebfd6d8850f513e3b0c442 -->
+
 # Ikon Dev Channel Guide
-<!-- checked-against: 55219bc28850f513 -->
+
 Get a platform library or ikon tool fix without waiting for a release.
 
 Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed

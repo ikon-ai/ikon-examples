@@ -1,5 +1,7 @@
+<!-- checked-against: 9c3b5fea6c72e9f48135340b -->
+
 # App Files Guide
-<!-- checked-against: 22ad596c6c72e9f4 -->
+
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -53,7 +55,7 @@ every natural boundary.
 | You run | What happens to binaries |
 |---|---|
 | `ikon save`, `bundle`, `deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
-| `ikon run`, `clone`, `pull`, `restore` | Pointers without their real file download it back. |
+| `ikon run`, `clone`, `pull`, `restore` | Each pointer whose real file is missing or no longer matches its hash downloads the stored bytes over it — an offloaded binary edited since the last save reverts. |
 
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that

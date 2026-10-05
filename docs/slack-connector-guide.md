@@ -1,5 +1,7 @@
+<!-- checked-against: e4ad2d627616a30faf0d5236 -->
+
 # Slack Connector Guide
-<!-- checked-against: 32b2da6946407040 -->
+
 This guide covers `Ikon.Connectors.Slack` — installing into a Slack workspace, posting Block Kit messages and files, reading conversations and people, receiving events, interactions and slash commands over HTTP or Socket Mode, modals and App Home, and streaming agent replies — for app developers wiring Slack into an Ikon app.
 
 ## Slack
@@ -11,7 +13,7 @@ The types are in namespace `Ikon.Connectors`, not the package's name — `using 
 var slack = new Slack(botToken);
 ```
 
-Every failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"slack"`. Slack answers every API error with HTTP 200 and `ok:false`, and the connector stamps the ones that mean something about the credential: an invalid, revoked or expired token is `StatusCode` `401`, and `missing_scope` and `not_allowed_token_type` are `403` — so `IsReconnectRequired` means ask the person to reconnect, or reinstall with the scope the message names, rather than retry. `ratelimited` is `429` and `internal_error` or `fatal_error` `500`. Any other Slack API error has a null `StatusCode` and Slack's code (`channel_not_found`, `not_in_channel`, `is_archived`) in `ErrorCode`, and fails the same way again; for `invalid_blocks` and `invalid_arguments` the message carries Slack's explanation. A `429` is retried three times on Slack's `Retry-After`, bounded at two minutes, before it surfaces; `IsTransient` marks one that still did.
+Every failed Slack call is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"slack"`; the exceptions are a paging cap (`ConnectorPageCapException<T>`, which derives from `Exception`, so `catch (ConnectorException)` misses it), a bad argument (`ArgumentException` or `ArgumentOutOfRangeException`), a stopped `SlackMessageStream` (`InvalidOperationException`), a network failure, which passes through as `HttpRequestException` (or `TaskCanceledException` when the `HttpClient` times out), and a body `SlackEvents.Parse` or `SlackInteractions.Parse` cannot read, or a string `SlackBlock.Raw` cannot parse (`JsonException`). Slack answers every API error with HTTP 200 and `ok:false`, and the connector stamps the ones that mean something about the credential: an invalid, revoked or expired token is `StatusCode` `401`, and `missing_scope`, `not_allowed_token_type` and `ekm_access_denied` are `403` — so `IsReconnectRequired` means ask the person to reconnect, or reinstall with the scope the message names, rather than retry. `ratelimited` (or `rate_limited`) is `429`, `request_timeout` `408`, `internal_error` or `fatal_error` `500`, and `service_unavailable` `503`. Any other Slack API error has a null `StatusCode` and Slack's code (`channel_not_found`, `not_in_channel`, `is_archived`) in `ErrorCode`, and fails the same way again; for `invalid_blocks` and `invalid_arguments` the message carries Slack's explanation. A `429` is retried three times on Slack's `Retry-After`, bounded at two minutes, before it surfaces; `IsTransient` marks one that still did.
 
 ### Posting
 
@@ -243,7 +245,7 @@ SlackBlock[] reply =
 SlackBlock notice = new SlackAlertBlock(SlackText.Plain("This answer was drafted by an agent")) { Level = SlackAlertLevel.Warning };
 ```
 
-A block or element this library does not model goes in as JSON with `SlackBlock.Raw(json)` or `SlackElement.Raw(json)` and is sent exactly as given. Slack checks the limits — 50 blocks a message, 100 a view, 3000 characters of section text — and refuses a message over them with `invalid_blocks`, its message naming the offending field. For blocks built from data, such as a model's output, `ValidateBlocksAsync(blocks)` asks Slack first and returns each `SlackBlockProblem` with a JSON `Pointer` to the field, or nothing when they are valid.
+A block or element this library does not model goes in as JSON with `SlackBlock.Raw(json)`, which takes a string or a `JsonElement`, or `SlackElement.Raw(json)`, which takes only a `JsonElement`, and is sent exactly as given. Slack checks the limits — 50 blocks a message, 100 a view, 3000 characters of section text — and refuses a message over them with `invalid_blocks`, its message naming the offending field. For blocks built from data, such as a model's output, `ValidateBlocksAsync(blocks)` asks Slack first and returns each `SlackBlockProblem` with a JSON `Pointer` to the field, or nothing when they are valid.
 
 Reading a message back, `SlackMessage` carries its `Blocks` as Slack's raw JSON, with `Edited` (a `SlackEdit` naming who and when), the thread's `ReplyCount`, `ReplyUsers` and `LatestReply`, its `Reactions`, `Metadata`, and the `BotId` and `AppId` that mark a post by an app.
 

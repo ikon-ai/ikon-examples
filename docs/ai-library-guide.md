@@ -1,5 +1,7 @@
+<!-- checked-against: 9f1897fa81fcc7ed408bcbca -->
+
 # Ikon.AI Library Overview
-<!-- checked-against: 888ac86338023ce5 -->
+
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -61,7 +63,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global` — no restriction, the platform picks the serving region — unless the organisation's AI region policy is EU-only, where an omitted or `Global` region means the EU and a requested non-EU region throws `AIRegionPolicyViolationException`.
 
-Needs the `Ikon.AI`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
+Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
 <!-- ikon-example: aid-llm -->
 ```csharp
@@ -82,7 +84,7 @@ Log.Instance.Info($"String result: {stringResult}");
 
 Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted. A custom model declares no region, so under an EU-only AI region policy calling it throws `AIRegionPolicyViolationException`:
 
-Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.LLM` using directives.
+Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
 <!-- ikon-example: aid-custom-model-endpoints -->
 ```csharp
@@ -160,7 +162,8 @@ naming what the model accepts; inside the range, Gemini, xAI and FLUX Kontext ta
 aspect ratio they support, so a 1000x700 request does not come back as 1000x700. `Width`
 and `Height` default to 1024; set both to `0` to take the provider's own default. The 1024 default is
 a square size request, so editing a non-square input image comes back square unless both are `0`, and
-setting only one of them to `0` throws `InvalidRequestException`. Either way the result reports the
+setting only one of them to `0` throws `NonRetryableAIException`; `Flux1Fill` is the exception, ignoring
+both and keeping the input image's size. Either way the result reports the
 size that was actually delivered, measured from the returned bytes, since models snap to their own
 grids and tiers within what they accept.
 
@@ -212,7 +215,7 @@ to re-encode throws, since the decoder reads no WebP. The mask helpers convert b
 
 ## ImageSegmentation
 
-`Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes.
+`Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes; a prompt that matches nothing returns an empty `Segments` list rather than throwing.
 
 Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
 
@@ -225,7 +228,11 @@ Needs the `Ikon.AI.ImageSegmentation` using directive.
 <!-- ikon-example: ai-imagesegmentation -->
 ```csharp
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
-await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+
+if (result.Segments.Count > 0)
+{
+    await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+}
 ```
 
 Use the constructor + config form for URL input, point/box prompts, or multiple masks:
@@ -248,14 +255,17 @@ foreach (var segment in result.Segments)
     Log.Instance.Info($"Found segment with score {segment.Score}");
 }
 
-await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+if (result.Segments.Count > 0)
+{
+    await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+}
 ```
 
 ## ImageUpscaling
 
 `Ikon.AI.ImageUpscaling.ImageUpscaler` raises the resolution of a single input image (super-resolution). The result is one larger image. Useful for rescuing low-resolution source material, printing or presenting a generated image at a larger size, and recovering detail from compressed photos.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns WebP; Crystal is the one model that will invent detail across the whole frame.
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns the provider's own encoding; Crystal is the one model that will invent detail across the whole frame.
 
 Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider.
 
@@ -340,7 +350,7 @@ var mesh = await MeshGenerator.GenerateAsync("A small wooden treasure chest with
 Log.Instance.Info($"GLB URL: {mesh.GlbUrl}");
 ```
 
-Use the constructor + config form for image-to-mesh, PBR textures, or polycount/topology control:
+Use the constructor + config form for image-to-mesh, PBR textures, or polycount/topology control. On a Meshy model, image-to-mesh takes no `Prompt`: setting one with `InputImages` throws `NonRetryableAIException`, so guide the texture with `TexturePrompt` instead:
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
@@ -382,7 +392,7 @@ var character = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 Log.Instance.Info($"FBX URL: {character.FbxUrl}");
 ```
 
-The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well, delivered as GLB (Rodin delivers only the `OutputFormat` asked for):
+The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well, delivered as GLB (Rodin delivers only the `OutputFormat` asked for, so the FBX character above has no `GlbUrl`; generate it with `OutputFormat = MeshGeneratorFileFormat.Glb` to rig it this way):
 
 Needs the `Ikon.AI.MeshGeneration` using directive.
 
@@ -818,7 +828,7 @@ var result = await musicGenerator.GenerateMusicFileAsync(new MusicGeneratorConfi
 await File.WriteAllBytesAsync("music.mp3", await result.GetDataAsync());
 ```
 
-The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending on the `Kind`, plus `MimeType` and `DurationSeconds`. `MusicGenerator` implements `IMusicGenerator`, which extends `IMusicGeneratorInfo` with `SupportsStreaming`, `SupportsEditing` and `SupportsDurationControl`; the same three read off a `MusicGeneratorCapabilities`. Streaming is gated: `GenerateMusicAsync` throws `NonRetryableAIException` on a model whose `SupportsStreaming` is false, and a model without duration control silently ignores `DurationSeconds`.
+The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending on the `Kind`, plus `MimeType` and `DurationSeconds`. `MusicGenerator` implements `IMusicGenerator`, which extends `IMusicGeneratorInfo` with `SupportsStreaming`, `SupportsEditing` and `SupportsDurationControl`; the same three read off a `MusicGeneratorCapabilities`. Streaming is gated: `GenerateMusicAsync` throws `NonRetryableAIException` on a model whose `SupportsStreaming` is false, and a model without duration control silently ignores `DurationSeconds`. On the ElevenLabs models, an unset `DurationSeconds` means 10 seconds, and one outside 3 to 120 seconds throws `NonRetryableAIException` rather than being clamped.
 
 ## WebScraping
 

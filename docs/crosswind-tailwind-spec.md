@@ -1,5 +1,6 @@
-<!-- checked-against: b66b7f95eaa8dafa -->
-﻿# Crosswind Tailwind Spec
+<!-- checked-against: 158c4b92eaa8dafa7466fd2c -->
+
+# Crosswind Tailwind Spec
 
 Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.
 
@@ -139,10 +140,10 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
 * **Filter primitives** (auto-emitting `filter`):
   `blur-{xs|sm|md|lg|xl|2xl|3xl|[length]}`, `brightness-{value}`, `contrast-{value}`, `drop-shadow`, `drop-shadow-{xs|sm|md|lg|xl|2xl}`, `drop-shadow-none`, `drop-shadow-{color}`, `grayscale`, `hue-rotate-{deg}`, `invert`, `saturate-{value}`, `sepia`
-* **Optional filter toggle**: `filter`, `filter-none`
+* **Filter override**: `filter-none`, `filter-[...]` (bare `filter` is accepted but emits nothing; the primitives already write `filter`)
 * **Backdrop primitives**:
   `backdrop-blur-{...}`, `backdrop-brightness-{...}`, `backdrop-contrast-{...}`, `backdrop-grayscale`, `backdrop-hue-rotate-{deg}`, `backdrop-invert`, `backdrop-opacity-{...}`, `backdrop-saturate-{...}`, `backdrop-sepia`
-* **Backdrop filter toggle**: `backdrop-filter`, `backdrop-filter-none`
+* **Backdrop filter override**: `backdrop-filter-none`, `backdrop-filter-[...]` (bare `backdrop-filter` is accepted but emits nothing; the primitives already write `backdrop-filter`)
 
 ## 10) Tables
 
@@ -153,7 +154,7 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
 ## 11) Transitions & Animation
 
-* **Transition**: `transition` (all), `transition-none`, `transition-{property}`
+* **Transition**: `transition` (Tailwind's default property list, not `all`; 150ms), `transition-all`, `transition-none`, `transition-{property}`
 * **Timing**: `duration-{ms}`, `ease-{linear|in|out|in-out|[cubic-bezier]}`, `delay-{ms}`
 * **Behavior**: `transition-normal`, `transition-discrete` (Tailwind v4 names), plus the explicit `transition-behavior-{normal|allow-discrete}`. The shorthand `transition-behavior-discrete` is also accepted and maps to `allow-discrete`.
 * **Animation**: `animate-{spin|ping|pulse|bounce|none|[custom]}`

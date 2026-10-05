@@ -1,5 +1,7 @@
+<!-- checked-against: 40027ad670af6ad8cf42062e -->
+
 # Ikon.App.Payments Guide
-<!-- checked-against: f12c69e570af6ad8 -->
+
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
@@ -274,8 +276,8 @@ a delivery is missed or the app is offline when an event is pushed:
 1. **Checkout return** — a Stripe payer's success redirect hops through the backend, which verifies the
    session and re-ingests it before forwarding the payer to your app. The common "user paid and came back
    but the webhook got lost" case heals itself with no code on your side.
-2. **Periodic sweep** — the backend re-pulls subscriptions whose stored period end has passed without a
-   renewal or cancellation event landing.
+2. **Periodic sweep** — the backend re-pulls Stripe subscriptions whose stored period end has passed
+   without a renewal or cancellation event landing, and non-terminal Mollie payments and Surfboard orders.
 3. **`app.Payments.ReconcileAsync(customerKey?, reference?)`** — on-demand re-pull for anything else. Pass
    a `PaymentLink.Reference` (checkout session) or a subscription id to pull one object, a `customerKey`
    for that customer's recent objects, or nothing (outside a client scope) for the app's recent window. That is Stripe; Mollie and Surfboard ignore

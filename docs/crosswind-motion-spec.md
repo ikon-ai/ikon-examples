@@ -1,5 +1,6 @@
-<!-- checked-against: ce33d2a000645dd2 -->
-﻿# Crosswind Motion Spec
+<!-- checked-against: f5ddae3800645dd21e03f5af -->
+
+# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
 
@@ -38,14 +39,15 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Group/peer scopes: `group-<state>` and `peer-<state>` where `<state>` is a pseudo-class, pseudo-element, or explicit selector in brackets `[selector]`.
   * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>` (attribute presence; only `data-state-<value>` splits into `[data-state="<value>"]`), `data-[<name>=<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
   * Theme scoping: `theme-<name>` (if theme variants are enabled).
-  * Other selector forms: `in-<...>`, `nth-<...>`, `not-<...>` (unless it negates a media context), `*`, `**`, `flutter`, `web`, any prefix containing `&`, and the container-query variants `@container`, `@<size>`, `@[<width>]`.
+  * Other selector forms: `in-<...>`, `nth-<...>`, `not-<...>` (unless it negates a media context), `*`, `**`, `flutter`, `web`, any prefix containing `&`, and the container-query variants `@container`, `@<size>`, `@[<width>]` (`@container/<name>` and `@<size>/<name>` query a named container) and the legacy `container` / `container(<name>)` / `container(<name>, <query>)` / `container(<query>)`.
 * **Track prefix:** any identifier **not** matching a reserved variant. Tracks may refer to:
   * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `pointer-coarse`, `pointer-fine`, `any-pointer-hover`, `any-pointer-none`, `any-pointer-coarse`, `any-pointer-fine`, `contrast-more`, `contrast-less`, `forced-colors`, `inverted-colors`, `noscript`. A `not-` prefix on a media context (`not-print`, `not-sm`, `not-supports-[<condition>]`) negates the condition.
   * Width and feature queries: `min-<breakpoint>` / `max-<breakpoint>` (Tailwind breakpoint tokens, emitted as `@media` width bounds) and `supports-[<condition>]` (an `@supports` query; underscores → spaces; appends `: var(--tw)` if missing a colon).
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
   Zero or more track prefixes are allowed; the innermost (closest to the directive) owns that directive.
-  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities. The exception is `dark`/`not-dark` under the default dark-mode strategy: `dark:motion-[...]` is scoped to the dark theme and runs on the `default` track.
+  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities. The exception is `dark`/`not-dark` under the default dark-mode strategy: `dark:motion-[...]` is scoped to the dark theme and runs on the `default` track. It is scoped only to an explicit theme (`[data-theme="dark"]` or `.dark`), so unlike the element's other `dark:` styles it does not play when dark comes only from the OS `prefers-color-scheme` with no theme set.
+  A variant-scoped block (`dark:`, `hover:`, ...) keeps the element's base animations as separate layers before its own, and unprefixed timing utilities do not reach its track, which defaults to `0s`: give them the same variant (`dark:motion-duration-200ms`).
 
 Examples:
 
@@ -72,7 +74,7 @@ motion-[ <step>( , <step> )* ]
 * **Time:** either **percent** (`0..100` as integer or decimal without `%`) **or** **duration** (`<number>ms|s`).
   **Rule:** all steps in one block MUST use the same time basis (percent **or** duration).
 * **Step utilities:** one or more **utility tokens**, separated by spaces.
-  A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a property with arbitrary value `name-[value]`.
+  A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a registered utility with arbitrary value `name-[value]` (e.g., `translate-y-[8px]`). A name that is not a registered Crosswind utility, including the arbitrary-property form `[prop:value]`, is dropped from the step with an "Unknown utility" warning.
 
 Examples:
 
@@ -135,7 +137,8 @@ from, carry the index-0 delay and animate in unison rather than continuing the s
 compile time can see the item count, so a longer run gets no warning — split it, or stagger a
 wrapper instead. The web renderer's Text, Heading and Button split their own text and set each
 letter, word, line and paragraph index inline, counted across the whole text (backwards for a
-`-reverse` variant), so text they split has no such cap. They count backwards only for an
+`-reverse` variant), so text they split has no such cap; text over 16,384 characters is left
+unsplit and gets no per-item stagger at all. They count backwards only for an
 unconditional `-reverse` class; a variant-scoped one (`hover:motion-per-letter-reverse`,
 `dark:motion-per-word-reverse`) is not supported there and staggers forward.
 
@@ -394,7 +397,9 @@ variant-prefix  ::= pseudo-class-variant | pseudo-element-variant
 other-variant   ::= ( "in-" | "nth-" | "not-" ) bracket-chars
                   | "*" | "**" | "flutter" | "web"
                   | ampersand-selector     // any prefix containing "&"
-                  | "@container" | "@" identifier | "@" bracket-value
+                  | ( "@container" | "@" container-size ) ( "/" identifier )?
+                  | "@" bracket-value
+                  | "container" ( "(" any-char* ")" )?   // legacy container query
 
 track-prefix    ::= identifier | "2xl" | supports-track | selector-track
 
@@ -410,6 +415,9 @@ core-directive  ::= motion-block
                   | preset
 
 scroll-timeline-directive ::= "scroll-timeline-" bracket-value
+                            | ( "scroll-timeline-name-" | "view-timeline-name-"
+                              | "view-timeline-inset-" | "timeline-scope-" ) bracket-value
+                            | ( "scroll-timeline-axis-" | "view-timeline-axis-" ) identifier
 
 motion-block    ::= "motion-" bracket-steps
 
@@ -503,6 +511,7 @@ bracket-map    ::= "[" WS? number WS? ".." WS? number WS? "->"
 identifier     ::= lc-alpha ( lc-alpha | digit | "_" | "-" )*
 number         ::= sign? ( digit+ ( "." digit* )? | "." digit+ )
 integer        ::= sign? digit+
+container-size ::= digit? identifier   // sm, 2xl, 7xl, ...
 sign           ::= "+" | "-"
 digit          ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 lc-alpha       ::= "a" | "b" | ... | "z"
@@ -556,7 +565,7 @@ These are minimal rules code generators MAY enforce during parse; they do not pr
 3. **Easing function text** inside `[...]` MUST be fully contained (balanced parentheses) and may include commas and spaces.
 4. **Bracket payloads** MUST close; a balanced nested `[...]` needs no escaping, and `\]` includes an unbalanced literal `]`.
 5. **Variant collisions:** multiple variants are allowed; order is preserved as written (left-to-right).
-6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is folded into the track name rather than gating the rule (`md:glitch:motion-loop` is track `glitch|md`, a different track from `glitch:`, and applies at every width), and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`).
+6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is folded into the track name rather than gating the rule (`md:glitch:motion-loop` is track `glitch|md`, a different track from `glitch:`, and applies at every width), and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`); a bare word that is not a known variant also logs a warning, so write `.outer:glitch:motion-loop` to scope under a parent class on purpose.
 7. **Alias `sound-[...]`:** purely syntactic; parsers MAY normalize it to `sfx:source-[...] <same-prefixes>:sfx:play`.
 
 ---
@@ -574,6 +583,8 @@ Parsers MAY normalize input to a canonical form:
 ---
 
 ## 8) Examples (normative data points)
+
+A track with no `motion-duration-*` runs for `0s`, so A, C and D show nothing until one is added with the same prefixes as the steps (`motion-duration-300ms`, `hover:glitch:motion-duration-300ms`, `title:motion-duration-300ms`).
 
 **A. Basic fade**
 

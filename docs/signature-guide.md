@@ -1,5 +1,7 @@
+<!-- checked-against: 65fe2036c49689f6da1ba82f -->
+
 # Ikon Signature Guide
-<!-- checked-against: 1e9fb1b5c02623f1 -->
+
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
@@ -132,7 +134,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and stamps the key verbatim as that row's `TenantScope` id — so the cost lands in the same per-tenant bucket as the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further wiring. Nothing reinterprets the value: pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost simply belongs to the space rather than to anything inside it.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and stamps the key, trimmed of surrounding whitespace, as that row's `TenantScope` id — so the cost lands in the same per-tenant bucket as the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further wiring. Nothing else reinterprets the value (a key that is all whitespace meters with no `TenantScope`): pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost simply belongs to the space rather than to anything inside it.
 
 An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
 
@@ -143,7 +145,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 | Field | Required | Description |
 |---|---|---|
 | `Purpose` | yes | App-declared reason, e.g. `"contract.sign"`. Logged on the order. At most 100 characters (`Title` and `CostAttributionKey` 200, each filename 255); longer is refused with 400. |
-| `Documents` | yes | One or more `SignatureDocument(Filename, MimeType, Bytes)`. Backend caps at 10 documents / 25 MB each. All documents in one order must share a MIME type — see "Supported document types" above. |
+| `Documents` | yes | One or more `SignatureDocument(Filename, MimeType, Bytes)`. Backend caps at 10 documents / 25 MB each, and the whole request body at 100 MB; documents travel base64-encoded, so their combined size can be at most about 75 MB, and a larger order fails with an `HttpRequestException` (413) before validation runs. All documents in one order must share a MIME type — see "Supported document types" above. |
 | `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported in this iteration. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony. Defaults to `Signature {Purpose}`. |
@@ -198,7 +200,7 @@ Each signing provider calls its own platform-side webhook route when an order tr
 
 ## Failure handling
 
-The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (unsupported, mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 503 when no configured provider can sign it, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
+The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign it, which includes a MIME type outside the supported ones, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
 
 <!-- ikon-example: signature-failures -->
 ```csharp

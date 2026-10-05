@@ -1,5 +1,7 @@
+<!-- checked-against: db02a6413c3606296dc83c02 -->
+
 # Ikon Device Capture Guide
-<!-- checked-against: 5270f0d531888b52 -->
+
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |
@@ -52,7 +54,7 @@ Each `MotionBatch` carries the samples in device order, the session and user it 
 
 **This is not the transport for a low-latency controller.** Batched calls carry at least one batch of scheduling delay and deliver every sample reliably whether or not it still matters. A phone used as a pointing device wants an unreliable app-defined `.tp` message, where a dropped sample is superseded by the next. Use motion for analysis — gait, cadence, activity, impact — and a `.tp` channel for control.
 
-`StartTrackingAsync` returns `false` when the client has no such sensor or a build that cannot read it. That is "this device can't", not an error.
+`StartTrackingAsync` returns `false` when the client has a build that cannot read motion or could open no sensor stream at all. That is "this device can't", not an error. A sensor the device lacks or has revoked does not fail the call: the others still stream and its samples never arrive.
 
 ### Motion and location together
 
@@ -70,7 +72,7 @@ ignore both.
 
 ## Recordings — the track that survives a tunnel
 
-A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`.
+A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`. Only the Flutter client records: a browser client has no recording function, so there `StartAsync` returns false and nothing is recorded — check the bool.
 
 <!-- ikon-example: device-recordings -->
 ```csharp
@@ -80,7 +82,7 @@ await app.Recordings.StartAsync(sessionId, outingId, new RecordingOptions(
     Fixes: true, Motion: true, MaxBytes: 128L * 1024 * 1024));
 ```
 
-`RecordingOptions` decides what goes in the file: `Fixes` (almost always yes — this is what survives an outage), `Motion` (at the full rate asked of `app.Motion`, independent of any `LiveHertz` decimation), and `MaxBytes`, which is a refusal rather than a target — a device out of space must fail the recording, not the phone.
+`RecordingOptions` decides what goes in the file: `Fixes` (almost always yes — this is what survives an outage), `Motion` (at the full rate asked of `app.Motion`, independent of any `LiveHertz` decimation), and `MaxBytes`, which is a refusal rather than a target — a device out of space must fail the recording, not the phone. At the cap the device stops writing and seals what it has without uploading it, so a later `StopAsync` for that id answers false and the file comes home on the next `RequestPendingAsync`.
 
 A `RecordingArchive` arrives with the activity id the app gave it (cut to ASCII letters, digits, `-` and `_`, at most 128 characters, so choose ids in that set), the uploading session and user, when the device opened the file, the recorded `Fixes` and `Motion` in device order, and an `Asset` pointing at the raw bytes. Each `RecordedFix` is raw on purpose — no smoothing, no auto-pause, no elevation fill — because the app's own recorder is the processor, and re-running it over a complete set beats a track assembled live from whatever the network delivered. `RecordingRecordKind` distinguishes the two record types inside the encoded file if you ever decode it directly.
 
@@ -112,6 +114,7 @@ It carries **values, never layout**. One widget draws every app's banner, so the
 - `title` is fixed for the life of the activity, usually the app's name; `status` is the tracked line above the metrics — a phase, a state, a kind.
 - `muted: true` is the paused or held look, which desaturates the accent.
 - Prefer `UpdateAsync` to a repeated `StartAsync`. A second start would orphan the first banner with numbers that never move again; the client folds a repeat start into an update, but calling the right one says what you meant.
+- `StartAsync`, `UpdateAsync` and `EndAsync` aim at the calling client unless given a `sessionId`. A background tracking loop or timer has no calling client, so pass the `sessionId` there — without one the call throws `InvalidOperationException` instead of answering `false`.
 - **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said on a screen the person cannot dismiss it from. `EndAsync(sessionId)` is for clearing one client on purpose.
 
 `StartAsync`, `UpdateAsync` and `EndAsync` answer `false` rather than throwing where a banner cannot be shown — a browser, an Android device, iOS below 16.2, an iOS build that does not carry the widget extension and its bridge. A banner is a nicety and its absence must never take an app down with it.
