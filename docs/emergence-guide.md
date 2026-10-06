@@ -1,4 +1,4 @@
-<!-- checked-against: 5ec9b74602fcf6d3e5248be0 -->
+<!-- checked-against: 3cc87f9302fcf6d3e5248be0 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -444,7 +444,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 
 ## Tool Registration
 
-Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes (from `System.ComponentModel`) document individual parameters. Tools are deduplicated by name.
+Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes document individual parameters. The scaffold's global usings already bring in Ikon's own `[Description]`, which tools read like the BCL one, so do not add `using System.ComponentModel;` (it makes the bare name ambiguous, CS0104). Tools are deduplicated by name.
 
 <!-- ikon-example: emx-tool-registration -->
 ```csharp

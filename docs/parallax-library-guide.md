@@ -1,4 +1,4 @@
-<!-- checked-against: 895c823756b80b782d6343c2 -->
+<!-- checked-against: 95d09f1f22b0fc06f13ce713 -->
 
 # Ikon.Parallax Library Overview
 
@@ -501,7 +501,7 @@ There your array is *appended* to that base rather than replacing it, and later 
 <!-- ikon-example: px-merge-semantics-the-default-marker-3 -->
 ```csharp
 view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] px-8 — the viewport still fills, and scrolls
+view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] pe-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
 ```
 
 You never need `"default"` on these, and you cannot remove the base — override it instead (`min-h-[300px]` beats
@@ -554,7 +554,7 @@ view.Button([Button.GhostMd, Button.Icon],
 - **The tooltip wrapper becomes the flex child.** `Tooltip` renders a `span` around its trigger, so layout, responsive and absolute classes belong on the wrapper, not on the button inside it — `hidden lg:inline-flex`, `shrink-0`, `absolute top-2 right-2` left on the button are all pinned inside a static span and do nothing. Pass them as `tooltipRootStyle:` (or `rootStyle:` on `Tooltip`).
 - **Nesting inside another overlay:** a tooltipped menu button goes *inside* the Popover's `trigger:` slot, not around the Popover.
 
-Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` is the odd one: `role="slider"` lives on the thumb, so its `label:` (or an `ariaLabel:`) is routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch` and `Slider` warn at dev time when they render with no name at all — `Toggle` does not, because its `content:` is usually a label of its own.
+Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` and `Select` are the odd ones: their role lives on an inner element (`role="slider"` on the thumb, `role="combobox"` on the trigger), so a `Slider`'s `label:` and either one's `ariaLabel:` are routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch` and `Slider` warn at dev time when they render with no name at all — `Toggle` does not, because its `content:` is usually a label of its own.
 
 The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **Ikon Theming Guide** (`theming-guide.md`).
 
@@ -578,6 +578,8 @@ view.ScrollArea(
 ```
 
 `autoScrollKey:` takes the thing that changes — the reactive collection itself, a count, or a composite string.
+
+The scrollbars float over the content, so the viewport keeps a gutter for each one it shows (`pe-3` beside a vertical bar, `pb-3` under a horizontal one) and nothing slides under a scrollbar when it appears. Padding of your own in `viewportStyle:` replaces the gutter on that side.
 
 **Auto-scroll behavior (Polite priority):**
 - At bottom: new content auto-scrolls into view

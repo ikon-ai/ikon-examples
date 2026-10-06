@@ -1,4 +1,4 @@
-<!-- checked-against: f807f31024052e88c68b69cb -->
+<!-- checked-against: 81f4e8cfb606357895d7c18b -->
 
 # Ikon Audio & Video Guide
 
@@ -16,40 +16,75 @@ private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
 ```
 
-Construct each service once. The constructor subscribes to the app's incoming media messages, so a service constructed later than setup misses every stream that began before it, and a second instance decodes every incoming stream a second time. Speech needs no start-up step: each target set's speech mixer starts the loop that plays it out on the first utterance sent to that set.
+Construct each service once. The constructor subscribes to the app's incoming media messages, so a service constructed later than setup misses every stream that began before it, and a second instance decodes every incoming stream a second time. Playback needs no start-up step: the service mixes and paces each client's audio from construction on.
 
 All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.cs`, so no `using` directives are needed for any type in this guide.
 
-## Sending audio: two lanes, three methods
+## Playing audio
 
 <!-- ikon-example: av-send -->
 ```csharp
-// 1. Speech — real-time paced through the speech mixer; new speech interrupts
-//    current speech with a fade. The default for spoken replies.
-await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world");                       // TTS in one call
-Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);                                // your own AudioChunks
+// Every call returns an AudioPlayback at once; await its Completion to wait for playout.
+// Each client hears everything aimed at it, mixed.
 
-// 2. Complete clip (decoded file, generated music) — real-time paced, no
-//    interruption semantics. Safe for any length.
-await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId: "music");
+// 1. Speech — TTS in one call. A new line crossfades out the speech still playing.
+var line = Audio.Speak(MediaTargets.Everyone, "Hello world");
+await line.Completion;
 
-// 3. Immediate, UNPACED — only for audio already produced in real time (echoing
-//    mic frames back out) or very short clips. A long clip sent this way arrives
-//    all at once and can overflow client audio buffers; use PlayClipAsync for clips.
-await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
+// 2. A clip (decoded file, generated music) — mixed with everything else, any length.
+//    Replace in a named slot cuts the previous clip there instead of overlapping it.
+Audio.Play(MediaTargets.Everyone, samples, sampleRate, channelCount,
+    new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music" });
+
+// 3. Audio produced as it goes (your own AudioChunks, a synth) — a live playback paces it.
+var live = Audio.PlayLive(MediaTargets.Everyone, audioChunk.SampleRate, audioChunk.ChannelCount);
+await live.WriteAsync(audioChunk.Samples);
+live.Complete();
+
+// 4. Raw — your own frames on your own stream id, UNMIXED and UNPACED: only for audio
+//    already produced in real time (echoing mic frames back out) or an engine that mixes
+//    and paces itself. Close the stream when done.
+await Audio.Raw.SendFrameAsync(MediaTargets.Everyone, streamId, samples, sampleRate, channelCount, isFirst, isLast);
+await Audio.Raw.CloseStreamAsync(streamId);
 ```
 
-`SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both throw `TimeoutException` when the playout pipeline stops draining while unpaused, and `SpeakAndWaitAsync` throws `InvalidOperationException` when the mixer abandons the utterance — an utterance that never played is never reported as one that did. Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
+Every sound is a **playback**, and each client hears every playback aimed at it, mixed. There are no streams to open, name or close; each listener hears at most 64 playbacks at once (see `Evicted` below). Three calls start one, and each returns an `AudioPlayback` at once — ignoring it is fine:
 
-### The lane is in the name
+- **`Audio.Play`** plays a clip: an `AudioClip` (`AudioClip.FromWav` reads 8–32-bit integer or float WAV bytes) or interleaved `float[]` samples, copied before the call returns. Mono or stereo at any sample rate; any other channel count throws `ArgumentOutOfRangeException`, so downmix first. `PlayOptions.Loop` repeats it and `PlayOptions.Rate` changes speed and pitch together.
+- **`Audio.PlayLive`** opens a `LiveAudioPlayback` the app writes into as it produces audio — a synth, a relayed realtime model, streamed TTS chunks. `WriteAsync` copies the samples and returns once they are queued, waiting while the buffer is `maxBufferAhead` ahead of playout (default 200 ms; a bursty relay wants about 2 s). It returns `false`, discarding the samples, once the playback has ended, so `while (await live.WriteAsync(buffer))` is the write loop. Silence is not an ending: with nothing written it stays open and plays nothing. `Clear()` drops what is buffered and keeps it open (a user barged in on a relay); `Complete()` plays out the buffer and ends it `Finished`; disposing it stops it with a fade.
+- **`Audio.Speak`** generates speech and plays it. `SpeechOptions` picks `Model` (default `SpeechGeneratorModel.ElevenFlash25`), `Voice`, `Instructions` and `Speed` — ElevenLabs models fail the playback for `Instructions` (except Eleven3) and for a speed other than 1.0. Generation starts when the playback is next in its slot, and is cancelled when it has ended for every listener. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
 
-`Speak*` goes through a **speech mixer per target set**: one utterance at a time for each distinct set of clients, each on its own output stream. Starting an utterance fades out the speech of every target set that shares a client with it, and only those — a `SpeakAsync` to client A leaves speech to client B playing, while one to `MediaTargets.Everyone` shares every client and so stops all speech, and a targeted one stops a broadcast that is playing.
+`await playback.Completion` waits for playout and yields an `AudioPlaybackOutcome`; it never throws. `Finished` means it played to its end; `Stopped`, `Replaced` and `Evicted` (a listener already heard 64 playbacks: the oldest one-shot clip is cut to make room, or the new playback when nothing but loops, live playbacks, file and URL playbacks and speech is playing) mean something else ended it; `NoListeners` means nobody in its audience was connected (every connected client is a listener — a browser tab, an SDK client or an `ikon browse` session alike — except the app's own internal session); `Failed` means producing the audio failed, with `AudioPlayback.Error` saying why; `AppStopping` ends everything at app stop. When listeners ended it differently, `Finished` wins if anyone heard it to the end. `Started` completes when its timeline begins — at once, at the front of a queue, or on resume of a paused slot.
 
-`Send*` / `Play*` go straight to the wire as independent streams keyed by `streamId`, and overlap freely, including with speech.
+The handle acts for every listener: `Volume` (smoothed over 20 ms), `Pan` (-1 left, 0 centre, 1 right) and `Rate` (clips and cached sounds only — it throws on live, file and URL playbacks and speech) change as it plays, `FadeTo` ramps the volume, and `Pause`, `Resume` and `Stop` act on this playback alone. A playback has one timeline shared by everyone who hears it; `Position`, `IsPlaying`, `IsPaused` and `IsEnded` read it.
 
-So **two voices to the same listener at once is `PlayClipAsync` on two stream ids**, not two `SpeakChunk` calls — those interrupt each other, because a chunk carrying a new id supersedes what is playing to the same clients. `SpeakChunk` exists for generator settings `SpeakAsync` does not expose and for raw sample access, not for overlap.
+### Slots and mix modes
 
-Don't run two concurrent `PlayClipAsync` calls on the same stream id — the interleaved frames corrupt client playback. Use distinct stream ids or await the previous call first.
+A **slot** is a plain string naming a group of playbacks; nothing is predefined. How a new playback treats those already playing in its slot is its `PlayOptions.Mode`, an `AudioMixMode`:
+
+- `Mix` — plays alongside everything: effects, drum hits, overlapping clips.
+- `Replace` — crossfades: the slot's current playbacks leave with their `FadeOut` while the new one enters with its `FadeIn`. A choke group, a music track change, a new line of speech.
+- `Queue` — starts once everything earlier in the slot has finished. A queue behind a loop ends the loop at the end of its current pass; behind an open live playback it waits until that completes.
+
+`Mode`, `Slot`, `FadeIn` and `FadeOut` left null take the defaults of the call:
+
+| | `Mode` | `Slot` | `FadeIn` | `FadeOut` |
+|---|---|---|---|---|
+| `Play` | `Mix` | `"default"` | 2 ms | 10 ms |
+| `PlayLive` | `Replace` | `"live"` | 20 ms | 150 ms |
+| `Speak` | `Replace` | `"speech"` | 50 ms | 150 ms |
+
+So `Speak(targets, text, options: new PlayOptions { Pan = 0.5f })` still replaces in `"speech"`. `Play` with `Replace` or `Queue` and no `Slot` throws `ArgumentException`, because `"default"` holds every unslotted sound. Two live sources at once each need their own slot or `Mode = AudioMixMode.Mix` — left in `"live"`, the second replaces the first. Speech audio you play yourself (a `SpeechGenerator` clip, a recorded line) belongs in `Slot = "speech"` with `Replace`: it then replaces earlier speech and counts as the app speaking for turn detection.
+
+Replace and Queue consider only the playbacks in the slot that the new playback's listeners still hear, which is what makes targeted speech work (below). `PlayOptions.Duck` lowers other slots for each listener while the playback is heard, and they come back by themselves: `Duck = [new SlotDuck("music", 0.15f)]` dips the music to 15 % under a line (200 ms down and 800 ms up by default). Several ducks on one slot apply the lowest; a live playback ducks while audio written to it is playing.
+
+`PlayOptions.Effects` and `PlayOptions.Analyzers` process one playback's audio, analyzers first; each playback creates its own effect state, so one list can be passed to many playbacks. Pass the same `VisemeAnalyzer` instance to every playback: a client learns the analysis shapes of its stream from the frame that first declares them, and a set it has not seen reopens that client's stream to declare it. Each value is tagged with the playback and slot it came from, so a frontend follows one speaker with `ikonClient.viseme.getCurrentVisemeValues({ slot: 'aria' })` (or `{ playbackId }`, the C# `AudioPlayback.Id`); with no filter it returns the most recently started playback that is speaking.
+
+**Files and URLs.** `Audio.Play(targets, uri, options)` fetches a WAV, MP3 or Ogg (Vorbis or Opus) file (http or https, public addresses only, up to 100 MB) and decodes it a few seconds ahead of playout — the way to play music and long recordings without holding them decoded. `Audio.Play(targets, stream, mimeType, options)` does the same for a stream the app already has, and disposes it once read. Both take the clip options except `Rate`, loop by decoding the file again, are never cut to make room for another playback (though the new one can itself be evicted), and complete `Failed` with `AudioPlayback.Error` set when the file cannot be fetched or decoded. `AudioClip.DecodeAsync(bytes, mimeType)` decodes a short file completely into a clip — the format is read from the bytes, the MIME type only breaks ties.
+
+**Cached sounds.** A short fixed sound replayed often — a pad hit, a click, a notification — is made once with `Audio.CreateSound(clip)` (at most 30 s and 5 MB as 16-bit WAV) and played with `Audio.Play(targets, sound, options)`, like a clip: same defaults, slots, modes and ducks. A client that can cache sounds receives the bytes once and plays its own copy, without the server's streaming delay; any other client hears it mixed. `AudioSound.PreloadAsync(targets)` puts it in the clients' caches before the first press — with `Everyone`, clients that join later too. A browser that has not had a user gesture yet cannot play: a one-shot ends `NoListeners` for that client and a loop starts at its live position on the first gesture. Effects and analyzers are refused for a cached sound (`Play` throws `ArgumentException`), and cached sounds do not count toward the 64-playback cap.
+
+`Audio.Raw`, a `RawAudioOutput`, is the escape hatch: your own frames on your own stream id, sent at once — no mixing, no pacing, no slots, and `Stop` does not touch them. The caller paces them to real time, marks segments with `isFirst`/`isLast`, and frees the stream with `CloseStreamAsync`; each stream id holds client resources until then or app stop. `Audio.Raw.GetStreamInfo`, `Audio.Raw.GetPlaybackStatus` and `Audio.Raw.PlaybackReportReceivedAsync` report on raw streams only. Use it for audio already produced in real time, or an engine that mixes and paces itself; everything else is `Play`.
 
 ### `MediaTargets`: every send names its audience
 
@@ -61,30 +96,34 @@ A targeted send whose id list is **empty** transmits nothing at all. An empty ta
 
 The reply below assumes recognition is on: `Audio.SpeechRecognizedAsync` never fires until `Audio.UseSpeechRecognition` or `Audio.UseTurnDetection` has been called once at setup.
 
-**An audio send with nobody to hear it does nothing, and `SpeakAsync` does not generate the speech.** `Everyone` with no client connected, or a target list naming only clients that have left, is an audience of nobody — every `Audio` send returns without transmitting, and the speech models are never called. The skip is logged at debug. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
+**Speech with nobody to hear it is not generated.** `Audio.Speak` decides its audience when its generation would start: `Everyone` with no client connected, or a target list naming only clients that have left, completes `NoListeners` and the speech models are never called. A playback to specific clients none of whom is connected completes `NoListeners` too, and a raw send to nobody transmits nothing. A playback to `Everyone` other than speech keeps its timeline in an empty room, so music started in `Main` reaches the clients who join later. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
 
 <!-- ikon-example: av-reply-to-speaker -->
 ```csharp
 Audio.SpeechRecognizedAsync += async args =>
 {
     // Reply only to the person who spoke — NOT the whole room.
-    await Audio.SpeakAsync(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
+    Audio.Speak(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
 };
 ```
 
-Because interruption follows the targets, replying to each speaker like this lets two users be spoken to at the same time: a reply to one does not cut off the reply to the other. A reply to `MediaTargets.Everyone` still interrupts both.
+`Replace` acts on what the new playback's listeners hear, so replying to each speaker like this lets two users be spoken to at the same time: a reply to one does not cut off the reply to the other. A reply to `MediaTargets.Everyone` replaces both.
 
-### Stopping speech
+### Stopping, pausing and volume
 
-`Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and with no id it closes the `Play*`/`Send*` default stream, never a speech stream (`Audio.GetSpeechStreamId(targets)`). Stop speech by its targets; like a new utterance, a stop reaches every target set that shares a client with the targets given:
+`Audio.Stop`, `Audio.Pause`, `Audio.Resume` and `Audio.SetSlotVolume` act on what the targeted clients hear in a slot (a null slot is every slot):
 
 <!-- ikon-example: av-mixer-control -->
 ```csharp
-Audio.StopSpeech(MediaTargets.Everyone);               // graceful: fade out all speech
-Audio.StopSpeech(MediaTargets.To(7), fade: false);     // hard stop: discard speech that reaches client 7
+Audio.Stop(MediaTargets.Everyone, "speech");                 // graceful: fade out all speech
+Audio.Stop(MediaTargets.To(7), "speech", fade: false);       // hard stop: silence speech for client 7 only
+Audio.Pause(MediaTargets.Everyone, "speech");                // hold speech where it is ...
+Audio.Resume(MediaTargets.Everyone, "speech");               // ... and carry on
+Audio.SetSlotVolume(MediaTargets.Everyone, "music", 0.3f);   // lower one slot, leave the rest
+Audio.Stop(MediaTargets.Everyone);                           // every slot, everyone
 ```
 
-`Audio.PauseSpeech(targets)` / `Audio.ResumeSpeech(targets)` hold and release playout the same way; await `SpeakAndWaitAsync` to continue after an utterance has played out.
+With `Everyone` they act for every client, later joiners included: `Stop` ends the slot's playbacks and clears its queue, and `Pause` holds the timelines — a one-shot clip that arrives in a paused slot is dropped as `Stopped` instead of bursting out on resume. With specific clients they act for those clients alone: `Stop(MediaTargets.To(id), "speech")` is barge-in, and an `Everyone` playback plays on for everyone else (speech, playbacks to specific clients and one-shot clips left with no listener end). A per-client `Pause` mutes the slot for them while the timeline runs on, so they rejoin at the live position. Settings made with `Everyone` and with specific clients are separate layers: a client hears a slot at the shared volume × its own volume, and a host turning the music down for everyone keeps each guest's own setting. To continue after a line has played, `await playback.Completion`.
 
 ## Receiving audio from the microphone
 
@@ -94,11 +133,11 @@ Pick one of the two mic buttons per microphone — offering both hold and toggle
 
 ### The microphone permission is a separate press
 
-Until the browser has granted a microphone, a capture button renders itself as an **"Enable microphone"** pill, and pressing it *only* asks for the permission — it never also starts a capture. Do not build a permission flow of your own around it.
+Until the browser has granted a microphone, a capture button renders itself as an **"Enable mic"** pill, and pressing it *only* asks for the permission — it never also starts a capture. Do not build a permission flow of your own around it.
 
 The separation is what makes push-to-talk work at all. A permission dialog takes focus, and the page sees that as the button being released: a hold that doubles as the ask is cancelled behind the dialog, so the user grants access and finds that nothing was captured, on a button that now looks idle. After the grant the button flashes a green **ready** ring for two seconds, so "is it on now?" is answered before it is asked, and the next press is unambiguously a talk press.
 
-A refusal (or a machine with no microphone) switches the button to a **"Microphone blocked"** state that stays pressable so it can explain itself, and fires `onPermissionChanged`. The event fires only when a press asks: a microphone already blocked or missing when the page loads shows the state silently, and the handler first runs on the first press:
+A refusal (or a machine with no microphone) switches the button to a **"Mic blocked"** state that stays pressable: a press asks again, which succeeds once the site settings allow it, and fires `onPermissionChanged`. The event fires only when a press asks: a microphone already blocked or missing when the page loads shows the state silently, and the handler first runs on the first press:
 
 <!-- ikon-example: av-push-to-talk -->
 ```csharp
@@ -153,7 +192,7 @@ Audio.SpeechRecognizedAsync += async args =>
 
 Audio.SpeechNotRecognizedAsync += async args =>
 {
-    // args.Reason: NoAudio, Silence, NoText, or Error (failure in args.Error).
+    // args.Reason: NoAudio, Silence, NoSignal (a muted or virtual mic: tell the user to check which mic their device uses), NoText, or Error (failure in args.Error).
 };
 ```
 
@@ -210,7 +249,7 @@ one segments a stream for you, that one reports what the provider concluded.
 
 ## AudioChunk: construction rules
 
-When feeding your own audio into `SpeakChunk` (or a `SpeechMixer`), **always use the full constructor**:
+When building an `AudioChunk` yourself, **always use the full constructor**:
 
 <!-- ikon-example: av-audio-chunk -->
 ```csharp
@@ -221,13 +260,16 @@ var chunk = new AudioChunk(
     channelCount: 1,
     isFirst: true,
     isLast: true);
-Audio.SpeakChunk(MediaTargets.Everyone, chunk);
+
+// Slot "speech" makes it count as the app speaking, replacing the line still playing
+Audio.Play(MediaTargets.Everyone, chunk.Samples, chunk.SampleRate, chunk.ChannelCount,
+    new PlayOptions { Mode = AudioMixMode.Replace, Slot = "speech" });
 ```
 
 Two traps:
 
-- There is no public parameterless constructor, so `new AudioChunk { ... }` does not compile. `SpeakChunk` throws `ArgumentException` synchronously for a `ChannelCount` other than 1 or 2 — the mixer takes only mono or stereo, so downmix wider audio first — inside whatever handler called it, so an unguarded call takes the handler down.
-- The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. A chunk carrying the id of the most recently completed utterance is dropped with a warning — unless it is marked `isFirst`, which starts a new utterance under that same id. Any other id, including that of an earlier completed utterance, starts a new utterance and interrupts what is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
+- There is no public parameterless constructor, so `new AudioChunk { ... }` does not compile. `Audio.Play` and `LiveAudioPlayback.WriteAsync` take only mono or stereo and throw `ArgumentOutOfRangeException` for any other channel count — `Play` synchronously, `WriteAsync` when its task is awaited (`PlayLive` itself accepts the count) — downmix wider audio first — inside whatever handler called them, so an unguarded call takes the handler down.
+- The `Id` names one utterance: a streaming generator gives every chunk of an utterance the same id, bracketed by `isFirst`/`isLast`. Playing the chunks of one utterance means writing them, in order, into one `Audio.PlayLive` playback; a new utterance is a new playback, whose default `Replace` crossfades the previous one in its slot.
 
 ## Group audio: calls and huddles
 
@@ -269,13 +311,13 @@ Audio.AudioInputStreamEndAsync += async args =>
 };
 
 // One pump forwards each personalized 20 ms frame to its participant. The frames
-// are already real-time paced, so SendFrameAsync is correct here:
+// are already mixed and real-time paced, so the raw lane is correct here:
 _ = Task.Run(async () =>
 {
     await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
     {
-        await Audio.SendFrameAsync(MediaTargets.To([participantId]), frame.Samples, frame.SampleRate, frame.ChannelCount,
-            frame.IsFirst, frame.IsLast, frame.StreamId);
+        await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
+            frame.ChannelCount, frame.IsFirst, frame.IsLast);
     }
 });
 ```

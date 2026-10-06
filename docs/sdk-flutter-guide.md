@@ -1,4 +1,4 @@
-<!-- checked-against: 148295c6f38cd6e9e3b0c442 -->
+<!-- checked-against: 05d8daf1ffabbd7ee3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -396,6 +396,18 @@ await client.connect();
 registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
 client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 ```
+
+### Joining only a running session
+
+Every connect above starts the app's server when none is running, and the app's organisation pays
+for it while it runs. A client that should only join a session someone else opened — a companion
+device, a monitor — passes `joinOnly: true` to `IkonClient.connectWithToken`, `IkonClient.connectGuest`
+or the `IkonAuthenticator.authenticate*` call behind them. Nothing is started: when no session is
+live the connect throws `NoLiveSessionException`, whose `retryAfter` is how long the backend asks the
+client to wait before trying again, and a client whose session ends goes offline with that exception
+in `IkonClient.lastError` instead of reconnecting into a new server. Pass `userType: UserType.machine`
+with it so the connection does not count as a person in the session and the session still ends when
+its people leave.
 
 ## Custom Components
 

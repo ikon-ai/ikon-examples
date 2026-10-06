@@ -1,4 +1,4 @@
-<!-- checked-against: e7dc5d999f11d28fea09a747 -->
+<!-- checked-against: 2d74459db9147584ee935860 -->
 
 # Ikon.App.Sso Guide
 
@@ -191,6 +191,54 @@ if (context.AuthProvider != "sso" || context.SsoConnectionId != tenantConnection
     await ClientFunctions.LoginAsync($"sso:{tenantConnectionId}", context.SessionId);
 }
 ```
+
+## Profile fields from the directory
+
+At every sign-in through a connection the platform reads profile claims from the ID token and copies
+them onto the person's profile in the app, where `ClientProfiles` reads them. Nothing calls a
+directory API and no extra permission is granted: the customer decides in their IdP what its tokens
+carry, and the app decides what it keeps.
+
+Every connection reads the OIDC standard claims into the profile's own fields:
+
+| ID-token claim | Profile field |
+|---|---|
+| `given_name`, `family_name` | `FirstName`, `LastName` |
+| `phone_number` | `PhoneNumber` |
+| `locale` | `Language` |
+| `address` (object), or `street_address`, `locality`, `postal_code`, `region`, `country` | `Address` |
+
+Anything else is per customer, job title and department included: name the claims in
+`SsoConnection.ProfileClaims` (on create or with `SsoConnectionUpdate.ProfileClaims`) and each lands in
+the profile's attributes under its own name, read with `ClientProfile.GetAttribute` — `job_title`
+and `department` are the names to suggest when the customer has no convention of their own. Up to 20 names, each a letter followed by letters, digits, `_`
+or `-`; an identity claim such as `sub` or `email` is refused. Every other claim in the token is
+dropped, so the profile holds only what some app asked for.
+
+A claim fills a blank field or attribute and from then on keeps it current, sign-in after sign-in,
+until someone writes a different value to it — through the Portal, `ClientProfiles.UpdateAsync`,
+`ClientProfiles.SetAttributesAsync` or the app's own backend calls. It is then the app's, and the
+directory never overwrites it again. `ClientProfile.SsoManagedFields` lists what the directory still
+keeps. A claim the token stops carrying clears nothing. None of these claims takes part in deciding
+who may sign in.
+
+`SsoConnection.LastProfileClaims` names the claims, standard and extra, the latest sign-in's token
+carried, so a tenant-admin screen can show a customer which of their mappings arrive.
+
+**Microsoft Entra ID.** Add `given_name` and `family_name` as optional claims on the ID token (Token
+configuration in the app registration). The other attributes come from claims mapping: on the
+enterprise application, Single sign-on → Attributes & Claims, add a claim per row, for example
+`job_title` from `user.jobtitle`, `department` from `user.department`, `phone_number` from
+`user.telephonenumber`, the address parts from the matching address attributes, and any extra claim
+the app captures — `office_location` from `user.physicaldeliveryofficename`, say. Entra issues mapped
+claims only to an app that accepts them: on the customer's own registration set `acceptMappedClaims`
+to `true` in its manifest; the platform's registration is shared by many directories, so there the
+customer must instead give the enterprise application its own signing certificate. Entra has no claim
+source for a user's photo or manager; a manager's address works when the directory keeps it in an
+extension attribute.
+
+**Google Workspace** sends `given_name`, `family_name` and `locale` and nothing else.
+**Any other OpenID Connect provider** can send any claim under any name the app captures.
 
 ## Sessions and offboarding
 

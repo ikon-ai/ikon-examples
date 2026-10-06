@@ -1,4 +1,4 @@
-<!-- checked-against: 07d20269461e26f6afa0cac4 -->
+<!-- checked-against: ae9bc2f4461e26f6afa0cac4 -->
 
 # Ikon Theming Guide
 
@@ -27,7 +27,7 @@ private UI UI { get; } = new(app, new IkonTheme
 
     ["radius"]               = "rounded-2xl",
     ["density"]              = "comfortable",
-    ["font-heading"]         = "Crimson Pro", // literal family name — a baseline family, self-hosted, so no Google Fonts import
+    ["font-heading"]         = "Crimson Pro", // literal family name — a baseline family the frontend already ships
 
     ["motion-duration-base"] = "200ms",
     ["ease-default"]         = "ease-out",
@@ -65,7 +65,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | smart sniff |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
 | `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
-| `font-{role}` | `--font-{role}` | family stack; a bare literal family name auto-imports from Google Fonts only on the six font-role keys (`font-heading` ... `font-mono`), and not for the self-hosted baseline families |
+| `font-{role}` | `--font-{role}` | family stack; a bare literal family name on one of the six font-role keys (`font-heading` ... `font-mono`) is bundled into the app, unless it is one of the four baseline families the frontend already ships |
 | `ease-{kind}` | `--ease-{kind}` | easing |
 | `spacing`, `radius-base` (the targets of `density` and `radius`) | `--spacing`, `--radius-base` | the same resolver as their theme key |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`) | `--{key}` | smart sniff |
@@ -160,7 +160,7 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 | `destructive-foreground` | `--text-error-button` | text on destructive fills | `"#ffffff"` |
 | `radius` (alias: `radius-base`) | `--radius-base` | the value is taken as a length and becomes the `rounded-md` rung, and every other rung keeps its stock ratio to it via `calc()` — so `["radius"] = "1rem"` (the length `rounded-2xl` names) makes `rounded-md` 16px, `rounded-lg` ≈21px and `rounded-3xl` 64px; reaches Flutter. The DEFAULT ramp is stock Tailwind (sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px, 3xl 24px, 4xl 32px at a 16px root), so Tailwind-authored designs render value-identical without any radius keys | `"rounded-2xl"` |
 | `density` (alias: `spacing`) | `--spacing` | the unit every numeric spacing utility multiplies — whole-app whitespace; reaches Flutter | `"airy"` |
-| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys auto-imports from Google Fonts; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter, a role token (`"font-mono"`) as that role's family | `"Crimson Pro"` |
+| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys is bundled into the app; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter, a role token (`"font-mono"`) as that role's family | `"Crimson Pro"` |
 | `motion-duration-base` | `--default-transition-duration` | default speed of every `transition-*` utility | `"200ms"` |
 | `ease-default` (alias: `motion-easing-default`) | `--default-transition-timing-function` | default easing of every `transition-*` utility | `"ease-out"` |
 
@@ -171,7 +171,7 @@ Later entries win: to refine one variable inside a cluster, set the key first an
 | Kind | Accepted forms | Examples |
 |---|---|---|
 | Color | Tailwind palette step (`var(--color-…)`), Ikon scale step (its own `var(--brand-600)`), hex, `rgb()`/`rgba()`/`hsl()`/`oklch()`/`oklab()`, named color | `amber-400`, `#F5A524`, `oklch(0.72 0.15 60)`, `rgba(255,255,255,0.7)` |
-| Font family | role token (`font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`) or a literal family name (imported from Google Fonts automatically when set on a font-role key) | `"Crimson Pro"`, `"font-mono"` |
+| Font family | role token (`font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`) or a literal family name (bundled into the app when set on a font-role key) | `"Crimson Pro"`, `"font-mono"` |
 | Radius | `rounded-*` rung (`rounded-none` ... `rounded-4xl`, `rounded-full`) or a raw length | `"rounded-2xl"`, `"1.25rem"` |
 | Density | keyword `compact` (0.2rem), `default`/`comfortable` (0.25rem), `airy` (0.3rem), or a rem/px length clamped to 0.15-0.4rem | `"airy"`, `"0.28rem"` |
 | Duration | `duration-{n}` token or raw CSS time | `"duration-150"`, `"200ms"` |
@@ -276,7 +276,7 @@ Every value is one of:
 - **Density keyword** — `compact`, `default`, `comfortable`, `airy`.
 - **Easing keyword** — `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`.
 - **Raw CSS** — hex (`#F5A524`), rgb/rgba, hsl/hsla, oklch/oklab, named colors, rems, pixels, durations (`150ms`, `0.2s`), gradients, or any other CSS expression. Pass-through unchanged.
-- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks, and imported from Google Fonts automatically when set on one of the six font-role keys. The four baseline families (Inter, Poppins, Crimson Pro, JetBrains Mono) are self-hosted woff2 bundled into the app frontend, so they load same-origin and work on networks that block Google Fonts; any other family needs `fonts.googleapis.com`/`fonts.gstatic.com` to be reachable.
+- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks. The four baseline families (Inter, Poppins, Crimson Pro, JetBrains Mono) are self-hosted woff2 bundled into the app frontend. Any other Google Fonts family written as a literal string on one of the six font-role keys is copied into the app's `public/ikon-fonts/` by `ikon run` and by every bundle and deploy, and the frontend links and preloads it from there, so it is ready at first paint and the browser never calls Google. Commit that folder with the app, so a bundle reuses it instead of downloading it again. Write the family as a string literal or a constant: a name computed at runtime is not bundled and renders in the fallback stack.
 
 ## Mood rules
 

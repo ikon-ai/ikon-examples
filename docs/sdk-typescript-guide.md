@@ -1,4 +1,4 @@
-<!-- checked-against: 31ddd0007bb5926ee3b0c442 -->
+<!-- checked-against: e254210e7f01eaace3b0c442 -->
 
 # Ikon AI TypeScript SDK
 
@@ -79,6 +79,8 @@ const client = new IkonClient({
   },
 });
 ```
+
+`userType`, `clientType` and `joinOnly` apply to `apiKey` and `sessionToken` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
 
 ### Local Development
 
@@ -857,6 +859,7 @@ The SDK provides typed errors for different failure scenarios:
 | `SsoRequiredError` | The app requires signing in through the organisation's SSO (extends `AccessDeniedError`, exposes `connectionId`) |
 | `CredentialRejectedError` | Backend rejected the presented credential, HTTP 401 (terminal) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
+| `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal, exposes `spaceId` and `retryAfterMs`, the backend's suggested wait) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
 
 In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` that keeps only the `name` and `message`, so identify transport-level errors by `error.name` rather than `instanceof`.

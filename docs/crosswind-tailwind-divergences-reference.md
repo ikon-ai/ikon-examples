@@ -1,4 +1,4 @@
-<!-- checked-against: 283839f0e3b0c442e3b0c442 -->
+<!-- checked-against: 30433e20e3b0c442e3b0c442 -->
 
 # Crosswind ↔ Tailwind v4: deliberate divergences
 
@@ -8,7 +8,7 @@ harness (`Ikon.Crosswind.Test/Conformance/`, run with
 both Crosswind and the real Tailwind CLI (pinned 4.1.11) and compares output.
 As of 2026-08-30 parity is **98.5%** (623 byte-match + 383 semantically
 equivalent of 1021; 10 Crosswind-only extensions such as the `animate-in`/
-`animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **15 divergent classes** are all deliberate, listed in
+`animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **18 divergent classes** are all deliberate, listed in
 `conformance-allowlist.txt`, and documented here. Anything not on that list
 fails CI.
 
@@ -66,6 +66,14 @@ emits width-only breakpoints and expects `mx-auto px-*` alongside. A dev
 following v4 docs and adding those classes gets the same result (the
 additions are idempotent), so the divergence rarely bites and the one-class
 form is what app authors want.
+
+**8. `h-screen`, `min-h-screen`, `max-h-screen` → `100vh` plus a `100dvh` override** — 3
+classes. Tailwind emits `100vh`, which on a phone is taller than the visible area while the
+browser toolbar shows, so a full-height layout's bottom bar sits behind it. `100dvh` fixes that
+but is Chromium 108: an older smart television drops the declaration and an `h-dvh` root
+collapses to nothing. Crosswind emits `100vh` and overrides it with `100dvh` under
+`@supports (height: 100dvh)`, so the one class is right everywhere. An explicit `h-[100vh]` or
+`h-dvh` keeps its literal meaning.
 
 ## Not a divergence: physical fallbacks beside logical properties
 

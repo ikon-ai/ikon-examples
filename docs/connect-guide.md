@@ -1,4 +1,4 @@
-<!-- checked-against: 5bfcfd4d12d42310e3b0c442 -->
+<!-- checked-against: 4f5689825d753426e3b0c442 -->
 
 # Connecting your computer to an Ikon app
 
@@ -16,8 +16,20 @@ the session back — the transcript, permission requests, cost and lifecycle all
 Tasks board. Your code and your agent subscriptions stay on your machine; the board sees the
 session, not your keys.
 
-A computer belongs to the account that connected it. If Ikon Connect stops, its tasks pause and
-resume when it reconnects.
+A computer belongs to the account that connected it. A dropped connection does not stop its work:
+the agents keep running while Ikon Connect reconnects — after the app restarts, the network changes
+or the laptop sleeps — and what they did meanwhile, permission requests included, reaches the board
+once it is back. Stopping Ikon Connect itself stops its agents; a task then picks up again from its
+own conversation when you send it a message, and one you send while the computer is away is kept
+and delivered when it returns.
+
+Ikon Connect never starts a deployed app or keeps it running. It joins an app only while someone
+has it open, and does not count as a person there, so the app shuts down when its people leave as
+it would without the computer. While the app is closed, Ikon Connect looks for it again at random
+intervals that grow the longer the app goes unused from this computer: every few minutes in the
+first hour, a few times an hour that day, hourly for the rest of the week. After a week unused it
+stops looking, and the connection shows `Stopped after a week unused` in `ikon connect list`. `ikon connect resume`, or
+turning Ikon Connect on in Ikon Desktop, starts it looking again.
 
 Connecting lets an app start the coding agents installed on the computer, and they run as you.
 What an agent may do there is that agent's own configuration — its permissions and settings —
@@ -44,7 +56,7 @@ is back without a command; `--no-links` and
 ## 2. Connect an app
 
 ```bash
-ikon connect https://your-app.example.com
+ikon connect https://your-app.ikonai.app
 ```
 
 The argument is the app — its name, its URL, or its id — and can be left out only while an `ikon run`
@@ -53,6 +65,10 @@ on your computer, the first time and again whenever its grants widen or its repo
 `ikon run` app is connected without a confirmation. `ikon connect` records the connection and returns: the Ikon service (`ikon service run`, which
 `service install` starts at login, or at boot on Linux) serves every app you connect and picks up a new one within
 seconds. If the service is not running, `ikon connect` says so.
+
+The URL is the app's `ikonai.app` address, which also names the platform: `https://studio.ikonai.app`
+is Studio on production, `https://studio.dev.ikonai.app` on development. A custom domain the app is
+served on does not name it here; use its `ikonai.app` address or its id.
 
 An app has to be in one of your organisations, or be one of Ikon's own — Studio and O, which the
 tool names as platform apps on the confirmation.
@@ -65,7 +81,7 @@ six-digit code, the service shows it in a notification on macOS, and `ikon conne
 connection's state until it is typed:
 
 ```text
-Studio asks you to pair this computer: type 482 913 into the "Connect a computer" dialog in Studio
+Studio asks you to pair this computer: type 482 913 into the "Connect your computer" dialog in Studio
 ```
 
 The computer appears in that dialog with a box for the code; the right code pairs it, and the
@@ -108,8 +124,11 @@ a terminal, which shows you the app and what it asks for and connects only what 
 can ask, never grant. A link cannot name a repository, so for work in one, run `ikon connect <app>`
 from the repository instead. `ikon connect "<link>"` does the same thing where links do not open.
 
-When a connection cannot start or stops — most often because your sign-in expired — Ikon Connect
-says so in its output and, on macOS, in a notification.
+When a connection cannot start — most often because your sign-in expired — Ikon Connect says so in
+its output and, on macOS, in a notification, and tries again every minute, so it is back on its own
+once you run `ikon login`. Its output is also a log of what it does for each app: one line per task
+action and how it ended — an agent started or resumed, a permission it asked for and the answer, work
+saved to the app, a refusal and its reason — with routine checks left out.
 
 ```bash
 ikon connect list                  # the connected apps, their grants and folders, and whether each is live

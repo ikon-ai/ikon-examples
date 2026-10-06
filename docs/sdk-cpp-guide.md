@@ -1,4 +1,4 @@
-<!-- checked-against: 202405aaf691273de3b0c442 -->
+<!-- checked-against: c42fd3e7792678bbe3b0c442 -->
 
 # Ikon AI C++ SDK
 
@@ -93,6 +93,14 @@ apiKey.clientType = ClientType::DesktopApp;
 IkonClientConfig config;
 config.apiKey = apiKey;
 ```
+
+Set `joinOnly = true` on the `ApiKeyConfig` for a client that should join the app only while someone
+else has it running, and never start it: a device or agent that stays connected around the clock
+would otherwise keep a server running, billed to the app's organisation. When nothing is running,
+`Connect()` throws `NoLiveSessionException`, whose `retryAfter` (a `std::chrono::seconds`, empty when
+the backend named none) is how long the backend asks you to wait before trying again. A reconnect after the server shut down reports it through
+`ErrorOccurred` and goes offline instead of retrying. Pair it with `UserType::Machine`, so the
+connection does not count as a person and keep the session open either.
 
 ### Local Development
 
