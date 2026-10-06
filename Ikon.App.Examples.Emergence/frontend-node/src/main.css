@@ -1,6 +1,5 @@
 body {
   margin: 0;
-  /* Fallback first — older browsers ignore the dvh line and keep this one. */
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--ikon-bg-background, #fcfcfc);
