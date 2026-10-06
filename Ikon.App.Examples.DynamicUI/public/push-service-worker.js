@@ -18,10 +18,8 @@ self.addEventListener('push', (event) => {
     body: payload.body,
     icon: payload.iconUrl,
     tag: payload.tag,
-    // Device-level urgency mirrors the foreground path: High stays up, Low is quiet.
     requireInteraction: payload.priority === 'High' || undefined,
     silent: payload.priority === 'Low' || undefined,
-    // Inline action buttons (id + title); the launchUrl per action is kept in data for the click handler.
     actions: actions ? actions.map((a) => ({ action: a.id, title: a.title })) : undefined,
     data: { launchUrl: payload.launchUrl ?? null, data: payload.data ?? null, actions },
   };
@@ -42,8 +40,6 @@ self.addEventListener('notificationclick', (event) => {
     }
   }
 
-  // Prefer handing the click to an open app window so the SPA routes it client-side (like the
-  // foreground tap hook); fall back to a full navigation / new window when nothing is open.
   const message = {
     type: 'ikon.notification-click',
     launchUrl,

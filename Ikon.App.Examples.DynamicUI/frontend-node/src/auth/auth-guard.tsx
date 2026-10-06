@@ -88,8 +88,6 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
       <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
     ) : null;
 
-  // The screen's order is this list's order, whatever order ikon-config.toml lists the methods in;
-  // only the provider buttons among themselves follow the config.
   const sections: { key: string; content: ReactNode }[] = [];
 
   if (hasPasskey) {
