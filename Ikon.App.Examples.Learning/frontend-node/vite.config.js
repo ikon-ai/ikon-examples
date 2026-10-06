@@ -20,6 +20,38 @@ const ikonEmbedHeaders = {
   },
 };
 
+// Theme fonts the dev server bundled into public/ikon-fonts: linked and preloaded so the browser
+// has them at first paint, and named in a meta tag so the SDK drops the theme's Google Fonts
+// import for them. Without the folder nothing is injected and the import loads them as before.
+function ikonThemeFonts(publicDir) {
+  return {
+    name: 'ikon-theme-fonts',
+    transformIndexHtml() {
+      const manifestPath = resolve(publicDir, 'ikon-fonts', 'manifest.json');
+
+      if (!existsSync(manifestPath)) {
+        return [];
+      }
+
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+      if (!manifest.families?.length) {
+        return [];
+      }
+
+      return [
+        { tag: 'meta', attrs: { name: 'ikon-bundled-fonts', content: manifest.families.join('|') }, injectTo: 'head' },
+        ...manifest.preload.map((file) => ({
+          tag: 'link',
+          attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: `/ikon-fonts/${file}`, crossorigin: '' },
+          injectTo: 'head',
+        })),
+        { tag: 'link', attrs: { rel: 'stylesheet', href: '/ikon-fonts/fonts.css' }, injectTo: 'head' },
+      ];
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
 
@@ -46,7 +78,11 @@ export default defineConfig(({ mode }) => {
   const isIkonInternal = (process.env.VITE_IS_IKON_INTERNAL || env.VITE_IS_IKON_INTERNAL) === 'true';
   const platformTypescriptPath = process.env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH || env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH;
 
-  const plugins = [ikonEmbedHeaders, react()];
+  // The app folder contract: static web files live in the app root's public/, one level above
+  // frontend-node. An app not yet migrated keeps Vite's local default.
+  const publicDir = existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : resolve(__dirname, 'public');
+
+  const plugins = [ikonEmbedHeaders, ikonThemeFonts(publicDir), react()];
 
   if (!hasCertificate && !isTunneled) {
     plugins.push(basicSsl());
@@ -89,9 +125,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     cacheDir: 'node_modules/.ikon-vite-cache',
-    // The app folder contract: static web files live in the app root's public/, one level above
-    // frontend-node. An app not yet migrated keeps Vite's local default.
-    publicDir: existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : 'public',
+    publicDir,
     plugins,
     resolve: resolveConfig,
     worker: {
