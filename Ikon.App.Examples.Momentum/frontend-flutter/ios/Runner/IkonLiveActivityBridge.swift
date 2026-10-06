@@ -6,9 +6,8 @@ import ActivityKit
 #endif
 
 /// The Swift half of `ikon.client.*LiveActivity`. Everything above it — the Dart client functions,
-/// the C# call an app makes — is platform-neutral; this is the only part that has to be native.
-/// `ikon new` does not create it; an app that wants the banner copies this file, its `AppDelegate`
-/// registration and the `IkonLiveActivity` widget extension.
+/// the C# call an app makes — is platform-neutral; this is the only part that has to be native, and
+/// the scaffold ships it so no app author writes it.
 ///
 /// Registered from `AppDelegate`. On a device below iOS 16.2, or with activities switched off, every
 /// call answers false rather than throwing: a live banner is a nicety and its absence must never take
