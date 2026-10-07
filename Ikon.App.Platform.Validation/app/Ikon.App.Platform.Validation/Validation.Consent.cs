@@ -2,11 +2,11 @@ public partial class Validation
 {
     // A purpose of the app's own, so the one-click self-check can flip it freely without touching
     // the answers a tester gave for the two platform purposes.
-    private const string ConsentSelfCheckPurpose = "validation-self-check";
-    private const string ConsentNeverAskedPurpose = "validation-never-asked";
+    private static readonly ConsentPurpose ConsentSelfCheckPurpose = new("validation-self-check");
+    private static readonly ConsentPurpose ConsentNeverAskedPurpose = new("validation-never-asked");
     private const int ConsentChangeLogLimit = 20;
 
-    private static readonly string[] ConsentCardPurposes = [ConsentPurposes.UsageMeasurement, ConsentPurposes.AiProviderPersonalData];
+    private static readonly ConsentPurpose[] ConsentCardPurposes = [ConsentPurposes.UsageMeasurement, ConsentPurposes.AiProviderPersonalData];
 
     // Bumped on every OnChanged so the C# card re-reads the ledger and the React panel (which gets
     // it as a prop) re-reads its own answers through the SDK — the second half of the round trip.
@@ -96,7 +96,7 @@ public partial class Validation
         });
     }
 
-    private void RenderConsentPurposeRow(UIView view, string userId, string purpose)
+    private void RenderConsentPurposeRow(UIView view, string userId, ConsentPurpose purpose)
     {
         var record = app.Consent.StateOf(userId, purpose);
 
@@ -106,7 +106,7 @@ public partial class Validation
             {
                 view.Column([Layout.Column.Xs, "min-w-0"], content: view =>
                 {
-                    view.Text([Text.BodyStrong], purpose);
+                    view.Text([Text.BodyStrong], purpose.Id);
                     view.Text([Text.Caption], record.DecidedAt is { } decidedAt ? $"{decidedAt:yyyy-MM-dd HH:mm:ss} UTC" : "never answered");
                 });
 
@@ -192,7 +192,7 @@ public partial class Validation
         });
     }
 
-    private void ChangeConsentFromServer(string purpose, bool grant)
+    private void ChangeConsentFromServer(ConsentPurpose purpose, bool grant)
     {
         string userId = ConsentUserId();
 
@@ -300,4 +300,4 @@ public partial class Validation
     }
 }
 
-public sealed record ConsentChangeEntry(string UserId, string Purpose, ConsentAnswer State, DateTime At);
+public sealed record ConsentChangeEntry(string UserId, ConsentPurpose Purpose, ConsentAnswer State, DateTime At);

@@ -1,5 +1,13 @@
 ﻿public partial class Validation
 {
+    // An upload's bytes or path travel with its name and mime type as one reference, so a run never
+    // pairs one upload's file with another's type; the lock keeps the shown file name on the same upload.
+    private sealed record UploadedInput(byte[] Data, string MimeType);
+
+    private sealed record UploadedFile(string Path, string Name, string MimeType);
+
+    private readonly Lock _uploadedInputLock = new();
+
     // Access gate for the password-protected sections (Ikon.AI, Payments, Database, …). One unlock
     // covers them all for the person who entered the password, and only them: shared across the
     // instance, one unlock opened every gated tab to every later visitor, and what one visitor typed
@@ -70,8 +78,7 @@
     private readonly Reactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
     private readonly Reactive<bool> _imageGeneratorUpsamplePrompt = new(false);
     private readonly Reactive<int> _imageGeneratorCount = new(1);
-    private byte[]? _imageGeneratorInputImageData;
-    private string? _imageGeneratorInputImageMimeType;
+    private UploadedInput? _imageGeneratorInputImage;
     private readonly Reactive<string> _imageGeneratorInputImageName = new("");
     private readonly ReactiveList<string> _imageGeneratorResultDataUrls = new();
 
@@ -134,7 +141,7 @@
     private readonly Reactive<string?> _fileConverterResult = new(null);
     private readonly Reactive<string?> _fileConverterError = new(null);
     private readonly Reactive<string> _fileConverterFileName = new("");
-    private string? _fileConverterFilePath;
+    private UploadedFile? _fileConverterFile;
     private readonly Reactive<string?> _fileConverterDownloadUrl = new(null);
 
     // VideoGenerator state
@@ -149,8 +156,7 @@
     private readonly Reactive<string> _videoGeneratorNegativePrompt = new("");
     private readonly Reactive<int> _videoGeneratorSeed = new(0);
     private readonly Reactive<bool> _videoGeneratorGenerateAudio = new(false);
-    private byte[]? _videoGeneratorInputImageData;
-    private string? _videoGeneratorInputImageMimeType;
+    private UploadedInput? _videoGeneratorInputImage;
     private readonly Reactive<string> _videoGeneratorInputImageName = new("");
 
     // SoundEffectGenerator state
@@ -174,8 +180,7 @@
     private readonly Reactive<string?> _musicResult = new(null);
     private readonly Reactive<string?> _musicError = new(null);
     private readonly Reactive<string?> _musicDownloadUrl = new(null);
-    private byte[]? _musicInputAudioData;
-    private string? _musicInputAudioMimeType;
+    private UploadedInput? _musicInputAudio;
     private readonly Reactive<string> _musicInputAudioName = new("");
 
     // VideoEnhancer state
@@ -196,8 +201,7 @@
     private readonly Reactive<string?> _imageSegmenterResult = new(null);
     private readonly Reactive<string?> _imageSegmenterError = new(null);
     private readonly Reactive<string> _imageSegmenterFileName = new("");
-    private string? _imageSegmenterFilePath;
-    private string? _imageSegmenterFileMimeType;
+    private UploadedFile? _imageSegmenterFile;
     private readonly ReactiveList<string> _imageSegmenterImageDataUrls = new();
 
     // ImageUpscaler state
@@ -208,8 +212,7 @@
     private readonly Reactive<string?> _imageUpscalerResult = new(null);
     private readonly Reactive<string?> _imageUpscalerError = new(null);
     private readonly Reactive<string> _imageUpscalerFileName = new("");
-    private string? _imageUpscalerFilePath;
-    private string? _imageUpscalerFileMimeType;
+    private UploadedFile? _imageUpscalerFile;
     private readonly Reactive<string?> _imageUpscalerImageDataUrl = new(null);
 
     // DepthEstimator state
@@ -218,8 +221,7 @@
     private readonly Reactive<string?> _depthEstimatorResult = new(null);
     private readonly Reactive<string?> _depthEstimatorError = new(null);
     private readonly Reactive<string> _depthEstimatorFileName = new("");
-    private string? _depthEstimatorFilePath;
-    private string? _depthEstimatorFileMimeType;
+    private UploadedFile? _depthEstimatorFile;
     private readonly Reactive<string?> _depthEstimatorImageDataUrl = new(null);
 
     // MeshGenerator state
@@ -229,8 +231,7 @@
     private readonly Reactive<bool> _meshGeneratorProcessing = new(false);
     private readonly Reactive<string?> _meshGeneratorResult = new(null);
     private readonly Reactive<string?> _meshGeneratorError = new(null);
-    private byte[]? _meshGeneratorInputImageData;
-    private string? _meshGeneratorInputImageMimeType;
+    private UploadedInput? _meshGeneratorInputImage;
     private readonly Reactive<string> _meshGeneratorInputImageName = new("");
     private MeshGeneratorResult? _meshGeneratorResultData;
 
@@ -1106,9 +1107,13 @@
                                 return;
                             }
 
-                            _imageGeneratorInputImageData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
-                            _imageGeneratorInputImageMimeType = args.MimeType;
-                            _imageGeneratorInputImageName.Value = args.FileName;
+                            var input = new UploadedInput(await File.ReadAllBytesAsync(args.LocalTempFilePath), args.MimeType);
+
+                            lock (_uploadedInputLock)
+                            {
+                                _imageGeneratorInputImage = input;
+                                _imageGeneratorInputImageName.Value = args.FileName;
+                            }
                         },
                         content: view =>
                         {
@@ -1128,9 +1133,11 @@
                                 [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
-                                    _imageGeneratorInputImageData = null;
-                                    _imageGeneratorInputImageMimeType = null;
-                                    _imageGeneratorInputImageName.Value = "";
+                                    lock (_uploadedInputLock)
+                                    {
+                                        _imageGeneratorInputImage = null;
+                                        _imageGeneratorInputImageName.Value = "";
+                                    }
                                 },
                                 content: v => v.Icon([Icon.Default], name: "x"));
                         });
@@ -1240,12 +1247,12 @@
                 Count = _imageGeneratorCount.Value
             };
 
-            if (_imageGeneratorInputImageData != null && _imageGeneratorInputImageMimeType != null)
+            if (_imageGeneratorInputImage is { } inputImage)
             {
                 config.InputImages.Add(new InputImage
                 {
-                    Data = _imageGeneratorInputImageData,
-                    MimeType = _imageGeneratorInputImageMimeType,
+                    Data = inputImage.Data,
+                    MimeType = inputImage.MimeType,
                     Type = InputImageType.Normal
                 });
             }
@@ -1366,9 +1373,13 @@
                                 return;
                             }
 
-                            _musicInputAudioData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
-                            _musicInputAudioMimeType = args.MimeType;
-                            _musicInputAudioName.Value = args.FileName;
+                            var input = new UploadedInput(await File.ReadAllBytesAsync(args.LocalTempFilePath), args.MimeType);
+
+                            lock (_uploadedInputLock)
+                            {
+                                _musicInputAudio = input;
+                                _musicInputAudioName.Value = args.FileName;
+                            }
                         },
                         content: view =>
                         {
@@ -1388,9 +1399,11 @@
                                 [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
-                                    _musicInputAudioData = null;
-                                    _musicInputAudioMimeType = null;
-                                    _musicInputAudioName.Value = "";
+                                    lock (_uploadedInputLock)
+                                    {
+                                        _musicInputAudio = null;
+                                        _musicInputAudioName.Value = "";
+                                    }
                                 },
                                 content: v => v.Icon([Icon.Default], name: "x"));
                         });
@@ -1462,12 +1475,12 @@
                 DurationSeconds = _musicDuration.Value
             };
 
-            if (_musicInputAudioData != null && _musicInputAudioMimeType != null)
+            if (_musicInputAudio is { } inputAudio)
             {
                 config.InputAudios.Add(new InputAudio
                 {
-                    Data = _musicInputAudioData,
-                    MimeType = _musicInputAudioMimeType,
+                    Data = inputAudio.Data,
+                    MimeType = inputAudio.MimeType,
                     Strength = _musicStrength.Value
                 });
             }
@@ -1518,13 +1531,7 @@
 
     private async Task StreamMusicAsync(MusicGenerator generator, MusicGeneratorConfig config)
     {
-        var samples = new List<float>();
-
-        await foreach (var audio in generator.GenerateMusicAsync(config))
-        {
-            Audio.SpeakChunk(MediaTargets.Everyone, audio);
-            samples.AddRange(audio.Samples);
-        }
+        var samples = await PlayGeneratedAudioAsync(generator.GenerateMusicAsync(config), "music");
 
         if (samples.Count == 0)
         {
@@ -1542,6 +1549,36 @@
 
         _musicResult.Value = $"Streamed {durationSeconds:F1}s of audio at {generator.SampleRate}Hz, {generator.ChannelCount}ch (played live)\nProvenance (MediaProvenance.Apply on the saved WAV): {marking}";
         _musicDownloadUrl.Value = await UploadForDownloadAsync("generated-music.wav", marked, MimeTypes.AudioXWav);
+    }
+
+    /// <summary>Plays generated audio live as it arrives and returns every sample for the download.</summary>
+    /// <remarks>The buffer-ahead is far beyond any generation's length, so playout never holds the generator back and the result appears as soon as generation ends.</remarks>
+    private async Task<List<float>> PlayGeneratedAudioAsync(IAsyncEnumerable<AudioChunk> chunks, string slot)
+    {
+        var samples = new List<float>();
+        LiveAudioPlayback? live = null;
+        bool playing = true;
+
+        try
+        {
+            await foreach (var audio in chunks)
+            {
+                live ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount, new PlayOptions { Slot = slot }, maxBufferAhead: TimeSpan.FromMinutes(10));
+
+                if (playing)
+                {
+                    playing = await live.WriteAsync(audio.Samples);
+                }
+
+                samples.AddRange(audio.Samples);
+            }
+        }
+        finally
+        {
+            live?.Complete();
+        }
+
+        return samples;
     }
 
     private void RenderSpeechGeneratorCard(UIView view)
@@ -1704,13 +1741,7 @@
                 Instructions = _speechGeneratorInstructions.Value
             };
 
-            var allSamples = new List<float>();
-
-            await foreach (var audio in _speechGenerator.GenerateSpeechAsync(config))
-            {
-                Audio.SpeakChunk(MediaTargets.Everyone, audio);
-                allSamples.AddRange(audio.Samples);
-            }
+            var allSamples = await PlayGeneratedAudioAsync(_speechGenerator.GenerateSpeechAsync(config), "speech");
 
             _speechGeneratorResult.Value = $"Generated {(float)allSamples.Count / _speechGenerator.SampleRate:F1}s of audio at {_speechGenerator.SampleRate}Hz";
 
@@ -2427,8 +2458,17 @@
                     multiple: false,
                     onUploadComplete: async args =>
                     {
-                        _fileConverterFileName.Value = args.FileName;
-                        _fileConverterFilePath = args.LocalTempFilePath;
+                        if (args.LocalTempFilePath is not { } path)
+                        {
+                            return;
+                        }
+
+                        lock (_uploadedInputLock)
+                        {
+                            _fileConverterFile = new UploadedFile(path, args.FileName, args.MimeType);
+                            _fileConverterFileName.Value = args.FileName;
+                        }
+
                         _fileConverterResult.Value = null;
                     },
                     content: view =>
@@ -2446,7 +2486,7 @@
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Convert from Upload",
-                        disabled: _fileConverterProcessing.Value || string.IsNullOrEmpty(_fileConverterFilePath),
+                        disabled: _fileConverterProcessing.Value || _fileConverterFile == null,
                         onClick: ConvertFileAsync);
 
                     view.Button(
@@ -2456,8 +2496,12 @@
                         disabled: _fileConverterProcessing.Value,
                         onClick: async () =>
                         {
-                            _fileConverterFilePath = Path.Combine(app.DataDirectory, "sample.pptx");
-                            _fileConverterFileName.Value = "sample.pptx";
+                            lock (_uploadedInputLock)
+                            {
+                                _fileConverterFile = new UploadedFile(Path.Combine(app.DataDirectory, "sample.pptx"), "sample.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+                                _fileConverterFileName.Value = "sample.pptx";
+                            }
+
                             await ConvertFileAsync();
                         });
 
@@ -2501,7 +2545,7 @@
 
     private async Task ConvertFileAsync()
     {
-        if (string.IsNullOrEmpty(_fileConverterFilePath) || !File.Exists(_fileConverterFilePath))
+        if (_fileConverterFile is not { } file || !File.Exists(file.Path))
         {
             _fileConverterError.Value = "File not found";
             return;
@@ -2517,8 +2561,8 @@
             var model = Enum.Parse<FileConverterModel>(_fileConverterModel.Value);
             var converter = new FileConverter(model);
 
-            var data = await File.ReadAllBytesAsync(_fileConverterFilePath);
-            var result = await converter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = _fileConverterFileName.Value });
+            var data = await File.ReadAllBytesAsync(file.Path);
+            var result = await converter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = file.Name });
 
             // OpenReadAsync rather than GetDataAsync: the stream form is the one to use when the bytes are
             // passed on, and reading it here is what proves it against a real Data- or Url-delivered result
@@ -2686,9 +2730,13 @@
                                     return;
                                 }
 
-                                _videoGeneratorInputImageData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
-                                _videoGeneratorInputImageMimeType = args.MimeType;
-                                _videoGeneratorInputImageName.Value = args.FileName;
+                                var input = new UploadedInput(await File.ReadAllBytesAsync(args.LocalTempFilePath), args.MimeType);
+
+                                lock (_uploadedInputLock)
+                                {
+                                    _videoGeneratorInputImage = input;
+                                    _videoGeneratorInputImageName.Value = args.FileName;
+                                }
                             },
                             content: view =>
                             {
@@ -2708,9 +2756,11 @@
                                     [Button.OutlineMd, Button.Icon],
                                     onClick: async () =>
                                     {
-                                        _videoGeneratorInputImageData = null;
-                                        _videoGeneratorInputImageMimeType = null;
-                                        _videoGeneratorInputImageName.Value = "";
+                                        lock (_uploadedInputLock)
+                                        {
+                                            _videoGeneratorInputImage = null;
+                                            _videoGeneratorInputImageName.Value = "";
+                                        }
                                     },
                                     content: v => v.Icon([Icon.Default], name: "x"));
                             });
@@ -2802,12 +2852,12 @@
                 config = config with { GenerateAudio = true };
             }
 
-            if (_videoGeneratorInputImageData != null && _videoGeneratorInputImageMimeType != null)
+            if (_videoGeneratorInputImage is { } inputImage)
             {
                 config.InputImages.Add(new InputImage
                 {
-                    Data = _videoGeneratorInputImageData,
-                    MimeType = _videoGeneratorInputImageMimeType
+                    Data = inputImage.Data,
+                    MimeType = inputImage.MimeType
                 });
             }
 
@@ -2985,13 +3035,7 @@
                 return;
             }
 
-            var allSamples = new List<float>();
-
-            await foreach (var audio in generator.GenerateSoundEffectAsync(config))
-            {
-                Audio.SpeakChunk(MediaTargets.Everyone, audio);
-                allSamples.AddRange(audio.Samples);
-            }
+            var allSamples = await PlayGeneratedAudioAsync(generator.GenerateSoundEffectAsync(config), "sound-effect");
 
             var durationSeconds = (float)allSamples.Count / generator.SampleRate / generator.ChannelCount;
 
@@ -3289,9 +3333,16 @@
                     multiple: false,
                     onUploadComplete: async args =>
                     {
-                        _imageSegmenterFileName.Value = args.FileName;
-                        _imageSegmenterFilePath = args.LocalTempFilePath;
-                        _imageSegmenterFileMimeType = args.MimeType;
+                        if (args.LocalTempFilePath is not { } path)
+                        {
+                            return;
+                        }
+
+                        lock (_uploadedInputLock)
+                        {
+                            _imageSegmenterFile = new UploadedFile(path, args.FileName, args.MimeType);
+                            _imageSegmenterFileName.Value = args.FileName;
+                        }
                     },
                     content: view =>
                     {
@@ -3307,7 +3358,7 @@
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Segment from Upload",
-                        disabled: _imageSegmenterProcessing.Value || string.IsNullOrEmpty(_imageSegmenterFilePath) || string.IsNullOrWhiteSpace(_imageSegmenterPrompt.Value),
+                        disabled: _imageSegmenterProcessing.Value || _imageSegmenterFile == null || string.IsNullOrWhiteSpace(_imageSegmenterPrompt.Value),
                         onClick: SegmentImageAsync);
 
                     view.Button(
@@ -3358,13 +3409,13 @@
 
     private async Task SegmentImageAsync()
     {
-        if (string.IsNullOrEmpty(_imageSegmenterFilePath) || !File.Exists(_imageSegmenterFilePath))
+        if (_imageSegmenterFile is not { } file || !File.Exists(file.Path))
         {
             _imageSegmenterError.Value = "File not found";
             return;
         }
 
-        await SegmentImageCoreAsync(_imageSegmenterFilePath, _imageSegmenterFileMimeType ?? MimeTypes.ImagePng);
+        await SegmentImageCoreAsync(file.Path, file.MimeType);
     }
 
     private async Task SegmentSampleImageAsync()
@@ -3493,9 +3544,16 @@
                     multiple: false,
                     onUploadComplete: async args =>
                     {
-                        _imageUpscalerFileName.Value = args.FileName;
-                        _imageUpscalerFilePath = args.LocalTempFilePath;
-                        _imageUpscalerFileMimeType = args.MimeType;
+                        if (args.LocalTempFilePath is not { } path)
+                        {
+                            return;
+                        }
+
+                        lock (_uploadedInputLock)
+                        {
+                            _imageUpscalerFile = new UploadedFile(path, args.FileName, args.MimeType);
+                            _imageUpscalerFileName.Value = args.FileName;
+                        }
                     },
                     content: view =>
                     {
@@ -3511,7 +3569,7 @@
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Upscale from Upload",
-                        disabled: _imageUpscalerProcessing.Value || string.IsNullOrEmpty(_imageUpscalerFilePath),
+                        disabled: _imageUpscalerProcessing.Value || _imageUpscalerFile == null,
                         onClick: UpscaleImageAsync);
 
                     view.Button(
@@ -3556,13 +3614,13 @@
 
     private async Task UpscaleImageAsync()
     {
-        if (string.IsNullOrEmpty(_imageUpscalerFilePath) || !File.Exists(_imageUpscalerFilePath))
+        if (_imageUpscalerFile is not { } file || !File.Exists(file.Path))
         {
             _imageUpscalerError.Value = "File not found";
             return;
         }
 
-        await UpscaleImageCoreAsync(_imageUpscalerFilePath, _imageUpscalerFileMimeType ?? MimeTypes.ImagePng);
+        await UpscaleImageCoreAsync(file.Path, file.MimeType);
     }
 
     private async Task UpscaleSampleImageAsync()
@@ -3632,9 +3690,16 @@
                     multiple: false,
                     onUploadComplete: async args =>
                     {
-                        _depthEstimatorFileName.Value = args.FileName;
-                        _depthEstimatorFilePath = args.LocalTempFilePath;
-                        _depthEstimatorFileMimeType = args.MimeType;
+                        if (args.LocalTempFilePath is not { } path)
+                        {
+                            return;
+                        }
+
+                        lock (_uploadedInputLock)
+                        {
+                            _depthEstimatorFile = new UploadedFile(path, args.FileName, args.MimeType);
+                            _depthEstimatorFileName.Value = args.FileName;
+                        }
                     },
                     content: view =>
                     {
@@ -3650,7 +3715,7 @@
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Estimate from Upload",
-                        disabled: _depthEstimatorProcessing.Value || string.IsNullOrEmpty(_depthEstimatorFilePath),
+                        disabled: _depthEstimatorProcessing.Value || _depthEstimatorFile == null,
                         onClick: EstimateDepthAsync);
 
                     view.Button(
@@ -3695,13 +3760,13 @@
 
     private async Task EstimateDepthAsync()
     {
-        if (string.IsNullOrEmpty(_depthEstimatorFilePath) || !File.Exists(_depthEstimatorFilePath))
+        if (_depthEstimatorFile is not { } file || !File.Exists(file.Path))
         {
             _depthEstimatorError.Value = "File not found";
             return;
         }
 
-        await EstimateDepthCoreAsync(_depthEstimatorFilePath, _depthEstimatorFileMimeType ?? MimeTypes.ImagePng);
+        await EstimateDepthCoreAsync(file.Path, file.MimeType);
     }
 
     private async Task EstimateSampleDepthAsync()
@@ -3790,9 +3855,13 @@
                                 return;
                             }
 
-                            _meshGeneratorInputImageData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
-                            _meshGeneratorInputImageMimeType = args.MimeType;
-                            _meshGeneratorInputImageName.Value = args.FileName;
+                            var input = new UploadedInput(await File.ReadAllBytesAsync(args.LocalTempFilePath), args.MimeType);
+
+                            lock (_uploadedInputLock)
+                            {
+                                _meshGeneratorInputImage = input;
+                                _meshGeneratorInputImageName.Value = args.FileName;
+                            }
                         },
                         content: view =>
                         {
@@ -3812,9 +3881,11 @@
                                 [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
-                                    _meshGeneratorInputImageData = null;
-                                    _meshGeneratorInputImageMimeType = null;
-                                    _meshGeneratorInputImageName.Value = "";
+                                    lock (_uploadedInputLock)
+                                    {
+                                        _meshGeneratorInputImage = null;
+                                        _meshGeneratorInputImageName.Value = "";
+                                    }
                                 },
                                 content: v => v.Icon([Icon.Default], name: "x"));
                         });
@@ -3828,7 +3899,7 @@
                         text: "Generate Mesh",
                         props: TestId("ai-mesh-run"),
                         disabled: _meshGeneratorProcessing.Value
-                            || (string.IsNullOrWhiteSpace(_meshGeneratorPrompt.Value) && _meshGeneratorInputImageData == null),
+                            || (string.IsNullOrWhiteSpace(_meshGeneratorPrompt.Value) && _meshGeneratorInputImage == null),
                         onClick: GenerateMeshAsync);
 
                     if (_meshGeneratorProcessing.Value)
@@ -3913,12 +3984,12 @@
                 Texture = _meshGeneratorTexture.Value
             };
 
-            if (_meshGeneratorInputImageData != null && _meshGeneratorInputImageMimeType != null)
+            if (_meshGeneratorInputImage is { } inputImage)
             {
                 config.InputImages.Add(new InputImage
                 {
-                    Data = _meshGeneratorInputImageData,
-                    MimeType = _meshGeneratorInputImageMimeType
+                    Data = inputImage.Data,
+                    MimeType = inputImage.MimeType
                 });
             }
 

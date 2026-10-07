@@ -28,7 +28,7 @@ public partial class Validation
                                     text: id);
                                 row.SortableHandle(
                                     ["cursor-grab active:cursor-grabbing opacity-60 hover:opacity-100"],
-                                    content: h => h.Icon([Icon.Default], name: "drag-handle-horizontal"));
+                                    content: h => h.Icon([Icon.Default], name: "grip-horizontal"));
                             });
                         });
 
@@ -278,7 +278,7 @@ public partial class Validation
                                         {
                                             v.Row([Layout.Row.InlineCenter, "flex-wrap"], content: v =>
                                             {
-                                                v.Icon([Icon.Default], name: isDisabled ? "lock" : "drag-handle-horizontal");
+                                                v.Icon([Icon.Default], name: isDisabled ? "lock" : "grip-horizontal");
                                                 v.Text([Text.Body], item);
                                                 if (isDisabled)
                                                 {

@@ -118,7 +118,7 @@ public partial class Validation
                     {
                         view.Column([Layout.Column.Center], content: view =>
                         {
-                            view.Icon([FileUpload.Icon.Disabled], name: "upload-off");
+                            view.Icon([FileUpload.Icon.Disabled], name: "cloud-off");
                             view.Text([Text.Body, "text-muted-foreground"], "Upload disabled");
                         });
                     });
@@ -215,6 +215,8 @@ public partial class Validation
 
             // Advanced File Upload with all callbacks
             RenderAdvancedFileUploadSection(view);
+
+            RenderUploadLabSection(view);
         });
     }
 
@@ -241,7 +243,12 @@ public partial class Validation
                         onValueChange: async v =>
                         {
                             _advUploadMode.Value = v;
-                            ResetAdvancedUploadStatus();
+
+                            lock (_advUploadLock)
+                            {
+                                ResetAdvancedUploadStatus();
+                                _advUploadCurrentId = null;
+                            }
                         });
                 });
 
@@ -261,8 +268,12 @@ public partial class Validation
                 multiple: false,
                 onUploadPreStart: async args =>
                 {
-                    ResetAdvancedUploadStatus();
-                    _advUploadInitStatus.Value = $"UploadId={args.UploadId}, File={args.FileName}, Type={args.MimeType}, Size={args.Size}";
+                    lock (_advUploadLock)
+                    {
+                        ResetAdvancedUploadStatus();
+                        _advUploadCurrentId = args.UploadId;
+                        _advUploadInitStatus.Value = $"UploadId={args.UploadId}, File={args.FileName}, Type={args.MimeType}, Size={args.Size}";
+                    }
 
                     if (_advUploadMode.Value == "asset")
                     {
@@ -278,37 +289,46 @@ public partial class Validation
                 onUploadStart: async args =>
                 {
                     var accepted = !_advUploadRejectAll.Value;
-                    _advUploadStartStatus.Value = $"Hash={args.Hash}, Accepted={accepted}";
+                    WriteIfCurrentAdvancedUpload(args.UploadId, () => _advUploadStartStatus.Value = $"Hash={args.Hash}, Accepted={accepted}");
                     return accepted;
                 },
                 onUploadProgress: async args =>
                 {
-                    _advUploadProgress.Value = args.ProgressPercentage;
-                    _advUploadProgressStatus.Value = $"{args.ProgressPercentage:F1}% ({args.BytesUploaded}/{args.Size} bytes)";
+                    WriteIfCurrentAdvancedUpload(args.UploadId, () =>
+                    {
+                        _advUploadProgress.Value = args.ProgressPercentage;
+                        _advUploadProgressStatus.Value = $"{args.ProgressPercentage:F1}% ({args.BytesUploaded}/{args.Size} bytes)";
+                    });
                 },
                 onUploadComplete: async args =>
                 {
-                    _advUploadProgress.Value = 100;
                     var location = args.AssetUri != null ? $"AssetUri={args.AssetUri}" : $"LocalPath={args.LocalTempFilePath}";
-                    _advUploadCompleteStatus.Value = $"{args.FileName} ({args.Size} bytes) — {location}";
-
-                    if (args.AssetUri != null)
+                    var isCurrent = WriteIfCurrentAdvancedUpload(args.UploadId, () =>
                     {
+                        _advUploadProgress.Value = 100;
+                        _advUploadCompleteStatus.Value = $"{args.FileName} ({args.Size} bytes) — {location}";
+                    });
+
+                    if (isCurrent && args.AssetUri != null)
+                    {
+                        string? url = null;
+
                         try
                         {
                             var metadata = await Asset.Instance.GetMetadataAsync(args.AssetUri.Value);
-                            _advUploadAssetUrl.Value = metadata.Url;
+                            url = metadata.Url;
                         }
                         catch (Exception ex)
                         {
-                            _advUploadAssetUrl.Value = null;
                             Log.Instance.Warning($"Failed to get asset metadata: {ex.Message}");
                         }
+
+                        WriteIfCurrentAdvancedUpload(args.UploadId, () => _advUploadAssetUrl.Value = url);
                     }
                 },
                 onUploadError: async args =>
                 {
-                    _advUploadErrorStatus.Value = $"{args.FileName}: {args.ErrorMessage}";
+                    WriteIfCurrentAdvancedUpload(args.UploadId, () => _advUploadErrorStatus.Value = $"{args.FileName}: {args.ErrorMessage}");
                 },
                 content: view =>
                 {
@@ -354,6 +374,20 @@ public partial class Validation
             view.Text([Text.Caption, "break-all"],
                 string.IsNullOrEmpty(status) ? "—" : status);
         });
+    }
+
+    private bool WriteIfCurrentAdvancedUpload(string uploadId, System.Action write)
+    {
+        lock (_advUploadLock)
+        {
+            if (_advUploadCurrentId != uploadId)
+            {
+                return false;
+            }
+
+            write();
+            return true;
+        }
     }
 
     private void ResetAdvancedUploadStatus()

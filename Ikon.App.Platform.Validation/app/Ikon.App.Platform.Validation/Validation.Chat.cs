@@ -345,9 +345,16 @@ public partial class Validation
                         onSubmit: async submitted =>
                         {
                             var text = string.IsNullOrWhiteSpace(submitted) ? _composerDraft.Value : submitted;
-                            var attached = _composerAttachments.Value.Count;
+                            var attached = 0;
+
+                            // Counted and cleared in one step: an attachment upload completing in between
+                            // would otherwise be dropped without being counted in the echo.
+                            _composerAttachments.Update(items =>
+                            {
+                                attached = items.Count;
+                                return [];
+                            });
                             _composerDraft.Value = "";
-                            _composerAttachments.Clear();
                             _composerEcho.Value = attached > 0
                                 ? $"Echo: {text.Trim()} (+{attached} attachment{(attached == 1 ? "" : "s")})"
                                 : $"Echo: {text.Trim()}";

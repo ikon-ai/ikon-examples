@@ -227,7 +227,7 @@ public partial class Validation
                         },
                         content: v =>
                         {
-                            v.Icon([Icon.Default, "mr-2"], name: "enter-full-screen");
+                            v.Icon([Icon.Default, "mr-2"], name: "maximize");
                             v.Text(text: "Enter Fullscreen");
                         });
 
@@ -240,7 +240,7 @@ public partial class Validation
                         },
                         content: v =>
                         {
-                            v.Icon([Icon.Default, "mr-2"], name: "exit-full-screen");
+                            v.Icon([Icon.Default, "mr-2"], name: "minimize");
                             v.Text(text: "Exit Fullscreen");
                         });
                 });

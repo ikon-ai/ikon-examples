@@ -1,6 +1,5 @@
 using Ikon.AI.VideoSegmentation;
 using CoreFunction = Ikon.Common.Core.Functions.Function;
-using ResonanceAudioChunk = Ikon.Resonance.Core.AudioChunk;
 
 public partial class Validation
 {
@@ -523,75 +522,88 @@ public partial class Validation
 
     private async Task<string> SelfTestBargeInAsync()
     {
-        var detector = new BargeInDetector(sustainedFrames: 3, graceMs: 300);
-        var speech = SelfTestTone(16000, 0.02, 220, 0.3f);
+        const double frameMs = 20;
+        var detector = new BargeInDetector(sustainedMs: 3 * frameMs, graceMs: 300);
+        var speech = SelfTestTone(16000, frameMs / 1000, 220, 0.3f);
         var silence = new float[speech.Length];
 
         bool IsSpeech(float[] frame) => Math.Sqrt(frame.Average(sample => sample * sample)) > 0.02;
 
         Expect(IsSpeech(speech) && !IsSpeech(silence), "the synthetic energy gate cannot tell tone from silence");
 
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), agentSpeaking: true, msSinceSpeakStart: 100), "speech inside the grace window interrupted");
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), agentSpeaking: false, msSinceSpeakStart: 1000), "speech while the agent is silent interrupted");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), agentSpeaking: true, msSinceSpeakStart: 100, frameMs: frameMs), "speech inside the grace window interrupted");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), agentSpeaking: false, msSinceSpeakStart: 1000, frameMs: frameMs), "speech while the agent is silent interrupted");
 
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 400) && !detector.ShouldInterrupt(IsSpeech(speech), true, 420), "fewer than three sustained frames interrupted");
-        Expect(!detector.ShouldInterrupt(IsSpeech(silence), true, 440), "a silent frame interrupted");
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 460) && !detector.ShouldInterrupt(IsSpeech(speech), true, 480), "the silent frame did not reset the count");
-        Expect(detector.ShouldInterrupt(IsSpeech(speech), true, 500), "three sustained speech frames past the grace window did not interrupt");
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 520), "the count did not reset after an interrupt");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 400, frameMs) && !detector.ShouldInterrupt(IsSpeech(speech), true, 420, frameMs), "fewer than three sustained frames interrupted");
+        Expect(!detector.ShouldInterrupt(IsSpeech(silence), true, 440, frameMs), "a silent frame interrupted");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 460, frameMs) && !detector.ShouldInterrupt(IsSpeech(speech), true, 480, frameMs), "the silent frame did not reset the count");
+        Expect(detector.ShouldInterrupt(IsSpeech(speech), true, 500, frameMs), "three sustained speech frames past the grace window did not interrupt");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 520, frameMs), "the count did not reset after an interrupt");
 
-        detector.ShouldInterrupt(IsSpeech(speech), true, 540);
+        detector.ShouldInterrupt(IsSpeech(speech), true, 540, frameMs);
         detector.Reset();
-        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 560) && !detector.ShouldInterrupt(IsSpeech(speech), true, 580), "Reset did not clear the count");
+        Expect(!detector.ShouldInterrupt(IsSpeech(speech), true, 560, frameMs) && !detector.ShouldInterrupt(IsSpeech(speech), true, 580, frameMs), "Reset did not clear the count");
 
         return "grace window and a silent agent never interrupt; three sustained 20 ms tone frames do; silence and Reset clear the count";
     }
 
-    private async Task<string> SelfTestSpeechMixerAsync()
+    private async Task<string> SelfTestAudioMixerAsync()
     {
         const int sampleRate = 48000;
-        await using var mixer = new SpeechMixer();
-        using var streaming = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        var frames = 0;
-        var frameRate = 0;
+        const string slot = "validation-selftest";
 
-        var consumer = Task.Run(async () =>
-        {
-            try
-            {
-                await foreach (var frame in mixer.StreamAsync(streaming.Token))
-                {
-                    frames++;
-                    frameRate = frame.SampleRate;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Cancelling is how this consumer is told to stop; the frames counted so far stand.
-            }
-        });
+        // Silent, so a client connected while the battery runs hears none of it
+        var options = new PlayOptions { Mode = AudioMixMode.Replace, Slot = slot, Volume = 0f };
 
-        ExpectThrows<ArgumentException>(() => mixer.AddSamples(new ResonanceAudioChunk("validation-selftest-bad", new float[480], 0, 1, true, true)), "AddSamples with a zero sample rate");
-        Expect(mixer.GetBufferedDuration("validation-selftest-unknown") == TimeSpan.Zero, "an unknown event reports buffered audio");
+        ExpectThrows<ArgumentException>(() => new AudioClip(new float[480], 0), "AudioClip with a zero sample rate");
+        ExpectThrows<ArgumentException>(() => Audio.Play(MediaTargets.Everyone, new float[480], sampleRate, options: new PlayOptions { Mode = AudioMixMode.Replace }), "Play replacing without a slot");
+        ExpectThrows<ArgumentException>(() => Audio.PlayLive(MediaTargets.Everyone, sampleRate, options: new PlayOptions { Slot = slot, Rate = 2 }), "PlayLive at rate 2");
+        ExpectThrows<ArgumentException>(() => Audio.Speak(MediaTargets.Everyone, "loop", options: new PlayOptions { Slot = slot, Loop = true }), "Speak looping");
+        Expect(Audio.Raw.GetStreamInfo("validation-selftest-unknown") == null, "an unknown raw stream reports stream info");
+        await Audio.Raw.CloseStreamAsync("validation-selftest-unknown");
 
-        mixer.AddSamples(new ResonanceAudioChunk("validation-selftest-long", SelfTestTone(sampleRate, 2.0, 330, 0.2f), sampleRate, 1, true, false));
-        var buffered = mixer.GetBufferedDuration("validation-selftest-long");
-        Expect(buffered > TimeSpan.Zero, "a two-second event reports nothing buffered");
-
+        var longTone = Audio.Play(MediaTargets.Everyone, SelfTestTone(sampleRate, 2.0, 330, 0.2f), sampleRate, options: options);
+        await longTone.Started.WaitAsync(TimeSpan.FromSeconds(2));
         await Task.Delay(100);
-        mixer.AddSamples(new ResonanceAudioChunk("validation-selftest-short", SelfTestTone(sampleRate, 0.1, 440, 0.2f), sampleRate, 1, true, true));
+        var position = longTone.Position;
+        Expect(longTone.IsPlaying && position > TimeSpan.Zero, $"the two-second clip is not advancing (playing {longTone.IsPlaying}, position {position.TotalMilliseconds:0} ms)");
 
-        var longOutcome = await mixer.WaitForCompletionAsync("validation-selftest-long").WaitAsync(TimeSpan.FromSeconds(3));
-        var shortOutcome = await mixer.WaitForCompletionAsync("validation-selftest-short").WaitAsync(TimeSpan.FromSeconds(4));
+        var shortTone = Audio.Play(MediaTargets.Everyone, SelfTestTone(sampleRate, 0.1, 440, 0.2f), sampleRate, options: options);
+        var longOutcome = await longTone.Completion.WaitAsync(TimeSpan.FromSeconds(3));
+        var shortOutcome = await shortTone.Completion.WaitAsync(TimeSpan.FromSeconds(4));
 
-        streaming.Cancel();
-        await consumer.WaitAsync(TimeSpan.FromSeconds(2));
+        Expect(longOutcome == AudioPlaybackOutcome.Replaced, $"the long clip ended {longOutcome} after a replacing clip arrived in its slot");
+        Expect(shortOutcome == AudioPlaybackOutcome.Finished, $"the short clip ended {shortOutcome}");
 
-        Expect(longOutcome == SpeechEventOutcome.Interrupted, $"the long event ended {longOutcome} after a new event id arrived");
-        Expect(shortOutcome == SpeechEventOutcome.Completed, $"the short event ended {shortOutcome}");
-        Expect(frames > 0 && frameRate > 0, $"the mixer streamed {frames} frames at {frameRate} Hz");
+        var queueOptions = options with { Mode = AudioMixMode.Queue };
+        var first = Audio.Play(MediaTargets.Everyone, SelfTestTone(sampleRate, 2.0, 330, 0.2f), sampleRate, options: queueOptions);
+        var second = Audio.Play(MediaTargets.Everyone, SelfTestTone(sampleRate, 0.1, 440, 0.2f), sampleRate, options: queueOptions);
+        await first.Started.WaitAsync(TimeSpan.FromSeconds(2));
+        Expect(!second.Started.IsCompleted, "a queued clip started while the one ahead of it was playing");
+        first.Stop(fade: false);
+        var firstOutcome = await first.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+        var secondOutcome = await second.Completion.WaitAsync(TimeSpan.FromSeconds(3));
 
-        return $"buffered {buffered.TotalMilliseconds:0} ms; a new event id interrupted the long one and the short one completed; {frames} frames at {frameRate} Hz; zero sample rate refused";
+        Expect(firstOutcome == AudioPlaybackOutcome.Stopped, $"the stopped clip ended {firstOutcome}");
+        Expect(secondOutcome == AudioPlaybackOutcome.Finished, $"the queued clip ended {secondOutcome} after the one ahead was stopped");
+
+        AudioPlaybackOutcome liveOutcome;
+
+        await using (var live = Audio.PlayLive(MediaTargets.Everyone, sampleRate, options: new PlayOptions { Slot = slot + "-live", Volume = 0f }))
+        {
+            Expect(await live.WriteAsync(SelfTestTone(sampleRate, 0.1, 550, 0.2f)), "a fresh live playback refused samples");
+            live.Complete();
+            liveOutcome = await live.Completion.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+
+        Expect(liveOutcome == AudioPlaybackOutcome.Finished, $"the completed live playback ended {liveOutcome}");
+
+        var blankSpeech = Audio.Speak(MediaTargets.Everyone, " ", options: new PlayOptions { Slot = slot + "-speech", Volume = 0f });
+        var speechOutcome = await blankSpeech.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Expect(speechOutcome is AudioPlaybackOutcome.Finished or AudioPlaybackOutcome.NoListeners, $"whitespace speech ended {speechOutcome}");
+
+        return $"the clip advanced {position.TotalMilliseconds:0} ms; Replace cut it ({longOutcome}) and the short one {shortOutcome}; a stopped clip let the queued one finish; live playback drained {liveOutcome}; whitespace speech {speechOutcome}; zero sample rate, unslotted Replace and non-clip options refused";
     }
 
     private static float[] SelfTestTone(int sampleRate, double seconds, double frequency, float amplitude)

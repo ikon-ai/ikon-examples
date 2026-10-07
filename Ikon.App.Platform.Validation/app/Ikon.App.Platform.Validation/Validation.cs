@@ -27,7 +27,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "virtualization", "drawing",
         "profiling", "memory", "session-identity", "account", "react-sdk", "consent",
         "payments", "email", "costs", "custom-messages", "database", "persistent-state",
-        "self-test", "device", "telephony", "signatures", "sharepoint"
+        "self-test", "device", "telephony", "signatures", "sharepoint", "google-drive"
     ];
 
     // Input states
@@ -93,6 +93,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _advUploadErrorStatus = new("");
     private readonly Reactive<double> _advUploadProgress = new(0);
     private readonly Reactive<string?> _advUploadAssetUrl = new(null);
+
+    // The panel shows one upload's callbacks at a time; hooks of different uploads run in parallel, so
+    // an upload that a newer one superseded must stop writing to it.
+    private readonly Lock _advUploadLock = new();
+    private string? _advUploadCurrentId;
 
     // ActionButton/ClientFunction states
     private readonly Reactive<string> _clientFunctionResultText = new("(no function called)");
@@ -263,6 +268,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     // Sound playback state
     private readonly Reactive<string> _lastSoundPlaybackId = new("(no sound playing)");
+    private AudioPlayback? _lastSoundPlayback;
     private readonly Reactive<bool> _soundToastOpen = new(false);
     private readonly Reactive<string> _soundToastMessage = new("");
 
@@ -345,6 +351,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         InitSignatures();
         InitConsent();
         InitSiblingClientEvents();
+        InitGoogleDrive();
 
         app.OnStopping(ClearDatabaseAsync);
 
@@ -467,6 +474,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("telephony", "Telephony", RenderTelephonySection),
                             new TabItem("signatures", "Signatures", RenderSignaturesSection),
                             new TabItem("sharepoint", "SharePoint", RenderSharePointSection),
+                            new TabItem("google-drive", "Google Drive", RenderGoogleDriveSection),
                         ]);
                 });
             });
@@ -500,9 +508,9 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             frame =>
             {
                 Interlocked.Increment(ref _audioFramesToClients);
-                return Audio.SendFrameAsync(MediaTargets.Everyone, frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId);
+                return Audio.Raw.SendFrameAsync(MediaTargets.Everyone, frame.StreamId, frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast);
             },
-            onStreamEnd: streamId => Audio.CloseAsync(streamId),
+            onStreamEnd: streamId => Audio.Raw.CloseStreamAsync(streamId),
             cancellationToken: CancellationToken.None);
     }
 
@@ -831,7 +839,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                 }
 
                 Interlocked.Increment(ref _audioFramesToClients);
-                await Audio.SendFrameAsync(MediaTargets.Everyone, processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId);
+                await Audio.Raw.SendFrameAsync(MediaTargets.Everyone, args.StreamId, processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast);
             }
         };
 

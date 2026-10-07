@@ -253,7 +253,7 @@ public partial class Validation
             new("media-provenance", SelfTestMediaProvenanceAsync),
             new("mulaw", SelfTestMuLawAsync),
             new("barge-in", SelfTestBargeInAsync),
-            new("speech-mixer", SelfTestSpeechMixerAsync),
+            new("audio-mixer", SelfTestAudioMixerAsync),
         ];
     }
 

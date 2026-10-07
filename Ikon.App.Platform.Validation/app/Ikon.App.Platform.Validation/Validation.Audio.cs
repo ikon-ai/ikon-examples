@@ -476,48 +476,42 @@ public partial class Validation
                     {
                         view.Button([Button.PrimaryMd],
                             text: "Play from byte[]",
-                            onClick: async () =>
+                            onClick: async () => await PlayTestSoundAsync(clientSessionId, "byte[]", 1.0f, async () =>
                             {
-                                var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
-                                var soundData = await File.ReadAllBytesAsync(soundPath);
-                                var playbackId = await ClientFunctions.PlaySoundAsync(soundData, "audio/mpeg", volume: 1.0, targetId: clientSessionId);
-                                _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
-                                _soundToastMessage.Value = playbackId != null ? $"Playing from byte[]: {playbackId}" : "Failed to play sound";
-                                _soundToastOpen.Value = true;
-                            });
+                                var soundData = await app.Files.Data.ReadBytesAsync("whoosh.mp3");
+                                return await Audio.CreateSoundAsync(soundData, "audio/mpeg");
+                            }));
 
                         view.Button([Button.PrimaryMd],
                             text: "Play from data URL",
-                            onClick: async () =>
+                            onClick: async () => await PlayTestSoundAsync(clientSessionId, "data URL", 0.8f, async () =>
                             {
-                                var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
-                                var soundData = await File.ReadAllBytesAsync(soundPath);
-                                var base64 = Convert.ToBase64String(soundData);
-                                var dataUrl = $"data:audio/mpeg;base64,{base64}";
-                                var playbackId = await ClientFunctions.PlaySoundAsync(dataUrl, volume: 0.8, targetId: clientSessionId);
-                                _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
-                                _soundToastMessage.Value = playbackId != null ? $"Playing from data URL: {playbackId}" : "Failed to play sound";
-                                _soundToastOpen.Value = true;
-                            });
+                                var soundData = await app.Files.Data.ReadBytesAsync("whoosh.mp3");
+                                var dataUrl = $"data:audio/mpeg;base64,{Convert.ToBase64String(soundData)}";
+                                var mimeType = dataUrl[5..dataUrl.IndexOf(';')];
+                                var decoded = Convert.FromBase64String(dataUrl[(dataUrl.IndexOf(',') + 1)..]);
+                                return await Audio.CreateSoundAsync(decoded, mimeType);
+                            }));
 
+                        // The server cannot read the app's public/ files (in the cloud they ship with the
+                        // frontend), so the sound is fetched from the URL the frontend serves it at.
                         view.Button([Button.PrimaryMd],
                             text: "Play from URL",
-                            onClick: async () =>
+                            onClick: async () => await PlayTestSoundAsync(clientSessionId, "URL", 0.6f, async () =>
                             {
-                                var playbackId = await ClientFunctions.PlaySoundAsync("/test-media/chime.wav", volume: 0.6, targetId: clientSessionId);
-                                _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
-                                _soundToastMessage.Value = playbackId != null ? $"Playing from URL: {playbackId}" : "Failed to play sound";
-                                _soundToastOpen.Value = true;
-                            });
+                                var url = new Uri(new Uri(app.PublicUrl), "/test-media/chime.wav");
+                                return await Audio.CreateSoundAsync(url);
+                            }));
 
                         view.Button([Button.ErrorMd],
                             text: "Stop Sound",
                             onClick: async () =>
                             {
-                                if (_lastSoundPlaybackId.Value != "(no sound playing)" && _lastSoundPlaybackId.Value != "(failed)")
+                                if (_lastSoundPlayback is { } playback)
                                 {
-                                    var stopped = await ClientFunctions.StopSoundAsync(_lastSoundPlaybackId.Value, targetId: clientSessionId);
-                                    _soundToastMessage.Value = stopped ? $"Stopped: {_lastSoundPlaybackId.Value}" : "Sound not found or already stopped";
+                                    _soundToastMessage.Value = playback.IsEnded ? $"Already ended: {playback.Id}" : $"Stopped: {playback.Id}";
+                                    playback.Stop();
+                                    _lastSoundPlayback = null;
                                     _lastSoundPlaybackId.Value = "(no sound playing)";
                                 }
                                 else
@@ -548,6 +542,26 @@ public partial class Validation
 
             RenderMediaCountersSection(view);
         });
+    }
+
+    private async Task PlayTestSoundAsync(int clientSessionId, string source, float volume, Func<Task<AudioSound>> createSound)
+    {
+        try
+        {
+            var sound = await createSound();
+            var playback = Audio.Play(MediaTargets.To(clientSessionId), sound, new PlayOptions { Volume = volume });
+            _lastSoundPlayback = playback;
+            _lastSoundPlaybackId.Value = playback.Id;
+            _soundToastMessage.Value = $"Playing from {source}: {playback.Id}";
+        }
+        catch (Exception ex) when (ex is NotSupportedException or ArgumentException or HttpRequestException or IOException or FormatException)
+        {
+            // Reported in the toast: this check is a button a person presses and reads.
+            _lastSoundPlaybackId.Value = "(failed)";
+            _soundToastMessage.Value = $"Failed to play sound from {source}: {ex.Message}";
+        }
+
+        _soundToastOpen.Value = true;
     }
 
     private void RenderEffectParams(UIView view, EffectEntry entry, int index)
@@ -797,7 +811,7 @@ public partial class Validation
         return effectType switch
         {
             "Delay" => new DelayAudioEffect(p["delayMs"], p["feedback"], p["mix"], p["damping"]),
-            "Reverb" => new ReverbAudioEffect(p["roomSize"], p["decay"], p["damping"], p["mix"]),
+            "Reverb" => ReverbAudioEffect.Room(p["roomSize"], p["decay"], p["damping"], wet: Math.Clamp(p["mix"], 0f, 1f) * 0.36f),
             "Chorus" => new ChorusAudioEffect(p["baseDelayMs"], p["depthMs"], p["rateHz"], p["mix"]),
             "Tremolo" => new TremoloAudioEffect(p["rateHz"], p["depth"], p["mix"]),
             "BitCrusher" => new BitCrusherAudioEffect((int)p["bitDepth"], (int)p["downsample"], p["mix"]),

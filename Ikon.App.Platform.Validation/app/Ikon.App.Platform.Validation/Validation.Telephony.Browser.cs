@@ -142,7 +142,7 @@ public partial class Validation
 
         try
         {
-            await Audio.SendFrameAsync(MediaTargets.To(listeners), frame, TelSampleRate, 1, isFirst, isLast, streamId);
+            await Audio.Raw.SendFrameAsync(MediaTargets.To(listeners), streamId, frame, TelSampleRate, 1, isFirst, isLast);
         }
         catch (Exception ex)
         {
@@ -157,7 +157,7 @@ public partial class Validation
 
         try
         {
-            await Audio.CloseAsync(streamId);
+            await Audio.Raw.CloseStreamAsync(streamId);
         }
         catch (Exception ex)
         {

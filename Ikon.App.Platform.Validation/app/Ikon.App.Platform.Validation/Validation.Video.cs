@@ -241,7 +241,7 @@ public partial class Validation
                         {
                             view.Column([Layout.Column.Center], content: view =>
                             {
-                                view.Icon([Media.PlaceholderIcon], name: "desktop");
+                                view.Icon([Media.PlaceholderIcon], name: "monitor");
                                 view.Text([Media.PlaceholderText], "No screen stream");
                                 view.Text([Media.PlaceholderHint], "Click Start Screen to begin");
                             });

@@ -705,7 +705,7 @@ public partial class Validation
                     gridStyle: [Calendar.Grid],
                     rowStyle: [Calendar.Row],
                     placeholder: "Choisir une date",
-                    format: "fr-FR",
+                    labelLocale: "fr-FR",
                     locale: "fr-FR",
                     previousMonthLabel: "Mois précédent",
                     nextMonthLabel: "Mois suivant",

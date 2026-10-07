@@ -4,8 +4,8 @@ public partial class Validation
 {
     // Dedicated ids, so the battery never moves an answer the Consent tab or a real user gave.
     private const string SelfTestUserId = "validation-selftest-user";
-    private const string SelfTestConsentPurpose = "validation-selftest-consent";
-    private const string SelfTestConsentNeverAskedPurpose = "validation-selftest-never-asked";
+    private static readonly ConsentPurpose SelfTestConsentPurpose = new("validation-selftest-consent");
+    private static readonly ConsentPurpose SelfTestConsentNeverAskedPurpose = new("validation-selftest-never-asked");
     private const string SelfTestChannelName = "validation-selftest-channel";
 
     private sealed class SelfTestNotificationChannel : INotificationChannel
@@ -136,8 +136,8 @@ public partial class Validation
         var inbox = _selfTestInbox;
         var silentWithChannel = NotificationRoute.Silent.With(SelfTestChannelName);
 
-        inbox.ClearFor(user);
-        Expect(inbox.ItemsFor(user).Count == 0 && inbox.UnreadCountFor(user) == 0, "ClearFor left items behind");
+        inbox.EraseFor(user);
+        Expect(inbox.ItemsFor(user).Count == 0 && inbox.UnreadCountFor(user) == 0, "EraseFor left items behind");
 
         var sentBefore = _selfTestChannel.Sent;
         var first = await inbox.NotifyAsync(user, new NotificationContent("Self-test one", "first", Tag: "selftest-a"), kind: "selftest", route: silentWithChannel);
@@ -176,8 +176,8 @@ public partial class Validation
         inbox.ClearQuietHoursFor(user);
         Expect(inbox.QuietHoursFor(user) == null, "ClearQuietHoursFor left the window set");
 
-        inbox.ClearFor(user);
-        Expect(inbox.ItemsFor(user).Count == 0, "ClearFor left items behind at the end");
+        inbox.EraseFor(user);
+        Expect(inbox.ItemsFor(user).Count == 0, "EraseFor left items behind at the end");
 
         return "Tag collapse, newest-first order, MarkReadFor, custom channel delivered/muted/unregistered/Low skipped, inbox-less route, overnight quiet hours round trip";
     }

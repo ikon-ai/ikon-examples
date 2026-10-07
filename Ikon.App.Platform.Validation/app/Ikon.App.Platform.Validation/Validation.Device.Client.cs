@@ -142,7 +142,7 @@ public partial class Validation
 
     private void RecordDeviceUpload(string line)
     {
-        _devUploads.Value = [line, .. _devUploads.Value.Take(DeviceUploadHistory - 1)];
+        _devUploads.Update(lines => [line, .. lines.Take(DeviceUploadHistory - 1)]);
     }
 
     private void RenderDeviceUploadsCard(UIView view)
