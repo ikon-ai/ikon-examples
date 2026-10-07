@@ -2,41 +2,56 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: speech-with-voice-control — see docs/patterns/speech-with-voice-control.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class SpeechWithVoiceControl : IPatternDemo
+internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
 {
     public string Slug => "speech-with-voice-control";
     public string Title => "Speech with voice, speed and delivery";
     public string Category => "Voice & audio";
     public void RenderDemo(IView view) => Render(view);
 
-    private Audio Audio => throw new NotImplementedException();
+    private Audio Audio { get; } = new(app);
 
     #region example:pattern-speech-with-voice-control
     private readonly ClientReactive<string?> _error = new(null);
 
     /// <summary>
-    /// Audio.SpeakAsync is the whole path for ordinary narration: one call, and each one
-    /// interrupts the previous. Drive SpeechGenerator yourself only for what that cannot do --
-    /// overlapping speakers, speech that must NOT interrupt, or raw access to the samples.
+    /// Audio.Speak is the whole path for ordinary narration: one call that returns at once, and
+    /// each line crossfades out the previous one in slot "speech". The options cover the rest --
+    /// Mode = Queue for a line that must NOT interrupt, a slot of its own for a second speaker
+    /// (see OverlapAsync). Drive SpeechGenerator yourself only for generator settings Speak does
+    /// not expose.
     /// </summary>
     private async Task NarrateAsync(string text)
     {
-        // Instructions need ElevenLabs v3; the default ElevenFlash25 refuses them. No speed:
-        // ElevenLabs refuses any but 1.0. Pass one only with an OpenAI, Google or Azure model, e.g.
-        // model: SpeechGeneratorModel.Gpt4OmniMiniTts, speed: 0.95.
-        await Audio.SpeakAsync(MediaTargets.Everyone, text, model: SpeechGeneratorModel.Eleven3, voice: "Sarah", instructions: "calm, unhurried");
+        _error.Value = null;
+
+        // Instructions need ElevenLabs v3; the default ElevenFlash25 fails the playback. No Speed:
+        // ElevenLabs fails any but 1.0. Pass one only with an OpenAI, Google or Azure model, e.g.
+        // Model = SpeechGeneratorModel.Gpt4OmniMiniTts, Speed = 0.95.
+        var line = Audio.Speak(MediaTargets.Everyone, text, new SpeechOptions
+        {
+            Model = SpeechGeneratorModel.Eleven3,
+            Voice = "Sarah",
+            Instructions = "calm, unhurried",
+        });
+
+        // Completion never throws: a generation failure is an outcome, with the cause in Error
+        if (await line.Completion == AudioPlaybackOutcome.Failed)
+        {
+            _error.Value = "Couldn't play that line — try again.";
+        }
     }
 
     /// <summary>
-    /// The config form, for generator settings SpeakAsync does not expose. Streaming chunk-by-chunk
-    /// is what lets playback start before generation finishes. This does NOT give you two speakers
-    /// at once: every SpeakChunk to the same clients goes through one speech mixer, which holds one
-    /// utterance at a time, so a second voice's chunks interrupt the first with a fade. Genuine
-    /// overlap means leaving the speech lane -- see OverlapAsync below.
+    /// The config form, for generator settings Speak does not expose. Writing chunks into a live
+    /// playback as they arrive is what lets playback start before generation finishes. Slot
+    /// "speech" keeps it the app's speech: it replaces the line still speaking, as Speak would,
+    /// and turn detection counts it as the app talking.
     /// </summary>
     private async Task SpeakWithConfigAsync(string line)
     {
         using var generator = new SpeechGenerator(SpeechGeneratorModel.Eleven3);
+        LiveAudioPlayback? speech = null;
 
         try
         {
@@ -50,26 +65,38 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
                 Instructions = "warm, close-mic",
             }))
             {
-                Audio.SpeakChunk(MediaTargets.Everyone, chunk);
+                // Generation runs ahead of playout; a generous buffer lets it finish without waiting
+                speech ??= Audio.PlayLive(MediaTargets.Everyone, chunk.SampleRate, chunk.ChannelCount,
+                    new PlayOptions { Slot = "speech" }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+                if (!await speech.WriteAsync(chunk.Samples))
+                {
+                    return;
+                }
             }
+
+            speech?.Complete();
         }
         catch (AIException ex)
         {
+            speech?.Stop();
             _error.Value = "Couldn't play that line — try again.";
             Log.Instance.Warning($"Speech failed for '{line}': {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Two voices at once. The speech mixer cannot do this -- it plays one utterance at a time --
-    /// so overlap is the direct lane's job: PlayClipAsync sends an independent stream per stream id,
-    /// and streams play alongside each other and alongside speech.
+    /// Two voices at once. Each speaker gets a slot of its own, so neither line replaces the
+    /// other: they play together, panned apart, and each speaker's next line replaces only its own.
     /// </summary>
-    private async Task OverlapAsync(AudioChunk voiceA, AudioChunk voiceB)
+    private async Task OverlapAsync(string lineA, string lineB)
     {
-        await Task.WhenAll(
-            Audio.PlayClipAsync(MediaTargets.Everyone, voiceA.Samples, voiceA.SampleRate, voiceA.ChannelCount, streamId: "voice-a"),
-            Audio.PlayClipAsync(MediaTargets.Everyone, voiceB.Samples, voiceB.SampleRate, voiceB.ChannelCount, streamId: "voice-b"));
+        var a = Audio.Speak(MediaTargets.Everyone, lineA, new SpeechOptions { Voice = "Sarah" },
+            new PlayOptions { Slot = "voice-a", Pan = -0.5f });
+        var b = Audio.Speak(MediaTargets.Everyone, lineB, new SpeechOptions { Voice = "George" },
+            new PlayOptions { Slot = "voice-b", Pan = 0.5f });
+
+        await Task.WhenAll(a.Completion, b.Completion);
     }
 
     /// <summary>

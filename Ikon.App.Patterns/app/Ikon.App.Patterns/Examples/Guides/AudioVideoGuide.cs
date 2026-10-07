@@ -18,19 +18,28 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         int channelCount, bool isFirst, bool isLast, string streamId)
     {
         #region example:av-send
-        // 1. Speech — real-time paced through the speech mixer; new speech interrupts
-        //    current speech with a fade. The default for spoken replies.
-        await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world");                       // TTS in one call
-        Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);                                // your own AudioChunks
+        // Every call returns an AudioPlayback at once; await its Completion to wait for playout.
+        // Each client hears everything aimed at it, mixed.
 
-        // 2. Complete clip (decoded file, generated music) — real-time paced, no
-        //    interruption semantics. Safe for any length.
-        await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId: "music");
+        // 1. Speech — TTS in one call. A new line crossfades out the speech still playing.
+        var line = Audio.Speak(MediaTargets.Everyone, "Hello world");
+        await line.Completion;
 
-        // 3. Immediate, UNPACED — only for audio already produced in real time (echoing
-        //    mic frames back out) or very short clips. A long clip sent this way arrives
-        //    all at once and can overflow client audio buffers; use PlayClipAsync for clips.
-        await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
+        // 2. A clip (decoded file, generated music) — mixed with everything else, any length.
+        //    Replace in a named slot cuts the previous clip there instead of overlapping it.
+        Audio.Play(MediaTargets.Everyone, samples, sampleRate, channelCount,
+            new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music" });
+
+        // 3. Audio produced as it goes (your own AudioChunks, a synth) — a live playback paces it.
+        var live = Audio.PlayLive(MediaTargets.Everyone, audioChunk.SampleRate, audioChunk.ChannelCount);
+        await live.WriteAsync(audioChunk.Samples);
+        live.Complete();
+
+        // 4. Raw — your own frames on your own stream id, UNMIXED and UNPACED: only for audio
+        //    already produced in real time (echoing mic frames back out) or an engine that mixes
+        //    and paces itself. Close the stream when done.
+        await Audio.Raw.SendFrameAsync(MediaTargets.Everyone, streamId, samples, sampleRate, channelCount, isFirst, isLast);
+        await Audio.Raw.CloseStreamAsync(streamId);
         #endregion
     }
 
@@ -40,7 +49,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         Audio.SpeechRecognizedAsync += async args =>
         {
             // Reply only to the person who spoke — NOT the whole room.
-            await Audio.SpeakAsync(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
+            Audio.Speak(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
         };
         #endregion
     }
@@ -48,8 +57,12 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     public void MixerControl()
     {
         #region example:av-mixer-control
-        Audio.StopSpeech(MediaTargets.Everyone);               // graceful: fade out all speech
-        Audio.StopSpeech(MediaTargets.To(7), fade: false);     // hard stop: discard speech that reaches client 7
+        Audio.Stop(MediaTargets.Everyone, "speech");                 // graceful: fade out all speech
+        Audio.Stop(MediaTargets.To(7), "speech", fade: false);       // hard stop: silence speech for client 7 only
+        Audio.Pause(MediaTargets.Everyone, "speech");                // hold speech where it is ...
+        Audio.Resume(MediaTargets.Everyone, "speech");               // ... and carry on
+        Audio.SetSlotVolume(MediaTargets.Everyone, "music", 0.3f);   // lower one slot, leave the rest
+        Audio.Stop(MediaTargets.Everyone);                           // every slot, everyone
         #endregion
     }
 
@@ -97,7 +110,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
 
         Audio.SpeechNotRecognizedAsync += async args =>
         {
-            // args.Reason: NoAudio, Silence, NoText, or Error (failure in args.Error).
+            // args.Reason: NoAudio, Silence, NoSignal (a muted or virtual mic: tell the user to check which mic their device uses), NoText, or Error (failure in args.Error).
         };
         #endregion
     }
@@ -133,7 +146,10 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
             channelCount: 1,
             isFirst: true,
             isLast: true);
-        Audio.SpeakChunk(MediaTargets.Everyone, chunk);
+
+        // Slot "speech" makes it count as the app speaking, replacing the line still playing
+        Audio.Play(MediaTargets.Everyone, chunk.Samples, chunk.SampleRate, chunk.ChannelCount,
+            new PlayOptions { Mode = AudioMixMode.Replace, Slot = "speech" });
         #endregion
     }
 
@@ -171,13 +187,13 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         };
 
         // One pump forwards each personalized 20 ms frame to its participant. The frames
-        // are already real-time paced, so SendFrameAsync is correct here:
+        // are already mixed and real-time paced, so the raw lane is correct here:
         _ = Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
             {
-                await Audio.SendFrameAsync(MediaTargets.To([participantId]), frame.Samples, frame.SampleRate, frame.ChannelCount,
-                    frame.IsFirst, frame.IsLast, frame.StreamId);
+                await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
+                    frame.ChannelCount, frame.IsFirst, frame.IsLast);
             }
         });
         #endregion

@@ -45,8 +45,9 @@ internal sealed class ToolResultShaping : IPatternDemo
     }
 
     /// <summary>
-    /// FunctionMediaResult hands the model an image alongside text. Only providers that support
-    /// media in tool results inline it; everything else falls back to ToString, which SUMMARIZES
+    /// FunctionMediaResult hands the model an image alongside text. Any model that takes image
+    /// input sees it -- inside the tool result, or in a user turn right after a text-only tool
+    /// message. Only a model that cannot take images falls back to ToString, which SUMMARIZES
     /// the media rather than emitting the bytes -- so this degrades instead of flooding a
     /// transcript with base64.
     /// </summary>

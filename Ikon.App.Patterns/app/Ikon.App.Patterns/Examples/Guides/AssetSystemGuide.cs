@@ -33,6 +33,20 @@ file sealed class AssetGuideExamples
     private readonly byte[] thumbnailBytes = [];
     private readonly IReadOnlyList<string> widgets = [];
 
+    public async Task WriteAsync()
+    {
+        #region example:asset-guide-write-async
+        var assets = Asset.Instance;
+        var reportUri = new AssetUri(AssetClass.CloudFile, "reports/latest.pdf", spaceId: "space-42");
+
+        await using var source = File.OpenRead("./report.pdf");
+        await assets.WriteAsync(
+            reportUri,
+            (target, ct) => source.CopyToAsync(target, ct),
+            new AssetMetadata(mimeType: "application/pdf", size: source.Length));
+        #endregion
+    }
+
     public async Task WriteStreamAsync()
     {
         #region example:asset-guide-write-stream

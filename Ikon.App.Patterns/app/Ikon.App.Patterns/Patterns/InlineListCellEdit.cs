@@ -68,17 +68,29 @@ internal sealed class InlineListCellEdit : IPatternDemo
         }
 
         var bytes = await File.ReadAllBytesAsync(path);
-        var index = _states.Value.ToList().FindIndex(s => s.Id == stateId);
+        var found = false;
 
-        if (index < 0)
+        // Looked up by id under the list's lock: a remove clicked meanwhile shifts indices, and a
+        // second upload to the same state must not interleave its bytes with this one's mime type.
+        _states.Mutate(states =>
+        {
+            var state = states.Find(s => s.Id == stateId);
+
+            if (state == null)
+            {
+                return;
+            }
+
+            state.ImageData = bytes;
+            state.ImageMime = args.MimeType;
+            found = true;
+        });
+
+        if (!found)
         {
             return;
         }
 
-        var state = _states[index];
-        state.ImageData = bytes;
-        state.ImageMime = args.MimeType;
-        _states[index] = state;
         await SaveProjectAsync();
     }
 

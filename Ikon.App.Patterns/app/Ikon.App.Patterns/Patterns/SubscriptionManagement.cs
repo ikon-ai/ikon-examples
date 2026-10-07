@@ -55,7 +55,8 @@ internal sealed class SubscriptionManagement(IApp<SessionIdentity, ClientParamet
                 or PaymentEventType.SubscriptionUpdated
                 or PaymentEventType.SubscriptionRenewalFailed)
             {
-                // The push comes from the backend, so no user or client scope is active here:
+                // The push comes from the backend, so no user scope is active here and the client
+                // scope is the backend session's:
                 // the customer key rides in the payload, and it is the user id the checkout
                 // defaulted to.
                 var payload = paymentEvent.Payload();
@@ -119,7 +120,7 @@ internal sealed class SubscriptionManagement(IApp<SessionIdentity, ClientParamet
         {
             foreach (var subscription in _subscriptions)
             {
-                col.Card(["p-3 gap-2"], key: subscription.Id, content: card =>
+                col.Card(key: subscription.Id, contentStyle: ["p-3 flex flex-col gap-2"], content: card =>
                 {
                     card.Text(text: $"{subscription.OfferId} — {subscription.Status}");
 

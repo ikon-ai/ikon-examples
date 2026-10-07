@@ -2,16 +2,37 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: saved-runs-sidebar — see docs/patterns/saved-runs-sidebar.md.
 // The example region keeps a cheap per-user CloudJson index and loads heavier per-item assets on
-// demand; the stubs outside it stand in for the host app, its user resolution and its load-into-editor.
+// demand; the code outside it stands in for the host app, its user resolution and its
+// load-into-editor, which here only marks the entry active.
 internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
 {
     public string Slug => "saved-runs-sidebar";
     public string Title => "Saved runs sidebar";
     public string Category => "Persistence";
-    public void RenderDemo(IView view) => Render(view);
+    public void RenderDemo(IView view)
+    {
+        view.Button([Button.OutlineSm, "mb-3"], text: "Load sample history",
+            onClick: () => _transcripts.ReplaceAll(SampleTranscripts()));
+        Render(view);
+    }
 
     private string ResolveUserId() => throw new NotImplementedException();
-    private Task LoadTranscriptAsync(TranscriptEntry entry) => throw new NotImplementedException();
+
+    private Task LoadTranscriptAsync(TranscriptEntry entry)
+    {
+        _activeTranscriptId.Value = entry.Id;
+        return Task.CompletedTask;
+    }
+
+    // The real history comes from a CloudJson index the gallery has no user for, so the button
+    // writes sample entries straight into the per-user list.
+    private static IEnumerable<TranscriptEntry> SampleTranscripts()
+    {
+        var now = DateTimeOffset.UtcNow;
+        yield return new("t-standup", "standup-monday.m4a", "", "", "en", 812, "Weekly standup", ["Ship the beta"], now.AddHours(-3));
+        yield return new("t-interview", "customer-interview.mp3", "", "", "en", 2_410, "Customer interview", ["Send pricing"], now.AddDays(-1));
+        yield return new("t-lecture", "lecture-04.wav", "", "", "fi", 3_600, "Lecture 4", [], now.AddDays(-6));
+    }
 
     #region example:pattern-saved-runs-sidebar
     public sealed record TranscriptEntry(

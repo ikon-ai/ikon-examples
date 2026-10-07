@@ -133,7 +133,7 @@ file sealed class MicrosoftConnectorGuideExamples
         {
             delta = await oneDrive.DeltaAsync(driveId, deltaLink);
         }
-        catch (ConnectorException ex) when (ex.StatusCode == 410)
+        catch (ConnectorException ex) when (ex.IsResyncRequired)
         {
             delta = await oneDrive.DeltaAsync(driveId);   // the link expired: read everything again
         }

@@ -30,8 +30,8 @@ internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
     {
         _running.Value = true;
 
-        // Returns false — never throws — on a browser, on Android, on iOS below 16.2, or on a shell
-        // that predates the bridge. A banner is a nicety; never let its absence take the app down.
+        // Returns false — never throws — on a browser, on Android, on iOS below 16.2, or on a Flutter
+        // app without the bridge. A banner is a nicety; never let its absence take the app down.
         await app.LiveActivity.StartAsync(
             title: "Momentum",
             accentHex: "#db176e",

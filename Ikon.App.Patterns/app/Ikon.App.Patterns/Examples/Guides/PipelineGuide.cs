@@ -49,6 +49,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // The variable values inside the expression are read and used to calculate a hash for the processor call
         // If any of the variable values change, then possible caching for that processor is skipped and it runs
         // If processor name, version, and expression variables are the same as a previous run, cached results are used
+        // The exception is stream-to-stream TransformStream (below): it is never cached and runs again on every run
 
         // Process each item separately but in parallel
         evenItems = evenItems.Transform(item => MyProcessor(item, host.Config.ConfigValue2, cancellationToken));
@@ -61,6 +62,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         var itemToStreamItems = objectItems.TransformStream(item => MyItemToStreamProcessor(item, host.Config.ConfigValue2, cancellationToken));
 
         // Process multiple input items as a stream and produce multiple output items as a stream
+        // The whole input goes through one call that is not cached, deduplicated, parallelised or retried
         var streamToStreamItems = oddItems.TransformStream(items => MyStreamToStreamProcessor(items, host.Config.ConfigValue2, cancellationToken));
 
         // Merge multiple branches into one
@@ -79,7 +81,8 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
         // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
         // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
-        // replays the output computed with the old value. skipCache: true is the only way to make a lambda step re-run
+        // replays the output computed with the old value. Every lambda step must therefore pass skipCache:
+        // true re-runs it on every run, false keeps that name-only cache and its stale replays
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {
@@ -87,7 +90,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         }, skipCache: true);
 
         // Calling output on any branch outputs those items from the pipeline
-        // Every fork needs its own terminal (Output or ForEach): a fork without one drops its items
+        // Every fork needs its own terminal (Output or ForEach): a fork without one fails the run at start
         groupProcessedItems.Output();
         doNotUseTransformLambdaItems.Output();
     }
@@ -155,7 +158,7 @@ file static class PipelineGuideExamples
     public static async Task RunAsync()
     {
         #region example:pipeline-run
-        using var pipelineRunner = new PipelineRunner();
+        await using var pipelineRunner = new PipelineRunner();
         await pipelineRunner.Initialize<SimplePipeline>();
 
         List<Item> inputItems = [];
@@ -179,7 +182,7 @@ file static class PipelineGuideExamples
     public static async Task RunAsEnumerableAsync()
     {
         #region example:pipeline-run-enumerable
-        using var pipelineRunner = new PipelineRunner();
+        await using var pipelineRunner = new PipelineRunner();
         await pipelineRunner.Initialize<SimplePipeline>();
 
         List<Item> inputItems = [];
@@ -201,7 +204,7 @@ file static class PipelineGuideExamples
     public static async Task RunWithConfigAsync()
     {
         #region example:pipeline-run-config
-        using var pipelineRunner = new PipelineRunner();
+        await using var pipelineRunner = new PipelineRunner();
 
         var pipelineRunnerConfig = new PipelineRunner.Config
         {
@@ -235,7 +238,7 @@ file static class PipelineGuideExamples
     public static async Task RunCancellableAsync()
     {
         #region example:pipeline-run-cancel
-        using var pipelineRunner = new PipelineRunner();
+        await using var pipelineRunner = new PipelineRunner();
         await pipelineRunner.Initialize<SimplePipeline>();
 
         List<Item> inputItems = [];
@@ -382,7 +385,7 @@ file static class PipelineGuideExamples
     public static async Task RunAdvancedAsync()
     {
         #region example:pipeline-run-advanced
-        using var pipelineRunner = new PipelineRunner();
+        await using var pipelineRunner = new PipelineRunner();
 
         var myPipelineConfig = new AdvancedPipeline.Config
         {

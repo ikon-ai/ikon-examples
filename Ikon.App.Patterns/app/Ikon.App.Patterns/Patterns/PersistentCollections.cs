@@ -12,7 +12,7 @@ internal sealed class PersistentCollections : IPatternDemo
     #region example:pattern-persistent-collections
     // Collection state uses the reactive COLLECTION types. Wrapping a mutable collection --
     // PersistentReactive<Dictionary<K,V>>, Reactive<List<T>> -- is analyzer warning IKON002, a build
-    // error in codegen's sandbox build, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
+    // error in codegen's sandbox build and in in-repo apps, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
     // helpers exist for legacy code that already has such a wrapper, not for new declarations.
     //
     // Scope is the first choice, and it is three-way:
@@ -29,13 +29,15 @@ internal sealed class PersistentCollections : IPatternDemo
         // Mutate ON the reactive: the indexer, Add, Remove and Contains are all tracked, and each
         // mutation notifies once. There is no .Value.Add -- Value reads are read-only views.
         // The User* forms resolve against the UserScope this callback runs in; from Main(), the
-        // constructor, Task.Run, a timer or an endpoint handler there is none and this line throws.
+        // constructor, a Task.Run started from either, a timer or an endpoint handler there is none
+        // and this line throws.
         _votesByPoll[pollId] = option;
     }
 
     private void RecordVoteLater(string pollId, int option)
     {
-        // Background work carries no user scope: capture the id here and use the ...For accessor.
+        // A Task.Run started here inherits this callback's scope, but a loop or timer started from
+        // Main() has none: capturing the id and using the ...For accessor works from either.
         var userId = ReactiveScope.UserId;
         _ = Task.Run(() => _votesByPoll.SetFor(userId, pollId, option));
     }

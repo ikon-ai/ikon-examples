@@ -19,9 +19,11 @@ internal sealed class ChatbotStreaming : IPatternDemo
     private readonly Reactive<string> _streaming = new("");
     private KernelContext _ctx = new();
 
-    private async Task SendAsync()
+    // The text arrives as an argument so the Send button and Enter share one path; the button
+    // passes _draft.Value, and Enter passes the submitted text.
+    private async Task SendAsync(string input)
     {
-        var text = _draft.Value.Trim();
+        var text = input.Trim();
 
         if (string.IsNullOrEmpty(text) || _busy.Value)
         {
@@ -43,10 +45,6 @@ internal sealed class ChatbotStreaming : IPatternDemo
             // Run<string> is what makes those chunks readable. Every other T
             // turns JSON mode on, and then the chunks ARE the JSON: the bubble
             // fills up with {"Reply":"He… instead of the reply.
-            //
-            // The user's turn goes into _ctx itself rather than pass.Command:
-            // Command reaches only that one generation, so Completed.Context
-            // would carry the model's replies and none of the user's messages.
             _ctx = _ctx.Add(new MessageBlock(MessageBlockRole.User, text));
             var sb = new System.Text.StringBuilder();
             await foreach (var ev in Emerge.Run<string>(LLMModel.Claude46Sonnet, _ctx, pass =>
@@ -84,8 +82,10 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 }
             }
         }
-        catch (AIException)
+        catch (Exception ex)
         {
+            Log.Instance.Warning($"Chat reply for client {ReactiveScope.ClientId} failed, user can send again: {ex.Message}");
+
             // Visible, and in the reader's language — never the exception text, which names a
             // provider and a socket to someone who wanted an answer.
             _transcript.Add(new ChatMessage("System", "Couldn't reach the assistant — send it again."));
@@ -122,9 +122,9 @@ internal sealed class ChatbotStreaming : IPatternDemo
         {
             view.TextField([Input.Default, "flex-1"], value: _draft.Value, placeholder: "Type a message…",
                 onValueChange: async v => _draft.Value = v,
-                onSubmit: async _ => await SendAsync());
+                onSubmit: SendAsync);
             view.Button(style: [Button.Default, _busy.Value ? "opacity-50" : ""],
-                disabled: _busy.Value, onClick: SendAsync,
+                disabled: _busy.Value, onClick: () => SendAsync(_draft.Value),
                 content: v => v.Text(text: _busy.Value ? "Thinking…" : "Send"));
         });
     }

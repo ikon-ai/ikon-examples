@@ -8,17 +8,24 @@ internal sealed class CopyAndShareActionRow : IPatternDemo
     public string Slug => "copy-and-share-action-row";
     public string Title => "Copy and share action row";
     public string Category => "Interaction";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "A floating row of declarative copy-to-clipboard and share ActionButtons over read-only content. See the source and docs/patterns/copy-and-share-action-row.md.");
+    public void RenderDemo(IView view) =>
+        view.Box(["h-[280px] max-w-xl rounded-lg border border-border"], content: RenderTranscriptContent);
 
     private sealed record SpeechEntry(string ParticipantName, DateTime Timestamp, string Text);
 
-    private readonly ReactiveList<SpeechEntry> _recognizedSpeech = new();
+    // Seeded with a short meeting so the floating actions, which show only over content, have some.
+    private readonly ReactiveList<SpeechEntry> _recognizedSpeech = new(
+    [
+        new("Aino", DateTime.UtcNow.AddMinutes(-6), "Let's start with the launch checklist."),
+        new("Mateo", DateTime.UtcNow.AddMinutes(-5), "The pricing page is ready for review."),
+        new("Aino", DateTime.UtcNow.AddMinutes(-4), "Great — I'll send it to legal this afternoon."),
+    ]);
     private readonly Reactive<int> _recognizedSpeechVersion = new(0);
 
-    private string GetTranscriptAsText() => throw new NotImplementedException();
+    private string GetTranscriptAsText() =>
+        string.Join("\n", _recognizedSpeech.Value.Select(entry => $"{entry.ParticipantName}: {entry.Text}"));
 
-    private string FormatTimeInClientTimezone(DateTime timestamp) => throw new NotImplementedException();
+    private string FormatTimeInClientTimezone(DateTime timestamp) => timestamp.ToString("HH:mm");
 
     #region example:pattern-copy-and-share-action-row
     private void RenderTranscriptContent(UIView view)

@@ -2,14 +2,14 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: voice-effect-chain — see docs/patterns/voice-effect-chain.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class VoiceEffectChain : IPatternDemo
+internal sealed class VoiceEffectChain(IAppBase app) : IPatternDemo
 {
     public string Slug => "voice-effect-chain";
     public string Title => "Voice effect chain";
     public string Category => "Voice & audio";
     public void RenderDemo(IView view) => Render(view);
 
-    private Audio Audio => throw new NotImplementedException();
+    private Audio Audio { get; } = new(app);
 
     #region example:pattern-voice-effect-chain
     private readonly ClientReactive<string> _character = new("narrator");
@@ -31,12 +31,12 @@ internal sealed class VoiceEffectChain : IPatternDemo
     };
 
     /// <summary>
-    /// The chain is captured from the FIRST chunk of a speech event, so it applies to the whole
-    /// utterance -- changing the character mid-sentence takes effect on the next one, not this.
+    /// The chain belongs to the playback, so it applies to the whole utterance -- changing the
+    /// character mid-sentence takes effect on the next line, not this one.
     /// </summary>
-    private async Task SpeakAsync(string text)
+    private void SpeakLine(string text)
     {
-        await Audio.SpeakAsync(MediaTargets.Everyone, text, effects: ChainFor(_character.Value));
+        Audio.Speak(MediaTargets.Everyone, text, options: new PlayOptions { Effects = ChainFor(_character.Value) });
     }
 
     private void Render(IView view)
@@ -47,12 +47,17 @@ internal sealed class VoiceEffectChain : IPatternDemo
             {
                 foreach (var name in (string[])["narrator", "phone", "robot", "hall", "retro"])
                 {
-                    group.RadioGroupItem(value: name, content: v => v.Text(text: name));
+                    // The Label around item and text names the radio and makes the text clickable.
+                    group.Label([Label.Default, "flex items-center gap-2 cursor-pointer"], key: name, content: label =>
+                    {
+                        label.RadioGroupItem(value: name);
+                        label.Text(text: name);
+                    });
                 }
             });
 
             col.Button(
-                onClick: async () => await SpeakAsync("The package has arrived."),
+                onClick: () => SpeakLine("The package has arrived."),
                 content: v => v.Text(text: "Speak"));
         });
     }

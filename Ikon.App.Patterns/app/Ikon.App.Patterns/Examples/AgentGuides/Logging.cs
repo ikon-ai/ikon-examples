@@ -51,7 +51,7 @@ public static class LoggingExamples
         // A named event with structured parameters, separate from the level-based lines.
         Log.Instance.Event("import_completed", new { ItemCount = itemCount });
 
-        // A metered quantity: each call is its own usage record, billed by its name, not printed.
+        // A metered quantity: each call is its own usage record, billed by its name, and kept off the console only by the default ConsoleWriterFilter.
         Log.Instance.Usage("http.sent_megabytes", megabytesSent);
     }
     #endregion

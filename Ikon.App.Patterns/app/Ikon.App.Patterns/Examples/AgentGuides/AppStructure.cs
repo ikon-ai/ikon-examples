@@ -115,14 +115,12 @@ internal sealed partial class AgentGuideExamples
         _ = inviteUrl + sessionUrl;
     }
 
-    private static async Task DocClientFunctionsAsync(
+    private async Task DocClientFunctionsAsync(
         ClientAudioCaptureOptions audioOptions,
         ClientVideoCaptureSource source,
         ClientVideoCaptureOptions videoOptions,
         ClientImageCaptureOptions imageOptions,
         string streamId,
-        string playbackId,
-        string url,
         byte[] data,
         string mimeType,
         int targetId)
@@ -145,9 +143,6 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.GetNetworkTypeAsync();               // connection type
         await ClientFunctions.VibrateAsync(200);                   // or a pattern: VibrateAsync(new[] { 100, 50, 100 })
         await ClientFunctions.ScrollToAsync(x: 0, y: 0, smooth: true);
-        await ClientFunctions.PlaySoundAsync(url, volume: 0.8, loop: false);
-        await ClientFunctions.PlaySoundAsync(data, mimeType, volume: 0.8, loop: false); // from bytes
-        await ClientFunctions.StopSoundAsync(playbackId);
         await ClientFunctions.RequestFullscreenAsync();
         await ClientFunctions.ExitFullscreenAsync();
         await ClientFunctions.LogoutAsync();
@@ -160,6 +155,12 @@ internal sealed partial class AgentGuideExamples
 
         // Pass targetId to address another client session (all functions):
         await ClientFunctions.SetThemeAsync(Theme.Dark, targetId: targetId);
+
+        // Sounds are not a client function; they play through Audio. Make a short sound once
+        // (WAV, MP3 or Ogg (Vorbis or Opus), up to 30 s), keep it, and play it as often as needed:
+        var sound = await Audio.CreateSoundAsync(data, mimeType);
+        var playback = Audio.Play(MediaTargets.To(ReactiveScope.ClientId), sound, new PlayOptions { Volume = 0.8f });
+        playback.Stop();
         #endregion
     }
 

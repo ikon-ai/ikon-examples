@@ -8,18 +8,20 @@ file sealed class DragDropExamples
 {
     private sealed record DragItem(string Id, string Title);
 
-    private static IEnumerable<DragItem> GetColumnItems(string columnId) => [];
+    private static readonly DragItem[] SeedItems = [new("card-1", "Draft the brief"), new("card-2", "Review the copy"), new("card-3", "Book the venue")];
 
-    private static DragItem GetItem(string id) => new(id, id);
+    private static IEnumerable<DragItem> GetColumnItems(string columnId) => SeedItems;
+
+    private static DragItem GetItem(string id) => SeedItems.FirstOrDefault(item => item.Id == id) ?? new(id, id);
 
     private static Task HandleDrop(string activeId, string overId) => Task.CompletedTask;
 
     private void DocDragAndDropState() => Log.Instance.Debug($"{_activeDragId} {_dragOverColumnId}");
 
     #region example:drag-and-drop-state
-    // Reactive state for drag tracking (lightweight, only IDs)
-    private readonly Reactive<string?> _activeDragId = new(null);
-    private readonly Reactive<string?> _dragOverColumnId = new(null);
+    // Per-client drag tracking (lightweight, only IDs): a drag is one client's gesture
+    private readonly ClientReactive<string?> _activeDragId = new(null);
+    private readonly ClientReactive<string?> _dragOverColumnId = new(null);
     #endregion
 
     private void DocDragAndDrop(UIView view)
@@ -59,6 +61,7 @@ file sealed class DragDropExamples
                     });
             });
         #endregion
+        view.Text([Text.Caption, "mt-2"], $"Dragging: {_activeDragId.Value ?? "nothing"} · over: {_dragOverColumnId.Value ?? "no column"}");
     }
 
 }
@@ -71,51 +74,38 @@ file sealed class ChatLayoutExamples
 
     private readonly ReactiveList<Message> _messages = new();
 
-    private readonly ClientReactive<string> _input = new("");
+    private readonly UserReactive<string> _draft = new("");
 
     public void Render(UIView view)
     {
         #region example:chat-layout
-        // Complete chat interface pattern:
-        view.Column(["h-screen"], content: view =>
-        {
-            // Header
-            view.Text([Text.H2, "p-4 flex-shrink-0"], "Chat");
-
-            // Scrollable message area with auto-scroll
-            view.ScrollArea(
-                autoScroll: true,
-                autoScrollKey: _messages,
-                rootStyle: ["flex-1 min-h-0 px-4"],
-                content: view =>
-                {
-                    foreach (var msg in _messages)
-                    {
-                        view.Box(["py-2"], content: view =>
-                        {
-                            view.Text([Text.Caption, "text-muted-foreground"], msg.Author);
-                            view.Text([Text.Body], msg.Text);
-                        });
-                    }
-                });
-
-            // Input area — Enter submits, auto-clears
-            view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
+        // ChatLog pins the header and the footer and auto-scrolls the messages between them;
+        // Composer is the input bar, which clears itself on Enter or Send
+        view.ChatLog(["h-screen p-4 gap-4"],
+            autoScrollKey: _messages,
+            header: view => view.Text([Text.H2], "Chat"),
+            content: view =>
             {
-                view.TextField(bind: _input, style: ["flex-1"],
-                    placeholder: "Type a message...",
-                    onSubmit: async submitted =>
+                foreach (var msg in _messages)
+                {
+                    view.Box(["py-2"], content: view =>
                     {
-                        // `submitted` is the text sent; with bind: _input, `_input.Value` is already set
-                        // to the same text before onSubmit runs.
-                        if (!string.IsNullOrWhiteSpace(submitted))
-                        {
-                            _messages.Add(new Message("User", submitted));
-                        }
-                    },
-                    clearOnSubmit: true);
-            });
-        });
+                        view.Text([Text.Caption, "text-muted-foreground"], msg.Author);
+                        view.Text([Text.Body], msg.Text);
+                    });
+                }
+            },
+            footer: view => view.Composer(
+                value: _draft.Value,
+                placeholder: "Type a message...",
+                onValueChange: async text => _draft.Value = text,
+                onSubmit: async submitted =>
+                {
+                    if (!string.IsNullOrWhiteSpace(submitted))
+                    {
+                        _messages.Add(new Message("User", submitted));
+                    }
+                }));
         #endregion
     }
 }
@@ -143,14 +133,15 @@ file sealed class InputsExamples
             onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
         view.TextArea(bind: _text, style: ["min-h-[100px]"], placeholder: "Type a message...",
             onSubmit: async submitted => { await HandleSubmit(submitted); });  // Ctrl+Enter submits; input auto-clears after submit
-        // onSubmit's parameter is the submitted value. With bind:, the bound reactive (`_text.Value`) is
-        // written with that same value before onSubmit runs, so inside onSubmit the two agree.
+        // onSubmit's parameter is the submitted value. With bind:, the bound reactive (`_text.Value`)
+        // holds that same value while onSubmit runs; a clearing field (the default here) writes "" to
+        // it once onSubmit returns, unless the user typed again meanwhile.
         // Note: both TextField and TextArea clear on submit only when an onSubmit handler is set; a bound field
         // with no onSubmit keeps its value. Pass clearOnSubmit: true/false to override either way.
         // Checkbox / Switch / Slider auto-render their inner part (the check mark, the switch
         // thumb, the slider track+thumb) AND, like RadioGroup / Toggle, their default styling —
-        // the bare call below is all you need (a RadioGroupItem's dot is NOT auto-rendered; compose
-        // RadioGroupIndicator as below); you do NOT have to compose a
+        // the bare call below is all you need (a RadioGroupItem's checked fill is the whole dot, so
+        // it needs no RadioGroupIndicator either); you do NOT have to compose a
         // CheckboxIndicator / SwitchThumb / SliderTrack child or pass a [*.Default] style.
         // Pass a content: lambda only to put CUSTOM content inside (e.g. a different icon), or a
         // style: array only to override the default look. To render a checkbox with no check mark
@@ -163,17 +154,16 @@ file sealed class InputsExamples
         view.RadioGroup(bind: _radio,
             content: view =>
             {
-                // The item is just the radio circle — render the label as a SIBLING, never as item content
-                view.Row([Layout.Row.Sm], content: view =>
+                // The item is just the radio circle (text in its content overflows it) — wrap item
+                // and text in a Label, which names the radio and makes the text clickable
+                view.Label([Label.Default, "flex items-center gap-2 cursor-pointer"], content: view =>
                 {
-                    view.RadioGroupItem([RadioGroup.Item], value: "opt1",
-                        content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
+                    view.RadioGroupItem(value: "opt1");
                     view.Text(text: "Option 1");
                 });
-                view.Row([Layout.Row.Sm], content: view =>
+                view.Label([Label.Default, "flex items-center gap-2 cursor-pointer"], content: view =>
                 {
-                    view.RadioGroupItem([RadioGroup.Item], value: "opt2",
-                        content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
+                    view.RadioGroupItem(value: "opt2");
                     view.Text(text: "Option 2");
                 });
             });
@@ -366,7 +356,7 @@ internal sealed partial class AgentGuideExamples
         view.Column([Layout.Column.Lg], content: view => { /* ... */ });
         view.Flex(["flex gap-4"], content: view => { /* ... */ });
         view.ScrollArea(rootStyle: ["h-[400px]"], content: view => { /* ... */ });
-        view.Separator(["my-4"]);
+        view.Separator(["default", "my-4"]);
         view.AspectRatio(["w-full"], ratio: 16.0 / 9.0, content: view => { /* ... */ });
         #endregion
     }

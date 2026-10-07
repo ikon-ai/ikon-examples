@@ -5,9 +5,13 @@ namespace Ikon.App.Patterns;
 // read it, rather than a blank pane.
 public static class PatternDemoNote
 {
+    // Keys the note card, so the render smoke-test can tell a demo that shows only its note from
+    // one that runs its pattern.
+    public const string NoteKey = "pattern-demo-note";
+
     public static void RenderInfo(IView view, string title, string note)
     {
-        view.Column(["gap-2 border border-white/10 rounded-lg p-5 bg-white/5 max-w-2xl"], content: card =>
+        view.Column(["gap-2 border border-white/10 rounded-lg p-5 bg-white/5 max-w-2xl"], key: NoteKey, content: card =>
         {
             card.Text(["text-base font-semibold text-[#EDE7DC]"], title);
             card.Text(["text-sm text-[#A8A29E] leading-relaxed"], note);

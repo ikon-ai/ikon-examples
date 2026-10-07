@@ -43,6 +43,7 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
     private readonly Reactive<TreeIndex?> _index = new(null);
     private readonly ReactiveList<FoundSection> _hits = new();
     private readonly Reactive<bool> _busy = new(false);
+    private readonly Reactive<string?> _error = new(null);
 
     /// <summary>
     /// Index once, search many times. Building walks the whole document and costs a full pass, so
@@ -71,6 +72,7 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
         }
 
         using var _ = _busy.AsToken();
+        _error.Value = null;
 
         try
         {
@@ -87,9 +89,12 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
 
             _hits.ReplaceAll(found.Sections);
         }
-        catch (EmergenceStoppedException)
+        // A walk that stops without a result throws EmergenceStoppedException; a generation failure
+        // that cannot be retried is rethrown as is. Either way the previous hits stay on screen.
+        catch (Exception ex)
         {
-            // The walk stopped without a result; the previous hits stay on screen.
+            Log.Instance.Warning($"Tree search over '{index.Root.Title}' failed, user can search again: {ex.Message}");
+            _error.Value = "The search didn't finish — try again.";
         }
     }
 
@@ -97,14 +102,22 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
     {
         view.Column(["gap-2"], content: col =>
         {
+            if (_error.Value is { } error)
+            {
+                col.Text(["text-error-primary text-sm"], text: error);
+            }
+
             foreach (var section in _hits)
             {
                 col.Card(["p-3"], key: section.NodeId, content: card =>
                 {
-                    // Path is the breadcrumb through the tree -- what makes a hit citable.
-                    card.Text(["text-muted-foreground text-xs"], text: section.Path);
-                    card.Text(text: section.Content);
-                    card.Text(["text-muted-foreground text-xs italic"], text: section.Relevance);
+                    card.Column(["gap-1"], content: lines =>
+                    {
+                        // Path is the breadcrumb through the tree -- what makes a hit citable.
+                        lines.Text(["text-muted-foreground text-xs"], text: section.Path);
+                        lines.Text(text: section.Content);
+                        lines.Text(["text-muted-foreground text-xs italic"], text: section.Relevance);
+                    });
                 });
             }
         });

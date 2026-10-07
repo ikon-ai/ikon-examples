@@ -157,7 +157,7 @@ file static class EmergenceGuideExamples
 
             opt.EnableCritic = true;
             opt.BuildCriticFeedback = (answer, breakdown) =>
-                $"Weakest axis: {breakdown!.Weakest!.Name}. Improve it:\n{breakdown.FormatBreakdown()}";
+                $"Answer: {JsonSerializer.Serialize(answer)}\nWeakest axis: {breakdown!.Weakest!.Name}. Improve it:\n{breakdown.FormatBreakdown()}";
         });
         #endregion
 
@@ -265,8 +265,9 @@ file static class EmergenceGuideExamples
             opt.MaxSteps = 10;
             opt.MaxResults = 3;
 
-            // The executor owns the navigator's Command and MaxIterations and overwrites them
-            // every step — configure only model-level knobs (Model, Temperature, MaxOutputTokens)
+            // The executor builds the navigator's Command from Query and its MaxIterations from
+            // MaxSteps; setting either throws ArgumentException, so configure only model-level
+            // knobs (Model, Temperature, MaxOutputTokens)
             opt.Navigator(n =>
             {
                 n.Temperature = 0.2;

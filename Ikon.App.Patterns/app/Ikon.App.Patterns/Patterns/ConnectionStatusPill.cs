@@ -8,8 +8,22 @@ internal sealed class ConnectionStatusPill : IPatternDemo
     public string Slug => "connection-status-pill";
     public string Title => "Connection status pill";
     public string Category => "Feedback";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Derives a single-sentence connection summary from stream and mode state with most-urgent-wins precedence, shown as a top-of-app pill. See the source and docs/patterns/connection-status-pill.md.");
+    // The buttons flip the states the precedence ranks, so each sentence the pill can say is one
+    // press away.
+    public void RenderDemo(IView view)
+    {
+        view.Row(["gap-2 flex-wrap mb-3"], content: row =>
+        {
+            row.Button([Button.OutlineSm], text: _globalPauseAll.Value ? "Resume all" : "Pause all",
+                onClick: () => _globalPauseAll.Value = !_globalPauseAll.Value);
+            row.Button([Button.OutlineSm], text: _drillUntil.Value is null ? "Start a drill" : "End the drill",
+                onClick: () => _drillUntil.Value = _drillUntil.Value is null ? DateTime.UtcNow.AddMinutes(15) : null);
+            row.Button([Button.OutlineSm], text: _facilityBlackoutSince.Value is null ? "Black out" : "Restore power",
+                onClick: () => _facilityBlackoutSince.Value = _facilityBlackoutSince.Value is null ? DateTime.UtcNow : null);
+        });
+
+        view.Row(["p-4 rounded-lg bg-zinc-950 w-fit"], content: RenderTopStatusPill);
+    }
 
     private enum SentinelMode { ShopHours, Vacant }
 
@@ -18,14 +32,20 @@ internal sealed class ConnectionStatusPill : IPatternDemo
         public bool OfflineFlagged { get; set; }
     }
 
-    private readonly Dictionary<int, StreamState> _streams = new();
+    // Three cameras, one of them offline, so the healthy sentence shows the partial count.
+    private readonly Dictionary<int, StreamState> _streams = new()
+    {
+        [1] = new StreamState(),
+        [2] = new StreamState(),
+        [3] = new StreamState { OfflineFlagged = true },
+    };
     private readonly Reactive<SentinelMode> _mode = new(SentinelMode.ShopHours);
     private readonly Reactive<DateTime?> _facilityBlackoutSince = new((DateTime?)null);
     private readonly Reactive<DateTime?> _drillUntil = new((DateTime?)null);
     private readonly Reactive<bool> _globalPauseAll = new(false);
     private readonly Reactive<bool> _autoSchedule = new(true);
 
-    private (SentinelMode Mode, DateTime? At) ComputeNextScheduleFlip() => throw new NotImplementedException();
+    private (SentinelMode Mode, DateTime? At) ComputeNextScheduleFlip() => (SentinelMode.Vacant, DateTime.Now.Date.AddHours(DateTime.Now.Hour + 3));
 
     #region example:pattern-connection-status-pill
     private void RenderTopStatusPill(UIView view)

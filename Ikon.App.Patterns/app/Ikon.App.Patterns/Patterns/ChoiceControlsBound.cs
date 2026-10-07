@@ -22,27 +22,41 @@ internal sealed class ChoiceControlsBound : IPatternDemo
         {
             // bind: is the two-way form -- it reads .Value and writes back on change. With bind:
             // set, value: is ignored; onValueChange still fires after the write-back.
+            // A RadioGroupItem is a 16px circle whose checked fill is the whole dot, so text in its
+            // content: overflows it. Wrap item and text in a Label instead: the text names the
+            // radio and clicking it selects.
             col.RadioGroup(label: "Plan", bind: _plan, content: group =>
             {
-                group.RadioGroupItem(value: "standard", content: v => v.Text(text: "Standard"));
-                group.RadioGroupItem(value: "pro", content: v => v.Text(text: "Pro"));
+                group.Label([Label.Default, "flex items-center gap-2 cursor-pointer"], content: label =>
+                {
+                    label.RadioGroupItem(value: "standard");
+                    label.Text(text: "Standard");
+                });
+                group.Label([Label.Default, "flex items-center gap-2 cursor-pointer"], content: label =>
+                {
+                    label.RadioGroupItem(value: "pro");
+                    label.Text(text: "Pro");
+                });
             });
 
             // Toggle takes NEITHER bind: nor formValue: -- it is value: + onValueChange only.
-            // (Checkbox and Switch take both; the three are not interchangeable.)
+            // (Checkbox and Switch take both; the three are not interchangeable.) A Toggle is a
+            // pressed-state button, so its face is the content: -- without it the button is empty.
             col.Toggle(
-                label: "Email me",
                 value: _notify.Value,
-                onValueChange: async on => _notify.Value = on);
+                onValueChange: async on => _notify.Value = on,
+                content: v => v.Text(text: "Email me"));
 
             // Slider has TWO overloads and mixing their shapes is the classic CS1503. On this,
             // the canonical style-first one, value: is a LIST of thumb positions -- so `value: 0.5`
-            // does not compile. bind: lives here and takes a Reactive<double>.
-            col.Slider(["w-full"], label: "Volume", min: 0, max: 1, step: 0.05, bind: _volume);
+            // does not compile. bind: lives here and takes a Reactive<double>. A style array
+            // replaces only the themed look -- the slider re-adds its flex structure, so a bare
+            // ["w-full"] still lays out the track.
+            col.Slider([Slider.Default], label: "Volume", min: 0, max: 1, step: 0.05, bind: _volume);
 
             // The scalar convenience overload is value-FIRST, like the text-first overloads
             // of Button and Text.
-            col.Slider(_volume.Value, style: ["w-full"], min: 0, max: 1, step: 0.05,
+            col.Slider(_volume.Value, style: [Slider.Default], min: 0, max: 1, step: 0.05,
                 onValueChange: async v => _volume.Value = v);
 
             // Date and time are ISO strings, not DateTime, and carry no bind: -- pair value: with

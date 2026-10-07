@@ -31,7 +31,8 @@ file sealed class PersistentStateExamples(IApp<SessionIdentity, ClientParameters
     // byte[] payloads stay on asset storage automatically — no backend parameter needed
     private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 
-    // Public asset URL needed (uploaded images, published files)
+    // Public asset URL needed (never sensitive data) — the URL serves the stored JSON wrapper,
+    // not the raw bytes, so it is no image src; serve media through app.Files.Public
     private readonly PersistentSessionReactive<byte[]> _logo
         = new([], backend: PersistenceBackend.Public);
 
@@ -63,10 +64,11 @@ file sealed class PersistentStateExamples(IApp<SessionIdentity, ClientParameters
     private void DynamicKeys(IReadOnlyList<Camera> cameras)
     {
         #region example:persistent-dynamic-keys
-        // WRONG — every loop iteration creates a reactive with the SAME stable id.
+        // WRONG — without a key, each iteration's stable id follows its position in the loop, not the
+        // camera: reorder the cameras or run the method again and every id shifts.
         foreach (var camera in cameras)
         {
-            var baseline = new PersistentSessionReactive<byte[]>([]);  // collisions!
+            var baseline = new PersistentSessionReactive<byte[]>([]);  // id is the loop position
         }
 
         // RIGHT — explicit stable key derived from the dynamic identity.

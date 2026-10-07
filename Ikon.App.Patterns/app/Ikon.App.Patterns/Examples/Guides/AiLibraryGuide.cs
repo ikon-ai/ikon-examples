@@ -119,7 +119,11 @@ file static class AiOverviewExamples
     {
         #region example:ai-imagesegmentation
         var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
-        await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+
+        if (result.Segments.Count > 0)
+        {
+            await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+        }
         #endregion
     }
 
@@ -140,7 +144,10 @@ file static class AiOverviewExamples
             Log.Instance.Info($"Found segment with score {segment.Score}");
         }
 
-        await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+        if (result.Segments.Count > 0)
+        {
+            await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
+        }
         #endregion
     }
 
@@ -746,10 +753,11 @@ file static class AiOverviewExamples
 // reader's file: two of them may each declare a `UI` or a `Main` without either being wrong.
 // Each class carries only the placeholder names its own fences use and do not declare.
 
-file sealed class AiRObjectGenerationExamples(IApp<SessionIdentity, ClientParameters> app)
+// Not file-local and not a view: the agent guide examples demo runs it from a button, because a
+// render must not start an AI call whose outcome nothing waits for.
+internal static class AiRObjectGenerationExamples
 {
-
-    public async Task AirObjectGeneration(UIView view)
+    public static async Task<PersonDetails> AirObjectGenerationAsync()
     {
         #region example:air-object-generation
         var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
@@ -758,5 +766,7 @@ file sealed class AiRObjectGenerationExamples(IApp<SessionIdentity, ClientParame
             pass.Regions = [ModelRegion.Eu, ModelRegion.Global];
         });
         #endregion
+
+        return result;
     }
 }

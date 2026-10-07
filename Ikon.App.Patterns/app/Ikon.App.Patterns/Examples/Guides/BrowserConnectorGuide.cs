@@ -47,7 +47,7 @@ file sealed class BrowserConnectorGuideExamples
     {
         #region example:connectors-browser-session
         await using var session = new BrowserSession();
-        await session.StartAsync(headless: true);
+        await session.StartAsync(publicInternetOnly: true, headless: true);
         await session.NavigateAsync("https://example.com/login");
 
         var marks = await session.MarkElementsAsync();
@@ -68,7 +68,7 @@ file sealed class BrowserConnectorGuideExamples
     {
         #region example:connectors-saved-detail
         await using var session = new BrowserSession { Details = detailVault };
-        await session.StartAsync(headless: true);
+        await session.StartAsync(publicInternetOnly: true, headless: true);
         await session.NavigateAsync("https://shop.example/checkout");
 
         var filled = await session.ExecuteAsync(

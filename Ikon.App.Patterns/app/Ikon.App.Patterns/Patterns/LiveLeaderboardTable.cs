@@ -7,7 +7,31 @@ internal sealed class LiveLeaderboardTable : IPatternDemo
     public string Slug => "live-leaderboard-table";
     public string Title => "Live leaderboard as a DataTable";
     public string Category => "Multi-user & games";
-    public void RenderDemo(IView view) => Render(view);
+
+    // More players than one page, with distinct scores, so the ranks, the leader badge and
+    // paging all show.
+    private static readonly string[] SampleNames =
+    [
+        "Aino", "Bruno", "Chidi", "Dagny", "Emeka", "Freya", "Goran", "Hana",
+        "Ilkka", "Juno", "Kaito", "Lumi", "Mateo", "Noor",
+    ];
+
+    public LiveLeaderboardTable()
+    {
+        _players.AddRange(SampleNames.Select((name, index) =>
+            new Player($"p{index}", name, 1200 - index * 37 - (index % 3) * 11)));
+    }
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Button([Button.OutlineSm, "self-start"], text: "Score for a random player",
+                onClick: () => AddScore(
+                    _players[Random.Shared.Next(_players.Count)].Id, Random.Shared.Next(50, 300)));
+            Render(col);
+        });
+    }
 
     #region example:pattern-live-leaderboard-table
     private sealed record Player(string Id, string Name, int Score);
@@ -20,6 +44,11 @@ internal sealed class LiveLeaderboardTable : IPatternDemo
     private readonly ClientReactive<int> _page = new(0);
 
     private const int PageSize = 10;
+
+    // Every client scores on the same list, so the read and the write happen in one Update --
+    // reading _players[i] and then assigning it loses a score that lands in between.
+    private void AddScore(string playerId, int points) =>
+        _players.Update(list => list.Select(p => p.Id == playerId ? p with { Score = p.Score + points } : p));
 
     private static readonly DataTableColumn[] Columns =
     [

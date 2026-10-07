@@ -32,7 +32,8 @@ internal sealed class ProgressBarThatChangesColor : IPatternDemo
         {
             // ComposeIndicator builds the fill class list: base recipe, then the variant, then
             // caller overrides LAST so they win. The base recipe already transitions the fill's
-            // transform; the override only lengthens and eases that glide.
+            // transform; the override's transition-all replaces it, so the colour change fades
+            // too, and lengthens and eases the glide.
             col.Progress(
                 value: percent,
                 max: 100,

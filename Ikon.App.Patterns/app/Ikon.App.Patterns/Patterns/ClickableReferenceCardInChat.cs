@@ -8,8 +8,25 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
     public string Slug => "clickable-reference-card-in-chat";
     public string Title => "Clickable reference card in chat";
     public string Category => "Chat";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Renders an entity-reference chat entry as a clickable card that opens a detail dialog, with an LLM tool that emits the cards. See the source and docs/patterns/clickable-reference-card-in-chat.md.");
+    // The model's tool call is what fills the cards in the app; here two are seeded as if it had
+    // referred a person and a file, and the detail dialog is reduced to a line naming the selection.
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Box(["ml-auto max-w-[80%] rounded-lg bg-foreground/10 px-4 py-2"], content: bubble =>
+                bubble.Text([Text.Body], "Who signed off on the inspection report?"));
+
+            foreach (var message in _sampleMessages)
+            {
+                RenderChatMessage(col, message);
+            }
+
+            col.Text([Text.Caption], _showEntityDetailDialog.Value && _sampleMessages.FirstOrDefault(m => m.EntityReferenceId.Value == _selectedEntityId.Value) is { } selected
+                ? $"Detail dialog open for {selected.EntityReferenceName.Value}"
+                : "Press a card to open its detail");
+        });
+    }
 
     public enum ChatMessageRole { User, Assistant }
     public enum EntityType { Person, File, Place, Unknown }
@@ -18,15 +35,38 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
     private readonly Reactive<bool> _showEntityDetailDialog = new(false);
     private readonly string caseId = "";
 
+    private readonly ChatMessageEntry[] _sampleMessages = [SampleReference("Maria Lindqvist", EntityType.Person, 0.94), SampleReference("inspection-2026-09.pdf", EntityType.File, 0.81)];
+
     private sealed record ChatAnswer(string Message);
 
-    private string T(string key) => throw new NotImplementedException();
+    private static ChatMessageEntry SampleReference(string name, EntityType type, double confidence)
+    {
+        var entry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
+        entry.EntityReferenceId.Value = Guid.NewGuid();
+        entry.EntityReferenceName.Value = name;
+        entry.EntityReferenceType.Value = type.ToString();
+        entry.EntityReferenceConfidence.Value = confidence;
+        return entry;
+    }
 
-    private static string[] GetEntityTypeBadgeStyle(EntityType entityType) => throw new NotImplementedException();
+    private string T(string key) => key;
 
-    private static string GetEntityTypeIcon(EntityType entityType) => throw new NotImplementedException();
+    private static string[] GetEntityTypeBadgeStyle(EntityType entityType) => entityType switch
+    {
+        EntityType.Person => ["bg-sky-500/10"],
+        EntityType.File => ["bg-amber-500/10"],
+        _ => ["bg-card"],
+    };
 
-    private static string GetConfidenceLabel(double confidence) => throw new NotImplementedException();
+    private static string GetEntityTypeIcon(EntityType entityType) => entityType switch
+    {
+        EntityType.Person => "user",
+        EntityType.File => "file-text",
+        EntityType.Place => "map-pin",
+        _ => "circle-help",
+    };
+
+    private static string GetConfidenceLabel(double confidence) => confidence >= 0.9 ? "High confidence" : "Likely match";
 
     private Task<string> ReferEntitiesAsync(string caseId, string[] entityNames) => throw new NotImplementedException();
 
@@ -94,8 +134,8 @@ internal sealed class ClickableReferenceCardInChat : IPatternDemo
         });
     }
 
-    // Call from the Emerge.Run configure callback: it runs on a cleared pass before every
-    // iteration, so a tool added once outside it is gone after the first turn.
+    // Call from the Emerge.Run configure callback: it runs before every iteration, but tools
+    // carry over between iterations and AddTool skips a name already on the pass, so the repeat is harmless.
     private void RegisterReferTool(EmergePass<ChatAnswer> pass)
     {
         pass.AddTool(Tool.Of("refer_entities",

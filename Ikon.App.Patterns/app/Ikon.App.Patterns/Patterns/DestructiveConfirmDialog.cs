@@ -109,7 +109,11 @@ internal sealed class DestructiveConfirmDialog : IPatternDemo
 
                     r.Button(
                         [Button.PrimarySm, "bg-rose-500 hover:bg-rose-400 border-rose-400"],
-                        onClick: () => DeleteBotAsync(bot.Id),
+                        onClick: async () =>
+                        {
+                            _deleteBotId.Value = null;
+                            await DeleteBotAsync(bot.Id);
+                        },
                         content: v => v.Text(text: "Delete"));
                 });
             });

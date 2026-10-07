@@ -49,6 +49,7 @@ file sealed class PxSettingUpAUi2Examples(IApp<SessionIdentity, ClientParameters
     #region example:px-setting-up-a-ui-2
     private UI UI { get; } = new(app, new IkonTheme
     {
+        Mode = ThemeMode.Fixed,
         ["primary"] = "amber-400",
         ["background"] = "zinc-950",
     });
@@ -296,17 +297,19 @@ file sealed class PxFormsAndDialogsWithFormstateExamples(IApp<SessionIdentity, C
     #region example:px-forms-and-dialogs-with-formstate
     private sealed record PresetDraft(string Name = "", bool Public = false);
     private readonly FormState<PresetDraft> _preset = new(() => new PresetDraft());
+    private readonly ClientReactive<bool> _editingPreset = new(false);
     #endregion
 
     public async Task PxFormsAndDialogsWithFormstate2(UIView view)
     {
         #region example:px-forms-and-dialogs-with-formstate-2
-        // Open on a fresh draft, or on a copy of the record being edited:
-        _preset.Show();
-        _preset.Show(new PresetDraft(existing.Name, existing.IsPublic));
+        // Open from a handler, never from the render body: Show resets the errors and reopens the form,
+        // so calling it on every render would undo validation and close-on-success.
+        view.Button(text: "New preset", onClick: () => { _editingPreset.Value = false; _preset.Show(); });
+        view.Button(text: "Edit preset", onClick: () => { _editingPreset.Value = true; _preset.Show(new PresetDraft(existing.Name, existing.IsPublic)); });
 
         // In the UI:
-        view.FormDialog(_preset, title: "New preset", content: form =>
+        view.FormDialog(_preset, title: _editingPreset.Value ? "Edit preset" : "New preset", content: form =>
         {
             form.FormField(_preset, "Name", content: f =>
                 f.TextField(value: _preset.Draft.Name,
@@ -359,7 +362,7 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
     {
         #region example:px-merge-semantics-the-default-marker-3
         view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full px-8 — the viewport still fills, and scrolls
+        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] pe-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
         #endregion
         PatternDemoNote.RenderCaption(view, "An empty gap-4 column and an empty scroll area above: each keeps its base classes (flex flex-col, h-full w-full) under the classes the call adds");
     }
@@ -520,7 +523,7 @@ file sealed class PxPanzoomViewingSomethingLargerThanTheScreenExamples(IApp<Sess
                 canvas.Box(["w-[1600px] p-6 flex flex-wrap gap-4"], content: sheet => { /* the large thing */ });
             });
         #endregion
-        PatternDemoNote.RenderCaption(view, "A pan-and-zoom surface above: drag to pan and pinch or scroll to zoom between 25% and 400% over a 1600px-wide sheet the example leaves empty");
+        PatternDemoNote.RenderCaption(view, "A pan-and-zoom surface above: drag or scroll to pan, pinch or Ctrl/Cmd+scroll to zoom between 25% and 400% over a 1600px-wide sheet the example leaves empty");
     }
 }
 

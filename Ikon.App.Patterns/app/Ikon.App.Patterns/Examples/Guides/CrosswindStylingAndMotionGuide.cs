@@ -237,13 +237,13 @@ file sealed class CwKeyframeTimelinesExamples(IApp<SessionIdentity, ClientParame
         string[] Classes =
         [
             // Fade in and slide up
-            "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0]",
+            "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0] motion-duration-500ms",
 
             // Scale pulse
-            "motion-[0:scale-100,50:scale-[1.05],100:scale-100]",
+            "motion-[0:scale-100,50:scale-[1.05],100:scale-100] motion-duration-1000ms motion-loop",
 
             // Complex multi-step animation
-            "motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0]",
+            "motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0] motion-duration-800ms",
         ];
         #endregion
         ExampleSwatches.Render(view, Classes);
@@ -521,14 +521,19 @@ file sealed class CwCaveatBareOutlineLeavesOutlineStyleNoneExamples(IApp<Session
 
     public async Task CwCaveatBareOutlineLeavesOutlineStyleNone(UIView view)
     {
-        #region example:cw-caveat-bare-outline-leaves-outline-style-none
-        // 2px solid blue outline, no style class needed
-        view.Box(style: ["outline outline-2 outline-blue-500"]);
+        // The example's boxes have no content, so the column gives them height and room apart;
+        // otherwise both are 0px high at the same top and the dashed outline covers the solid one.
+        view.Column(["flex flex-col gap-4 p-2 [&>*]:h-12"], content: view =>
+        {
+            #region example:cw-caveat-bare-outline-leaves-outline-style-none
+            // 2px solid blue outline, no style class needed
+            view.Box(style: ["outline outline-2 outline-blue-500"]);
 
-        // explicit style overrides the solid default
-        view.Box(style: ["outline outline-dashed outline-2 outline-blue-500"]);
-        #endregion
-        PatternDemoNote.RenderCaption(view, "Two boxes above: the first draws no outline, because a bare outline leaves outline-style at none; the second draws a solid blue one");
+            // explicit style overrides the solid default
+            view.Box(style: ["outline outline-dashed outline-2 outline-blue-500"]);
+            #endregion
+        });
+        PatternDemoNote.RenderCaption(view, "Two boxes above: the first draws a solid blue outline from a bare outline, the second a dashed one");
     }
 }
 
@@ -756,7 +761,7 @@ file sealed class CwCommonMistakesExamples(IApp<SessionIdentity, ClientParameter
     public async Task CwCommonMistakes(UIView view)
     {
         #region example:cw-common-mistakes
-        // WRONG: Missing text color = black/invisible icons
+        // WRONG: no text color, so the icon takes the inherited one (dark on blue in a light theme)
         view.Icon(style: ["bg-blue-600"], name: "check");
 
         // CORRECT: Always include text color
@@ -770,6 +775,15 @@ file sealed class CwFullscreenEffectsAndOverflowExamples(IApp<SessionIdentity, C
 
     public async Task CwFullscreenEffectsAndOverflow(UIView view)
     {
+        // The gallery pane clips absolute children at a non-scrolling root, so the overlays get a
+        // positioned, scrollable stage of their own where the WRONG band can add a scrollbar.
+        view.Box(["relative h-48 overflow-auto rounded-md border border-secondary bg-slate-900"], content: stage => RenderOverlays(stage));
+        PatternDemoNote.RenderCaption(view, "Two faint bands sweep down this stage: the first overlay lets its band leave the stage and add a scrollbar, the second clips it with overflow-hidden");
+
+        // Local, not a method: a UIView method is a demo of its own to the gallery, and the
+        // overlays alone draw nothing but faint bands
+        static void RenderOverlays(UIView view)
+        {
         #region example:cw-fullscreen-effects-and-overflow
         // WRONG: sweep band moves outside bounds, creates scrollbar
         view.Column(style: ["absolute inset-0 pointer-events-none"], content: overlay =>
@@ -785,7 +799,7 @@ file sealed class CwFullscreenEffectsAndOverflowExamples(IApp<SessionIdentity, C
                 "motion-[0:translate-y-[-100px],100:translate-y-[900px]] motion-duration-4000ms motion-loop"]);
         });
         #endregion
-        PatternDemoNote.RenderCaption(view, "Two faint bands sweep down this pane: the first overlay lets its band leave the pane and add a scrollbar, the second clips it with overflow-hidden");
+        }
     }
 }
 

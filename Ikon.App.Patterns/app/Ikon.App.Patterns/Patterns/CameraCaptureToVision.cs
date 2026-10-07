@@ -22,48 +22,57 @@ internal sealed class CameraCaptureToVision : IPatternDemo
     private async Task ReadLabelAsync()
     {
         _error.Value = null;
+        ClientImageCapture shot;
 
         try
         {
-            var shot = await ClientFunctions.CaptureImageAsync(new ClientImageCaptureOptions
+            shot = await ClientFunctions.CaptureImageAsync(new ClientImageCaptureOptions
             {
                 Width = 1280,
                 // Quality is meaningful only for JPEG; PNG is lossless and ignores it.
                 Format = ClientImageCaptureFormat.Jpeg,
                 Quality = 0.8,
             });
-
-            // Width/Height are what the client ACTUALLY produced, which can differ from what was
-            // asked for. Read them rather than assuming the request was honoured.
-            Log.Instance.Debug($"Captured {shot.Width}x{shot.Height} {shot.Mime}");
-
-            // An image reaches a model as an ImagePart inside a user MessageBlock -- there is no
-            // AddImage helper on KernelContext.
-            List<IMessagePart> parts =
-            [
-                new TextPart("Read the label in this photo."),
-                new ImagePart(shot.Data, shot.Mime),
-            ];
-
-            var context = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
-            var reading = await Emerge.Run<Reading>(LLMModel.Claude46Sonnet, context, pass => { });
-
-            _result.Value = reading.Text;
         }
         catch (NotSupportedException)
         {
             // A client that cannot capture at all throws rather than returning empty -- say so
             // plainly instead of leaving a button that appears to do nothing.
             _error.Value = "This device can't capture photos.";
+            return;
         }
         catch (FunctionCallException)
         {
             // A capture that fails on the client (no camera, permission denied, cancelled)
             // comes back as the remote call's failure.
             _error.Value = "Couldn't use the camera.";
+            return;
         }
-        catch (EmergenceStoppedException)
+
+        // Width/Height are what the client ACTUALLY produced, which can differ from what was
+        // asked for. Read them rather than assuming the request was honoured.
+        Log.Instance.Debug($"Captured {shot.Width}x{shot.Height} {shot.Mime}");
+
+        // An image reaches a model as an ImagePart inside a user MessageBlock -- there is no
+        // AddImage helper on KernelContext.
+        List<IMessagePart> parts =
+        [
+            new TextPart("Read the label in this photo."),
+            new ImagePart(shot.Data, shot.Mime),
+        ];
+
+        try
         {
+            var context = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
+            var reading = await Emerge.Run<Reading>(LLMModel.Claude46Sonnet, context, pass => { });
+
+            _result.Value = reading.Text;
+        }
+        catch (Exception ex)
+        {
+            // A stopped run throws EmergenceStoppedException, not an AIException, and a remote
+            // failure that is not an AI error (a policy denial) is a FunctionCallException.
+            Log.Instance.Warning($"Label reading for client {ReactiveScope.ClientId} failed, user can scan again: {ex.Message}");
             _error.Value = "Couldn't read that photo — try again.";
         }
     }

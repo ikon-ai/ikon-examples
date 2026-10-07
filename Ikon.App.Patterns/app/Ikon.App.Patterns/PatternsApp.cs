@@ -14,6 +14,8 @@ public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
 
     public async Task Main()
     {
+        GalleryMocks.Apply();
+
         var demos = PatternGallery.Create(app)
             .OrderBy(d => d.Category)
             .ThenBy(d => d.Title)
@@ -79,6 +81,8 @@ public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
                     pane.Text(["text-sm text-[#A8A29E]"], "No patterns registered.");
                     return;
                 }
+
+                GalleryMocks.Require();
 
                 pane.Column(["gap-1 mb-6"], content: header =>
                 {

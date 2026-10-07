@@ -1,29 +1,60 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: right-rail-tabs-with-attention-dots — see docs/patterns/right-rail-tabs-with-attention-dots.md.
-// The example region keeps a stable outer container and swaps only the inner branch; the stubs
-// outside it stand in for the per-tab state and the four tab bodies the caller supplies.
+// The example region keeps a stable outer container and swaps only the inner branch; the code
+// outside it stands in for the per-tab state and the four tab bodies the caller supplies, and its
+// two buttons raise the events that light a dot. The rail opens on Details so a dot on Live feed
+// or AI can show.
 internal sealed class RightRailTabsWithAttentionDots : IPatternDemo
 {
     public string Slug => "right-rail-tabs-with-attention-dots";
     public string Title => "Right-rail tabs with attention dots";
     public string Category => "Navigation";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Navigation pattern: a right-rail tab strip with attention dots that keeps a stable outer container and swaps only the inner body branch. The four tab bodies are stubs here — see the source and docs/patterns/right-rail-tabs-with-attention-dots.md.");
+    public void RenderDemo(IView view)
+    {
+        view.Row(["gap-2 flex-wrap mb-3"], content: row =>
+        {
+            row.Button([Button.OutlineSm], text: "Raise an alert", onClick: () =>
+                _alerts.Add(new Alert(Guid.NewGuid().ToString("N"), false, DateTimeOffset.UtcNow)));
+            row.Button([Button.OutlineSm], text: "AI speaks up", onClick: () =>
+                _aiChatEntries.Add(new AiChatEntry(Guid.NewGuid().ToString("N"), AiChatEntryKind.Proactive, DateTime.UtcNow)));
+        });
+
+        view.Row(["h-[360px] w-fit rounded-lg overflow-hidden bg-[#0b0f17]"], content: row => RenderRightRail(row));
+    }
 
     private enum AiChatEntryKind { Reply, Proactive }
 
     private sealed record Alert(string Id, bool Acknowledged, DateTimeOffset Timestamp);
     private sealed record AiChatEntry(string Id, AiChatEntryKind Kind, DateTime TimeUtc);
 
-    private readonly ClientReactive<string> _rightTab = new("feed");
+    private readonly ClientReactive<string> _rightTab = new("details");
     private readonly ReactiveList<Alert> _alerts = new();
     private readonly ReactiveList<AiChatEntry> _aiChatEntries = new();
 
-    private void RenderFeedTabBody(UIView view) => throw new NotImplementedException();
-    private void RenderDetailTabBody(UIView view) => throw new NotImplementedException();
-    private void RenderAiChatTabBody(UIView view) => throw new NotImplementedException();
-    private void RenderSourcesTabBody(UIView view) => throw new NotImplementedException();
+    private void RenderFeedTabBody(UIView view)
+    {
+        view.Column(["p-3 gap-2"], content: body =>
+        {
+            var open = _alerts.Value.Count(a => !a.Acknowledged);
+            body.Text(["text-sm text-slate-300"], open == 0 ? "No open alerts" : $"{open} open alert(s)");
+
+            if (open > 0)
+            {
+                body.Button([Button.OutlineSm, "self-start"], text: "Acknowledge all",
+                    onClick: () => _alerts.Update(list => list.Select(a => a with { Acknowledged = true })));
+            }
+        });
+    }
+
+    private void RenderDetailTabBody(UIView view) =>
+        view.Text(["p-3 text-sm text-slate-300"], "Details of the selected item. Raise an alert or let the AI speak up, and a dot appears on that tab while you are on another one.");
+
+    private void RenderAiChatTabBody(UIView view) =>
+        view.Text(["p-3 text-sm text-slate-300"], $"{_aiChatEntries.Count} AI message(s)");
+
+    private void RenderSourcesTabBody(UIView view) =>
+        view.Text(["p-3 text-sm text-slate-300"], "Sources the answers cite.");
 
     #region example:pattern-right-rail-tabs-with-attention-dots
     private void RenderRightRail(UIView view)

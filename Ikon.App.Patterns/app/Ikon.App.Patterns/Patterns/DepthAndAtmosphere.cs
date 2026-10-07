@@ -1,19 +1,31 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: depth-and-atmosphere — see docs/patterns/depth-and-atmosphere.md.
-// The stub bodies stand in for the app's real card/hero/input content builders so the four depth
-// recipes the doc extracts render against something concrete.
+// The bodies outside the region stand in for the app's real card/hero/input content builders so the
+// four depth recipes the doc extracts render against something concrete.
 internal sealed class DepthAndAtmosphere : IPatternDemo
 {
     public string Slug => "depth-and-atmosphere";
     public string Title => "Depth and atmosphere";
     public string Category => "Layout";
-    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Four surface-depth recipes — tint step, soft shadow, brand-tinted shadow, and accent gradient — for signalling elevation without heavy borders. See the source and docs/patterns/depth-and-atmosphere.md.");
+    public void RenderDemo(IView view) => view.Column(["gap-4 max-w-xl"], content: Render);
 
-    private void CardBody(UIView view) => throw new NotImplementedException();
-    private void HeroBody(UIView view) => throw new NotImplementedException();
-    private void InputRow(UIView view) => throw new NotImplementedException();
+    private void CardBody(UIView view)
+    {
+        view.Text([Text.H5], "Quarterly revenue");
+        view.Text([Text.Caption], "Up 12% on last quarter");
+    }
+
+    private void HeroBody(UIView view)
+    {
+        view.Text([Text.H3], "Launch the spring campaign");
+        view.Text([Text.Body], "Three channels are ready to go live on Monday.");
+    }
+
+    private void InputRow(UIView view)
+    {
+        view.Text([Text.Caption], "Search orders…");
+    }
 
     #region example:pattern-depth-and-atmosphere
     private void Render(IView view)

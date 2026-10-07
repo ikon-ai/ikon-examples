@@ -25,12 +25,14 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
                 text: "Share screen",
 
                 // The kind's preset fills every field left null: DefaultScreen is 1080p30 and
-                // DefaultCamera 720p30, both with a key frame every 90 frames.
+                // DefaultCamera 720p30, both with a key frame every 90 frames. The web client
+                // shares a screen at its native size, ignoring Width and Height; Flutter applies them.
                 videoOptions: new ClientVideoCaptureOptions
                 {
                     // A receiver can only start decoding on a key frame, so this is the worst-case
                     // join latency for anyone arriving mid-stream. Lower it for a share people
-                    // join late; leave it for a recording nobody watches live.
+                    // join late; leave it for a recording nobody watches live. Only the web
+                    // client's protocol-channel fallback reads it; over WebRTC it changes nothing.
                     KeyFrameIntervalFrames = 30,
                 },
 
@@ -54,9 +56,11 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
                 text: "Camera",
 
                 // Permission is a state, not an error: these strings are what the button says
-                // while asking and after a refusal, so the control explains itself.
+                // while asking and after a refusal, so the control explains itself. The denied
+                // text also shows for Unavailable, so it must fit both. On the Flutter client
+                // only the audio button shows them, and this callback never fires.
                 permissionText: "Allow camera access to continue",
-                permissionDeniedText: "The camera is blocked in your browser settings",
+                permissionDeniedText: "Camera not available",
 
                 // Permission is a FOUR-state enum, not a bool: Denied is a user choice they can
                 // change, Unavailable means no camera or no capture API (an insecure origin, a

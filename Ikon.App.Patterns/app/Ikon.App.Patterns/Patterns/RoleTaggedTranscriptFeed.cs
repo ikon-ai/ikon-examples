@@ -71,7 +71,7 @@ internal sealed class RoleTaggedTranscriptFeed : IPatternDemo
         public static class Transcript
         {
             public const string Container = "flex-1 min-h-0";
-            public const string EntryBase = "px-3 py-2 rounded-md";
+            public const string EntryBase = "flex flex-col gap-0.5 px-3 py-2 mb-2 rounded-md";
             public const string EntryMotion = "motion-opacity-in-0";
             public const string QEntry = "bg-rose-500/10";
             public const string QSpeaker = "text-xs font-semibold text-rose-400";

@@ -6,7 +6,7 @@ namespace Ikon.App.Patterns;
 // Stand-in IAppBase for the render smoke-test: the app-ctor patterns store the handle but only reach
 // into it on interaction, never during a default-state render, so every member here throws. If a
 // pattern ever dereferences the app from its render path, the smoke-test surfaces it as a throw.
-public sealed class PatternStandInApp : IApp<SessionIdentity, ClientParameters>
+public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? live = null) : IApp<SessionIdentity, ClientParameters>
 {
     public SessionIdentity SessionIdentity => throw new NotImplementedException();
     public IClientCollection<ClientParameters> Clients => throw new NotImplementedException();
@@ -18,7 +18,7 @@ public sealed class PatternStandInApp : IApp<SessionIdentity, ClientParameters>
     // initializer touches these at construction time, before any render, and the AGENTS.md examples
     // render a join URL from the session's space.
     public GlobalState GlobalState { get; } = new();
-    public ReactiveGlobalState ReactiveGlobalState { get; } = new();
+    public ReactiveGlobalState ReactiveGlobalState { get; } = WithSpaceUrl(new ReactiveGlobalState());
     private readonly Reactive<IReadOnlyList<string>> _mounts = new(["ikon-ui"]);
     public Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default) => throw new NotImplementedException();
     public IReadOnlyList<EndpointInfo> Endpoints => throw new NotImplementedException();
@@ -31,7 +31,10 @@ public sealed class PatternStandInApp : IApp<SessionIdentity, ClientParameters>
     public bool DynamicMaxClientsEnabled { get; set; }
     public bool WebRtcEnabled { get; set; }
     public bool UdpEnabled { get; set; }
-    public Navigation Navigation => throw new NotImplementedException();
+    // Forwarded when the gallery runs inside the live Patterns app, so an example that routes on
+    // interaction (tabs that set the path) reaches the URL; Navigation cannot be built here, its
+    // constructor is internal. The app routes nothing by path, so a move never leaves the demo.
+    public Navigation Navigation => live?.Navigation ?? throw new NotImplementedException();
     public Reactive<IReadOnlyList<string>> Mounts => _mounts;
     public Secrets Secrets => throw new NotImplementedException();
     public EmailService Email => throw new NotImplementedException();
@@ -48,4 +51,12 @@ public sealed class PatternStandInApp : IApp<SessionIdentity, ClientParameters>
     public Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
     public Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default) => throw new NotImplementedException();
+
+    // A space URL of its own, so an example that renders the app's PublicUrl as a QR code or a link
+    // draws one; with the empty default, QR draws nothing at all.
+    private static ReactiveGlobalState WithSpaceUrl(ReactiveGlobalState state)
+    {
+        state.SpaceUrl.Value = "https://patterns.example.com";
+        return state;
+    }
 }

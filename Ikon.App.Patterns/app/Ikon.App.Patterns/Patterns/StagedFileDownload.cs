@@ -81,8 +81,10 @@ internal sealed class StagedFileDownload(IAppBase app) : IPatternDemo
                 new AssetMetadata(mimeType: "text/csv", expiresAt: DateTime.UtcNow.AddHours(6)),
                 cancellationToken);
 
-            // CloudFile is private, so this URL is signed and temporal — safe to hand to one client,
-            // and useless to anyone who scrapes it later.
+            // CloudFile is private, so this URL is signed and valid for one hour — safe to hand to one
+            // client, and useless to anyone who scrapes it later. It is fetched again only when the
+            // report changes, so a page left idle past the hour needs it re-resolved (UrlProvider
+            // resolves it on each click instead).
             _downloadUrl.Value = (await Asset.Instance.GetMetadataAsync(ExportUri)).Url;
         }, _report);
 

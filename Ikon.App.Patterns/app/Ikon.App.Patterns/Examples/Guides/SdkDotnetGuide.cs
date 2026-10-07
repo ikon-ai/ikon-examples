@@ -36,11 +36,11 @@ public class MyFunctions
 public class MyVisibilityFunctions
 {
     #region example:sdk-function-visibility
-    // Local - only available in this process (default)
+    // Local - not advertised (default); only an Ikon AI App keeps remote callers out
     [Function(Visibility = FunctionVisibility.Local)]
     public string LocalOnly() => "local";
 
-    // External - advertised over the protocol and callable by other clients
+    // External - advertised over the protocol; the app can call it
     [Function(Visibility = FunctionVisibility.External)]
     public string SharedWithAll() => "shared";
     #endregion
@@ -246,7 +246,8 @@ file static class SdkReadmeExamples
         // then, so set this before the first send — not after.
         client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 
-        // Get audio samples (float PCM, range [-1.0, 1.0]) at 8, 12, 16, 24 or 48 kHz; the SDK does not resample
+        // Get audio samples (float PCM, range [-1.0, 1.0]) at 8, 12, 16, 24 or 48 kHz in 1 or 2 channels;
+        // the SDK does not resample, and a stream's first send throws ArgumentOutOfRangeException otherwise
         ReadOnlyMemory<float> samples = GetAudioSamples();
 
         // Send audio
@@ -338,10 +339,10 @@ file static class SdkReadmeExamples
         var myFuncs = new MyFunctions();
         client.FunctionRegistry.RegisterFromInstance(myFuncs);
 
-        // Or register from a type (static methods only)
+        // Or register from a type: only its static methods (and a [RegisterAll] class's constructors) become callable
         client.FunctionRegistry.RegisterFromType<MyStaticFunctions>();
 
-        // Or scan entire assembly
+        // Or scan entire assembly (same rule as RegisterFromType)
         client.FunctionRegistry.RegisterFromAssembly(typeof(MyFunctions).Assembly);
         #endregion
     }
@@ -390,7 +391,7 @@ file static class SdkReadmeExamples
         // Find which client sessions have a specific function
         var clientIds = client.FunctionRegistry.GetClientSessionsWithFunction("SharedFunc");
 
-        // Wait for a function to become available (useful for coordination between clients)
+        // Wait for a function the app registers to become available (other clients' functions never reach this registry)
         bool available = await client.FunctionRegistry.WaitForFunctionAsync(
             "RemoteFunc",
             timeout: TimeSpan.FromSeconds(30)

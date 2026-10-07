@@ -35,8 +35,12 @@ internal sealed class BillingHistoryAndRefunds(IApp<SessionIdentity, ClientParam
     private readonly ClientReactiveList<Payment> _payments = new();
     private readonly ClientReactive<string?> _notice = new(null);
 
-    // Nothing pushes the ledger to the app: read it when the customer arrives, and again after
-    // every refund.
+    private readonly ClientReactiveList<string> _refundsSubmitted = new();
+
+    // Read the ledger when the customer arrives. A refund reaches it only when the provider's
+    // refund webhook does -- the app hears that as a PaymentRefunded PaymentEventReceived event --
+    // so the re-read after RefundAsync may still show the payment unrefunded: _refundsSubmitted
+    // keeps its Refund button hidden until it lands.
     public void Main() => app.OnClientJoined(async _ => await RefreshAsync());
 
     private async Task RefreshAsync()
@@ -50,8 +54,23 @@ internal sealed class BillingHistoryAndRefunds(IApp<SessionIdentity, ClientParam
     /// </summary>
     private async Task RefundAsync(Payment payment)
     {
-        PaymentRefund refund = await PaymentsService.Instance.RefundAsync(
-            payment.Id, reason: "requested by customer");
+        // Hidden before the call, so a second click cannot land while the first is in flight.
+        _refundsSubmitted.Add(payment.Id);
+        PaymentRefund refund;
+
+        try
+        {
+            // Stripe answers a repeated key with the same refund; Mollie ignores it.
+            refund = await PaymentsService.Instance.RefundAsync(
+                payment.Id, reason: "requested by customer", idempotencyKey: $"refund:{payment.Id}");
+        }
+        catch
+        {
+            _refundsSubmitted.Remove(payment.Id);
+            throw;
+        }
+
+        await RefreshAsync();
 
         _notice.Value = refund.Status == RefundStatus.Unknown
             ? "Refund submitted; the provider reported a status we do not map."
@@ -67,13 +86,11 @@ internal sealed class BillingHistoryAndRefunds(IApp<SessionIdentity, ClientParam
                 _notice.Value += " — access is still granted until it is revoked or expires.";
             }
         }
-
-        await RefreshAsync();
     }
 
     /// <summary>
-    /// A receipt arrives as a Url, as Pdf bytes, or as neither (Mollie has no customer-facing
-    /// receipt), so a screen offering one renders both branches and hides the button on neither.
+    /// A receipt arrives as a Url or as neither (Mollie has no customer-facing receipt); Pdf is
+    /// null from every provider today. A screen offering one hides the button on neither.
     /// </summary>
     private static async Task<PaymentReceipt> ReceiptAsync(string paymentId) =>
         await PaymentsService.Instance.RequestReceiptAsync(paymentId);
@@ -103,7 +120,8 @@ internal sealed class BillingHistoryAndRefunds(IApp<SessionIdentity, ClientParam
                     // Only a Paid payment can be refunded; Pending and Failed cannot, and
                     // offering the button anyway is a control that breaks its promise.
                     if (payment.Status == PaymentStatus.Paid
-                        && payment.AmountRefundedMinor < payment.AmountMinor)
+                        && payment.AmountRefundedMinor < payment.AmountMinor
+                        && !_refundsSubmitted.Contains(payment.Id))
                     {
                         row.Button(onClick: async () => await RefundAsync(payment),
                             content: v => v.Text(text: "Refund"));

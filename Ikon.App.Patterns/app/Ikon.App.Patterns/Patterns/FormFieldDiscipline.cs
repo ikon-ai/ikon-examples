@@ -47,7 +47,7 @@ internal sealed class FormFieldDiscipline : IPatternDemo
 
     private void RenderForm(IView view)
     {
-        view.Column([Layout.Column.Md, "max-w-md w-full"], content: view =>
+        view.Column([FormField.Group, "max-w-md w-full"], content: view =>
         {
             // label: is a PERSISTENT label above the field. A placeholder disappears the moment
             // someone types, so it can never be the only name a required field has.
@@ -57,7 +57,7 @@ internal sealed class FormFieldDiscipline : IPatternDemo
             RenderField(view, "email", v => v.TextField([Input.Default],
                 label: "Work email", placeholder: "aino@example.com", bind: _email));
 
-            RenderField(view, "plan", v => v.Select([Input.Default],
+            RenderField(view, "plan", v => v.Select(
                 label: "Plan", placeholder: "Choose a plan", bind: _plan, options:
                 [
                     new SelectOption("free", "Free"),
@@ -89,7 +89,7 @@ internal sealed class FormFieldDiscipline : IPatternDemo
     /// One field, its error slot always reserved so nothing jumps when a message appears.
     private void RenderField(IView view, string key, Action<IView> field)
     {
-        view.Column([Layout.Column.Xs], content: v =>
+        view.Column([FormField.Root], content: v =>
         {
             field(v);
 

@@ -26,9 +26,9 @@ internal sealed class AudioReactiveVisuals : IPatternDemo
     /// for what those numbers mean -- so the visual stays in sync with playback for free. The
     /// server never sees them; a custom client component reads them from client.viseme.
     /// </summary>
-    private async Task SpeakWithLipSyncAsync(string text)
+    private void SpeakWithLipSync(string text)
     {
-        await Audio.SpeakAsync(MediaTargets.Everyone, text, analyzers: [_visemes]);
+        Audio.Speak(MediaTargets.Everyone, text, options: new PlayOptions { Analyzers = [_visemes] });
     }
 
     private void Render(IView view)
@@ -36,15 +36,16 @@ internal sealed class AudioReactiveVisuals : IPatternDemo
         view.Column(["gap-3"], content: col =>
         {
             col.Button(
-                onClick: async () => await SpeakWithLipSyncAsync("Hello there."),
+                onClick: () => SpeakWithLipSync("Hello there."),
                 content: v => v.Text(text: "Speak"));
 
             // The avatar/visualizer is a custom node: it reads the shape values from client.viseme,
             // which times them against the audio itself. Driving it from server-side Reactive state instead would
-            // arrive a frame late and flood the channel.
+            // arrive a frame late and flood the channel. The prop tells it which slot's speaker to follow;
+            // Speak plays in "speech" unless PlayOptions.Slot names another.
             col.AddNode("app.lipSyncAvatar", props: new Dictionary<string, object>
             {
-                ["shapeSet"] = _visemes.ShapeSetDeclaration.Name,
+                ["slot"] = "speech",
             });
         });
     }

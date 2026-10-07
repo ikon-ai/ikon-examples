@@ -17,7 +17,7 @@ file sealed class ConnectorsGuideExamples
         }
         catch (ConnectorException ex) when (ex.IsTransient)
         {
-            // Busy or failing service: safe to retry later.
+            // Busy or failing service: the call may succeed later, but a write that timed out (504) may already have taken effect.
         }
         catch (ConnectorException)
         {

@@ -42,8 +42,8 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             axisBottom: new AxisConfig
             {
                 Legend = "Week",
-                // LegendOffset moves the legend away from the ticks; it is measured outward, so
-                // it has to fit inside the margin above.
+                // LegendOffset is signed, positive down or right, so a bottom legend takes a
+                // positive one; it has to fit inside the margin above.
                 LegendOffset = 36,
                 // TickCount asks for approximately N evenly-spaced ticks INSTEAD of one per data
                 // point -- the fix for a crowded axis, rather than rotating labels.
@@ -56,9 +56,9 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             // anything a reader has to take a number from.
             axisRight: new AxisConfig { Hidden = true },
 
-            // One scheme for the whole chart keeps series colours consistent, but only under a
-            // theme whose Colors is null: the default DefaultLight palette overrides it, as does
-            // an explicit colors list when a series has a meaning attached to its colour.
+            // One scheme for the whole chart keeps series colours consistent. An explicit scheme
+            // overrides the theme palette; only an explicit colors list or a series' own Color,
+            // for when a series has a meaning attached to its colour, outranks it.
             colorScheme: ChartColorScheme.Category10,
             enableGridY: true,
             enablePoints: true);

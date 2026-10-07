@@ -10,15 +10,16 @@ internal sealed class RunTraceAndCost : IPatternDemo
 
     private sealed record Answer(string Text);
 
-    // The gallery never calls the model: the buttons load the trace of a run that finished and of
-    // one that hit its output cap, the two branches the render takes.
+    // The gallery never calls the model: the buttons load the traces of two runs that finished, a
+    // short one and one that kept re-reading its own output. A run cut off at the output cap throws
+    // instead of returning a trace, so there is none to show for it.
     private static readonly EmergenceTrace CompletedTrace = new(
         iterations: 2, toolCalls: 0, duration: TimeSpan.FromSeconds(4.8), finishReason: "end_turn",
         inputTokens: 1_840, cachedInputTokens: 12_400, outputTokens: 612);
 
-    private static readonly EmergenceTrace TruncatedTrace = new(
-        iterations: 1, toolCalls: 0, duration: TimeSpan.FromSeconds(21.3), finishReason: "max_tokens",
-        inputTokens: 2_215, cachedInputTokens: 12_400, outputTokens: 8_192);
+    private static readonly EmergenceTrace LongTrace = new(
+        iterations: 6, toolCalls: 0, duration: TimeSpan.FromSeconds(21.3), finishReason: "end_turn",
+        inputTokens: 9_215, cachedInputTokens: 61_900, outputTokens: 3_480);
 
     public void RenderDemo(IView view)
     {
@@ -27,7 +28,7 @@ internal sealed class RunTraceAndCost : IPatternDemo
             col.Row(["gap-2 flex-wrap"], content: row =>
             {
                 row.Button([Button.OutlineSm], text: "Show a completed run", onClick: async () => _trace.Value = CompletedTrace);
-                row.Button([Button.OutlineSm], text: "Show a run cut short", onClick: async () => _trace.Value = TruncatedTrace);
+                row.Button([Button.OutlineSm], text: "Show a long run", onClick: async () => _trace.Value = LongTrace);
             });
             col.Text(["text-xs text-zinc-400"], "Sample traces; no model is called");
             Render(col);
@@ -46,8 +47,9 @@ internal sealed class RunTraceAndCost : IPatternDemo
     private async Task AskAsync(string question)
     {
         // The trace belongs to the client who asked, so the fields are ClientReactive. Their .Value
-        // needs that client's scope, which a run started from a timer, an endpoint handler or a
-        // background loop does not carry -- capture the session here and write to it by id.
+        // needs that client's scope. Capture the session here, while the action callback's scope
+        // is active, and write to it by id -- ReactiveScope.ClientId throws where no client scope
+        // exists (a timer, an endpoint handler, a background loop), so hand those the id instead.
         var clientSessionId = ReactiveScope.ClientId;
 
         var (result, _, trace) = await Emerge.Run<Answer>(LLMModel.Claude46Sonnet, pass =>
@@ -61,11 +63,12 @@ internal sealed class RunTraceAndCost : IPatternDemo
 
         _trace.SetFor(clientSessionId, trace);
 
-        // Result stays NULLABLE on this path -- a run can complete without producing one, which
-        // is exactly the case the trace explains.
+        // Result stays NULLABLE on this path -- a run can complete without producing one. The
+        // trace does not say why (its FinishReason is the provider's ordinary one); the reason is
+        // Completed<T>.NoResultReason, which only the streamed event carries.
         if (result is null)
         {
-            _activity.AddFor(clientSessionId, $"No result: {trace.FinishReason}");
+            _activity.AddFor(clientSessionId, $"No result after {trace.Iterations} iterations");
         }
     }
 

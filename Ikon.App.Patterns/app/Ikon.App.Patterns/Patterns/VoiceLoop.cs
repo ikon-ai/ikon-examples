@@ -26,9 +26,9 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
 
     public Task Main()
     {
-        // The stream is the open microphone, and it OUTLIVES a press: it begins once and ends
-        // when the page closes, the button unmounts or the device changes. Waiting for AudioInputStreamEndAsync to act on a release means
-        // nothing happens until then. It carries the format and is where that is forgotten.
+        // The stream is the open microphone, and off iOS it OUTLIVES a press: it begins once and ends
+        // when the page closes, the button unmounts or the device changes (any iOS browser ends it after every press). Waiting for
+        // AudioInputStreamEndAsync to act on a release means nothing happens until then. It carries the format and is where that is forgotten.
         Audio.AudioInputStreamBeginAsync += async args =>
         {
             _streamMeta[args.StreamId] = (args.SampleRate, args.ChannelCount);
@@ -90,7 +90,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
                 var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
                 _turns.Add(new VoiceTurn("Tutor", reply));
 
-                await Audio.SpeakAsync(MediaTargets.Everyone, reply);
+                Audio.Speak(MediaTargets.Everyone, reply);
             }
             finally
             {

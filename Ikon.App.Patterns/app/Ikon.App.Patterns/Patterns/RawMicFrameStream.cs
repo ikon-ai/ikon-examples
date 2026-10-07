@@ -54,8 +54,8 @@ internal sealed class RawMicFrameStream : IPatternDemo
             _level.SetFor(args.ClientSessionId, Math.Sqrt(sum / Math.Max(args.Samples.Length, 1)));
         };
 
-        // CorrelationId is set by the CaptureButton that started the stream and is null for an
-        // ad-hoc one -- the hook for telling "this press" from background audio.
+        // CorrelationId is set by the CaptureButton or by ClientFunctions.StartAudioCaptureAsync
+        // (a fresh id when none is given); it is null only for a capture the client started itself.
         Audio.AudioInputStreamEndAsync += async args =>
         {
             Log.Instance.Debug($"Stream ended for {args.ClientSessionId} ({args.CorrelationId ?? "ad-hoc"})");

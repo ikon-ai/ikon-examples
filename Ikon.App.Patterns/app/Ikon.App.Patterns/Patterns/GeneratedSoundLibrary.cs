@@ -2,15 +2,17 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: generated-sound-library — see docs/patterns/generated-sound-library.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class GeneratedSoundLibrary : IPatternDemo
+internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
 {
     public string Slug => "generated-sound-library";
     public string Title => "Generated sound library, stored and replayable";
     public string Category => "Voice & audio";
     public void RenderDemo(IView view) => Render(view);
 
+    private Audio Audio { get; } = new(app);
+
     #region example:pattern-generated-sound-library
-    private sealed record Clip(string Id, string Label, byte[] Data, string MimeType);
+    private sealed record Clip(string Id, string Label, AudioSound Sound);
 
     private readonly ReactiveList<Clip> _clips = new();
     private readonly Reactive<bool> _busy = new(false);
@@ -26,41 +28,59 @@ internal sealed class GeneratedSoundLibrary : IPatternDemo
 
         try
         {
-            // The one-shot already hands back an ENCODED file -- Data plus MimeType. Nothing to
-            // wrap: store those bytes as they are. Data is nullable because a result can arrive
-            // as a URL instead (ResultDelivery), so a library that keeps bytes checks first.
-            var sound = await SoundEffectGenerator.GenerateAsync(prompt);
+            // The one-shot hands back an ENCODED file: Data plus MimeType, or a Url instead when
+            // ResultDelivery says so. Either becomes a cached sound once, decoded on the server.
+            var result = await SoundEffectGenerator.GenerateAsync(prompt);
 
-            if (sound.Data is { } data)
+            AudioSound? sound = result switch
             {
-                _clips.Add(new Clip(Guid.NewGuid().ToString("N"), prompt, data, sound.MimeType));
+                { Data: { } data } => await Audio.CreateSoundAsync(data, result.MimeType),
+                { Url: { } url } => await Audio.CreateSoundAsync(new Uri(url)),
+                _ => null
+            };
+
+            if (sound != null)
+            {
+                await AddAsync(prompt, sound);
             }
         }
         catch (AIException)
         {
             // Generation failed; the library keeps what it already has rather than emptying.
         }
+        catch (Exception ex) when (ex is NotSupportedException or ArgumentException or HttpRequestException)
+        {
+            // Not a short WAV, MP3 or Ogg (Vorbis or Opus) clip (or its URL could not be fetched): it is left
+            // out, and the library keeps what it already has.
+        }
     }
 
     /// <summary>
-    /// The other direction: PCM is not a file until it is wrapped. WavFile finalizes its header on
-    /// first access, so add every sample before AsArray and never add more afterwards.
+    /// PCM needs no file: an AudioClip of the samples is the sound. CreateSound throws
+    /// ArgumentException for a clip longer than 30 s -- play that with Audio.Play(targets, clip).
     /// </summary>
-    private void AddPcm(string label, float[] samples, int sampleRate, int channelCount)
+    private Task AddPcmAsync(string label, float[] samples, int sampleRate, int channelCount)
     {
-        using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
-        wav.AddSamples(samples);
-        _clips.Add(new Clip(Guid.NewGuid().ToString("N"), label, wav.AsArray(), "audio/wav"));
+        return AddAsync(label, Audio.CreateSound(new AudioClip(samples, sampleRate, channelCount)));
     }
 
     /// <summary>
     /// Speech is PCM too: the one-shot hands back an AudioChunk -- Samples, SampleRate, ChannelCount --
-    /// with no Data or MimeType, so it takes the same wrap as samples you synthesized yourself.
+    /// so it takes the same path as samples you synthesized yourself.
     /// </summary>
     private async Task AddSpokenAsync(string text)
     {
         var speech = await SpeechGenerator.GenerateAsync(text);
-        AddPcm(text, speech.Samples, speech.SampleRate, speech.ChannelCount);
+        await AddPcmAsync(text, speech.Samples, speech.SampleRate, speech.ChannelCount);
+    }
+
+    private async Task AddAsync(string label, AudioSound sound)
+    {
+        _clips.Add(new Clip(Guid.NewGuid().ToString("N"), label, sound));
+
+        // Sends the bytes to every client now, and to clients that join later, so even the first
+        // press plays at once.
+        await sound.PreloadAsync(MediaTargets.Everyone);
     }
 
     private void Render(IView view)
@@ -72,16 +92,15 @@ internal sealed class GeneratedSoundLibrary : IPatternDemo
                 onClick: async () => await AddGeneratedAsync("a soft chime"),
                 content: v => v.Text(text: _busy.Value ? "Generating…" : "Add sound"));
 
-            // Replay costs nothing: the bytes are in state, so no second generation and no
-            // custom player component. PlaySoundAsync de-duplicates by content hash, so the same
-            // clip is transmitted once per client however often it is played.
+            // Replay costs nothing: no second generation, no custom player component, and no
+            // bytes on the wire -- each client plays its own cached copy.
             col.Grid(["grid-cols-3 gap-2"], content: grid =>
             {
                 foreach (var clip in _clips)
                 {
                     grid.Button(
                         key: clip.Id,
-                        onClick: async () => await ClientFunctions.PlaySoundAsync(clip.Data, clip.MimeType),
+                        onClick: () => Audio.Play(MediaTargets.To(ReactiveScope.ClientId), clip.Sound),
                         content: v => v.Text(text: clip.Label));
                 }
             });

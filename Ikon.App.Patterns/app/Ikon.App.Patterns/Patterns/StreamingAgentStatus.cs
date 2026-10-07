@@ -163,19 +163,19 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                     {
                         if (call.ResultText is null)
                         {
-                            view.Spinner(["text-sky-400"], size: SpinnerSize.Sm);
+                            view.Spinner(["shrink-0 text-sky-400"], size: SpinnerSize.Sm);
                         }
                         else if (call.IsError == true)
                         {
-                            view.Icon(["w-3 h-3 text-red-400"], name: "x");
+                            view.Icon(["w-3 h-3 shrink-0 text-red-400"], name: "x");
                         }
                         else if (call.IsError == false)
                         {
-                            view.Icon(["w-3 h-3 text-emerald-400"], name: "check");
+                            view.Icon(["w-3 h-3 shrink-0 text-emerald-400"], name: "check");
                         }
                         else
                         {
-                            view.Icon(["w-3 h-3 text-muted-foreground/50"], name: "minus");
+                            view.Icon(["w-3 h-3 shrink-0 text-muted-foreground/50"], name: "minus");
                         }
 
                         view.Text(["text-xs text-muted-foreground font-mono"], text: call.ToolName);
@@ -188,7 +188,7 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                 }
 
                 view.Text(["text-xs text-muted-foreground/50 mt-1"],
-                    text: $"turn {usage.Turns + 1} · {usage.InputTokens + usage.OutputTokens} tokens · {usage.WallTime.TotalSeconds:F0}s");
+                    text: $"turn {usage.Turns + 1} · earlier turns: {usage.InputTokens + usage.OutputTokens} tokens, {usage.WallTime.TotalSeconds:F0}s");
             });
         }
         #endregion

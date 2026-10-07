@@ -47,6 +47,16 @@ file static class EmergeBasicExamples
 
 internal sealed partial class AgentGuideExamples
 {
+    // The file-local example class, reachable from the demo's button only through this file
+    private static Task DocEmergeBasicAsync(string topic) => EmergeBasicExamples.RunAsync(topic);
+
+    // The tools example configures a pass; this runs one with it
+    private static async Task<string> DocEmergeToolsRunAsync() =>
+        await Emerge.Run<string>(LLMModel.Claude46Sonnet, pass =>
+        {
+            pass.Command = "What are the latest numbers on tide pools?";
+            DocEmergeTools(pass);
+        });
 
     private static async Task<AnalysisResult> DocCancellationAsync(string topic)
     {

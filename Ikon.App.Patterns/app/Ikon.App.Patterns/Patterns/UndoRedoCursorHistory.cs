@@ -54,13 +54,20 @@ internal sealed class UndoRedoCursorHistory : IPatternDemo
             : active.History.Take(active.Cursor + 1).ToList();
         keep.Add(new BotVersion(active.DraftCode, DateTime.UtcNow.Ticks));
 
+        var trimmed = 0;
+
         if (keep.Count > MaxHistoryVersions)
         {
-            keep = keep.Skip(keep.Count - MaxHistoryVersions).ToList();
+            trimmed = keep.Count - MaxHistoryVersions;
+            keep = keep.Skip(trimmed).ToList();
         }
 
+        // A published version in the truncated redo tail, or trimmed away, is no longer published;
+        // otherwise trimming shifts its index down
         var newCursor = keep.Count - 1;
-        var newPub = active.PublishedIndex < 0 ? -1 : Math.Min(active.PublishedIndex, newCursor);
+        var newPub = active.PublishedIndex > active.Cursor || active.PublishedIndex < trimmed
+            ? -1
+            : active.PublishedIndex - trimmed;
 
         ReplaceBot(active.Id, b => b with
         {

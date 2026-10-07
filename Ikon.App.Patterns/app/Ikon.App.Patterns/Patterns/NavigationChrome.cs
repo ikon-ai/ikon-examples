@@ -33,25 +33,27 @@ internal sealed class NavigationChrome : IPatternDemo
             // NavigationMenu is the hover/focus menubar: triggers that reveal panels. It is not a
             // tab strip -- a Tabs component switches the page's content, while this navigates
             // away from it.
-            col.NavigationMenu(
+            // The menu's parts carry no themed default: each takes its NavigationMenu token, and
+            // bare they render as a bulleted list.
+            col.NavigationMenu([NavigationMenu.Root],
                 value: _section.Value,
                 onValueChange: async section => _section.Value = section,
-                content: menu => menu.NavigationMenuList(content: list =>
+                content: menu => menu.NavigationMenuList([NavigationMenu.List], content: list =>
                 {
                     list.NavigationMenuItem(value: "products", content: item =>
                     {
-                        item.NavigationMenuTrigger(content: t => t.Text(text: "Products"));
+                        item.NavigationMenuTrigger([NavigationMenu.Trigger], content: t => t.Text(text: "Products"));
 
-                        item.NavigationMenuContent(content: panel =>
+                        item.NavigationMenuContent([NavigationMenu.ContentPopover], content: panel =>
                         {
                             // active: marks the current destination for assistive tech; onSelect
                             // is the navigation itself.
-                            panel.NavigationMenuLink(
+                            panel.NavigationMenuLink([NavigationMenu.LinkCompact],
                                 active: _path.Count > 0 && _path[^1] == "Widgets",
                                 onSelect: async () => _path.ReplaceAll(["Home", "Products", "Widgets"]),
                                 content: v => v.Text(text: "Widgets"));
 
-                            panel.NavigationMenuLink(
+                            panel.NavigationMenuLink([NavigationMenu.LinkCompact],
                                 onSelect: async () => _path.ReplaceAll(["Home", "Products", "Gadgets"]),
                                 content: v => v.Text(text: "Gadgets"));
                         });

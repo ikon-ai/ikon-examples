@@ -25,10 +25,13 @@ internal sealed class ThemeCommitment(IAppBase app) : IPatternDemo
         ["card"]             = "zinc-900",
         ["muted-foreground"] = "zinc-500",
         ["border"]           = "zinc-800",
+        // No key moves these tiers, and the light baseline's greys are unreadable on zinc-950
+        ["text-secondary"]   = "zinc-300",
+        ["text-tertiary"]    = "zinc-400",
 
         ["radius"]           = "rounded-2xl",
         ["density"]          = "comfortable",   // compact | comfortable | airy — whole-app whitespace
-        ["font-heading"]     = "Crimson Pro",   // literal family name — self-hosted baseline family; others get an automatic Google Fonts import
+        ["font-heading"]     = "Crimson Pro",   // literal family name — a baseline family; any other is bundled into the app
 
         DarkMode = new IkonTheme
         {

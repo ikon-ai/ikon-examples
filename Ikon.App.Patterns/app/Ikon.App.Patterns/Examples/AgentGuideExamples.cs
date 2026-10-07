@@ -9,8 +9,8 @@ namespace Ikon.App.Patterns.Examples;
 // Compiling an example is not the same as it being real. A private method nobody calls proves the
 // names and types still exist and nothing else. So every example here is reachable from the
 // gallery's "Agent guide examples" demo: the free ones run when it renders, which the pattern render
-// smoke-test does too, and the ones that spend money on a provider run when a person presses
-// their button.
+// smoke-test does too, and the ones that call an AI service run when a person presses their button
+// — on the service's mock (GalleryMocks), so pressing every one costs nothing.
 //
 // A hand-written fence in the docs is a copy of code that once worked: nothing compiles it, so it
 // stays exactly as written while the API beneath it is renamed or deleted. Each method here is
@@ -34,6 +34,18 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
     private readonly ClientReactive<string> _docValueMutationResult = new("Value mutation: not run");
     private readonly Reactive<string?> _docExampleBusy = new(null);
 
+    // What each AI button runs, by label, as the last render drew it: the test that presses them all
+    // reads this, so it runs exactly what a person's press would.
+    internal IReadOnlyDictionary<string, DocExampleRun> DocExampleRuns => _docExampleRuns;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DocExampleRun> _docExampleRuns = new(StringComparer.Ordinal);
+
+    // NeedsLiveApp: it plays audio through the app's Audio, which only a running app has.
+    internal sealed record DocExampleRun(Func<Task<string>> Run, bool NeedsLiveApp);
+
+    // Inputs the examples take as the reader's own data: a 1x1 PNG, and the zip signature a .docx starts with.
+    private static readonly byte[] SamplePng = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+    private static readonly byte[] SampleDocx = [0x50, 0x4B, 0x03, 0x04];
+
     private void RenderDocExamplesSection(UIView view)
     {
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
@@ -41,30 +53,85 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
             view.Text([Text.H3, "mb-4"], "Doc examples");
 
             // These cost nothing, so running them on render is the strongest statement available:
-            // the example is not merely compiled, it executed to draw what is on screen.
+            // the example is not merely compiled, it executed to draw what is on screen. Each sits
+            // under its label, so the smoke test judges it on its own rather than by the card's
+            // other content. DocSpeechRecognition is left out: it subscribes the app's recognition
+            // handler, which a render would add again every time it ran.
+            ExampleGallery.RenderMethodLabel(view, nameof(DocConditionalRendering));
             DocConditionalRendering(view);
-            DocSortableList(view);
-            DocJoinUrlAndQr(view, app.GlobalState.SpaceId);
-            DocLogLevels();
 
-            view.Row(["gap-2 items-center flex-wrap mt-4"], content: view =>
+            if (_imageData.Value is null)
+            {
+                PatternDemoNote.RenderCaption(view, "The condition is false, so nothing draws: the image shows once _imageData holds bytes");
+            }
+
+            ExampleGallery.RenderMethodLabel(view, nameof(DocSortableList));
+            DocSortableList(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocJoinUrlAndQr));
+            DocJoinUrlAndQr(view, app.GlobalState.SpaceId);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocTextAndContent));
+            DocTextAndContent(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocLayoutComponents));
+            DocLayoutComponents(view);
+            PatternDemoNote.RenderCaption(view, "Each layout container above is empty, so only the separator shows");
+            ExampleGallery.RenderMethodLabel(view, nameof(DocLoadingState));
+            DocLoadingState(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocCallbackErrorHandling));
+            DocCallbackErrorHandling(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocActionButton));
+            DocActionButton(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocCaptureButtons));
+            DocCaptureButtons(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocMicToggleButton));
+            DocMicToggleButton(view);
+            DocLogLevels();
+        });
+
+        view.Box([Card.Default, "p-6 mb-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-4"], "Run on press");
+
+            view.Row(["gap-2 items-center flex-wrap"], content: view =>
             {
                 view.Button([Button.OutlineMd], text: "Run value mutation",
                     onClick: () => _docValueMutationResult.Value = ValueMutationExamples.Run());
                 view.Text([Text.Body], _docValueMutationResult.Value);
             });
 
-            view.Text([Text.Caption, "mt-4 mb-2"], "Metered");
+            view.Text([Text.Caption, "mt-4 mb-2"], "AI services: each runs on the service's mock here, so pressing costs nothing");
 
             view.Row(["gap-2 flex-wrap"], content: view =>
             {
+                RenderDocExampleButton(view, "Object generation", async () => (await AiRObjectGenerationExamples.AirObjectGenerationAsync()).Name);
                 RenderDocExampleButton(view, "Image one-shot", async () => await GenerateImageOneShotAsync("A neon-lit cyberpunk street"));
+                RenderDocExampleButton(view, "Image config", async () => { await DocImageGenerateConfigAsync(); return "generated"; });
+                RenderDocExampleButton(view, "Upscale one-shot", () => DocImageUpscaleOneShotAsync(SamplePng));
                 RenderDocExampleButton(view, "Upscale", async () => await DocImageUpscaleConfigAsync());
                 RenderDocExampleButton(view, "Sound effect", DocSoundEffectOneShotAsync);
+                RenderDocExampleButton(view, "Sound effect streamed", async () => { await DocSoundEffectStreamedAsync(); return "played"; }, needsLiveApp: true);
                 RenderDocExampleButton(view, "Speech", async () => (await DocSpeechGenerateOneShotAsync()).ToString());
+                RenderDocExampleButton(view, "Speech streamed", async () => { await DocSpeechGenerateStreamedAsync(); return "played"; }, needsLiveApp: true);
+                RenderDocExampleButton(view, "Speak", async () => { await DocSpeakAsync(ReactiveScope.ClientId); return "spoken"; }, needsLiveApp: true);
+                RenderDocExampleButton(view, "Speech recognition", async () => { await DocSpeechRecognizeBatchAsync(new float[16000]); return "recognized"; });
                 RenderDocExampleButton(view, "Video", DocVideoGenerateOneShotAsync);
+                RenderDocExampleButton(view, "Video config", DocVideoGenerateConfigAsync);
+                RenderDocExampleButton(view, "Video enhance", () => DocVideoEnhanceOneShotAsync("https://example.com/clip.mp4"));
+                RenderDocExampleButton(view, "Video enhance config", () => DocVideoEnhanceConfigAsync([0, 0, 0, 0]));
                 RenderDocExampleButton(view, "Web search", async () => (await DocWebSearchOneShotAsync()).ToString());
+                RenderDocExampleButton(view, "Web search config", async () => { await DocWebSearchConfigAsync(); return "searched"; });
                 RenderDocExampleButton(view, "Embeddings", async () => (await DocEmbeddingsOneShotAsync()).ToString());
+                RenderDocExampleButton(view, "Data services", async () =>
+                {
+                    await DocOtherDataServicesAsync("Hello there", SamplePng, SampleDocx, ["Cats purr when content", "Dogs bark at strangers"], "dogs bark");
+                    return "scraped, classified, read, converted and ranked";
+                });
+                RenderDocExampleButton(view, "Typed decisions", async () => { await DocTypedDecisionsAsync("I was charged twice for one order", new DocOrder("A-1001")); return "decided"; });
+                RenderDocExampleButton(view, "Emerge basic", async () => { await DocEmergeBasicAsync("tide pools"); return "analyzed"; });
+                RenderDocExampleButton(view, "Emerge typed run", async () => (await Research("tide pools")).Summary);
+                RenderDocExampleButton(view, "Emerge tools", DocEmergeToolsRunAsync);
+                RenderDocExampleButton(view, "Cancellation", async () => (await DocCancellationAsync("tide pools")).Summary);
+                RenderDocExampleButton(view, "Best of", async () => { await DocBestOfAsync("a seaside cafe"); return "picked"; });
+                RenderDocExampleButton(view, "Conversation history", async () => { await DocConversationHistoryAsync("Hi there", "Tell me more"); return "replied twice"; });
             });
 
             if (_docExampleError.Value is { } error)
@@ -78,9 +145,10 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
         });
     }
 
-    private void RenderDocExampleButton(UIView view, string label, Func<Task<string>> run)
+    private void RenderDocExampleButton(UIView view, string label, Func<Task<string>> run, bool needsLiveApp = false)
     {
         var busy = _docExampleBusy.Value == label;
+        _docExampleRuns[label] = new DocExampleRun(run, needsLiveApp);
 
         view.Button([Button.OutlineSm], text: busy ? $"{label}…" : label, disabled: _docExampleBusy.Value != null,
             onClick: async () =>
@@ -91,13 +159,16 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
 
                 try
                 {
+                    GalleryMocks.Require();
                     _docExampleResult.Value = $"{label}: {await run()}";
                 }
-                catch (AIException)
+                catch (Exception ex)
                 {
-                    // The example is what is under test, not the provider. A short human line keeps
-                    // the card usable when a model is unavailable.
-                    _docExampleError.Value = $"{label} could not reach the provider — try again.";
+                    // Shown on the card rather than thrown, so the demo stays usable. Every service
+                    // here is a mock, so no provider is to blame: a failure, an AIException included,
+                    // is the example's or its mock's, and the log keeps the trace for whoever fixes it.
+                    Log.Instance.Error($"Doc example {label} failed on the gallery's mocks: {ex}");
+                    _docExampleError.Value = $"{label} failed with {ex.GetType().Name}: the example or its mock is broken, and the app log has the trace";
                 }
                 finally
                 {
@@ -126,7 +197,8 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
 
     private static Task LongRunningTask() => Task.CompletedTask;
 
-    private readonly ReactiveList<string> _items = new();
+    // Seeded so the sortable-list example draws rows a person can reorder.
+    private readonly ReactiveList<string> _items = new(["Write the brief", "Review the draft", "Ship it"]);
 
     // Created on first use, like Audio: the render smoke-test's stand-in app throws on the
     // notification service an inbox binds to.
@@ -293,6 +365,7 @@ public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
         Log.Instance.Info($"Running in organisation {host.OrganisationId} space {host.SpaceId}");
 
         // ...
+        inputItems.Output();
         await Task.CompletedTask;
     }
 }

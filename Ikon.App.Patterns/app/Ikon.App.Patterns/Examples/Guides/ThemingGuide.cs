@@ -324,7 +324,7 @@ file sealed class ThemeCommittedExamples(IApp<SessionIdentity, ClientParameters>
         Mode = ThemeMode.Fixed,
 
         ["primary"]              = "amber-400",  // whole brand cluster: CTAs, checked controls, focus rings, brand icons + text
-        ["primary-foreground"]   = "#0A0A0A",    // text on brand fills — needed because amber-400 is a light step
+        ["primary-foreground"]   = "#0A0A0A",    // text on brand fills — pins the near-black label amber-400 would get anyway
 
         ["background"]           = "zinc-950",
         ["foreground"]           = "amber-50",
@@ -334,7 +334,7 @@ file sealed class ThemeCommittedExamples(IApp<SessionIdentity, ClientParameters>
 
         ["radius"]               = "rounded-2xl",
         ["density"]              = "comfortable",
-        ["font-heading"]         = "Crimson Pro", // literal family name — a baseline family, self-hosted, so no Google Fonts import
+        ["font-heading"]         = "Crimson Pro", // literal family name — a baseline family the frontend already ships
 
         ["motion-duration-base"] = "200ms",
         ["ease-default"]         = "ease-out",
@@ -425,8 +425,8 @@ static class ThemingOverridesExamples
         // Brand-tinted heading.
         view.Text(["text-2xl font-bold text-brand-secondary"], "Section Title");
 
-        // Custom variable (declared with a -- prefix in the theme).
-        view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
+        // Custom variable (declared with a -- prefix in the theme); image: routes a gradient to background-image.
+        view.Box(["absolute inset-0 -z-10 bg-[image:var(--hero-glow)] pointer-events-none"]);
         #endregion
     }
 }

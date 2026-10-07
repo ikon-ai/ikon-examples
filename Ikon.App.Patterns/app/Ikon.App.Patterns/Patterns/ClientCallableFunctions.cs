@@ -34,7 +34,9 @@ internal sealed class ClientCallableFunctions : IPatternDemo
     private void Register()
     {
         // RegisterFromInstance for instance methods — the closure over _viewCount is the point;
-        // RegisterFromType(typeof(X)) is the static-only equivalent and needs no instance.
+        // RegisterFromType(typeof(X)) needs no instance, but only X's static methods (and, on a
+        // [RegisterAll] class, its public constructors) become callable; its instance methods
+        // register as metadata only, and calling one without an instance fails.
         FunctionRegistry.Instance.RegisterFromInstance(new CatalogFunctions(_viewCount));
 
         // The registry is readable, which is how an app shows a client what it may call rather than

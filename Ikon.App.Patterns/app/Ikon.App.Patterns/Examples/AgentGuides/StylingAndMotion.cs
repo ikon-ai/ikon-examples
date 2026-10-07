@@ -64,8 +64,8 @@ file static class MotionExamples
         // Glow pulse (looping)
         view.Box(["motion-[0:shadow-none,50:shadow-[0_0_20px_rgba(168,85,247,0.6)],100:shadow-none] motion-duration-2000ms motion-loop"]);
 
-        // Per-letter wave animation (each letter animates independently)
-        view.Text(["wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] wave:motion-duration-2500ms wave:motion-per-letter wave:motion-loop"], "Hello");
+        // Per-letter wave animation (each letter starts 100ms after the previous one)
+        view.Text(["wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] wave:motion-duration-2500ms wave:motion-per-letter wave:motion-letter-delay-100ms wave:motion-loop"], "Hello");
 
         // Per-letter fade-in with stagger delay (letters appear one by one)
         view.Text(["motion-[0:opacity-0,100:opacity-100] motion-duration-300ms motion-per-letter motion-letter-delay-60ms"], "Appearing!");

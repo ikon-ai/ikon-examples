@@ -21,14 +21,17 @@ internal sealed class ComposerInputBar : IPatternDemo
     // The draft is USER-scoped, not client-scoped: a reload mints a new client session, so a
     // half-typed message in a ClientReactive vanishes with it.
     private readonly UserReactive<string> _draft = new("");
-    private readonly ClientReactiveList<ComposerAttachment> _attachments = new();
-    private readonly ClientReactiveList<string> _paths = new();
+    private readonly ClientReactiveList<Attached> _attachments = new();
     private readonly ClientReactive<bool> _busy = new(false);
+
+    // The chip and the file behind it, in ONE list: the upload hook adds while a UI click removes,
+    // and two index-aligned lists can interleave into pairing a chip with the wrong file.
+    private sealed record Attached(ComposerAttachment Chip, string Path);
 
     /// <summary>
     /// Composer is STATELESS: it renders the draft and chips it is handed and reports what
-    /// changed. Storing both is the app's job, and is why the two lists stay index-aligned --
-    /// onAttachmentRemoved hands back an index into the list the app passed.
+    /// changed. Storing both is the app's job; onAttachmentRemoved hands back an index into the
+    /// chips the app passed.
     /// </summary>
     private void Render(IView view)
     {
@@ -36,7 +39,7 @@ internal sealed class ComposerInputBar : IPatternDemo
             value: _draft.Value,
             placeholder: "Message",
             busy: _busy.Value,
-            attachments: _attachments,
+            attachments: [.. _attachments.Select(a => a.Chip)],
             accept: ["image/*", ".pdf"],
             maxRows: 6,
             onValueChange: async text => _draft.Value = text,
@@ -52,26 +55,21 @@ internal sealed class ComposerInputBar : IPatternDemo
                 }
 
                 using var _ = _busy.AsToken();
-                await SendAsync(text, _paths.ToList());
+                var sent = _attachments.ToList();
+                await SendAsync(text, [.. sent.Select(a => a.Path)]);
                 _draft.Value = "";
-                _attachments.Clear();
-                _paths.Clear();
+                _attachments.RemoveAll(a => sent.Contains(a));
             },
 
             onAttachmentAdded: async args =>
             {
                 if (args.LocalTempFilePath is { } path)
                 {
-                    _attachments.Add(new ComposerAttachment(Path.GetFileName(path), "application/octet-stream", 0));
-                    _paths.Add(path);
+                    _attachments.Add(new Attached(new ComposerAttachment(Path.GetFileName(path), "application/octet-stream", 0), path));
                 }
             },
 
-            onAttachmentRemoved: async index =>
-            {
-                _attachments.RemoveAt(index);
-                _paths.RemoveAt(index);
-            },
+            onAttachmentRemoved: async index => _attachments.RemoveAt(index),
 
             // A failed upload never reaches onAttachmentAdded, so it leaves no chip -- say so.
             onAttachmentError: async args =>

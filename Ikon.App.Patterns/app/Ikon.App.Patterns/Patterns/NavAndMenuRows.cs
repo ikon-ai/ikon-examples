@@ -32,8 +32,8 @@ internal sealed class NavAndMenuRows : IPatternDemo
     private void RenderShell(IView view)
     {
         // Page navigation between peer panels: content-width tabs on a shared rail. Not a
-        // segmented control — Tabs.List/Tabs.Trigger would fill each label with the brand colour
-        // and the row would read as three buttons.
+        // segmented control — Tabs.List/Tabs.Trigger would set the labels on a tinted pill row and
+        // fill the active one with the brand colour, and the row would read as buttons.
         view.Tabs(
             value: _section.Value,
             onValueChange: async value => _section.Value = value,
@@ -93,7 +93,7 @@ internal sealed class NavAndMenuRows : IPatternDemo
         view.Tabs(
             value: _density.Value,
             onValueChange: async value => _density.Value = value,
-            listStyle: [Tabs.List],
+            listStyle: [Tabs.List, "w-full"],
             triggerStyle: [Tabs.Trigger, "flex-1"],
             tabs:
             [

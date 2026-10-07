@@ -60,9 +60,9 @@ internal sealed class ServerSideSvgVisual : IPatternDemo
         // Specular sheen ON TOP of the body, clipped to the same shape.
         sb.Append($"<path d='{jarPath}' fill='url(#spec)'/>");
         // (3) Vertical edge highlight — one thin light line near the left edge sells curvature.
-        sb.Append($"<path d='M {leftEdgeX} {topY} Q {leftEdgeX - 4} {midY} {leftEdgeX} {bottomY}' stroke='#ffffff' stroke-opacity='0.25' stroke-width='3' fill='none'/>");
+        sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"<path d='M {leftEdgeX} {topY} Q {leftEdgeX - 4} {midY} {leftEdgeX} {bottomY}' stroke='#ffffff' stroke-opacity='0.25' stroke-width='3' fill='none'/>");
         // (4) Ground shadow — a soft ellipse under the object anchors it to the surface.
-        sb.Append($"<ellipse cx='{cx}' cy='{bottomY + 8}' rx='{rx * 0.7:F0}' ry='7' fill='#000000' opacity='0.25'/>");
+        sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"<ellipse cx='{cx}' cy='{bottomY + 8}' rx='{rx * 0.7:F0}' ry='7' fill='#000000' opacity='0.25'/>");
     }
 
     #region example:pattern-server-side-svg-visual
@@ -84,7 +84,7 @@ internal sealed class ServerSideSvgVisual : IPatternDemo
         if (dash > 0)
         {
             sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='{strokeColor}' stroke-width='{stroke}' ");
-            sb.Append($"stroke-linecap='round' stroke-dasharray='{dash:F1} {gap:F1}' transform='rotate(-90 {cx} {cy})'/>");
+            sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"stroke-linecap='round' stroke-dasharray='{dash:F1} {gap:F1}' transform='rotate(-90 {cx} {cy})'/>");
         }
 
         // centre label

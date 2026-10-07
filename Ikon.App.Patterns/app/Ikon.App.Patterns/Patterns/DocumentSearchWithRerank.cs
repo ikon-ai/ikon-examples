@@ -12,7 +12,89 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
     public string Slug => "document-search-with-rerank";
     public string Title => "Document search: OCR, retrieve, rerank";
     public string Category => "Web & data";
-    public void RenderDemo(IView view) => Render(view);
+
+    // The gallery's embedding model is a mock that maps each text to its own random vector, so a
+    // passage is found only by a question embedded exactly; each sample passage is therefore
+    // indexed under every sample question, and the reranker orders the three a question finds.
+    private static readonly string[] SampleQuestions =
+    [
+        "How long is the refund window?",
+        "Who signs off on a contract change?",
+        "Where are scanned invoices kept?",
+    ];
+
+    private static readonly (string Name, string Text)[] SamplePassages =
+    [
+        ("refunds", "Refunds are accepted within 30 days of purchase with the original receipt."),
+        ("contracts", "Any change to a signed contract needs written approval from the account owner."),
+        ("invoices", "Scanned invoices are archived in the finance folder for seven years."),
+    ];
+
+    private readonly Reactive<string> _corpusState = new("empty");
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3"], content: col =>
+        {
+            if (_corpusState.Value == "ready")
+            {
+                col.Text(["text-xs text-white/70"], text: "Sample documents indexed. Ask one of: " + string.Join(" / ", SampleQuestions));
+            }
+            else
+            {
+                col.Button([Button.OutlineSm, "self-start"],
+                    text: _corpusState.Value == "loading" ? "Indexing sample documents…" : "Index sample documents",
+                    disabled: _corpusState.Value != "empty",
+                    onClick: async () => await SeedCorpusAsync());
+            }
+
+            Render(col);
+        });
+    }
+
+    private async Task SeedCorpusAsync()
+    {
+        if (_corpusState.Value != "empty")
+        {
+            return;
+        }
+
+        GalleryMocks.Require();
+        _corpusState.Value = "loading";
+
+        try
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "ikon-patterns-document-search", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+
+            var vectors = await EmbeddingGenerator.EmbedAsync(SampleQuestions, EmbeddingModel.OpenAI3Small, EmbeddingType.Query);
+
+            foreach (var (name, text) in SamplePassages)
+            {
+                await File.WriteAllTextAsync(Path.Combine(directory, name + ".txt"), text);
+
+                var items = new List<EmbeddingItem>();
+
+                foreach (var vector in vectors)
+                {
+                    items.Add(await EmbeddingItem.CreateAsync(vector, name, EmbeddingModel.OpenAI3Small, EmbeddingType.Document, EmbeddingEncoding.Base64));
+                }
+
+                await File.WriteAllTextAsync(Path.Combine(directory, name + ".embeddings.json"), JsonSerializer.Serialize(items));
+            }
+
+            await _retriever.InitializeAsync(directory, EmbeddingModel.OpenAI3Small);
+            await _retriever.WaitForLoadingToEndAsync();
+            _corpusState.Value = "ready";
+        }
+        catch (Exception ex)
+        {
+            // The state is shared by every client, so a failed seed hands the button back rather
+            // than leaving it disabled for everyone; pressing it again retries
+            Log.Instance.Warning($"Seeding the document search demo corpus failed, the button is offered again: {ex.Message}");
+            _corpusState.Value = "empty";
+        }
+    }
 
     #region example:pattern-document-search-with-rerank
     // Indexed once, at startup or behind an upload -- the expensive step never sits in the search handler.

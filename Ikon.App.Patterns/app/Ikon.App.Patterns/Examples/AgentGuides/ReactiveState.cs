@@ -208,7 +208,7 @@ internal sealed partial class AgentGuideExamples
         var theme = _clientTheme.ValueFor(clientId);
 
         // Scope a whole region instead when several reads/writes belong to the same client.
-        // UseNested restores the callback's own client scope on dispose; Use would drop it
+        // UseNested restores the exact previous scopes on dispose and stays out of the log scope
         using var _ = ReactiveScope.UseNested(new ClientScope(clientId));
         _clientTheme.Value = "dark"; // Now targets the specified client
         #endregion

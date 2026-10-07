@@ -18,31 +18,53 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:sound-effect-streamed
         using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+        LiveAudioPlayback? thunder = null;
+
         await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig
         {
             Prompt = "Thunder rumbling in the distance",
             DurationSeconds = 5.0
         }))
         {
-            Audio.SpeakChunk(MediaTargets.Everyone, audio);
+            // Opened at the first chunk, which carries the format. Generation outruns playout,
+            // so let the whole effect buffer instead of holding the generator to real time.
+            thunder ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount,
+                new PlayOptions { Slot = "thunder" }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+            if (!await thunder.WriteAsync(audio.Samples))
+            {
+                break;
+            }
         }
+
+        thunder?.Complete();   // plays out what is buffered, then ends
         #endregion
     }
 
     private async Task DocSpeakAsync(int clientSessionId)
     {
         #region example:speak-one-call
-        // Generate speech and play it to clients — one call. A new call fades out and
-        // replaces whatever is still playing (the interrupt behavior a voice app wants).
-        // Name a voice that fits the product: the bare default ("Aria") is a mature, hard read
-        // that suits few apps — "Sarah" is a softer, modern one to reach for. Other voices:
-        // Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
-        await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world", voice: "Sarah");
+        // Generate speech and play it to clients — one call that returns at once. A new line
+        // crossfades out the speech still playing (the interrupt behavior a voice app wants).
+        // The ElevenLabs default voice is "Sarah", soft and modern. Name another when the product
+        // wants it: Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
+        Audio.Speak(MediaTargets.Everyone, "Hello world");
+        Audio.Speak(MediaTargets.Everyone, "Hello world", new SpeechOptions { Voice = "George" });
 
-        // Pick a model, shape the delivery, or target specific clients. Among ElevenLabs models
-        // only Eleven3 takes `instructions`; the others (the default ElevenFlash25 included) throw:
-        await Audio.SpeakAsync(MediaTargets.To([clientSessionId]), "Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
-            instructions: "Soft and warm, almost a whisper", speed: 0.96);  // speed is a double, 1.0 = normal
+        // Pick a model, shape the delivery, or target specific clients; await Completion to wait
+        // for playout. Among ElevenLabs models only Eleven3 takes Instructions; the others (the
+        // default ElevenFlash25 included) fail the playback, as does any Speed but null or 1.0.
+        var line = Audio.Speak(MediaTargets.To([clientSessionId]), "Hello world", new SpeechOptions
+        {
+            Model = SpeechGeneratorModel.Eleven3,
+            Voice = "Sarah",
+            Instructions = "Soft and warm, almost a whisper"
+        });
+
+        if (await line.Completion == AudioPlaybackOutcome.Failed)
+        {
+            Log.Instance.Warning($"Speech for client {clientSessionId} failed: {line.Error?.Message}");
+        }
         #endregion
     }
 
@@ -59,11 +81,23 @@ internal sealed partial class AgentGuideExamples
     private async Task DocSpeechGenerateStreamedAsync()
     {
         #region example:speech-generate-streamed
+        // For generator settings Audio.Speak does not expose (here Language). Audio is an app service property.
         using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
+        LiveAudioPlayback? speech = null;
+
         await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = "Hei maailma", Language = "fi" }))
         {
-            Audio.SpeakChunk(MediaTargets.Everyone, audio);  // Audio is an app service property
+            // Slot "speech": replaces the line still speaking, and counts as the app speaking for turn detection
+            speech ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount,
+                new PlayOptions { Slot = "speech" }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+            if (!await speech.WriteAsync(audio.Samples))
+            {
+                break;
+            }
         }
+
+        speech?.Complete();
         #endregion
     }
 

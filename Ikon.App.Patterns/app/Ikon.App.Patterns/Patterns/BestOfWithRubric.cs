@@ -63,9 +63,10 @@ internal sealed class BestOfWithRubric : IPatternDemo
             options.ScoreDetailedAsync = async (candidate, _) => judged[candidate] = await JudgeAsync(candidate, brief);
 
             // Configuring the critic also ENABLES it; an explicitly configured critic that never
-            // ran was the trap this shape avoids.
+            // ran was the trap this shape avoids. The string replaces the critic's whole Command,
+            // and the critic sees nothing else, so it carries the brief and the winner itself.
             options.BuildCriticFeedback = (candidate, breakdown) =>
-                $"Weakest: {breakdown?.Weakest?.Name}. Improve it without losing the rest.";
+                $"Brief: {brief}\nTagline: {candidate.Text}\nWeakest: {breakdown?.Weakest?.Name}. Improve it without losing the rest.";
             options.CriticMustImprove = true;
 
             // Candidates diverge by Seed -- not a sampler seed and not reproducible, just a

@@ -30,12 +30,13 @@ internal sealed class StatusPill : IPatternDemo
         #region example:pattern-status-pill
         /// Theme-safe chip recipes for ADAPTIVE apps — each works on light AND dark without variants.
 
-        // 1. NEUTRAL chip (default for categories/tags) — fully semantic, flips automatically.
-        view.Box(["inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-muted text-muted-foreground"],
+        // 1. NEUTRAL chip (default for categories/tags) — fully semantic, flips automatically. `bg-tertiary`, not
+        //    `bg-muted`: the baseline's dark `bg-muted` is the same shade as `bg-card`, so the chip would vanish on a card.
+        view.Box(["inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-tertiary text-secondary"],
             content: v => v.Text(["text-xs font-semibold"], text: recipe.Category));
 
-        // 2. BRAND-TINTED chip (selected/featured) — semantic brand tokens, flips automatically.
-        view.Box(["inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-brand-selected text-primary"],
+        // 2. BRAND-TINTED chip (selected/featured) — semantic brand fill and text tokens, both flip automatically.
+        view.Box(["inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-brand-selected text-brand-secondary"],
             content: v => v.Text(["text-xs font-semibold"], text: "Featured"));
 
         // 3. ACCENT chip in a specific hue (success/warn/info) — ALPHA fill over the theme surface +

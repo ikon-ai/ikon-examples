@@ -96,7 +96,7 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
                 pass.Command = $"Question: {question}\nAnswer: {answer}";
             }, ct);
         }
-        catch (Exception ex) when (ex is EmergenceStoppedException or AIException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
         }
@@ -115,7 +115,7 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
             session.InterviewContext = context;
             return reply ?? "";
         }
-        catch (Exception ex) when (ex is EmergenceStoppedException or AIException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The turn still gets an answer; a reply that failed to generate must not end the
             // processing loop for every later turn.

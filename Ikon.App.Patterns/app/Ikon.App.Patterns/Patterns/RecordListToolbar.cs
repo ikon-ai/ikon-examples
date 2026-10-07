@@ -69,13 +69,13 @@ internal sealed class RecordListToolbar : IPatternDemo
             {
                 view.TextField([Input.DefaultSm, "w-56"], placeholder: "Search name or company", bind: _search);
 
-                view.Select([Input.DefaultSm, "w-40"], bind: _sort, ariaLabel: "Sort by", options:
+                view.Select(["w-40"], triggerStyle: [Select.Size.Sm], bind: _sort, ariaLabel: "Sort by", options:
                 [
                     new SelectOption("recent", "Most recent"),
                     new SelectOption("name", "Name"),
                 ]);
 
-                view.Select([Input.DefaultSm, "w-40"], bind: _range, ariaLabel: "Date range", options:
+                view.Select(["w-40"], triggerStyle: [Select.Size.Sm], bind: _range, ariaLabel: "Date range", options:
                 [
                     new SelectOption("all", "All time"),
                     new SelectOption("30", "Last 30 days"),

@@ -1,5 +1,3 @@
-using System.IO.Hashing;
-using System.Text;
 using Ikon.Teleport;
 
 namespace Ikon.App.Patterns.Protocol;
@@ -10,14 +8,12 @@ namespace Ikon.App.Patterns.Protocol;
 file static class TeleportBinarySpecExamples
 {
     #region example:teleport-binary-write
-    // A field id is the xxHash32 (seed 0) of the field name's UTF-8 bytes.
-    private static readonly uint TimeoutId = FieldId("Timeout");
-    private static readonly uint UseCacheId = FieldId("UseCache");
-    private static readonly uint PeersId = FieldId("Peers");
-    private static readonly uint HostId = FieldId("Host");
-    private static readonly uint PortId = FieldId("Port");
-
-    private static uint FieldId(string name) => XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(name));
+    // A field id is the xxHash32 (seed 0) of the field name's UTF-8 bytes — the id generated code uses.
+    private static readonly uint TimeoutId = TeleportHasher.ComputeFieldId("Timeout");
+    private static readonly uint UseCacheId = TeleportHasher.ComputeFieldId("UseCache");
+    private static readonly uint PeersId = TeleportHasher.ComputeFieldId("Peers");
+    private static readonly uint HostId = TeleportHasher.ComputeFieldId("Host");
+    private static readonly uint PortId = TeleportHasher.ComputeFieldId("Port");
 
     public static byte[] WriteConfig()
     {

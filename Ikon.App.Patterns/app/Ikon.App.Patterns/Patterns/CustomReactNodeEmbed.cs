@@ -13,8 +13,6 @@ internal sealed class CustomReactNodeEmbed : IPatternDemo
 
     private sealed record BotDraft(string Id, string Name, string DraftCode);
 
-    private readonly UIView col = null!;
-    private readonly UIView arenaBox = null!;
     private readonly BotDraft active = null!;
     private readonly string opponentCode = "";
     private readonly string opponentLabel = "";
@@ -29,7 +27,7 @@ internal sealed class CustomReactNodeEmbed : IPatternDemo
     #region example:pattern-custom-react-node-embed
     private void Render(IView view)
     {
-        col.Box(["flex-1 min-h-0"], content: editorBox =>
+        view.Box(["flex-1 min-h-0"], content: editorBox =>
         {
             editorBox.AddNode(
                 type: "custom.lua-editor",
@@ -46,23 +44,26 @@ internal sealed class CustomReactNodeEmbed : IPatternDemo
         });
 
         // ... and a richer node with multiple action callbacks
-        arenaBox.AddNode(
-            type: "custom.brainrot-arena",
-            props: new Dictionary<string, object?>
-            {
-                ["code"] = active?.DraftCode ?? "",
-                ["opponentCode"] = opponentCode,
-                ["runId"] = _runId.Value,
-                ["levelId"] = _levelId.Value,
-                ["playerLabel"] = (active != null
-                    ? $"{DisplayName()}'s {active.Name}"
-                    : DisplayName()).ToUpperInvariant(),
-                ["opponentLabel"] = opponentLabel,
-                ["onResultId"] = arenaBox.CreateAction<string>(args =>
-                    HandlePlayerFightResultAsync(args.Value)),
-                ["onConsoleId"] = arenaBox.CreateAction<string>(args =>
-                    HandleConsoleEventAsync(args.Value)),
-            });
+        view.Box(["flex-1 min-h-0"], content: arenaBox =>
+        {
+            arenaBox.AddNode(
+                type: "custom.brainrot-arena",
+                props: new Dictionary<string, object?>
+                {
+                    ["code"] = active?.DraftCode ?? "",
+                    ["opponentCode"] = opponentCode,
+                    ["runId"] = _runId.Value,
+                    ["levelId"] = _levelId.Value,
+                    ["playerLabel"] = (active != null
+                        ? $"{DisplayName()}'s {active.Name}"
+                        : DisplayName()).ToUpperInvariant(),
+                    ["opponentLabel"] = opponentLabel,
+                    ["onResultId"] = arenaBox.CreateAction<string>(args =>
+                        HandlePlayerFightResultAsync(args.Value)),
+                    ["onConsoleId"] = arenaBox.CreateAction<string>(args =>
+                        HandleConsoleEventAsync(args.Value)),
+                });
+        });
     }
     #endregion
 }

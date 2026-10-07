@@ -19,8 +19,9 @@ internal static class ExampleGallery
 
     // Examples that cannot render standalone, by class or by `Class.Method`, with the reason. Each
     // still compiles, which is what keeps the guide quoting it honest; it is listed here so skipping
-    // it is a decision on record.
-    private static readonly Dictionary<string, string> CompileOnly = new(StringComparer.Ordinal)
+    // it is a decision on record. PatternRenderSmokeTests holds the list to a ceiling, so it cannot
+    // grow without someone raising that on purpose.
+    internal static readonly IReadOnlyDictionary<string, string> CompileOnly = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["CwThemeActivation"] = "reads the theme controller its app's Main takes from UI.UseTheme, and a view method alone runs no Main",
         ["PxLightDarkSwitchingWithUsetheme"] = "reads the theme controller its app's Main takes from UI.UseTheme, and a view method alone runs no Main",
@@ -29,7 +30,6 @@ internal static class ExampleGallery
         ["MediaUpload"] = "registers its upload callbacks with the app's file-upload handler, which only a running app's view carries",
         ["CwFullScreenLayoutsWithPadding"] = "declares the app's root with UI.Root, which a view inside the gallery cannot be",
         ["PxOpenAsGuestTheDefault.PxOpenAsGuestTheDefault"] = "declares the app's root with UI.Root, which a view inside the gallery cannot be",
-        ["AiRObjectGeneration"] = "makes a real model call, which the gallery must not spend on every render",
         ["CustomComponent"] = "draws custom nodes (my-component, custom.lua-editor) that this gallery's frontend registers no component for, so each would paint an Unregistered node type placeholder",
         ["PxReactiveCollectionsReactivelistAndReactivedictio"] = "is handler code that mutates reactive collections, not a view: rendered, it would mutate them again on every render",
         ["PxBackgroundWorkTheForMethods"] = "is handler code that starts a background task writing client state, not a view: rendered, it would start another on every render",
@@ -39,9 +39,14 @@ internal static class ExampleGallery
         ["PxHowToUseIt"] = "registers the app's snapshot routes, startup code that draws nothing",
     };
 
-    public static IEnumerable<IPatternDemo> Create()
+    // The label above each example method's output: what a person reads to know which example they
+    // are looking at, and the mark the smoke test splits the demo on.
+    internal static void RenderMethodLabel(IView view, string methodName) =>
+        view.Text(["text-xs font-mono text-muted-foreground mt-4"], methodName, key: MethodLabelKeyPrefix + methodName);
+
+    public static IEnumerable<IPatternDemo> Create(IApp<SessionIdentity, ClientParameters>? live = null)
     {
-        var standIn = new PatternStandInApp();
+        var standIn = new PatternStandInApp(live);
 
         foreach (var type in ExampleTypes().Where(type => !CompileOnly.ContainsKey(ExampleName(type))))
         {
@@ -113,7 +118,7 @@ internal static class ExampleGallery
 
             foreach (var method in methods)
             {
-                view.Text(["text-xs font-mono text-muted-foreground mt-4"], method.Name, key: MethodLabelKeyPrefix + method.Name);
+                RenderMethodLabel(view, method.Name);
 
                 try
                 {

@@ -9,7 +9,8 @@ internal sealed class ShareableResultExport : IPatternDemo
     public string Category => "Web & data";
     public void RenderDemo(IView view) => Render(view);
 
-    private string PublicResultUrl() => throw new NotImplementedException();
+    // The gallery runs on the WebScraper and FileConverter mocks, which accept any address.
+    private string PublicResultUrl() => "https://example.com/results/demo";
 
     #region example:pattern-shareable-result-export
     private readonly Reactive<byte[]?> _png = new(null);

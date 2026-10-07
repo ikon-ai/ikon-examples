@@ -10,7 +10,7 @@ public static class PatternGallery
 {
     public static IReadOnlyList<IPatternDemo> Create(IApp<SessionIdentity, ClientParameters> app) =>
     [
-        .. ExampleGallery.Create(),
+        .. ExampleGallery.Create(app),
         new AiPrefillFormFromDescription(),
         new AnnotationDrawOverlay(),
         new AudioReactiveVisuals(),
@@ -51,7 +51,7 @@ public static class PatternGallery
         new FormFieldDiscipline(),
         new FormStateSubmit(),
         new GeneratedImageWithResult(),
-        new GeneratedSoundLibrary(),
+        new GeneratedSoundLibrary(app),
         new GeneratedVideoWithPlayback(),
         new GlobalKeyboardShortcuts(),
         new HostAndPlayerDualRoles(),
@@ -102,7 +102,7 @@ public static class PatternGallery
         new SingleProcessorChannelQueue(app),
         new SkeletonWhileLoading(),
         new SlideInSidePanel(),
-        new SpeechWithVoiceControl(),
+        new SpeechWithVoiceControl(app),
         new StatusPill(),
         new StreamingAgentStatus(),
         new SubscriptionManagement(app),
@@ -118,7 +118,7 @@ public static class PatternGallery
         new UpscaleAnImage(),
         new UrlPathRouteState(app),
         new VirtualFileToolSet(),
-        new VoiceEffectChain(),
+        new VoiceEffectChain(app),
         new VoiceLoop(app),
         new WebResearch(),
         new ZeroResultsState(),
