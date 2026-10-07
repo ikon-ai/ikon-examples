@@ -20,37 +20,20 @@ const ikonEmbedHeaders = {
   },
 };
 
-// Theme fonts the dev server bundled into public/ikon-fonts: linked and preloaded so the browser
-// has them at first paint, and named in a meta tag so the SDK drops the theme's Google Fonts
-// import for them. Without the folder nothing is injected and the import loads them as before.
-function ikonThemeFonts(publicDir) {
-  return {
-    name: 'ikon-theme-fonts',
-    transformIndexHtml() {
-      const manifestPath = resolve(publicDir, 'ikon-fonts', 'manifest.json');
-
-      if (!existsSync(manifestPath)) {
+const ikonThemeFonts = (publicDir) => ({
+  name: 'ikon-theme-fonts',
+  transformIndexHtml() {
+    try {
+      return JSON.parse(readFileSync(resolve(publicDir, 'ikon-fonts/head.json'), 'utf8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') {
         return [];
       }
 
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-
-      if (!manifest.families?.length) {
-        return [];
-      }
-
-      return [
-        { tag: 'meta', attrs: { name: 'ikon-bundled-fonts', content: manifest.families.join('|') }, injectTo: 'head' },
-        ...manifest.preload.map((file) => ({
-          tag: 'link',
-          attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: `/ikon-fonts/${file}`, crossorigin: '' },
-          injectTo: 'head',
-        })),
-        { tag: 'link', attrs: { rel: 'stylesheet', href: '/ikon-fonts/fonts.css' }, injectTo: 'head' },
-      ];
-    },
-  };
-}
+      throw error;
+    }
+  },
+});
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -78,8 +61,7 @@ export default defineConfig(({ mode }) => {
   const isIkonInternal = (process.env.VITE_IS_IKON_INTERNAL || env.VITE_IS_IKON_INTERNAL) === 'true';
   const platformTypescriptPath = process.env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH || env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH;
 
-  // The app folder contract: static web files live in the app root's public/, one level above
-  // frontend-node. An app not yet migrated keeps Vite's local default.
+  // Fallback for apps not yet migrated to the root public/
   const publicDir = existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : resolve(__dirname, 'public');
 
   const plugins = [ikonEmbedHeaders, ikonThemeFonts(publicDir), react()];
@@ -88,7 +70,8 @@ export default defineConfig(({ mode }) => {
     plugins.push(basicSsl());
   }
 
-  const httpsConfig = isTunneled ? false : hasCertificate ? { cert: readFileSync(certPath), key: readFileSync(keyPath) } : true;
+  // HTTP/1.1, as Chrome randomly fails module loads over Vite's HTTP/2
+  const httpsConfig = !isTunneled && { ALPNCallback: () => 'http/1.1', ...(hasCertificate && { cert: readFileSync(certPath), key: readFileSync(keyPath) }) };
   const resolveConfig = {};
 
   if (isIkonInternal && platformTypescriptPath) {
