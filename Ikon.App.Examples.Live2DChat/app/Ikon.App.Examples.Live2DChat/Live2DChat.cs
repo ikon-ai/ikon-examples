@@ -187,7 +187,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     effect.Process(processedSamples);
                 }
 
-                await Audio.SendFrameAsync(MediaTargets.Everyone, processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId.ToString());
+                await Audio.Raw.SendFrameAsync(MediaTargets.Everyone, args.StreamId.ToString(), processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast);
             }
 
             if (args.IsLast)
@@ -427,7 +427,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                         onCaptureStart: async _ =>
                         {
                             // Fade out any ongoing speech when recording starts for natural transition
-                            Audio.StopSpeech(MediaTargets.Everyone);
+                            Audio.Stop(MediaTargets.Everyone, "speech");
                             StopSpeaking();
                             _sttRecognizedText.Value = "";
                         });
@@ -739,6 +739,8 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
         }
 
 
+        LiveAudioPlayback? live = null;
+
         try
         {
             var config = new SpeechGeneratorConfig
@@ -764,7 +766,17 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 }
 
                 // Viseme data is automatically embedded in audio frames via the analyzer
-                Audio.SpeakChunk(MediaTargets.Everyone, audio, effects, analyzers);
+                live ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount, new PlayOptions
+                {
+                    Slot = "speech",
+                    Effects = effects,
+                    Analyzers = analyzers
+                }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+                if (!await live.WriteAsync(audio.Samples, cancellationToken))
+                {
+                    break;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -778,6 +790,8 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
         }
         finally
         {
+            live?.Complete();
+
             lock (_speechLock)
             {
                 _ttsSpeaking.Value = false;
@@ -842,12 +856,12 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
     {
         if (_ttsPaused.Value)
         {
-            Audio.ResumeSpeech(MediaTargets.Everyone);
+            Audio.Resume(MediaTargets.Everyone, "speech");
             _ttsPaused.Value = false;
         }
         else
         {
-            Audio.PauseSpeech(MediaTargets.Everyone);
+            Audio.Pause(MediaTargets.Everyone, "speech");
             _ttsPaused.Value = true;
         }
     }
@@ -1095,7 +1109,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
         return effectType switch
         {
             "Delay" => new DelayAudioEffect(p["delayMs"], p["feedback"], p["mix"], p["damping"]),
-            "Reverb" => new ReverbAudioEffect(p["roomSize"], p["decay"], p["damping"], p["mix"]),
+            "Reverb" => ReverbAudioEffect.Room(p["roomSize"], p["decay"], p["damping"], wet: Math.Clamp(p["mix"], 0f, 1f) * 0.36f),
             "Chorus" => new ChorusAudioEffect(p["baseDelayMs"], p["depthMs"], p["rateHz"], p["mix"]),
             "Tremolo" => new TremoloAudioEffect(p["rateHz"], p["depth"], p["mix"]),
             "BitCrusher" => new BitCrusherAudioEffect((int)p["bitDepth"], (int)p["downsample"], p["mix"]),

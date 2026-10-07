@@ -14,10 +14,6 @@ const ORGANISATION_ICON = (
   </svg>
 );
 
-/**
- * The space's own identity providers: the tenant's IdP up front on a host bound to it, and an email
- * field that routes an address to its organisation's IdP everywhere else.
- */
 export function SsoSignIn({ config, disabled, onAttempt }: SsoSignInProps) {
   const { t } = useI18n();
   const { hostConnections, isDiscovering, discoverError, discover, signIn } = useSsoSignIn(config);

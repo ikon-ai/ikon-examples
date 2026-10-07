@@ -6,7 +6,6 @@ export interface LoginButtonProps {
   provider: LoginMethod;
   disabled?: boolean;
   onAttempt?: () => void;
-  /** Overrides the default login action — e.g. dismissing an on-demand prompt instead of signing in. */
   onClick?: () => void;
 }
 
