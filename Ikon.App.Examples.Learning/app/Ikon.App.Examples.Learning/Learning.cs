@@ -910,6 +910,8 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
             _ttsSpeaking.Value = true;
         }
 
+        LiveAudioPlayback? live = null;
+
         try
         {
             var config = new SpeechGeneratorConfig
@@ -919,8 +921,6 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
                 Language = _currentLanguage.Value
             };
 
-            var analyzers = new IAudioAnalyzer[] { _visemeAnalyzer };
-
             await foreach (var audio in generator.GenerateSpeechAsync(config).WithCancellation(cancellationToken))
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -928,7 +928,13 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
                     break;
                 }
 
-                Audio.SpeakChunk(MediaTargets.Everyone, audio, [], analyzers);
+                live ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount,
+                    new PlayOptions { Slot = "speech", Analyzers = [_visemeAnalyzer] }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+                if (!await live.WriteAsync(audio.Samples, cancellationToken))
+                {
+                    break;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -940,6 +946,8 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         }
         finally
         {
+            live?.Complete();
+
             lock (_speechLock)
             {
                 _ttsSpeaking.Value = false;
@@ -965,7 +973,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 
     internal void InterruptSpeaking()
     {
-        Audio.StopSpeech(MediaTargets.Everyone);
+        Audio.Stop(MediaTargets.Everyone, "speech");
         StopSpeaking();
     }
 
