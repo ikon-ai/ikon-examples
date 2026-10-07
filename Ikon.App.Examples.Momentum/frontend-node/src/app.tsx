@@ -30,7 +30,7 @@ function AuthorizedApp() {
       {...app}
       connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay /> : null)}
       reconnectingOverlay={<ReconnectingOverlay />}
-      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} isStartupFailed={app.isStartupFailed} />}
+      offlineOverlay={<OfflineOverlay isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} isStartupFailed={app.isStartupFailed} />}
       accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} />}
     />
   );
@@ -60,18 +60,17 @@ function ReconnectingOverlay() {
   );
 }
 
-function OfflineOverlay({ error, isServerFull, isSessionExpired, isStartupFailed }: { error: string | null; isServerFull: boolean; isSessionExpired: boolean; isStartupFailed: boolean }) {
+function OfflineOverlay({ isServerFull, isSessionExpired, isStartupFailed }: { isServerFull: boolean; isSessionExpired: boolean; isStartupFailed: boolean }) {
   const { t } = useI18n();
 
-  const isTerminal = isServerFull || isSessionExpired || isStartupFailed;
   const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : isStartupFailed ? 'startupFailed' : 'offline';
+  const message = t(`connection.${scope}.message`);
   const recovery = getConnectionRecovery({ isSessionExpired });
   return (
     <div className="ikon-offline-overlay">
       <div className="ikon-offline-chip">
         <span className="ikon-offline-title">{t(`connection.${scope}.title`)}</span>
-        <span className="ikon-offline-message">{t(`connection.${scope}.message`)}</span>
-        {!isTerminal && error && <span className="ikon-offline-error">{error}</span>}
+        {message && <span className="ikon-offline-message">{message}</span>}
         <button type="button" className="ikon-offline-action" onClick={recovery.run}>
           <span className="ikon-offline-action-label">{t(`connection.${scope}.action`)}</span>
         </button>
@@ -83,11 +82,12 @@ function OfflineOverlay({ error, isServerFull, isSessionExpired, isStartupFailed
 function AccessDeniedScreen({ reason }: { reason: string }) {
   const { t } = useI18n();
   const auth = useAuthOptional();
+  const message = t('connection.accessDenied.message');
   return (
     <main className="ikon-surface ikon-auth-screen">
       <section className="ikon-auth-container">
         <h1 className="ikon-auth-title">{t('connection.accessDenied.title')}</h1>
-        <p className="ikon-auth-subtitle">{t('connection.accessDenied.message')}</p>
+        {message && <p className="ikon-auth-subtitle">{message}</p>}
         <div className="ikon-auth-error">{reason}</div>
         {auth && (
           <button type="button" className="ikon-auth-email-button" onClick={auth.logout}>
