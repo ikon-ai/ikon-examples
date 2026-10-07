@@ -155,8 +155,8 @@ public partial class Tori
             {
                 await foreach (var (participantId, frame) in groupAudioMixer.StreamAsync())
                 {
-                    await Audio.SendFrameAsync(MediaTargets.To([participantId]), frame.Samples, frame.SampleRate, frame.ChannelCount,
-                        frame.IsFirst, frame.IsLast, frame.StreamId);
+                    await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate, frame.ChannelCount,
+                        frame.IsFirst, frame.IsLast);
                 }
 
                 return;
