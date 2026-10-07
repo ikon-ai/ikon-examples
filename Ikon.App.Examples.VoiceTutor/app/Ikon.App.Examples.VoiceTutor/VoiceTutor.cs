@@ -321,6 +321,8 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
             _isSpeaking.Value = true;
         }
 
+        LiveAudioPlayback? live = null;
+
         try
         {
             var config = new SpeechGeneratorConfig
@@ -337,7 +339,12 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
                     break;
                 }
 
-                Audio.SpeakChunk(MediaTargets.Everyone, audio);
+                live ??= Audio.PlayLive(MediaTargets.Everyone, audio.SampleRate, audio.ChannelCount, new PlayOptions { Slot = "speech" }, maxBufferAhead: TimeSpan.FromSeconds(30));
+
+                if (!await live.WriteAsync(audio.Samples, cancellationToken))
+                {
+                    break;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -349,6 +356,8 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
         }
         finally
         {
+            live?.Complete();
+
             lock (_speechLock)
             {
                 _isSpeaking.Value = false;
@@ -358,7 +367,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 
     private void InterruptSpeaking()
     {
-        Audio.StopSpeech(MediaTargets.Everyone);
+        Audio.Stop(MediaTargets.Everyone, "speech");
         StopSpeaking();
     }
 
