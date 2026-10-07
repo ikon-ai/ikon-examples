@@ -1,4 +1,4 @@
-<!-- checked-against: 1bd10bd9aa021ba5d9ef9bb7 -->
+<!-- checked-against: 0050af4d455e83b215d2a512 -->
 
 # Ikon AI C# SDK
 
@@ -132,6 +132,8 @@ var config = new IkonClientConfig
     }
 };
 ```
+
+A local connection is a machine user by default. A client acting for a signed-in person sets `UserType = UserType.Human` and `AuthSessionId` to the `authSession` claim of that person's backend token, as the browser SDK's local connect does, and `ClientType` to the kind of client it is.
 
 ### Backend Authentication
 

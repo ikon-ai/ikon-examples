@@ -1,4 +1,4 @@
-<!-- checked-against: a8d8f6c70c4bd89afd91579d -->
+<!-- checked-against: aea802fecd3eb64eea266d54 -->
 
 # Google Connector Guide
 
@@ -15,7 +15,7 @@ var drive = new Drive(tokens);
 var gmail = new Gmail(tokens);
 ```
 
-Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is an access failure. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request, except that a calendar id or sharing rule id may hold `#` and `%`.
+Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit or quota with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is an access failure. A daily quota (`dailyLimitExceeded`, Drive's `sharingRateLimitExceeded`) or a `Retry-After` longer than two minutes surfaces as `429` at once, since retrying within seconds cannot succeed. A `503` or `504` is retried only on a read (a batched or `POST` query included), an upload chunk or a create that carries a `requestId`, because Google may have carried out any other write before answering one. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request, except that a calendar id may hold `#` and `%`.
 
 ### Signing in
 
@@ -44,7 +44,7 @@ if (!(await tokens.GetGrantedScopesAsync()).Contains("https://www.googleapis.com
 
 `GetFileAsync` reads one file's `DriveFile`: `Id`, `Name`, `MimeType`, and where Drive names them `Size`, `ModifiedTime`, `CreatedTime`, `Parents`, `DriveId`, `Md5Checksum`, `OwnerEmails` and a `WebViewLink` for opening it in Drive; `IsFolder` and `IsGoogleNative` say what kind of file it is.
 
-`UploadAsync(folderId, name, mimeType, content, size)` creates a new file — Drive allows duplicate names, so a name already in the folder gets a second file beside it. Up to 5 MB goes in one request and anything larger through a resumable session. `DownloadAsync` streams a file's content; dispose the stream to release the connection. `DownloadBytesAsync(fileId, maxBytes)` reads it whole and refuses rather than truncates a file larger than `maxBytes`.
+`UploadAsync(folderId, name, mimeType, content, size)` creates a new file — Drive allows duplicate names, so a name already in the folder gets a second file beside it. Up to 5 MB goes in one request and anything larger through a resumable session, which a failed or cancelled upload cancels. `DownloadAsync` streams a file's content; dispose the stream to release the connection. `DownloadBytesAsync(fileId, maxBytes)` reads it whole and refuses rather than truncates a file larger than `maxBytes`.
 
 <!-- ikon-example: connectors-drive-transfer -->
 ```csharp
@@ -124,11 +124,11 @@ var budgets = await drive.SearchAsync(DriveQuery.And(
     DriveQuery.NotTrashed));
 ```
 
-Both read every page up to `maxPages` and throw `ConnectorPageCapException<DriveFile>` with the files read past it, never a shortened list. For one page at a time, `ListChildrenPageAsync` and `SearchPageAsync` take a `limit` (1 to 1000) and a `cursor`, and return a `DriveFilePage` whose `NextCursor` reads the next page.
+Both read every page up to `maxPages` and throw `ConnectorPageCapException<DriveFile>` with the files read past it, never a shortened list; `ListChildrenAsync`'s carries a `ResumeFrom` that `ListChildrenPageAsync` takes as its `cursor`. For one page at a time, `ListChildrenPageAsync` and `SearchPageAsync` take a `limit` (1 to 1000) and a `cursor`, and return a `DriveFilePage` whose `NextCursor` reads the next page.
 
 ### Reading only what changed in Drive
 
-`DeltaAsync` returns every file on the first call and only the changes on later ones, in a `DriveFileDelta` keyed by the `DeltaToken` it hands back — store it. `fromNow: true` skips the first full read and only marks now. Each changed file appears once, in its latest state, wherever it is, so filter on `Parents` to follow one folder; a file moved to the bin has `Trashed` set, and one deleted for good or no longer shared with the credential has `Deleted` set. A shared drive's changes are a feed of their own: pass the drive's id — `GetSharedDriveIdAsync` names a folder's — as `sharedDriveId` with every call of that feed. Past `maxPages` it throws `ConnectorPageCapException<DriveFile>` whose `ResumeFrom` is passed back as the token to continue.
+`DeltaAsync` returns every file on the first call and only the changes on later ones, in a `DriveFileDelta` keyed by the `DeltaToken` it hands back — store it. `fromNow: true` skips the first full read and only marks now. Each changed file appears once, in its latest state, wherever it is, so filter on `Parents` to follow one folder; a file moved to the bin has `Trashed` set, and one deleted for good or no longer shared with the credential has `Deleted` set. A shared drive's changes are a feed of their own: pass the drive's id — `GetSharedDriveIdAsync` names a folder's — as `sharedDriveId` with every call of that feed. A token Drive no longer honours throws with `IsResyncRequired` set: start again without one. Past `maxPages` it throws `ConnectorPageCapException<DriveFile>` whose `ResumeFrom` is passed back as the token to continue.
 
 <!-- ikon-example: connectors-drive-delta -->
 ```csharp
@@ -151,7 +151,7 @@ storedToken = delta.DeltaToken;   // store it for the next call
 
 ### Being told when Drive changes
 
-Polling `DeltaAsync` works, but Google can also post to your app when something changes. `GoogleWatches.CreateAsync` opens a `GoogleChannel` on a `WatchTarget` — a drive's changes feed (`WatchTarget.DriveChanges`, from a delta token) or one file (`WatchTarget.DriveFile`) — that posts to your app's public https endpoint, an `[HttpPost]` with `Auth = EndpointAuth.Public` (see the endpoints guide). Give it a secret token: `GoogleNotifications.ParseChannel` reads a `GoogleChannelNotification` from the request's headers and returns null for one that does not carry the token. A notification only says that something changed; read what with `DeltaAsync`. Google cannot extend a channel — a file's lives at most a day and a changes feed's a week — so `RenewAsync` opens a new channel before stopping the old, and `StopAsync` stops one.
+Polling `DeltaAsync` works, but Google can also post to your app when something changes. `GoogleWatches.CreateAsync` opens a `GoogleChannel` on a `WatchTarget` — a drive's changes feed (`WatchTarget.DriveChanges`, from a delta token) or one file (`WatchTarget.DriveFile`) — that posts to your app's public https endpoint, an `[HttpPost]` with `Auth = EndpointAuth.Public` (see the endpoints guide). Give it a secret token: `GoogleNotifications.ParseChannel` reads a `GoogleChannelNotification` from the request's headers and returns null for one that does not carry the token. A notification only says that something changed; read what with `DeltaAsync`. Google cannot extend a channel — a file's lives at most a day and a changes feed's a week — so `RenewAsync` opens a new channel before stopping the old, and `StopAsync` stops one. Once the new channel is open `RenewAsync` returns it even if the old one cannot be stopped; the old one then posts until it expires.
 
 <!-- ikon-example: connectors-drive-watch -->
 ```csharp
@@ -167,9 +167,9 @@ if (GoogleNotifications.ParseChannel(headers, channelToken) is { ResourceState: 
 
 ### Gmail
 
-`ListMessagesAsync(query)` returns every message matching a Gmail search — the syntax of Gmail's search box, `is:unread` or `from:ada@example.com after:2026/01/01` — newest first, as `GmailMessageSummary` records with `From`, `Subject`, `Snippet`, `ReceivedAt` and `LabelIds`. It fetches the summaries 50 to a batch, and any message that cannot be read fails the whole call rather than leaving a hole. `ListMessagesPageAsync(query, limit, cursor)` reads one page into a `GmailMessagePage`. `GetMessageAsync` reads a whole message into a `GmailMessage`: `To`, `Cc`, `Date`, `Text` (the `text/plain` part) and `Html` (the `text/html` part as sent, not converted), its `Attachments` as `GmailAttachment` records with their name, type and size, and the `RfcMessageId` a reply names. It reads the bodies but not the attachments' bytes: `DownloadAttachmentAsync(messageId, attachmentId)` fetches one, and `GetRawMessageAsync` streams the whole MIME source. `GetProfileAsync` returns a `GmailProfile`: the address the credential reads and the mailbox's totals.
+`ListMessagesAsync(query)` returns every message matching a Gmail search — the syntax of Gmail's search box, `is:unread` or `from:ada@example.com after:2026/01/01` — newest first, as `GmailMessageSummary` records with `From`, `Subject`, `Snippet`, `ReceivedAt` and `LabelIds`. It fetches the summaries 50 to a batch, and any message that cannot be read fails the whole call rather than leaving a hole. `ListMessagesPageAsync(query, limit, cursor)` reads one page into a `GmailMessagePage`. `GetMessageAsync` reads a whole message into a `GmailMessage`: `To`, `Cc`, `Date`, `Text` (the `text/plain` part) and `Html` (the `text/html` part as sent, not converted), its `Attachments` as `GmailAttachment` records with their name, type and size, and the `RfcMessageId` a reply names. It reads the bodies but not the attachments' bytes: `DownloadAttachmentAsync(messageId, attachmentId)` fetches one, `DownloadAttachmentAsync(messageId, attachmentId, maxBytes)` refuses rather than truncates one larger than `maxBytes`, and `GetRawMessageAsync` streams the whole MIME source. `GetProfileAsync` returns a `GmailProfile`: the address the credential reads and the mailbox's totals.
 
-<!-- ikon-example: connectors-gmail -->
+<!-- ikon-example: connectors-gmail-read -->
 ```csharp
 var unread = await gmail.ListMessagesPageAsync("is:unread", limit: 10);
 
@@ -202,7 +202,7 @@ await gmail.SendAsync(new NewGmailMessage("Q3 report")
 await gmail.ReplyAsync(messageId, new NewGmailMessage("") { Text = "Thanks, received." });
 ```
 
-A draft waits for a person to send it: `CreateDraftAsync` saves a `NewGmailMessage` — as a reply in a thread with `replyToMessageId` — and returns a `GmailDraft`; `UpdateDraftAsync`, `GetDraftAsync`, `ListDraftsAsync`, `SendDraftAsync` and `DeleteDraftAsync` do the rest. Drafts need the restricted `gmail.compose` scope.
+A draft waits for a person to send it: `CreateDraftAsync` saves a `NewGmailMessage` — as a reply in a thread with `replyToMessageId` — and returns a `GmailDraft`; `UpdateDraftAsync` replaces its content, a reply draft keeping its thread and threading headers, and `GetDraftAsync`, `ListDraftsAsync`, `SendDraftAsync` and `DeleteDraftAsync` do the rest. Drafts need the restricted `gmail.compose` scope.
 
 ### Organising mail
 
@@ -395,7 +395,7 @@ foreach (var person in matches)
 
 Google Tasks has no change feed of its own. `TasksDeltaAsync` instead asks for what was updated since its token's moment, deleted tasks included, and returns a `GoogleTaskDelta`, so a task can come back once more than it changed.
 
-<!-- ikon-example: connectors-tasks -->
+<!-- ikon-example: connectors-tasks-subtasks -->
 ```csharp
 var parent = await tasks.CreateTaskAsync("@default", new NewGoogleTask("Prepare the launch") { Due = new DateOnly(2026, 11, 2) });
 await tasks.CreateTaskAsync("@default", new NewGoogleTask("Book the venue") { ParentId = parent.Id });
@@ -416,7 +416,7 @@ These three name things by Google's resource names — `spaces/jQCFfuBOdN5z`, `c
 
 What a meeting leaves behind is read from its `MeetConference`: `ListParticipantsAsync` returns `MeetParticipant`s, each with a `MeetParticipantKind` (signed in, anonymous or by phone), and `ListParticipantSessionsAsync` takes one's `Name` and returns its `MeetParticipantSession`s. `ListRecordingsAsync`, `ListTranscriptsAsync` and `ListSmartNotesAsync` return `MeetArtifact`s naming the Drive file or Google Doc each was written to. `ListTranscriptEntriesAsync` reads a transcript as `MeetTranscriptEntry` lines with speaker and time. Google keeps conferences and transcript entries for 30 days.
 
-<!-- ikon-example: connectors-meet -->
+<!-- ikon-example: connectors-meet-transcript -->
 ```csharp
 var space = await meet.CreateSpaceAsync(new MeetSpaceSettings { Access = MeetAccess.Trusted, AutoTranscription = true });
 Log.Instance.Info($"Join at {space.MeetingUri}");
@@ -442,7 +442,7 @@ foreach (var transcript in await meet.ListTranscriptsAsync(conference.Name))
 
 Chat's text uses its own markup — `*bold*`, `_italic_`, `~strike~`, `` `code` `` — not Markdown.
 
-<!-- ikon-example: connectors-chat -->
+<!-- ikon-example: connectors-chat-reply -->
 ```csharp
 var recent = await chat.ListMessagesPageAsync(spaceName, limit: 20);
 
@@ -457,7 +457,7 @@ if (recent.Items.FirstOrDefault(m => m.Text.Contains("deploy?", StringComparison
 
 `ListResponsesAsync` and `GetResponseAsync` read `GoogleFormResponse`s, each with its `GoogleFormAnswer`s keyed by the item's `QuestionId`. `CreateWatchAsync` has Google publish to a Pub/Sub topic when a response arrives or the form changes. A `GoogleFormWatch` lasts seven days and is extended with `RenewWatchAsync`. `GoogleNotifications.ParseForm` reads what it publishes as a `GoogleFormNotification` with its `GoogleFormWatchEvent`.
 
-<!-- ikon-example: connectors-forms -->
+<!-- ikon-example: connectors-forms-feedback -->
 ```csharp
 var form = await forms.CreateAsync("Workshop feedback");
 var rating = await forms.AddQuestionAsync(form.FormId, new NewGoogleFormQuestion("How was it?", GoogleFormQuestionKind.Scale) { ScaleHigh = 5, Required = true });
@@ -548,7 +548,7 @@ Ask for the narrowest scope that does the job, and ask for more only when the pe
 
 ### Rate limits
 
-Google meters each API per minute, per project and per user, in units that differ by call: a Gmail message read costs more than a list, a Drive download more than a metadata read. Cloud projects created since May 2026 get tiered daily quotas on Gmail, Drive and Calendar. A `429` that outlasts the three retries is a quota signal: slow the caller rather than retry at once. Gmail's own advice keeps a batch to at most 50 calls, which the connector does. A refresh token issued to an OAuth client still in Google's "Testing" status expires after seven days.
+Google meters each API per minute, per project and per user, in units that differ by call: a Gmail message read costs more than a list, a Drive download more than a metadata read. Cloud projects created since May 2026 get tiered daily quotas on Gmail, Drive and Calendar. A `429` that outlasts the three retries, or a daily quota that skipped them, is a quota signal: slow the caller rather than retry at once. Gmail's own advice keeps a batch to at most 50 calls, which the connector does. A refresh token issued to an OAuth client still in Google's "Testing" status expires after seven days.
 
 ### What it does not reach
 

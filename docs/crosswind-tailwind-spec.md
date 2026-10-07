@@ -1,4 +1,4 @@
-<!-- checked-against: 158c4b92eaa8dafa7466fd2c -->
+<!-- checked-against: 03425468eaa8dafa7466fd2c -->
 
 # Crosswind Tailwind Spec
 
@@ -14,12 +14,14 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 > * `{n}` represents any (non‑negative) integer; v4 supports "any number" for many numeric families like `grid-cols-{n}`.
 > * Axes/edges: `x|y|t|r|b|l`, logical block/inline variants where applicable (e.g. scroll snap).
 > * Colors accept the normal palette or arbitrary values; transparency uses the `/alpha` suffix (e.g. `bg-red-500/20`). Families like `bg-opacity-*`, `text-opacity-*`, etc. were removed in v4.
+> * Class order inside one class string does not change the result, as in Tailwind. The plain utilities come first, then the variants: screen sizes from small to large (`max-*` from large to small), container sizes the same way, then `dark:` and `print:`. So `"md:hidden flex"` hides at `md` just like `"flex md:hidden"`. Where two classes in the same group set the same property, the later one wins (`"px-3 pl-5"` gives a left padding of 5).
 
 ---
 
 ## 1) Layout
 
 * **Container**: `container` (responsive width constraints + centered)
+* **Container queries**: `@container` makes the element a query container (`container-type: inline-size`) and `@container/<name>` also names it (`container-name: <name>`). Descendants then respond to its width with `@sm:`…`@7xl:`, `@max-<size>:`, `@[<width>]:` and `@<size>/<name>:`. The token can sit anywhere in the class string: `"@container flex flex-col gap-4"` and `"flex flex-col gap-4 @container"` are the same.
 * **Breaks**: `break-after-{auto|avoid|all|...}`, `break-before-{...}`, `break-inside-{auto|avoid|avoid-page|avoid-column}`
 * **Box decoration**: `box-decoration-{clone|slice}`
 * **Box sizing**: `box-{border|content}`

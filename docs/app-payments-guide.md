@@ -1,9 +1,9 @@
-<!-- checked-against: 40027ad670af6ad8cf42062e -->
+<!-- checked-against: 67674a671b1dcdd9131bd28b -->
 
 # Ikon.App.Payments Guide
 
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
-backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
+backend. The **Ikon backend** owns the payment store, drives the provider (Mollie or Stripe,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
 sends commands and reacts to events: there is no webhook to host and no payment state to persist.
 
@@ -13,29 +13,30 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 ## Enable a provider (once per app)
 
 ```bash
-ikon payments enable stripe      # Stripe is the generally-available provider
-ikon payments enable surfboard --corporate-id 0112038-9   # Surfboard also needs the business registration number
+ikon payments enable mollie      # Mollie, EU-based
+ikon payments enable stripe      # Stripe, US-based
 ikon payments status                        # check onboarding / charges-enabled
 ```
 
 `enable` provisions a connected merchant under Ikon's platform account and prints a hosted onboarding link
-(Stripe KYC, a Mollie OAuth grant, or a Surfboard KYB form). Open it to finish onboarding. Default mode is **ikon-connect**
+(a Mollie OAuth grant or Stripe KYC) and, in a terminal, opens it in the browser. A bare
+`ikon payments enable` asks which provider in a terminal and picks Stripe in a script. The merchant's owner is
+your account name unless `--owner-name` says otherwise. With `--format json` it prints `{ spaceId, provider, mode, status, merchantId, onboardingUrl, dashboardUrl }` and opens no browser, so a coding agent can hand the link to you and follow progress with `ikon payments status --format json`. Default mode is **ikon-connect**
 (zero-config, Ikon-managed); `--default` picks the active provider when an app has more than one enabled;
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag — payments is on once a provider
 is configured.
 
-Surfboard carries the merchant's business registration number on the KYB application itself, so `--corporate-id`
-is required for it; in a terminal the CLI asks for it when omitted, and a non-interactive run fails asking for
-the flag. Stripe and Mollie collect the equivalent during their own onboarding, so they take no such flag.
+Mollie's onboarding has two halves. Approving the connection makes Mollie email a confirmation link to the
+merchant contact email (your account email unless `--contact-email` names another; `enable` prints which);
+opening it creates the Mollie account, and the browser then continues straight to Mollie's onboarding for the
+business details, bank account and identity. Charges are enabled once Mollie has reviewed them —
+`ikon payments status` says whether details are still due (with the link), under review, or done.
 
 Onboarding links are **single-use and short-lived, and always use the newest one** — requesting a new link
 can invalidate older ones. If a link has gone stale (it bounces to an explanatory page instead of the
 provider's form), get a fresh one with `ikon payments status`, or just re-run
 `ikon payments enable` — while onboarding is unfinished it prints a fresh link instead of demanding
 `--yes`.
-
-> **Mollie and Surfboard are currently admin-only** (in preview) — regular apps enable **Stripe**. Your app
-> code is provider-neutral either way, so nothing changes when they become generally available.
 
 ## Wire it into your app
 
@@ -136,8 +137,7 @@ Statuses and kinds are typed enums (`PriceKind`,
 ## Offers
 
 An offer is an **Ikon-level catalog entry** (`offerId` → a price) that customers pay for by id. Create one
-from code or the CLI — no provider dashboard required — and it works the same across Stripe, Mollie, and
-Surfboard:
+from code or the CLI — no provider dashboard required — and it works the same across Mollie and Stripe:
 
 <!-- ikon-example: payments-create-offer -->
 ```csharp
@@ -155,7 +155,7 @@ ikon offer delete pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
-(Mollie, Surfboard) the platform stores the offer definition. Either way you reference the offer by its
+(Mollie) the platform stores the offer definition. Either way you reference the offer by its
 `offerId` (e.g. `[PaymentsRequireEntitlement("pro")]` — the `PaymentsRequireEntitlementAttribute`).
 
 Discover offers with `ListOffersAsync()` — each `PaymentOffer` carries `Prices` (a `PaymentPrice` per currency and interval; `PriceKind.Recurring` →
@@ -218,8 +218,8 @@ for a trialing subscription and for any Stripe change — Stripe invoices an upg
 expiry — so on a downgrade the higher plan remains usable until the period ends, and on an upgrade the old
 plan lingering alongside the new one is harmless.
 
-For Mollie/Surfboard the platform computes the proration, and rejects a Mollie/Surfboard upgrade whose stored period is stale
-(reconcile first). To own the pricing yourself (Mollie/Surfboard), pass
+For Mollie the platform computes the proration, and rejects a Mollie upgrade whose stored period is stale
+(reconcile first). To own the pricing yourself (Mollie), pass
 `immediateChargeMinor` to set the exact upgrade charge; it is rejected for Stripe, which prorates natively.
 
 ### Resubscribe (un-cancel)
@@ -249,8 +249,8 @@ The hosted checkout then shows an "Add promotion code" field. The codes themselv
 behind them) are created and managed in your provider dashboard, not through Ikon — for Stripe under
 **Product catalog → Coupons**, where each coupon can carry customer-facing promotion codes like `SALE20`.
 
-**Stripe only.** Mollie and Surfboard have no promotion-code concept on their hosted checkouts; they
-ignore the flag and the checkout proceeds at full price.
+**Stripe only.** Mollie has no promotion-code concept on its hosted checkout; it
+ignores the flag and the checkout proceeds at full price.
 
 ## Receiving events
 
@@ -277,11 +277,11 @@ a delivery is missed or the app is offline when an event is pushed:
    session and re-ingests it before forwarding the payer to your app. The common "user paid and came back
    but the webhook got lost" case heals itself with no code on your side.
 2. **Periodic sweep** — the backend re-pulls Stripe subscriptions whose stored period end has passed
-   without a renewal or cancellation event landing, and non-terminal Mollie payments and Surfboard orders.
+   without a renewal or cancellation event landing, and non-terminal Mollie payments.
 3. **`app.Payments.ReconcileAsync(customerKey?, reference?)`** — on-demand re-pull for anything else. Pass
    a `PaymentLink.Reference` (checkout session) or a subscription id to pull one object, a `customerKey`
-   for that customer's recent objects, or nothing (outside a client scope) for the app's recent window. That is Stripe; Mollie and Surfboard ignore
-   `customerKey` and re-pull the app's non-terminal payments, and Mollie accepts only a `tr_…` payment id as `reference`.
+   for that customer's recent objects, or nothing (outside a client scope) for the app's recent window. That is Stripe; Mollie ignores
+   `customerKey` and re-pulls the app's non-terminal payments, and Mollie accepts only a `tr_…` payment id as `reference`.
    It is eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary
    `PaymentEventReceived` pushes and entitlement refreshes within seconds — the return value only reports
    how many objects were queued.
@@ -309,7 +309,7 @@ retries. `GetEntitlementAsync(offerId).Source` tells you whether the access came
 `OneTime` purchase.
 
 Subscription access is period-bound: each renewal refreshes `ExpiresAt` (the period end, plus a grace
-window on Stripe and Mollie; Surfboard uses the bare period end), and an entitlement past its `ExpiresAt` counts as inactive even if the final cancellation webhook
+window), and an entitlement past its `ExpiresAt` counts as inactive even if the final cancellation webhook
 never arrived. A **one-time purchase never expires** — it's a permanent unlock for that offer, with no
 `ExpiresAt`. Note that refunding a one-time payment does not revoke the entitlement it granted.
 
@@ -361,28 +361,23 @@ else if (receipt.Pdf is { Length: > 0 } pdf)
 }
 ```
 
-`PaymentReceipt.Url` is a provider-hosted receipt page (Stripe and Surfboard both return one); `Pdf` carries
+`PaymentReceipt.Url` is a provider-hosted receipt page (Stripe returns one); `Pdf` carries
 downloadable PDF bytes only when the provider exposes one (no provider does today, so `Pdf` is always
 `null` and the example's `Pdf` branch is for the future). Return shape is uniform across providers; a provider with no customer-facing receipt at all
 (Mollie) returns both fields `null` rather than failing — check for that before showing a receipt button.
 
 ## Providers
 
-| | Stripe | Mollie | Surfboard |
-|---|---|---|---|
-| Reach | Global | EU-centric | Nordics (SE/DK/FI/NO) |
-| Onboarding | hosted KYC (v2 Connect accounts) | hosted Client Links + OAuth | hosted KYB (partner merchants) |
-| Subscriptions | native | native | backend-orchestrated (see below) |
-| Promotion codes | native checkout field | — | — |
+| | Mollie | Stripe |
+|---|---|---|
+| Based in | EU | US |
+| Reach | EU-centric | Global |
+| Onboarding | hosted Client Links + OAuth | hosted KYC (v2 Connect accounts) |
+| Subscriptions | native | native |
+| Promotion codes | — | native checkout field |
 
-The app code and the methods above are identical for all three. MobilePay/Vipps, iDEAL, Bancontact, etc.
+The app code and the methods above are identical for both. MobilePay/Vipps, iDEAL, Bancontact, etc.
 are available as ordinary payment methods inside whichever provider you enable — no extra integration.
-
-Surfboard is a Nordic acquirer; enable it only for apps whose merchants are in SE/DK/FI/NO. It has no
-native subscription objects (it uses token-based merchant-initiated charges), so the **backend** owns the
-recurring schedule for Surfboard and bills each cycle itself. This is invisible to your app: you still
-create a recurring offer link and react to `SubscriptionRenewed` / `SubscriptionCanceled` exactly as with
-Stripe or Mollie.
 
 ## Modes
 
@@ -396,7 +391,7 @@ Stripe or Mollie.
 On the **ikon-connect** path Ikon takes a percentage cut of each payment (default **10%**), set per app
 by Ikon staff. byok takes no fee (the funds are in your own account). You do not set or see the fee from
 app code — the backend applies it via the provider's native split primitive (Stripe application fees,
-Mollie application fee, Surfboard Flow service-provider split), so the cut settles to Ikon automatically.
+Mollie application fee), so the cut settles to Ikon automatically.
 
 ## Removing a provider
 

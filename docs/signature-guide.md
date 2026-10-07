@@ -1,4 +1,4 @@
-<!-- checked-against: 65fe2036c49689f62ae0074e -->
+<!-- checked-against: 86cd8d69ea59e6472ae0074e -->
 
 # Ikon Signature Guide
 
@@ -200,7 +200,7 @@ Each signing provider calls its own platform-side webhook route when an order tr
 
 ## Failure handling
 
-The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign it, which includes a MIME type outside the supported ones, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
+The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, an `IdentitySchemes` or `RequestedAttributes` entry outside the platform's vocabulary, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign it, which includes a MIME type outside the supported ones, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
 
 <!-- ikon-example: signature-failures -->
 ```csharp

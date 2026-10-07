@@ -1,4 +1,4 @@
-<!-- checked-against: 02ebfd6d2864f17fe3b0c442 -->
+<!-- checked-against: 02ebfd6d9d0cbed8e3b0c442 -->
 
 # Ikon Dev Channel Guide
 
