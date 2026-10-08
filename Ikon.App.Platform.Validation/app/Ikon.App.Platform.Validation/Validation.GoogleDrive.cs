@@ -81,7 +81,7 @@ public partial class Validation
 
                 foreach (var (key, description) in missing)
                 {
-                    view.Text([Text.Caption, "font-mono"], $"ikon secret set {key} --description \"{description}\"", key: key);
+                    view.Text([Text.Caption, "font-mono"], $"ikon app secret set {key} --description \"{description}\"", key: key);
                 }
 
                 return;
