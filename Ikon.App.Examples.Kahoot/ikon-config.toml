@@ -1,6 +1,6 @@
 # Schema version. The ikon tool upgrades older files and saves at its current version; a file newer
 # than the tool refuses to load (update the tool).
-ConfigVersion = 6
+ConfigVersion = 7
 
 # The space database that backs PersistentReactive state. Empty: the platform picks the built-in
 # "app" database, or the space's only platform-managed one, and records the choice so it stays put.
@@ -30,16 +30,12 @@ DomainAllowlist = []
 RequireSignIn = false
 
 # The platform's feedback sheet: report a problem or an idea by text, voice, files and screenshot.
-# Reports go to the app's space ('ikon issue list --source person', Studio). Open it from the app's
-# own controls with ClientFunctions.OpenFeedbackAsync.
+# Reports go to the app's space ('ikon issue list --source person', Studio). Who is offered it is the
+# space's setting, changed live in Studio (Settings > Sharing) or with 'ikon feedback set'. The platform
+# draws its own button; ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
 [Feedback]
-# Whether feedback is offered at all
-Enabled = false
-# "testers" (signed-in users with the tester profile role), "signed-in", or "everyone" (guests too,
-# never the shared "global" visitor). The space's own members are always offered it.
-Audience = "testers"
-# "overlay": a floating feedback button, shown by default to testers and hidden for the other
-# audiences; each person can toggle it from the sheet. "none": no button; the app's controls open it.
+# "overlay": a floating feedback button the platform draws for everyone offered feedback, so the
+# app needs no control of its own; each person can hide it from the sheet. "none": no button.
 Button = "overlay"
 
 # Usage measurement. An event names the feature and the control, never what anyone typed, picked or sent.
