@@ -2,39 +2,37 @@
 
 *Published 2026-03-19*
 
-Close your browser. Walk away. Come back tomorrow morning. Your AI research assistant has been working through the night -- analyzing documents, monitoring sources, building a digest of what happened while you were gone. When you open the app, the results are waiting. The conversation remembers where you left off. The analysis is further along than when you left.
+Close your browser and come back tomorrow morning. Your AI research assistant has worked through the night, analyzing documents, monitoring sources and building a digest of what happened while you were away. When you open the app, the results are there, the conversation continues from where you left off, and the analysis has moved on since you left. An Ikon app keeps running after you close the browser.
 
-This is what it feels like when applications persist.
-
-## What this unlocks
+## What you can build
 
 **AI agents that work while you sleep.** A research assistant that monitors sources and builds a daily briefing runs as a background task within the application itself. It has direct access to the app's state. When it finds something, the results appear the next time any user opens the app.
 
-**Apps that accumulate intelligence over time.** Context stays warm in memory. Each interaction builds on everything before it. This is the difference between an AI that genuinely remembers your project and one that reconstructs context from saved notes every time you return.
+**Apps that keep their context over time.** The app keeps its context in memory, so each interaction builds on all the ones before it. The AI remembers your project instead of rebuilding its context from saved notes every time you return.
 
-**Development iteration without losing your place.** During development, changing your code does not restart the world. All state is preserved across code changes. You are in the middle of a complex AI workflow, you tweak the interface, you save, and everything continues from exactly where it was.
+**Code changes that keep your place.** During development, changing your code does not restart the app, and all state is kept across code changes. If you are in the middle of a long AI workflow and change the interface, the workflow continues from where it was when you save.
 
-**Long-running AI workflows that just work.** A document analysis that takes 30 minutes, a research task that runs for hours, a data pipeline that runs overnight -- these are natural patterns, not infrastructure projects. No job queues, no worker processes, no orchestration. Just a task that runs until it is done.
+**Long-running AI workflows without extra infrastructure.** A document analysis that takes 30 minutes, a research task that runs for hours or a data pipeline that runs overnight is a task in the app that runs until it is done. You don't set up job queues, worker processes or orchestration for it.
 
-**Apps that feel alive.** When background processing, live state, and persistence combine, applications stop feeling like tools you query and start feeling like entities that exist. An AI character that monitors the news and has opinions about what happened while you were away. A collaborative workspace where the AI has been organizing and connecting ideas since the last time anyone checked in.
+**Apps that keep working when nobody is using them.** With background processing, live state and persistence together, an app can do work between your visits instead of only answering requests. For example, an AI character can follow the news and have opinions about what happened while you were away, or an AI in a shared workspace can organize and connect ideas between visits.
 
 ## Why most apps cannot do this
 
-In a typical web architecture, the server is stateless by design. A request arrives, the server processes it, sends a response, and forgets everything. State lives in databases, caches, and session stores. The server itself is ephemeral, designed to be killed and replaced at any moment.
+In a typical web architecture, the server is stateless by design. A request arrives, the server processes it, sends a response, and forgets everything. State is kept in databases, caches, and session stores. The server itself is short-lived, designed to be killed and replaced at any moment.
 
-This model works well for traditional applications. It works poorly for AI applications.
+This model works well for traditional applications but poorly for AI applications.
 
-AI workflows are inherently stateful. A conversation has context that spans turns. An analysis pipeline has intermediate results. A multi-agent orchestration has tasks in various stages of completion. Treating all of this as "serialize it to a database and reconstruct it per request" adds latency, complexity, and failure modes that have nothing to do with the actual problem you are trying to solve.
+AI workflows carry state. A conversation has context that spans turns. An analysis pipeline has intermediate results. A multi-agent orchestration has tasks in various stages of completion. Saving all of this to a database and rebuilding it on every request adds latency, complexity and new ways to fail, and none of that helps with the problem you are trying to solve.
 
 ## How Ikon applications work differently
 
-An Ikon application is a long-lived stateful process. It starts, it runs, and it persists -- even when no one is watching.
+An Ikon application is a long-lived process that holds its state. It keeps running when no users are connected.
 
-**State lives in the application.** The app holds its state in memory -- conversations, analysis results, queued tasks, accumulated context. When a user disconnects and reconnects later, the application is still running. Everything is exactly where they left it. No database round-trip, no state reconstruction, no cold start.
+**State is kept in the application.** The app holds its state in memory: conversations, analysis results, queued tasks and accumulated context. When a user disconnects and reconnects later, the application is still running and everything is where they left it. The app does not need to load state from a database, rebuild it, or start up cold.
 
-**Background work is a first-class concept.** In traditional architectures, running something in the background requires a job queue, a message broker, worker processes, and orchestration to tie them together. In Ikon, background work is simply a task that runs within the application process. It has direct access to the app's live state. When it updates something, every connected user sees the change immediately. If no users are connected, the task keeps running anyway.
+**Background work is built in.** In traditional architectures, running something in the background requires a job queue, a message broker, worker processes, and orchestration to tie them together. In Ikon, background work is a task that runs within the application process. It has direct access to the app's live state. When it updates something, every connected user sees the change immediately. If no users are connected, the task keeps running anyway.
 
-Here is what a background AI task looks like — it gathers sources, analyzes each one, and updates the interface in real time as results come in:
+This background AI task gathers sources, analyzes each one, and updates the interface as each result comes in:
 
 ```csharp
 app.BackgroundWork.Start("deep-analysis", async ct =>
@@ -55,32 +53,32 @@ app.BackgroundWork.Start("deep-analysis", async ct =>
 });
 ```
 
-If no one is watching, the task keeps running. When someone reconnects, they see wherever the analysis has gotten to.
+When someone reconnects, they see how far the analysis has got.
 
-**Scheduled and recurring work runs inside the app.** For structured background processing -- daily digests, periodic data pulls, recurring analysis -- the platform provides a pipeline system with scheduling, data transformation, parallel processing, and error handling. All of it runs within the persistent application process, not in a separate service.
+**Scheduled and recurring work runs inside the app.** For structured background processing such as daily digests, periodic data pulls and recurring analysis, the platform provides a pipeline system with scheduling, data transformation, parallel processing, and error handling. All of it runs within the persistent application process, not in a separate service.
 
 ## State survives hot reloads
 
-This matters most during development. In most frameworks, changing your code means restarting the server and losing all state. You are in the middle of testing a multi-turn AI conversation, you notice a UI issue, you fix it, and now you have to recreate the entire conversation from scratch.
+Keeping state across code changes helps most during development. In most frameworks, changing your code means restarting the server and losing all state. You are in the middle of testing a multi-turn AI conversation, you notice a UI issue, you fix it, and now you have to recreate the entire conversation from scratch.
 
-Ikon supports hot reload that preserves state. When you modify your code, the platform captures the current state, compiles the new code, reinstantiates the application, restores all state, and resumes. Your in-progress AI conversation continues. Your background tasks pick up where they left off. Nothing is lost.
+Ikon's hot reload keeps state. When you change your code, the platform saves the current state, compiles the new code, creates a new instance of the application, restores all state, and resumes. An AI conversation in progress continues, and background tasks continue from where they were.
 
-This is not just a convenience -- it fundamentally changes how you develop AI applications. You can iterate on behavior and presentation while a complex workflow is running, without ever having to restart it.
+This changes how you develop AI applications, because you can change behavior and presentation while a long workflow is running, without restarting the workflow.
 
 ## What persistence makes possible
 
-**Long-running AI workflows.** An AI research agent that takes 30 minutes to analyze a corpus of documents runs as a continuous process, updating the interface as it goes. Close your browser, come back, and see the results.
+**Long-running AI workflows.** An AI research agent that takes 30 minutes to analyze a corpus of documents runs as one continuous process and updates the interface as it goes. You can close your browser, come back later, and see the results.
 
-**Conversational context that stays warm.** A multi-turn conversation with accumulated context lives directly in the application. No "serialize the conversation to a database, deserialize it on the next request" cycle. The context is just there, in memory, ready for the next turn.
+**Conversation context stays in memory.** A multi-turn conversation and its context are kept in the application's memory. The app does not save the conversation to a database and load it back on the next request, because the context is already in memory for the next turn.
 
-**Collaborative state without infrastructure.** Multiple users connect to the same running application. They see each other's contributions and watch AI processes unfold in real time. No pub/sub configuration, no real-time sync layer -- shared state is the default.
+**Collaborative state without extra infrastructure.** Multiple users connect to the same running application. They see each other's contributions and watch the AI work in real time. You don't configure pub/sub or build a real-time sync layer, because state is shared by default.
 
-**Warm AI contexts that compound.** Because context accumulates in memory over time, the application gets more useful the longer it runs. The AI builds richer models of what it is working on, maintains deeper history, and surfaces more relevant connections. Each interaction builds on everything that came before.
+**Context that grows over time.** Because context builds up in memory, the application gets more useful the longer it runs. The AI knows more about what it is working on, keeps a longer history, and can find more relevant connections.
 
 ## The infrastructure behind it
 
-The "app runs forever" model requires solid infrastructure to support it. Each application runs in its own isolated container. The platform manages the lifecycle -- starting apps on demand, monitoring health, handling graceful shutdown when needed. For state that must survive beyond the application process (not just across hot reloads), the platform provides persistent storage for files, structured data, and database connections. The choice of what to persist long-term is explicit and intentional, not forced by architectural limitations.
+Keeping applications running needs infrastructure underneath. Each application runs in its own isolated container. The platform manages the lifecycle: it starts apps on demand, monitors their health, and shuts them down gracefully when needed. For state that must outlive the application process, and not only survive hot reloads, the platform provides persistent storage for files, structured data, and database connections. You decide what to store long-term, and the architecture does not force you to store everything.
 
 ## A different kind of application
 
-The shift from stateless request handlers to persistent stateful processes changes what applications can be. They stop being tools that respond when poked and start being environments that evolve over time. An Ikon application does not just answer your questions -- it keeps working on the problem after you close the tab.
+Moving from stateless request handlers to long-lived processes that hold state changes what applications can do. An app no longer only responds to requests. An Ikon application can keep working on a problem after you close the tab.

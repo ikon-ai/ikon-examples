@@ -1,4 +1,4 @@
-<!-- checked-against: e254210e7f01eaace3b0c442 -->
+<!-- checked-against: 3d40641e0aaca08fe3b0c442 -->
 
 # Ikon AI TypeScript SDK
 
@@ -17,10 +17,10 @@ The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser
 
 ## Installation
 
-Install the npm package:
+Install the npm package with its Opus codec:
 
 ```bash
-npm install @ikonai/sdk
+npm install @ikonai/sdk @ikonai/sdk-libopus
 ```
 
 For UI state management (optional):
@@ -696,7 +696,7 @@ if (isDebugModeEnabled()) {
 
 ### Feedback
 
-When the app offers feedback (`[Feedback]` in `ikon-config.toml`), `IkonApp` draws the platform's feedback button and sheet. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
+When the app offers feedback (a platform setting, changed in Studio or with `ikon feedback set`), `IkonApp` draws the platform's feedback button and sheet. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
 
 <!-- ikon-example: ts-sdk-feedback -->
 ```tsx

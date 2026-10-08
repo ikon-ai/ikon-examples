@@ -1,4 +1,4 @@
-<!-- checked-against: 4f5689825d753426e3b0c442 -->
+<!-- checked-against: d952506f5d753426e3b0c442 -->
 
 # Connecting your computer to an Ikon app
 
@@ -29,7 +29,10 @@ it would without the computer. While the app is closed, Ikon Connect looks for i
 intervals that grow the longer the app goes unused from this computer: every few minutes in the
 first hour, a few times an hour that day, hourly for the rest of the week. After a week unused it
 stops looking, and the connection shows `Stopped after a week unused` in `ikon connect list`. `ikon connect resume`, or
-turning Ikon Connect on in Ikon Desktop, starts it looking again.
+turning Ikon Connect on in Ikon Desktop, starts it looking again. Just opened an app and want the computer there
+now? `ikon connect resume <app>` — `ikon connect resume studio` for Studio — makes that connection look at once, and
+every ten seconds for the next two minutes while the app starts; without an app it does so for every connection.
+Opening Studio from Ikon Desktop does it for Studio.
 
 Connecting lets an app start the coding agents installed on the computer, and they run as you.
 What an agent may do there is that agent's own configuration — its permissions and settings —
@@ -71,7 +74,15 @@ is Studio on production, `https://studio.dev.ikonai.app` on development. A custo
 served on does not name it here; use its `ikonai.app` address or its id.
 
 An app has to be in one of your organisations, or be one of Ikon's own — Studio and O, which the
-tool names as platform apps on the confirmation.
+tool names as platform apps on the confirmation. Ikon Studio is easiest by its role, which needs no
+address and works whatever domain it is served from, and needs no `--trust` in a script:
+
+```bash
+ikon connect --studio
+```
+
+An app that has never been published has nothing for a computer to join, and is refused when you
+connect it rather than retried in the background.
 
 ### The code the computer shows
 
@@ -111,6 +122,7 @@ grant the app lacks is refused on the computer, and the app is told which grant 
 | `--app-id <id>` | The precise form of the app argument |
 | `--local-url <url>` | Connect to an app running locally with `ikon run` instead of the cloud |
 | `--trust <app-id>` | Skip the interactive confirmation, for scripts and CI |
+| `--studio` | Connect Ikon Studio, found by its role; needs no `--trust` |
 
 Running the app locally with `ikon run`? Plain `ikon connect` from the app folder finds the
 local instance on its own. Each app gets a folder of its own on your computer, `~/Ikon/Apps/<app>/`,
@@ -124,9 +136,17 @@ a terminal, which shows you the app and what it asks for and connects only what 
 can ask, never grant. A link cannot name a repository, so for work in one, run `ikon connect <app>`
 from the repository instead. `ikon connect "<link>"` does the same thing where links do not open.
 
+After connecting, `ikon connect` says where the connection stands: working, waiting for the code to
+be typed into the app, waiting for the app to be opened, or what stops it. `ikon connect list` shows
+the same for every connection, and `--format json` gives it as a `phase` — `ready`, `pairing`,
+`standby` (the app is not open; nothing is wrong), `connecting`, `retrying`, `blocked` (needs you),
+`idle` (stopped after a week unused) or `notRunning` (no Ikon service). A connection counts as `ready`
+only once the app has said it took the computer.
+
 When a connection cannot start — most often because your sign-in expired — Ikon Connect says so in
 its output and, on macOS, in a notification, and tries again every minute, so it is back on its own
-once you run `ikon login`. Its output is also a log of what it does for each app: one line per task
+once you run `ikon login`. An app that refuses the computer, or has no published version to join, is
+looked at again every fifteen minutes, or at once after `ikon connect resume`. Its output is also a log of what it does for each app: one line per task
 action and how it ended — an agent started or resumed, a permission it asked for and the answer, work
 saved to the app, a refusal and its reason — with routine checks left out.
 

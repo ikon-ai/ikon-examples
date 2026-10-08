@@ -1,8 +1,8 @@
-<!-- checked-against: 81f4e8cfb606357895d7c18b -->
+<!-- checked-against: 085b5818bc0e68e47ac8d498 -->
 
 # Ikon Audio & Video Guide
 
-How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
+How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, mixes group calls and shows live video. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
 
@@ -16,9 +16,11 @@ private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
 ```
 
-Construct each service once. The constructor subscribes to the app's incoming media messages, so a service constructed later than setup misses every stream that began before it, and a second instance decodes every incoming stream a second time. Playback needs no start-up step: the service mixes and paces each client's audio from construction on.
+Hold one `Audio` and one `Video` per app. Each `Audio` is its own mix with its own slots, so two of them reach a client as two streams that never replace or duck each other, and each decodes every incoming microphone stream again. Several are safe — they share track ids, a `CaptureButton`'s start and stop handlers run once however many there are, and every `Video` sees the same inputs — but a second one buys nothing. Construct them in field initializers: `Audio` subscribes to the app's incoming media when it is constructed, so one made later misses every microphone stream that began before it. Playback needs no start-up step: the service mixes and paces each client's audio from construction on.
 
-All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.cs`, so no `using` directives are needed for any type in this guide.
+Both are `IAsyncDisposable`. Disposing one stops its playbacks and ends its streams on the clients. App stop does the same for every `Video`, and for every `Audio` stops the mixing without sending the clients stream ends, so an app that holds one for its whole life never disposes it.
+
+The app scaffold's `GlobalUsings.cs` imports the Ikon namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using Ikon.Common.Core.Protocol;`.
 
 ## Playing audio
 
@@ -331,45 +333,218 @@ Rules that bite:
 
 ## Video
 
-Video is input-driven: clients capture camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), the app receives the stream, and decides any fan-out. Render an outgoing stream on clients with `view.VideoStreamCanvas(streamId: ...)`. The canvas takes an optional `onTap` handler called with `VideoTapArgs` — the tap position normalized to the rendered frame (0..1 on both axes), useful when the stream mirrors an interactive surface such as a device screen.
+The platform routes **encoded** video frames; it never decodes or encodes them. Video comes from a client's camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), from a machine client sending its own encoded frames (a drone, a robot), or from an encoder the app runs itself (an ffmpeg process, a headless browser). Captured video always goes to the app on the server, never straight to other clients; the app decides who sees what by playing it on **surfaces**.
 
-<!-- ikon-example: av-video-streams-field -->
+### Surfaces
+
+A surface is a named place on clients where one picture shows. The client renders it with `view.VideoSurface(surface: "stage")`; the app plays onto the same name with `Video.Play` (a client's input, relayed) or `Video.PlayLive` (frames the app encodes). Both return a `VideoPlayback` at once. Surface names are app-wide.
+
+A surface shows one playback at a time. A new playback on it **replaces** the current one for every viewer — even one played to fewer clients — the old one ends `Replaced`, and each viewer keeps its last picture until the new source's first keyframe, which the platform asks for at once. To show different clients different pictures, give each its own surface name. Rendering a surface never makes the app send to it: who sees a playback is its audience, the `MediaTargets` it was started with.
+
+### Relaying cameras
+
+A relay is one call per input, not per frame. `Video.InputStartedAsync` hands the app a `VideoInput` when a client's camera or screen starts; `Video.Play(targets, surface, input)` shows it, and the platform forwards each frame as it arrives, starts every viewer at a keyframe it asks the camera for, and ends the playback `SourceEnded` when the input ends. Keep what the UI needs per camera:
+
+<!-- ikon-example: av-video-tiles-field -->
 ```csharp
-// The frame event carries no codec or geometry — those arrive once on the BEGIN event,
-// so stash them per stream:
-private readonly Dictionary<string, VideoInputStreamBeginEventArgs> _videoStreams = new();
+// One tile per camera: the surface its relay plays on, and the input its owner previews
+private readonly ReactiveList<CameraTile> _tiles = new();
+
+private sealed record CameraTile(string Surface, string InputId);
 ```
 
 Then from Main:
 
-<!-- ikon-example: av-video-forward -->
+<!-- ikon-example: av-video-relay -->
 ```csharp
-Video.VideoInputStreamBeginAsync += async args => _videoStreams[args.StreamId] = args;
-
-Video.VideoInputFrameAsync += async args =>
+Video.InputStartedAsync += async input =>
 {
-    // args.Data is ENCODED codec bitstream (see the codec on the begin event), not pixels.
-    // Forward it as-is — e.g. echo to everyone except the sender:
-    var stream = _videoStreams[args.StreamId];
-    var targets = app.Clients.Ids.Where(id => id != args.ClientSessionId).ToList();
-    await Video.SendFrameAsync(MediaTargets.To(targets), args.Data, args.FrameNumber, args.IsKey,
-        args.TimestampInUs, args.DurationInUs, stream.Codec, stream.Width, stream.Height,
-        stream.Framerate, streamId: args.StreamId);
+    if (input.Kind != VideoSourceKind.Camera)
+    {
+        return;
+    }
+
+    // Each camera on a surface of its own, shown to everyone but its owner, later
+    // joiners included: the owner previews its camera locally (localPreviewStreamId).
+    // The platform forwards the frames, starts each viewer at a keyframe it asks the
+    // camera for, and ends the playback (SourceEnded) when the camera stops.
+    var surface = $"camera-{input.Id}";
+    Video.Play(MediaTargets.EveryoneExcept(input.ClientSessionId), surface, input);
+    _tiles.Add(new CameraTile(surface, input.Id));
 };
 
-Video.VideoInputStreamEndAsync += async args =>
+Video.InputEndedAsync += async input =>
 {
-    _videoStreams.Remove(args.StreamId);
-    await Video.CloseAsync(args.StreamId);
+    _tiles.RemoveAll(tile => tile.InputId == input.Id);
 };
 ```
 
-Two hard rules for `SendFrameAsync`:
+The input's handlers run in its client's scope. `VideoInput` carries `Id` (the stream id the client announced), `Kind` (`Camera`, `Screen`, or `Other` for a machine client), `ClientSessionId` and `ClientContext`, `CorrelationId` (set by the `CaptureButton` that started it), `Codec`, and the current `Width` and `Height` (`ResizedAsync` fires when they change); `Ended` completes when it stops. `Video.InputEndedAsync` fires when a capture stops or its client leaves, and `Video.Inputs` lists every input running now, including ones that began before the `Video` was made. `input.StopAsync()` stops that one capture on its client, leaving its microphone and other captures running; on an `Other` input it throws `NotSupportedException`, since only a browser capture can be stopped from the app.
 
-- **`data` must be an encoded bitstream matching the `codec` argument** (`VideoCodec.H264`, `Vp8`, `Vp9`, `Av1`). Never raw pixels, and never JPEG/PNG bytes — clients feed the data straight to a video decoder, and anything else produces a black or broken canvas, not an error. The only data most apps ever pass is what arrived in `VideoInputFrameAsync.Data`, forwarded unchanged. (For a still image, use `view.Image`, not a video stream.)
-- **Frames are transmitted immediately — the caller owns the pacing.** Call once per frame at the source framerate, typically by forwarding each incoming frame as it arrives. Never loop over a stored clip's frames without pacing.
+### Showing a surface
 
-`Video.GetOutputStreamInfo(streamId)` describes an active output stream; `CloseAsync` / `CloseAllAsync` end streams. `SendFrameAsync` takes the same `MediaTargets` first argument as audio, with the same multi-user caveat.
+<!-- ikon-example: av-video-surface -->
+```csharp
+view.Row(["flex-wrap gap-2"], content: row =>
+{
+    if (_tiles.Count == 0)
+    {
+        row.Text(["text-sm text-muted-foreground"], text: "No cameras on yet");
+        return;
+    }
+
+    foreach (var tile in _tiles)
+    {
+        // The camera's owner sees its own capture locally, with no round trip;
+        // everyone else sees the relay. The placeholder shows until the first frame.
+        row.VideoSurface(["w-64 aspect-video rounded-lg bg-black"], surface: tile.Surface,
+            fit: VideoFit.Cover,
+            localPreviewStreamId: tile.InputId,
+            placeholder: tileView => tileView.Spinner(),
+            key: tile.Surface);
+    }
+});
+```
+
+`view.VideoSurface([style], surface: name, …)` takes the style array first, like every component, and the surface name as `surface:`:
+
+- `fit` — `VideoFit.Contain` (the default) letterboxes the whole picture; `VideoFit.Cover` fills the element and crops the edges.
+- `placeholder` — content shown until the first frame arrives and whenever nothing plays.
+- `localPreviewStreamId` — a `VideoInput`'s `Id`. The client that owns that capture shows it from its own camera, with no round trip through the server; every other client shows the surface. Leave it out where the app means to show people the relayed picture, as the room sees it.
+- `onTap` — called with `VideoTapArgs`, the tap position normalized to the rendered frame (0..1 on both axes), for a stream that mirrors an interactive surface such as a device screen.
+
+A surface is the app showing video to people: live, the same moment for every viewer, with no controls but the app's. A video file one person watches at their own pace — with play, pause and seek — is `view.VideoUrlPlayer(url: …)` instead, which streams the file in the browser; a generated video is a URL too (`VideoGenerator`). For a still image use `view.Image`, never a video stream.
+
+### Changing who sees it
+
+Every playback names its audience: `MediaTargets.Everyone` is every connected client, later joiners included; `MediaTargets.EveryoneExcept(...)` is the same minus the named clients — a camera's owner, who previews it locally; `MediaTargets.To(...)` is those clients only. Change the audience in place rather than starting another playback:
+
+<!-- ikon-example: av-video-audience -->
+```csharp
+// One playback, a changing audience: the presenter's screen, first to the host alone.
+var share = Video.Play(MediaTargets.To(hostId), "presentation", screen);
+
+// Clients who keep seeing it go on uninterrupted, new ones start at the next keyframe,
+// and clients left out have the surface cleared. An empty audience stops it.
+share.SetAudience(MediaTargets.To([hostId, .. approvedIds]));
+
+// Done: ends it and clears the surface for its viewers.
+share.Stop();
+var outcome = await share.Completion;   // VideoPlaybackOutcome.Stopped
+```
+
+`SetAudience` keeps the clients who stay watching without a gap, starts new ones at a keyframe it asks the source for, and clears the surface for clients left out; an empty audience stops the playback. `await playback.Completion` yields a `VideoPlaybackOutcome` and never throws: `Finished` (a live playback completed and played out), `Replaced`, `Stopped`, `SourceEnded`, `NoViewers` (an empty audience at once, or a `To(...)` audience none of whose clients stayed connected for 5 seconds; `Everyone` and `EveryoneExcept` wait for clients instead), `Failed` (with `VideoPlayback.Error`) or `AppStopping`. `Started` completes when the first frame reaches a viewer, or when the playback ends without one.
+
+To stop, call `playback.Stop()`, which ends it and clears its surface for its viewers. `Video.Stop(targets, surface)` acts on this `Video`'s playbacks: with `Everyone` it stops them; with specific clients it takes those clients out of their audiences and plays on for the rest — an `Everyone` playback becomes `EveryoneExcept` them, so clients who join later still see it. Leave the surface out to act on every surface. `Video.GetPlayback(surface)` is this `Video`'s playback on a surface now, and `VideoPlayback.Input` the input a relay plays (null for a live playback).
+
+### Playing frames the app encodes
+
+An app producing its own video — an ffmpeg process transcoding a feed, a headless browser's screencast, a replay — writes encoded frames into a live playback:
+
+<!-- ikon-example: av-video-live -->
+```csharp
+// Frames the app encodes itself (an ffmpeg process, a headless browser), in a codec the
+// viewers decode: H.264 plays on every WebRTC browser.
+await using var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264);
+
+// A viewer joined or lost frames and needs a keyframe: make the next frame one.
+live.KeyFrameRequestedAsync += async request => encoder.ForceKeyFrame();
+
+await foreach (var frame in encoder.ReadFramesAsync(ct))
+{
+    // Frames go out in step with their timestamps. WriteAsync waits while half a second
+    // is queued ahead of playout, and returns false once the playback has ended.
+    if (!await live.WriteAsync(frame.Data, frame.IsKey, frame.Timestamp, ct))
+    {
+        break;
+    }
+}
+
+live.Complete();   // plays out what is queued, then ends Finished
+await live.Completion;
+```
+
+The platform paces the frames by their timestamps, relative to the first; a frame more than half a second late, or a timestamp going back, restarts the timeline from now, so a replay that pauses simply stops writing. `WriteAsync` copies the frame and waits while more than `maxBufferAhead` (default 500 ms) is queued ahead of playout, so the write loop needs no delay of its own. With nobody watching, frames are paced and dropped, so an idle encoder never builds a backlog. It returns `false` once the playback has ended or `Complete()` was called. Disposing a `LiveVideoPlayback` stops it.
+
+`KeyFrameRequestedAsync` fires — at most twice a second, off the app's message loop — when a viewer needs a keyframe: it joined, lost frames, or the playback just took its surface. `ViewerSessionId` is 0 when the platform asks on a viewer's behalf. Make the encoder's next frame a keyframe where it can; where it cannot (an ffmpeg process reading a file), keep its keyframe interval short so a viewer never waits long.
+
+`WriteAsync` takes one access unit per call — every slice of one picture, with the SPS/PPS before it, Annex-B with start codes — and `isKey` when it holds an IDR slice. An encoder writing an H.264 byte stream, such as ffmpeg, needs none of that by hand: `LiveVideoPlayback.WriteH264StreamAsync(stream, frameRate)` splits the stream into frames, stamps them `index / frameRate` and writes them until the stream ends:
+
+<!-- ikon-example: av-video-ffmpeg -->
+```csharp
+// ffmpeg encodes, the platform only routes: H.264 Constrained Baseline as raw Annex-B on stdout
+var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
+    "-f lavfi -i testsrc2=size=640x360:rate=30 -c:v libx264 -profile:v baseline -pix_fmt yuv420p " +
+    "-preset veryfast -tune zerolatency -bf 0 -g 30 -x264-params repeat-headers=1 -f h264 pipe:1")
+{
+    RedirectStandardOutput = true,
+    RedirectStandardError = true
+})!;
+
+await using var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264);
+
+try
+{
+    // Splits the stream into frames (all slices of a picture together), stamps them
+    // index / 30 and writes them in real time; false once the playback has ended
+    await live.WriteH264StreamAsync(ffmpeg.StandardOutput.BaseStream, frameRate: 30, ct);
+}
+finally
+{
+    ffmpeg.Kill();
+}
+```
+
+The ffmpeg options that suit `PlayLive` — H.264 Constrained Baseline, which every WebRTC browser decodes:
+
+- `-profile:v baseline -bf 0` — Constrained Baseline, no B-frames: frames arrive in display order and decode on every browser.
+- `-f h264` — raw Annex-B output. When copying H.264 out of an MP4 without re-encoding (`-c:v copy`), add `-bsf:v h264_mp4toannexb`.
+- `repeat-headers=1` — SPS and PPS on every keyframe, so any keyframe starts a decoder.
+- `-g 30` — a keyframe every second at 30 fps: ffmpeg cannot be asked for one while it runs, so the interval is how long a new viewer waits.
+- No `-re` is needed: the writes are held to real time, so ffmpeg encoding a file blocks on the pipe rather than racing ahead. Pass the rate it outputs (`-r`, or the source's) as `frameRate`.
+
+### Inspecting frames
+
+`VideoInput.FrameReceivedAsync` hands the app every encoded frame of an input — for health counters, keeping the latest keyframe for analysis, or recording:
+
+<!-- ikon-example: av-video-frame-tap -->
+```csharp
+Video.InputStartedAsync += async input =>
+{
+    // Every encoded frame of the input, off the message loop: the input's codec
+    // bitstream (input.Codec), never decoded pixels.
+    input.FrameReceivedAsync += async frame =>
+    {
+        Interlocked.Add(ref _bytesReceived, frame.Data.Length);
+
+        if (frame.IsKey)
+        {
+            Interlocked.Increment(ref _keyFramesReceived);
+        }
+    };
+
+    // Asks the source for a keyframe now rather than at its next one.
+    input.RequestKeyFrame();
+};
+```
+
+`VideoInputFrame.Data` is the input's bitstream in its `Codec`, not decoded pixels; decode it yourself (ffmpeg) to look at the picture. Handlers run off the message loop, one frame at a time; a handler that falls more than about two seconds behind skips to the next keyframe, so a slow one never delays the app or a relay. `RequestKeyFrame()` asks the input's client for a keyframe now, for instance before keeping one.
+
+### Raw output
+
+`Video.Raw`, a `RawVideoOutput`, is the escape hatch for an engine that manages its own streams, pacing and keyframes: `Video.Raw.SendFrameAsync(targets, streamId, data, isKey, timestamp, codec, width, height)` sends each frame at once on a stream id of the caller's choosing — no pacing, no keyframe gating, no replacing. The stream is announced to each targeted client before its first frame, `RawVideoOutput.KeyFrameRequestedAsync` reports viewers asking for a keyframe, and `CloseStreamAsync` ends it. Clients render a raw stream with `view.VideoStreamCanvas(streamId: …)`. A stream id must not be a surface name. Reach for it only with an engine that already numbers, paces and keyframes its own streams — a game streamer sending several views to a custom canvas; anything that plays to people, including an app's own encoder, is a surface.
+
+### Codecs and keyframes
+
+- **Codecs are the app's concern.** The platform neither reads nor checks a stream's codec. Browsers on WebRTC negotiate H.264 when they offer it, else VP8, and each viewer is sent every frame as its negotiated codec: a stream in a codec the viewer does not decode shows nothing there, with no error. A relayed browser camera arrives in the codec its own browser negotiated, which viewers whose browsers negotiated the same one decode; an app's own encoder should produce H.264 (above).
+- **Keyframes come from the source.** A viewer that needs one — joining, after loss, when a playback takes its surface — asks the stream's source: a capturing client's encoder, or the app's through `KeyFrameRequestedAsync`. The platform's own part is holding delta frames back from a viewer until a keyframe arrives.
+- **Never raw pixels or image files.** Frames are fed straight to a video decoder; JPEG or PNG bytes paint a black or broken tile, not an error.
+
+### One `Video` per app, 16 tracks per client
+
+Hold one `Video` for the app. Several are safe — they share track ids, surface names and inputs — but a surface belongs to the `Video` playing on it: another `Video` playing on the same name, or a raw stream with it, throws `InvalidOperationException`, until that surface's playback ends without being replaced. Disposing a `Video` stops its playbacks, clears its surfaces, closes its raw streams and frees its surface names.
+
+Each client receives at most 16 video streams at once over WebRTC. A surface holds one of a viewer's 16 while it shows something, and a raw stream one of each targeted client's until it is closed; past 16, a further stream shows nothing on that client. A group call that shows every camera to everyone fits 16 cameras.
 
 ## Telephony
 

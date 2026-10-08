@@ -2,31 +2,31 @@
 
 *Published 2026-03-19*
 
-You join a meeting. As people start talking, their names light up smoothly when they speak -- not flickering on and off with every breath, but a natural glow that responds instantly when someone starts talking and lingers through natural pauses. Underneath the video, a live transcript scrolls: each participant's words appearing in real time, attributed to the right speaker. In a side panel, an AI-generated summary updates itself periodically, distilling the key points of the conversation so far. When you join late, you can read the summary and catch up in seconds.
+You join a meeting. When someone starts talking, their name lights up at once and stays lit through short pauses, instead of flickering with every breath. Under the video, a live transcript shows each participant's words in real time, labelled with the right speaker. In a side panel, an AI-generated summary of the key points is updated as the meeting goes on. If you join late, you can read the summary and catch up in seconds.
 
-This entire experience -- video conferencing with live transcription and AI-powered meeting summaries -- was built by one person, in under four thousand lines of code.
+This app has video conferencing, live transcription and AI meeting summaries. One person built it in under four thousand lines of code.
 
-## What this unlocks
+## Why one person could build it
 
-**Multiuser by default, not by effort.** This is worth stating up front: multiuser support in this app was not built. There is no code that says "when participant A's transcript updates, send it to participants B, C, and D." No event routing, no real-time sync layer, no pub/sub configuration. The developer updates a value, and every connected participant's screen reflects the change. That is how Ikon works -- shared state is shared by default.
+**Multiuser without extra code.** Nobody wrote multiuser support for this app. No code says "when participant A's transcript updates, send it to participants B, C, and D", and there is no event routing, real-time sync layer or pub/sub configuration. The developer updates a value, and every connected participant's screen shows the change, because on Ikon state is shared with every client by default.
 
-**A single developer can build what normally takes a team.** Video conferencing with AI features is one of the hardest application categories. On a traditional stack, you need a WebRTC signaling server, a media routing server, a speech-to-text microservice, a separate AI service for summarization, a real-time state sync layer, and a frontend application with its own state management. That is a multi-team, multi-month effort. Here, it is one person and a few files.
+**One developer instead of a team.** Video conferencing with AI features is one of the hardest kinds of application to build. On a traditional stack, you need a WebRTC signaling server, a media routing server, a speech-to-text microservice, a separate AI service for summarization, a real-time state sync layer, and a frontend application with its own state management. That takes several teams several months. This app is one person's work in a few files.
 
-**AI features that feel native, not bolted on.** The transcription and summarization are not separate services wired together with API calls and message queues. They run inside the same application process, with direct access to the audio streams and shared state. This makes them feel like natural parts of the experience rather than add-ons.
+**AI features built into the app.** Transcription and summarization run inside the same application process as the rest of the app, with direct access to the audio streams and shared state. They are not separate services connected with API calls and message queues.
 
 ## The experience in detail
 
-### Audio that routes itself
+### Audio routing
 
-Every participant's microphone audio reaches every other participant -- but never loops back to the sender. On a traditional stack, this requires a selective forwarding unit that tracks which streams go where, plus ICE negotiation and TURN server fallbacks for network traversal.
+Every participant's microphone audio goes to every other participant but not back to the sender. On a traditional stack, this requires a selective forwarding unit that tracks which streams go where, plus ICE negotiation and TURN server fallbacks for network traversal.
 
-On Ikon, the application describes the routing intent: send each participant's audio to everyone except themselves. The platform handles the actual transport. There is no signaling server to configure, no peer connection management, no media server to deploy.
+On Ikon, the application states the rule: send each participant's audio to everyone except themselves. The platform handles the transport, so there is no signaling server to configure, no peer connections to manage and no media server to deploy.
 
-### Speaker detection that feels natural
+### Speaker detection
 
-When someone starts talking, their indicator lights up immediately. When they pause between sentences, it stays lit. When they stop for real, it fades. This sounds simple, but getting it right is surprisingly subtle.
+When someone starts talking, their indicator lights up immediately. When they pause between sentences, it stays lit. When they stop talking, it fades. This is harder to get right than it sounds.
 
-The app uses a technique where the volume tracker reacts quickly to increases (someone starts speaking) but decays slowly to decreases (a natural pause between words). The result is that the indicator snaps on instantly but does not flicker during normal speech cadence. A timeout catches the case where someone mutes or disconnects -- if no audio arrives for a couple of seconds, the indicator resets.
+The app tracks each speaker's volume with a moving average that rises quickly when someone starts speaking and falls slowly during a pause between words. So the indicator turns on at once but does not flicker during normal speech. If someone mutes or disconnects, no audio arrives, and after a couple of seconds a timeout resets the indicator.
 
 The entire speaker detection logic is two lines:
 
@@ -35,42 +35,42 @@ float alpha = rmsVolume > state.EmaVolume ? EmaAlphaUp : EmaAlphaDown;
 state.EmaVolume = (alpha * rmsVolume) + ((1 - alpha) * state.EmaVolume);
 ```
 
-`EmaAlphaUp` is 0.4 -- reacts quickly when someone starts speaking. `EmaAlphaDown` is 0.03 -- decays slowly so brief pauses don't flicker the indicator off. Two numbers, one smooth experience.
+`EmaAlphaUp` is 0.4, so the average rises quickly when someone starts speaking. `EmaAlphaDown` is 0.03, so it falls slowly and brief pauses don't turn the indicator off.
 
-This kind of detail is what separates a polished experience from a prototype, and the fact that the developer had time to get it right speaks to how much the platform handles elsewhere.
+Details like this make an app feel finished instead of like a prototype. The developer had time for them because the platform handled so much else.
 
 ### Live transcription for every participant
 
-Each participant gets their own dedicated speech recognizer. As someone speaks, their audio is piped through a silence filter (stripping dead air before it reaches the model) and segmented on natural silence boundaries. Recognized text flows into a shared transcript that every participant sees updated in real time.
+Each participant has their own speech recognizer. Their audio first goes through a silence filter, which removes silence before it reaches the model, and is then split into segments at pauses. The recognized text is added to a shared transcript, and every participant sees it update in real time.
 
-The key insight here is that updating the shared transcript is the entire broadcast mechanism. The developer writes a new entry to the transcript list. Every connected participant's screen updates to show it. There is no event bus, no WebSocket broadcast code, no frontend subscription logic. Writing to shared state is the broadcast.
+Adding an entry to the shared transcript is all it takes to send it to everyone. The developer writes a new entry to the transcript list, and every connected participant's screen updates to show it. There is no event bus, WebSocket broadcast code or frontend subscription logic.
 
 ### AI summaries that build incrementally
 
 A meeting that runs for an hour generates a lot of transcript. Sending the entire history to an AI model every time you want an updated summary would be wasteful and slow.
 
-Instead, the app tracks what has already been summarized. Every 60 seconds, it checks whether new transcript entries or chat messages have arrived since the last summary update. If so, it sends only the new content to the AI along with the previous summary, asking it to integrate the new information. As the meeting progresses and the summary grows, the AI is instructed to filter out less important details -- creating a self-compressing meeting record that stays useful without growing unbounded.
+Instead, the app tracks what has already been summarized. Every 60 seconds, it checks whether new transcript entries or chat messages have arrived since the last summary update. If so, it sends only the new content to the AI along with the previous summary, asking it to add the new information. As the meeting goes on and the summary grows, the AI is told to drop less important details, so the summary stays useful and does not grow without limit.
 
-## Three kinds of state, handled automatically
+## Three scopes of state
 
-The app demonstrates three natural tiers of state, each handled differently:
+The app uses three scopes of state, and each is handled differently:
 
-**State everyone sees together.** The participant list, transcript entries, chat messages, and the AI-generated summary. When any of these change, every participant's screen updates. The developer simply declares these as shared values.
+**State everyone sees together.** The participant list, transcript entries, chat messages, and the AI-generated summary. When any of these change, every participant's screen updates. The developer declares these as shared values.
 
 **State personal to each connection.** Whether your camera is on, which settings tab you have open, your chat input text, your device selections. Your camera toggle does not affect anyone else's camera state. The developer declares these as per-client values.
 
 **State that follows a user across devices.** Theme preference, timezone, device type. If the same person connects from a laptop and a phone, both sessions pick up their preferences.
 
-In a traditional stack, implementing these three tiers means building separate state management layers: shared stores with selective broadcasting, session-scoped state with connection affinity, and a user preferences database with cross-device sync. Here, the developer chooses the type of value, and the framework handles the rest.
+In a traditional stack, implementing these three scopes of state means building separate state management layers: shared stores with selective broadcasting, session-scoped state with connection affinity, and a user preferences database with cross-device sync. Here, the developer chooses the type of value, and the framework handles the rest.
 
-## Multiuser as a natural consequence
+## Multiuser without broadcast code
 
-It is worth returning to this point because it is the most revealing. The only place selective routing appears in this app is where it is semantically meaningful: audio is sent to everyone except the sender (to prevent echo), and video is sent to everyone including the sender (for self-view). Those are the domain-specific routing decisions.
+The app only chooses who receives what where the choice matters to the meeting. Audio is sent to everyone except the sender, to prevent echo, and video is sent to everyone including the sender, for self-view.
 
-Everything else -- transcripts, summaries, chat messages, the participant list, speaking indicators -- is shared automatically because it is declared as shared state. The developer never writes broadcast logic, never configures channels, never thinks about "how do I push this update to other participants." They update a value, and the platform ensures everyone sees it.
+Everything else (transcripts, summaries, chat messages, the participant list and speaking indicators) is declared as shared state, so it reaches everyone automatically. The developer never writes broadcast logic or configures channels. They update a value, and the platform makes sure everyone sees it.
 
 ## What this demonstrates
 
-The video conferencing app is a stress test for a platform: real-time media routing, multiple concurrent participants, live AI processing, three tiers of state, responsive layout across desktop and mobile. It exercises audio, video, speech recognition, AI orchestration, and reactive UI in a single application.
+A video conferencing app tests a platform hard. It needs real-time media routing, several participants at once, live AI processing, three scopes of state, and a layout that works on desktop and mobile. It uses audio, video, speech recognition, AI orchestration, and reactive UI in one application.
 
-That all of this fits in under four thousand lines -- with configurable speech-to-text models, configurable AI models for summarization, device selection, screen sharing, theme switching, mobile layout detection, and meeting link generation -- says something concrete about what happens when the platform handles transport, rendering, and real-time sync. The developer's job reduces to the decisions that actually matter: how audio should be routed, how speech should be segmented, how summaries should be structured. The infrastructure disappears.
+The app also has configurable speech-to-text models, configurable AI models for summarization, device selection, screen sharing, theme switching, mobile layout detection, and meeting link generation. All of it fits in under four thousand lines because the platform handles transport, rendering, and real-time sync. The developer only makes the decisions specific to this app: how audio is routed, how speech is segmented, and how summaries are structured.

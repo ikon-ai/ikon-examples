@@ -1,4 +1,4 @@
-<!-- checked-against: 95d09f1f928389a2a9c8bb16 -->
+<!-- checked-against: e76afadb847e916f1e67e17d -->
 
 # Ikon.Parallax Library Overview
 
@@ -932,22 +932,21 @@ Guard your authed-only paths: skip user-backend calls, per-user persistence, and
 
 ## In-App Feedback
 
-The platform can offer the people using an app a feedback sheet: they pick a kind (something's wrong, an idea, confusing, praise), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
+The platform can offer the people using an app a feedback sheet: they pick a kind (a problem, an idea, something confusing, something they like), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
 
-Switch it on in `ikon-config.toml`:
+Who is offered it is a setting of the app on the platform, not of its code: `off`, `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. It applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts and offers it to every visitor unless it is `off`.
+
+Where the way in is drawn is the app's choice, in `ikon-config.toml`:
 
 ```toml
 [Feedback]
-Enabled = true
-Audience = "testers"   # "testers" | "signed-in" | "everyone"
 Button = "overlay"     # "overlay" | "none"
 ```
 
-- **`Audience`** decides who is offered it. The app's own team, its members, always is; a visitor on the shared `global` identity never is, whatever the audience.
-- **`Button = "overlay"`** has the platform draw a floating feedback button. Testers see it by default and the other audiences do not; each person can show or hide it from the feedback sheet, and the choice is kept for their next visit.
-- **`Button = "none"`** draws no button at all: the app's own controls are the way in.
+- **`Button = "overlay"`** (the default) has the platform draw a floating feedback button for everyone offered feedback; each person can hide it from the feedback sheet, and the choice is kept for their next visit (not on the shared `global` identity, whose choice would be every visitor's).
+- **`Button = "none"`** draws no button at all, for an app that wants its own controls to be the only way in.
 
-Either way the app can place its own "Send feedback" control wherever it fits, such as an account menu or a help page:
+An app may still place its own "Send feedback" control, such as in an account menu or a help page, but it does not need one:
 
 <!-- ikon-example: px-in-app-feedback -->
 ```csharp
@@ -958,7 +957,7 @@ if (view.CanOpenFeedback())
 }
 ```
 
-`OpenFeedbackAsync` opens the same sheet the platform's button does, with the screenshot taken at the click. `view.CanOpenFeedback()` is false for anyone the app does not offer feedback, so the control is left out for them rather than shown and doing nothing; it turns true a moment after the person joins, and the view re-renders when it does. A link with `?ikon-feedback` opens the sheet as well, for pointing a tester straight at it.
+`OpenFeedbackAsync` opens the same sheet the platform's button does, with the screenshot taken at the click. `view.CanOpenFeedback()` is false for anyone the setting does not reach, so the control is left out for them rather than shown and doing nothing; it turns true a moment after the person joins, and the view re-renders when it does. A link with `?ikon-feedback` opens the sheet as well, for pointing a tester straight at it.
 
 ## Architecture Summary
 

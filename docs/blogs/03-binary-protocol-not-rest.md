@@ -2,62 +2,62 @@
 
 *Published 2026-03-19*
 
-Every modern web application speaks the same language: JSON over HTTP. The client makes a request, the server sends a response, the connection closes. Need real-time updates? Add WebSockets. Need file uploads? Something else. Need streaming? Another protocol. Need video? A separate media server. Each requirement bolts another layer onto the original request-response model.
+Every modern web application uses the same approach: JSON over HTTP. The client makes a request, the server sends a response, and the connection closes. Real-time updates need WebSockets, file uploads and streaming each need their own mechanism, and video needs a separate media server. Each requirement adds another layer on top of the original request-response model.
 
-Ikon takes a fundamentally different approach. A single persistent connection carries everything — interface updates, audio streams, video frames, function calls, and events — all multiplexed over one channel. No REST endpoints. No GraphQL. No separate real-time servers.
+In Ikon, a single persistent connection carries interface updates, audio streams, video frames, function calls, and events, all multiplexed over one channel. There are no REST endpoints, no GraphQL, and no separate real-time servers.
 
-## What this unlocks
+## What you can build
 
-The single-connection model isn't an optimization detail — it's what makes certain categories of AI applications buildable without specialized infrastructure knowledge.
+Because everything goes over one connection, you can build some kinds of AI applications without specialized infrastructure knowledge.
 
-**Voice and video AI apps without media expertise.** Building a voice-enabled AI application on a traditional stack means setting up a media server, coordinating signaling protocols, handling codec negotiation, and somehow synchronizing audio with your AI responses. On Ikon, audio frames flow over the same connection as interface updates and AI responses. A developer built a full video conferencing app with per-participant speech recognition and real-time AI summaries — one connection per client, no media server, no signaling protocol. The audio, the transcription updates, and the AI-generated summaries all arrive interleaved on the same channel.
+**Build voice and video AI apps without media expertise.** Building a voice-enabled AI application on a traditional stack means setting up a media server, coordinating signaling protocols, handling codec negotiation, and somehow synchronizing audio with your AI responses. On Ikon, audio frames travel over the same connection as interface updates and AI responses. A developer built a full video conferencing app with per-participant speech recognition and real-time AI summaries. It uses one connection per client and no media server or signaling protocol. The audio, the transcription updates, and the AI-generated summaries all arrive interleaved on the same channel.
 
-**Multimodal apps over a single connection.** An app where people describe a scene in natural language, the AI generates a visualization, and synthesized speech narrates the result — that's three modalities (text, graphics, audio) flowing in both directions. On a traditional stack, you'd coordinate separate services for each. On Ikon, it's one connection with different message types. The creator doesn't think about transport — they think about what the AI should do.
+**Multimodal apps over a single connection.** Consider an app where people describe a scene in natural language, the AI generates a visualization, and synthesized speech narrates the result. That is three modalities (text, graphics, and audio) going in both directions. On a traditional stack, you'd coordinate a separate service for each. On Ikon, it's one connection with different message types. The creator doesn't have to think about transport and can focus on what the AI should do.
 
-**Interactions that feel instant.** In interactive AI applications — where people type and expect streaming responses, speak and expect real-time transcription, click and expect immediate feedback — the overhead of traditional approaches adds up. Every interaction on Ikon skips the usual framing, headers, and text-based parsing. For applications like AI characters with lip-synced speech and reactive expressions, this is the difference between an experience that feels alive and one that feels like it's buffering.
+**Interactions that feel instant.** In interactive AI applications, people type and expect streaming responses, speak and expect real-time transcription, and click and expect immediate feedback. The overhead of traditional approaches adds up across all these interactions. On Ikon, no interaction pays for per-request framing, headers, or text-based parsing. For an AI character with lip-synced speech and reactive expressions, that overhead decides whether the character feels alive or seems to be buffering.
 
-**The server can reach the client, not just the other way around.** The server can push interface updates, stream audio, and invoke client-side functions without the client asking. An AI agent can work in the background and push results when ready. Text and speech can stream in lockstep. These aren't edge cases — they're the natural patterns of interactive AI applications, and the connection supports them natively.
+**The server can contact the client without being asked.** The server can push interface updates, stream audio, and invoke client-side functions without a request from the client. An AI agent can work in the background and push results when they are ready. Text and speech can stream in sync. These are common patterns in interactive AI applications, and the connection supports them directly.
 
-## Teleport: a purpose-built protocol
+## Teleport: a protocol built for real-time apps
 
-At the core of Ikon's communication layer is **Teleport**, a binary format designed specifically for real-time interactive applications. Every message has a compact header — just 27 bytes — followed by a payload where field names are compressed to tiny identifiers at build time.
+Ikon's communication layer is built on **Teleport**, a binary format designed for real-time interactive applications. Every message has a 27-byte header followed by a payload. In the payload, field names are replaced with short identifiers at build time.
 
-The result: a typical interface update that would be 2KB in the text-based format most web apps use is a few hundred bytes in Teleport, before compression is even applied.
+As a result, a typical interface update that would be 2KB in JSON is a few hundred bytes in Teleport, before compression is applied.
 
-## One connection, every channel
+## One connection for every channel
 
-Different types of traffic — connection management, heartbeats, application events, function calls, interface updates, audio, and video — all flow over a single persistent connection. When someone speaks into their microphone, the audio arrives on the same connection that carries their interface updates. When the server generates a response with text, tool calls, and a synthesized voice, all of it streams back on the same connection.
+Connection management, heartbeats, application events, function calls, interface updates, audio, and video all go over a single persistent connection. When someone speaks into their microphone, the audio arrives on the same connection that carries their interface updates. When the server generates a response with text, tool calls, and a synthesized voice, all of it streams back on the same connection.
 
-This eliminates the architectural complexity of coordinating multiple connection types. There's no "the real-time connection dropped but the API still works" failure mode. One connection, one reconnection strategy, one keepalive mechanism.
+You don't have to coordinate several kinds of connection, and you never end up with the real-time connection down while the API still works. There is one connection, with one reconnection strategy and one keepalive mechanism.
 
-## Smart connection handling
+## Connection handling
 
-The connection layer supports multiple transports and negotiates automatically. The client tries the fastest option first, falls back if needed, and remembers what worked for faster reconnection next time.
+The connection layer supports several transports and picks one automatically. The client tries the fastest transport first, falls back to another if it fails, and remembers which one worked so the next reconnection is faster.
 
-Reconnection is also intelligent: a brief disconnection (under five minutes) reconnects quickly without repeating authentication. A longer gap triggers a full reconnect. This happens automatically — the creator doesn't need to handle it.
+After a brief disconnection (under five minutes), the client reconnects quickly without authenticating again. After a longer gap, it does a full reconnect. The creator doesn't need to write code for either case.
 
 ## How this feels in practice
 
-With a persistent connection, every interaction is immediate: the user does something, the message is written to the existing connection, the server processes it, and the response streams back. There's no connection setup, no header overhead, no text-based parsing on every exchange.
+With a persistent connection, the user does something, the message is written to the existing connection, the server processes it, and the response streams back. No exchange needs connection setup, header overhead, or text-based parsing.
 
-For interactive AI applications where people expect immediate feedback — typing and seeing streaming responses, speaking and seeing real-time transcription, clicking and seeing instant results — this difference is perceptible. The experience feels direct and responsive rather than mediated.
+In interactive AI applications, people expect immediate feedback when they type, speak, or click, and they notice the difference.
 
-## Two-way communication as a primitive
+## Two-way communication
 
-Traditional web architecture is inherently one-directional: the client asks, the server answers. Making the server push data to the client requires adding a separate mechanism.
+Traditional web architecture is one-directional: the client asks and the server answers. For the server to push data to the client, you have to add a separate mechanism.
 
-Ikon's protocol is bidirectional from the start. The server can push interface updates, stream audio, and invoke functions on the client without the client asking. The client can send input, stream audio, and call server functions. Both directions use the same protocol and the same message format.
+Ikon's protocol is two-way from the start. The server can push interface updates, stream audio, and invoke functions on the client without the client asking. The client can send input, stream audio, and call server functions. Both directions use the same protocol and the same message format.
 
-This enables patterns that are awkward or impossible with traditional approaches:
+This makes several patterns possible that are awkward or impossible with traditional approaches:
 
-**Interleaved streaming**: An AI generates text while simultaneously producing speech audio. Both streams arrive interleaved on the same connection, synchronized. The client renders text and plays audio in lockstep.
+**Interleaved streaming**: An AI generates text and speech audio at the same time. Both streams arrive interleaved on the same connection, and the client shows the text and plays the audio in sync.
 
-**Live interface without polling**: When a background AI task completes, the server updates the interface and pushes the change. The update arrives the moment it's ready — no polling, no checking.
+**Live interface without polling**: When a background AI task completes, the server updates the interface and pushes the change. The client gets the update as soon as it is ready, without polling.
 
-**Server-initiated queries**: The server can ask the client for information — GPS coordinates, camera access, local data — and get a response, all over the same connection.
+**Server-initiated queries**: The server can ask the client for information, such as GPS coordinates, camera access, or local data, and get a response over the same connection.
 
 ## Built for production
 
-Production systems need to handle slow clients, network congestion, and burst traffic gracefully. The protocol layer handles this with bounded message queues, independent backpressure per channel, and connection limits per server instance. If a client can't keep up, the system drops the connection rather than accumulating unbounded memory — a failure mode that has caused production outages at companies with dedicated infrastructure teams.
+Production systems have to cope with slow clients, network congestion, and bursts of traffic. The protocol layer uses bounded message queues, separate backpressure for each channel, and a connection limit per server instance. If a client can't keep up, the server drops its connection instead of letting memory grow without limit. Unbounded memory growth of this kind has caused production outages at companies with dedicated infrastructure teams.
 
-REST remains excellent for simple, stateless interactions. But interactive AI applications are stateful, streaming, bidirectional, multimodal, and latency-sensitive. Teleport is purpose-built for this category — where the assumptions of traditional web communication are actively working against you.
+REST is still a good fit for simple, stateless interactions. Interactive AI applications keep state, stream data in both directions, mix several media types, and need low latency. The assumptions behind traditional web communication work against these applications, and Teleport was designed for them.

@@ -1,4 +1,4 @@
-<!-- checked-against: 05d8daf1ffabbd7ee3b0c442 -->
+<!-- checked-against: 69e2f5f2ffabbd7ee3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -516,9 +516,9 @@ share/clipboard actions through `IkonShare`) and can be passed to
 
 The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 
-**Layout:** padding, margin, width/height/min/max, flex (direction/wrap/gap/align/justify), overflow, aspect ratio, position (absolute/relative), z-index
+**Layout:** padding, margin, width/height/min/max (including the `3xs`–`7xl` container widths), flex (direction/wrap/gap/align/justify), overflow, aspect ratio, position (absolute/relative), z-index. Logical sides (`ps`, `pe`, `ms`, `me`, `start`, `end`) resolve left-to-right
 
-**Visual:** background color, border (all sides), border radius, opacity, shadow (sm through 2xl), gradient (linear, 8 directions)
+**Visual:** background color, border (all sides), border radius, opacity, shadow (`2xs` through `2xl`, arbitrary outer shadows, and a shadow color on the same element; inset shadows are not drawn), gradient (linear, 8 directions)
 
 **Typography:** font size/weight/family, line height, letter spacing, text align, text color, italic, text decoration (underline/line-through), text overflow (ellipsis/clip), truncate, max lines, text transform (uppercase/lowercase/capitalize). `whitespace-*` classes have no effect on Flutter; `truncate` works through max lines and ellipsis
 

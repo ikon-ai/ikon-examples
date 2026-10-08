@@ -4,46 +4,44 @@
 
 Every night while you sleep, your brain throws things away.
 
-Not metaphorically. Literally. Neuroscientists call it synaptic pruning — during deep sleep, the brain weakens or eliminates the connections it decided weren't important that day. The memories that survive are the ones that were reinforced, cross-referenced, useful. Everything else dissolves quietly before morning.
+This is meant literally. Neuroscientists call it synaptic pruning: during deep sleep, the brain weakens or removes the connections that were not important that day. The memories that survive are the ones that were reinforced, linked to other memories, or used. The rest fade before morning.
 
-This is not a flaw. It is the mechanism by which memory works. A brain that remembered everything would remember nothing usefully. Every lookup would drown in trivia.
+Forgetting is part of how memory works. A brain that kept everything would have trouble finding anything useful, because every memory it looked for would be buried in trivia.
 
-Now consider your database. Your Postgres, your Mongo, your Neo4j, your vector store. Ask it what it knows, and it tells you: everything you ever inserted, forever, at the same fidelity as the day you put it in. It never forgets. It cannot forget. Forgetting is a feature you pay for with `DELETE` statements and TTLs and LRU caches — all of them crude, user-driven, time-based. None of them know *what* to forget. They only know how.
+A database works differently, whether it is Postgres, Mongo, Neo4j or a vector store. It keeps everything you ever inserted, forever, exactly as it was on the day you put it in, and it has no way to forget on its own. To remove data, you write `DELETE` statements, set TTLs or put an LRU cache in front. These tools are crude. Each of them removes data by a fixed rule (a command, an expiry time or a size limit), so none of them can decide *what* is worth removing.
 
 ## Every database is an accumulator
 
-Fifty years of database research, and we've built one kind of thing. A relational database accumulates rows. A document store accumulates documents. A graph database accumulates nodes and edges. A vector database accumulates embeddings. Caches evict, but caches aren't where your data lives — they're the thin layer in front. The source of truth is always a pile that only gets bigger.
+In fifty years of database research, we have built one kind of system. A relational database accumulates rows. A document store accumulates documents. A graph database accumulates nodes and edges. A vector database accumulates embeddings. Caches remove entries, but a cache is only a thin layer in front of the real data. The main store, where the data actually lives, only ever grows.
 
-This mostly works. For transactions, for logs, for user records, accumulation is correct. A bank statement is supposed to remember every payment forever. A database that "forgets" your balance is a bug.
+For most uses this is right. Transactions, logs and user records should be kept. A bank statement is supposed to remember every payment forever, and a database that "forgets" your balance has a bug.
 
-But memory systems for AI aren't banks. They're closer to brains. They exist to let an agent recall what matters from a growing pile of messages, documents, observations. And when you feed more into them, something counterintuitive happens — the signal drowns. Twenty documents about the same topic don't make the system twenty times smarter; they make it vague. The third restatement of a fact doesn't strengthen it, it adds noise. More data dilutes structure.
+Memory systems for AI work more like brains than like banks. Their job is to let an agent recall what matters from a growing pile of messages, documents and observations. When you feed more into them, the useful information gets harder to find. Twenty documents about the same topic don't make the system twenty times better informed. They make its picture of the topic vaguer. A fact stated for the third time adds noise instead of making the fact more certain. Past a point, more data blurs the structure the system has built.
 
 ## The stress test
 
-We built a world-model library called Kairon that reads documents and lets structure emerge on its own. No fixed schema. No hand-written ontology. Just chunks of text in, and a self-organized graph out.
+We built a world-model library called Kairon that reads documents and builds its own structure from them, with no fixed schema and no hand-written ontology. It takes chunks of text as input and produces a graph that it organizes itself.
 
-The first version did what every other system does: accumulate. Every new document added nodes, added edges, added clusters. The graph grew.
+The first version only added data, like every other system. Each new document added nodes, edges and clusters, and the graph kept growing.
 
-We ran it on a hundred documents and it looked healthy. We ran it on five hundred and the quality started slipping. We ran it on a thousand and the benchmarks dropped sharply. More reading, less understanding — the same discovery every student makes the night before an exam.
+We ran it on a hundred documents and it looked healthy. We ran it on five hundred and the quality started slipping. We ran it on a thousand and the benchmark scores dropped sharply. The more it read, the less it understood, like a student cramming the night before an exam.
 
-## The second notebook
+## Teaching the graph to forget
 
-The fix was to give the system a second notebook and a night of sleep.
+The fix was to give the system something like a night's sleep. After ingestion, Kairon now runs a series of passes that decide what to keep.
 
-After ingestion, Kairon now runs a subtraction pass. It asks, for every node: is this actually contributing to the structure? Is anything citing it? Is it connecting ideas that would otherwise be disconnected? Is it a weaker duplicate of something else? It scores each node on structural contribution — not on recency, not on how often it was hit, not on when it was written. Then it prunes.
+The first is a subtraction pass. For every node, it checks whether the node adds to the structure: whether anything cites it, whether it connects ideas that would otherwise be unconnected, and whether it is a weaker duplicate of another node. It scores each node on these checks. The score does not depend on when the node was written or how often it was read. Then the pass removes the nodes that contribute least.
 
-Not by time. Not by LRU. By whether the node earns its place in the picture that's forming.
+A fading pass followed. Nodes that new documents no longer reinforce lose a little weight, so a claim that was strong yesterday is weaker today unless something supports it again. A merge pass combines near-duplicate nodes into one stronger node instead of deleting one of them. Last came depth-over-breadth scoring, which raises the score of nodes that chains of reasoning are built on and lowers the score of nodes that have no connections.
 
-Then came a fading pass — nodes that stopped being reinforced decay a little, so yesterday's strong opinion becomes today's weaker one unless something refreshes it. Then a merge pass — near-duplicates collapse into a single stronger node instead of one being deleted. Then depth-over-breadth scoring, which rewards nodes that anchor chains of reasoning and demotes nodes that float alone.
+The thousand-document version now scores higher than the hundred-document version, because it threw most of the thousand away.
 
-The thousand-document version now outperforms the hundred-document version — because it threw most of the thousand away.
+## Forgetting on purpose
 
-## The reframe
+Every database ever shipped keeps whatever you put into it. Data stays until you remove it with a `DELETE`, and deciding what to remove is entirely your job. The database is designed to keep everything.
 
-Every database ever shipped treats memory as a one-way function. You put things in. They stay. If you want them gone, you ask nicely with a `DELETE` and take full responsibility for the decision. The database has no opinion. It is, by design, a perfect accumulator.
+Kairon decides for itself what is worth keeping, based on the structure it is building. Its passes run after ingestion, much as sleep follows a day, and remove what does not contribute to that structure.
 
-Kairon has an opinion. It decides, based on the structure it is building, what is worth keeping. It sleeps. It prunes. It forgets on purpose.
+No off-the-shelf product does this, including Postgres, Neo4j, Pinecone and Mongo. The LLM memory libraries released this year mostly overwrite a fact when a newer fact contradicts it, which is a form of `UPDATE` rather than forgetting. The closest comparison is not a database at all but your brain between one and four in the morning, throwing away everything that did not matter that day.
 
-Nothing on the shelf does this. Not Postgres, not Neo4j, not Pinecone, not Mongo. Not the LLM memory libraries popping up this year, which mostly do per-fact overwrite on contradiction — a form of `UPDATE`, not real forgetting. The closest analog is not a database at all. It is your brain, between the hours of one and four in the morning, quietly throwing away everything that did not matter today.
-
-A database that gets smaller as it gets smarter. That is the new thing.
+Kairon is a database that gets smaller as it gets better at answering questions.

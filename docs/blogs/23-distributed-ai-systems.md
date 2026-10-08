@@ -2,31 +2,31 @@
 
 *Published 2026-03-31*
 
-You built a talking teddy bear for your kid. A Pi Zero with a microphone and speaker inside a stuffed animal, connected to an Ikon server. The bear tells stories, answers questions, remembers yesterday's conversation. It is its own app, and it works well.
+You built a talking teddy bear for your kid. It is a Pi Zero with a microphone and a speaker inside a stuffed animal, connected to an Ikon server. The bear tells stories, answers questions and remembers yesterday's conversation. It is its own app, and it works well.
 
-Separately, you set up a room sensor in the kid's bedroom. Temperature, light level, and noise. It is its own app too — you check the readings on your phone. You used it to figure out that the room gets too cold around 3 AM, and you adjusted the thermostat.
+Separately, you set up a room sensor in the kid's bedroom. It measures temperature, light level and noise. It is its own app too, and you check the readings on your phone. You used it to find out that the room gets too cold around 3 AM, and you adjusted the thermostat.
 
-Two projects. Two apps. Each useful on its own.
+So you have two separate apps, each useful on its own.
 
 Then you connect them.
 
-## The bear learns the room
+## The bear uses the room sensor
 
-The room sensor app exposes its readings — temperature, light, noise level — as functions any connected client can call. You connect the bear's app to the sensor's app. Now the bear's AI can ask: what is the light level? What is the temperature? How quiet is the room?
+The room sensor app makes its readings (temperature, light and noise level) available as functions that any connected client can call. You connect the bear's app to the sensor's app. Now the AI behind the bear can ask for the light level, the temperature and how quiet the room is.
 
-The behavior changes immediately.
+The bear's behavior changes right away.
 
-It is dark and quiet. The kid picks up the bear and whispers. The bear whispers back — because the AI knows the room is dark, so it is probably bedtime. It tells a calm, short story instead of an exciting one.
+At night the room is dark and quiet. The kid picks up the bear and whispers. The bear whispers back, because the AI sees that the room is dark and concludes that it is probably bedtime. It tells a short, calm story instead of an exciting one.
 
-Morning. The light sensor reads bright. The kid grabs the bear. "Good morning!" says the bear, cheerful and loud. "Did you sleep okay?" It is a different bear in the morning than at night — not because you programmed two modes, but because the AI sees the room and adjusts.
+In the morning the light sensor reads bright. The kid grabs the bear. "Good morning!" says the bear, cheerful and loud. "Did you sleep okay?" The bear behaves differently in the morning than at night. You did not program two modes. The AI reads the sensor values and adjusts how the bear talks.
 
 The temperature drops. The bear says, "Brrr, it's getting chilly in here! Want me to tell Mom?" The kid says yes. The parent, watching the conversation log in a browser, sees the request and turns up the heat.
 
-None of this was possible when the bear and the sensor were separate apps. The bear did not know if it was bright or dark. The sensor did not know anyone was talking. Connected, the bear gains awareness it could not have alone.
+None of this was possible while the bear and the sensor were separate apps. The bear did not know whether the room was bright or dark, and the sensor did not know anyone was talking. Once the apps are connected, the bear can use the sensor's readings in what it says.
 
 ## How the connection works
 
-The code is short. The bear's app connects to the sensor's app the same way a browser would:
+The bear's app connects to the sensor's app the same way a browser would, with a few lines of code:
 
 ```csharp
 var sensorClient = new IkonClient(new IkonClientConfig
@@ -45,16 +45,14 @@ var temp = await sensorClient.FunctionRegistry.CallAsync<float>("GetTemperature"
 var light = await sensorClient.FunctionRegistry.CallAsync<float>("GetLightLevel");
 ```
 
-The sensor app does not know the caller is a teddy bear. It just sees another client asking for readings. The connection uses the same protocol that browsers and devices use. Nothing special to build.
+The sensor app does not know the caller is a teddy bear. To the sensor app, the bear is one more client asking for readings. The connection uses the same protocol that browsers and devices use, so there is nothing extra to build.
 
 ## Each app stays independent
 
-The bear still works without the sensor. If you unplug the sensor, the bear tells stories the same way it always did — it just does not know if it is dark or cold. The sensor still works without the bear. Each app is a complete system on its own. The connection adds something, but it does not create a dependency.
+The bear still works without the sensor. If you unplug the sensor, the bear tells stories as it did before, but it no longer knows whether the room is dark or cold. The sensor also still works without the bear. Each app works on its own. The connection adds features, but neither app depends on the other.
 
-This is what makes it practical. You do not have to design a master system that controls everything. You build small, independent projects. If two of them would benefit from knowing about each other, you connect them. If it does not work out, you disconnect them. Nothing breaks.
+Because of this, you do not have to design one central system that controls everything. You build small, independent projects. If two of them would benefit from knowing about each other, you connect them. If the connection turns out not to be useful, you disconnect them, and both apps keep working.
 
 ## Beyond the bedroom
 
-The pattern scales. A maker space has an inventory tracker and a 3D printer queue — connected, someone can ask "Can I print the drone frame today?" and get an answer that checks both filament stock and printer availability. A small farm has soil sensors and a weather station — connected, the AI can say "Irrigate the north field tomorrow, rain is unlikely until Thursday." A group of friends each builds a different device — a robot, a drone, a camera trap — and connecting them creates a system none of them could build alone.
-
-One app is a project. Connected apps are a system.
+The same approach works for larger setups. A maker space has an inventory tracker and a 3D printer queue. When they are connected, someone can ask "Can I print the drone frame today?" and get an answer that checks both the filament stock and whether a printer is free. A small farm has soil sensors and a weather station. When they are connected, the AI can say "Irrigate the north field tomorrow, rain is unlikely until Thursday." A group of friends each build a different device, such as a robot, a drone and a camera trap. Connecting the devices gives the group a system that none of them could build alone.

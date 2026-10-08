@@ -4,19 +4,19 @@
 
 A four-year-old picks up a teddy bear and says, "Tell me a story about a dragon."
 
-The bear answers. It has a warm, slightly goofy voice. "Okay! So there was this dragon named Pickles, and Pickles had a problem — every time he tried to breathe fire, he sneezed instead." The kid laughs. The bear continues, improvising, reacting to the giggles, weaving in the kid's name and the stuffed animals they mentioned yesterday.
+The bear answers. It has a warm, slightly goofy voice. "Okay! So there was this dragon named Pickles, and Pickles had a problem — every time he tried to breathe fire, he sneezed instead." The kid laughs. The bear goes on with the story. It makes the story up as it goes, reacts when the kid giggles, and includes the kid's name and the stuffed animals the kid mentioned yesterday.
 
-Inside the bear: a Raspberry Pi Zero, a tiny microphone, and a small speaker. That is all. No AI chip. No language model. The bear cannot think. It cannot understand speech. It cannot make up stories. Everything it says comes from a server in the cloud.
+Inside the bear are a Raspberry Pi Zero, a tiny microphone and a small speaker, and nothing else. There is no AI chip and no language model on the device, so the bear cannot recognize speech or make up stories by itself. Everything it says comes from a server in the cloud.
 
-The bear has two capabilities: record audio and play audio. The server decides when to use them. When the kid speaks, the server listens through the bear's microphone. The AI understands what the kid said, thinks about how to respond, generates a reply, turns it into speech, and sends the audio back. The bear plays it.
+The bear can do two things: record audio and play audio. The server decides when it does each. When the kid speaks, the server asks the bear to record and receives the audio. The server transcribes the audio, has a language model write a reply, converts the reply to speech and sends the speech back. The bear plays it.
 
-The bear is a puppet. The AI is the puppeteer.
+In that sense the bear is a puppet, and the AI on the server is the puppeteer.
 
 ## The server controls the conversation
 
-The bear does not constantly stream audio to the cloud. It does not record everything and hope the server figures it out. Instead, the server orchestrates the conversation. It asks for audio when it is ready to listen. It detects when the kid has finished speaking. It takes a moment to think. Then it tells the bear what to say.
+The bear does not stream audio to the cloud all the time. Instead, the server runs the conversation. It asks the bear for audio when it is ready to listen, detects when the kid has finished speaking, generates a reply, and then sends the bear the audio to play.
 
-The server controls the flow because the server understands the flow. It knows when to pause for dramatic effect in a story. It knows when to ask a follow-up question. It knows when the kid has gone quiet and it is time to gently prompt: "What do you think Pickles did next?"
+Because the server decides when to listen and when to speak, it can pause for effect in a story, ask a follow-up question, or, when the kid has gone quiet, prompt gently: "What do you think Pickles did next?"
 
 ```csharp
 while (!token.IsCancellationRequested)
@@ -43,18 +43,18 @@ while (!token.IsCancellationRequested)
 }
 ```
 
-Listen, understand, think, speak. The bear handles the microphone and the speaker. The server handles everything else.
+Each pass of the loop records audio on the bear, transcribes it, generates a reply with Emerge, converts the reply to speech and plays the speech on the bear. The bear handles only the microphone and the speaker, and the server does everything else.
 
-In another room, a parent opens a browser and sees the conversation log updating in real time. The bear and the parent's browser are connected to the same server, the same session. The parent did not install an app. They opened a web page.
+In another room, a parent opens a browser and sees the conversation log update in real time. The bear and the parent's browser are connected to the same session on the same server. The parent did not install an app, only opened a web page.
 
-## The bear never changes
+## The bear's hardware never changes
 
-The stuffed animal you built on a weekend is finished hardware. You will probably never open it again. But the personality inside it — the one your kid talks to every night — keeps getting better.
+Once you have built the bear over a weekend, the hardware is finished, and you will probably never open it again. The bear's personality, which your kid talks to every night, runs on the server, and you can keep improving it there.
 
-This week, the bear tells simple stories. Next week, you tweak the prompt and it starts asking questions — "What color was the dragon?" — making stories interactive. A month later, you teach it to gently count along with the kid, turning bedtime into math practice. Eventually you swap in a better voice model and the bear sounds more natural.
+This week, the bear tells simple stories. Next week, you change the prompt so that the bear asks questions during a story, such as "What color was the dragon?" A month later, you change it again so that the bear counts along with the kid at bedtime, as some math practice. Later still, you switch to a better voice model and the bear sounds more natural.
 
-Every improvement happens on the server. The bear's firmware — record audio, play audio — stays the same forever. The hardware never changes. The experience evolves.
+All of these changes are made on the server. The bear's firmware only records and plays audio, and it stays the same.
 
-This is the advantage of putting the brain on the server. The device is cheap, stable, and simple. The intelligence is flexible, upgradable, and powerful. You iterate on the interesting part — the personality, the teaching ability, the voice — without ever touching the toy.
+Running the AI on the server keeps the device cheap and simple, and its firmware never needs an update. You can change the bear's personality, what it teaches and its voice without touching the toy.
 
-A stuffed animal with a $10 computer inside. No AI. No smarts. And a kid who thinks it is their best friend.
+The bear is a stuffed animal with a $10 computer inside and no AI of its own, and the kid thinks it is their best friend.

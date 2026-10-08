@@ -2,17 +2,17 @@
 
 *Published 2026-03-31*
 
-You have a small sensor board on your balcony. An ESP32 microcontroller with a temperature sensor, a humidity sensor, and a light sensor. It cost twelve euros. It connects to an Ikon server over Wi-Fi, and now you check the weather on your balcony from your phone — not just the raw numbers, but an AI-generated forecast: "Sunny this afternoon, but humidity is climbing. Rain likely by evening. Good day to bring the laundry in before 5 PM."
+You have a small sensor board on your balcony. It is an ESP32 microcontroller with a temperature sensor, a humidity sensor and a light sensor, and it cost twelve euros. It connects to an Ikon server over Wi-Fi, and you check the weather on your balcony from your phone. Besides the raw numbers, the phone shows an AI-generated forecast: "Sunny this afternoon, but humidity is climbing. Rain likely by evening. Good day to bring the laundry in before 5 PM."
 
-The sensor board does not generate forecasts. It reads three numbers and sends them to the server. The server runs AI models that interpret the readings, correlate them with patterns, and produce a human-readable forecast. Your phone shows the result on a web page served by the same application.
+The sensor board does not generate forecasts. It reads three numbers and sends them to the server. The server runs AI models that interpret the readings, compare them with patterns and write a forecast in plain language. Your phone shows the forecast on a web page served by the same application.
 
-This is the same architecture as the [robot in the previous post](22-native-clients-and-embedded-devices.md) — device, server, browser, one application — but the device is even simpler. No camera. No motors. Just three sensors and a Wi-Fi chip.
+This is the same setup as the [robot in the previous post](22-native-clients-and-embedded-devices.md): a device, a server and a browser, all part of one application. The device here is simpler. It has no camera and no motors, only three sensors and a Wi-Fi chip.
 
 ## Connecting
 
-The C++ SDK that connects the sensor to the server is a set of header files you copy into your project. No installer, no package manager. It compiles on anything with a C++17 compiler.
+The C++ SDK that connects the sensor to the server is a set of header files you copy into your project. You don't need an installer or a package manager. It compiles on anything with a C++17 compiler.
 
-The SDK needs three things from you: a way to log messages, a way to make one HTTP request during startup, and a way to maintain a TCP connection. You provide these as three small adapter classes. On a Raspberry Pi, you use standard Linux networking. On an ESP32, you use its built-in Wi-Fi library. On something else entirely, you use whatever that platform has. The SDK does not care — it just calls your adapters.
+The SDK needs three things from you: a way to log messages, a way to make one HTTP request during startup, and a way to keep a TCP connection open. You provide these as three small adapter classes. On a Raspberry Pi, you use standard Linux networking. On an ESP32, you use its built-in Wi-Fi library. On any other device, you use whatever that platform has. The SDK only calls your adapters, so it does not depend on the platform.
 
 Here is the sensor board connecting:
 
@@ -43,11 +43,11 @@ client.Ready = [&]()
 client.Connect();
 ```
 
-After this runs, the sensor is connected. The server can ask it for readings. Your phone browser can see the results. The credential on the device — `ikon-xxxxx` — is an Ikon session key. Not an OpenAI key, not a cloud provider secret. Just a revocable session key. Everything sensitive lives on the server.
+After this code runs, the sensor is connected. The server can ask it for readings, and the browser on your phone can show the results. The only credential on the device, `ikon-xxxxx`, is an Ikon session key that you can revoke. It is not an OpenAI key or any other cloud provider secret. Those secrets stay on the server.
 
 ## The three adapters
 
-The SDK defines three interfaces. Each one is small — a few methods that describe what the SDK needs, without dictating how you provide it.
+The SDK defines three interfaces. Each has only a few methods, which say what the SDK needs and leave the implementation to you.
 
 The TCP interface is the most important one. It is also the simplest:
 
@@ -64,18 +64,18 @@ public:
 };
 ```
 
-Connect, disconnect, read bytes, write bytes. You implement this using whatever your device has — POSIX sockets on Linux, the Wi-Fi library on an ESP32, Winsock on Windows. The SDK ships example implementations for common platforms.
+It connects, disconnects, reads bytes and writes bytes. You implement it with whatever your device has, such as POSIX sockets on Linux, the Wi-Fi library on an ESP32, or Winsock on Windows. The SDK ships example implementations for common platforms.
 
-The HTTP interface is one method: send a request, get a response. It is only used once during startup. The logging interface is seven methods: trace through critical. Where the messages go is up to you — terminal, serial port, radio uplink, nowhere.
+The HTTP interface has one method, which sends a request and returns the response. It is used only once, during startup. The logging interface has seven methods: one to initialize it and one for each of the six levels from trace to critical. You decide where the messages go: a terminal, a serial port, a radio uplink, or nowhere.
 
-That is the entire integration surface. Three adapters. The SDK handles everything else: authentication, the binary protocol, session management, reconnection. Every device that implements these three adapters speaks the same protocol — the same one used by game engines, web browsers, and mobile apps.
+These three adapters are all you write to connect a device. The SDK handles everything else: authentication, the binary protocol, session management and reconnection. Every device that implements the three adapters uses the same protocol as game engines, web browsers and mobile apps.
 
 ## What you get
 
-Once connected, the sensor board is a full participant in the Ikon session. The server can call its functions to read temperature, humidity, and light level. The AI on the server can interpret those readings and generate forecasts. Your phone browser shows the results on a live dashboard — all from the same application.
+Once connected, the sensor board takes part in the Ikon session like any other client. The server can call its functions to read temperature, humidity and light level. The AI on the server can interpret those readings and generate forecasts. Your phone's browser shows the results on a live dashboard, and the device, the server and the dashboard all belong to the same application.
 
-If the Wi-Fi drops during a storm, the SDK reconnects automatically with increasing delays. When the signal comes back, the session resumes.
+If the Wi-Fi drops during a storm, the SDK reconnects automatically, waiting longer between each attempt. When the signal comes back, the session resumes.
 
-A twelve-euro sensor board, a handful of C++ headers, three small adapter classes, and you have a device that talks to AI in the cloud and serves a live dashboard to any browser. The device reads numbers. The server thinks. The browser shows the result.
+With a twelve-euro sensor board, a few C++ header files and three small adapter classes, you have a device that sends its readings to AI models in the cloud, and a live dashboard that any browser can open. The device reads numbers, the server runs the AI models, and the browser shows the result.
 
-Next: [The Teddy Bear Has No Brain](25-the-teddy-bear-has-no-brain.md) — a talking toy that shows the most surprising part of this architecture.
+Next: [The Teddy Bear Has No Brain](25-the-teddy-bear-has-no-brain.md), a talking toy with no AI on the device, where the server decides everything it says.

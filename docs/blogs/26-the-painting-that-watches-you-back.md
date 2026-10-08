@@ -2,19 +2,19 @@
 
 *Published 2026-03-31*
 
-A digital frame hangs on your wall. Right now it shows a quiet oil landscape — a lake, distant mountains, warm light. The kind of thing you forget is there.
+A digital frame hangs on your wall. Right now it shows a quiet oil landscape of a lake and distant mountains in warm light, the kind of picture you forget is there.
 
 You leave the room. The painting changes.
 
-Not to another landscape. To something else. A dark corridor that seems to continue past the edge of the frame. A figure at the far end that might be a person or might be a shadow. The painting is for no one. The room is empty, and the frame knows it.
+The new painting is not another landscape. It shows a dark corridor that seems to continue past the edge of the frame, with a figure at the far end that might be a person or might be a shadow. Nobody is there to see it. The room is empty, and the server knows this from the latest photo taken by the frame's camera.
 
-When you come back, the corridor is gone. A botanical illustration has taken its place. Soft greens, labeled species, very tasteful. The frame saw you return and decided you should not see what it shows when you are not around.
+When you come back, the corridor is gone and a botanical illustration is in its place, with soft greens and labeled species, very tasteful. The next photo showed you back in the room, and the server chose not to show you what it paints when you are not around.
 
 ## How it works
 
-Inside the frame: a Raspberry Pi, a small camera, a display. The camera faces the room. Every few minutes, it sends a photo to a server. The server looks at the photo — how many people, what is the lighting, what is the mood — and generates a painting to match. The painting is sent back. The frame displays it.
+Inside the frame are a Raspberry Pi, a small camera and a display. The camera faces the room. Every few minutes, the frame sends a photo to a server. On the server, a language model looks at the photo and works out how many people are in the room, what the lighting is like and what the mood is. An image model then generates a painting to match. The server sends the painting back, and the frame displays it.
 
-The frame has no taste. No aesthetic sense. No concept of mood. It takes a photo and shows an image. Everything in between — the seeing, the interpretation, the artistic choice — happens on the server.
+The frame itself makes no artistic decisions. It takes a photo and shows an image. Reading the photo, deciding on a mood and choosing what to paint all happen on the server.
 
 ```csharp
 var roomPhoto = await FunctionRegistry.Instance.CallAsync<byte[]>(
@@ -36,34 +36,32 @@ await FunctionRegistry.Instance.CallAsync(
     "DisplayImage", targetId: frameSessionId, args: [painting]);
 ```
 
-## It learns you
+## It learns your routines
 
-The server remembers. Not just what it showed, but what was happening in the room when it showed it. It builds a map of your life from glimpses: mornings are rushed, evenings are slow, Tuesdays you are alone, weekends there are voices.
+The server stores each painting together with what was happening in the room when it was shown. From these photos it builds up a picture of your life: mornings are rushed, evenings are slow, on Tuesdays you are alone, and at weekends there are voices.
 
-After a few weeks, the paintings start to feel personal. You come home late and exhausted. The frame shows a single candle in an otherwise black canvas. You have friends over and it shifts to something bold and loud — a Basquiat-style explosion of color that makes someone say "I love that." It was not there an hour ago. It will not be there tomorrow.
+After a few weeks, the paintings start to feel personal. When you come home late and exhausted, the frame shows a single candle on an otherwise black canvas. When you have friends over, it switches to something bold and loud, a Basquiat-style painting full of color that makes someone say "I love that." The painting was not there an hour ago, and it will not be there tomorrow.
 
-It notices the book on your couch and paints a library. It notices a coat thrown over a chair and paints a traveler arriving somewhere. It saw two wine glasses on the table and produced something romantic that made you feel slightly watched.
+When the camera picks up a book on your couch, the server paints a library. A coat thrown over a chair becomes a traveler arriving somewhere. Two wine glasses on the table once led to something romantic that made you feel slightly watched.
 
-You are slightly watched. That is the point.
+You are slightly watched, because a camera photographs the room every few minutes. That is how the frame works.
 
 ## The gallery
 
-You open your phone — same server, same session — and see a gallery of everything the frame showed today. Timestamps, room photos, the AI's reasoning.
+On your phone you open the same app, connected to the same session on the server, and see a gallery of everything the frame showed today. Each entry has a timestamp, the room photo and the AI's reasoning.
 
 "6:45 AM — one person, low light, rushed movement. Generated: minimal ink drawing, single brushstroke."
 
 "11:30 PM — empty room, lights off. Generated: long hallway, fluorescent lighting, door at the end slightly open."
 
-You scroll through the empty-room paintings. They are different from the ones it shows you. Stranger. More honest, maybe. You wonder what the frame thinks about when no one is there, and then you remember it does not think at all. The server does. And the server has been watching your living room for three months.
+You scroll through the paintings made for the empty room. They are stranger than the ones you see, and maybe more honest. You wonder what the frame thinks about when no one is there, and then you remember that it does not think at all. The models on the server make every choice, and the server has been looking at photos of your living room for three months.
 
-You can pin paintings you liked. Block styles you did not. Set a theme for the week. Your roommate does the same from their phone. The server weighs both preferences. The frame becomes a negotiation between two people's subconscious tastes, mediated by an AI that is paying more attention to your home than you are.
+From the gallery you can pin paintings you liked, block styles you did not like, and set a theme for the week. Your roommate can do the same from their phone, and the server takes both sets of preferences into account when it chooses what to paint. The frame ends up showing a compromise between two people's tastes, worked out by an AI that pays more attention to your home than you do.
 
-## The frame never changes
+## The frame's hardware never changes
 
-The hardware was built once. A Pi, a camera, a screen. Two functions: take a photo of the room, display an image. That firmware will never be updated.
+You build the hardware once: a Pi, a camera and a screen. Its firmware has two functions, one to take a photo of the room and one to display an image. That firmware will never be updated.
 
-But the art keeps evolving. Better image models paint more striking things. Better vision models notice more — a half-finished puzzle on the table, a jacket from a team you support, the slow accumulation of coffee cups that means it has been a long week. The frame gets more perceptive every month. It never knows this. It has no brain. It just keeps watching and showing.
+The paintings keep improving anyway, because the models on the server improve. Newer image models paint more striking pictures. Newer vision models notice more details, such as a half-finished puzzle on the table, a jacket from a team you support, or the coffee cups that pile up when it has been a long week. The paintings get more perceptive every month, while the frame itself keeps doing the same two things: taking photos and showing images.
 
-A $45 frame with no artistic ability. And guests who stand in front of it a little too long, trying to figure out why the painting feels like it was made for them.
-
-It was. Five minutes ago.
+The frame cost $45 and has no artistic ability of its own. Guests still stand in front of it a little too long, trying to work out why the painting feels like it was made for them. It was made for them. The server painted it five minutes ago, from a photo of the room they are standing in.
