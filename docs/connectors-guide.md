@@ -1,4 +1,4 @@
-<!-- checked-against: b12faa7ea792a8d163671533 -->
+<!-- checked-against: b12faa7e671e8a61472ff56a -->
 
 # Ikon Connectors Developer Guide
 

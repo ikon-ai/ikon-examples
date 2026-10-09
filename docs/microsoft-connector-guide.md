@@ -1,4 +1,4 @@
-<!-- checked-against: fd798f3a582a632cfba63114 -->
+<!-- checked-against: 5a1535fd79b82569dfd3a7eb -->
 
 # Microsoft Connector Guide
 
@@ -6,7 +6,7 @@ This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entr
 
 ## Microsoft: SharePoint and OneDrive
 
-`Ikon.Connectors.Microsoft` reaches Microsoft 365 files and lists through Microsoft Graph. `SharePoint` covers sites, their document libraries and their lists. `OneDrive` covers the files in any drive, and in Graph a SharePoint document library *is* a drive: the same file calls serve a site's libraries and a person's own OneDrive, keyed by the library's `Id`. `EntraDirectory` finds people and their groups, for checking a person against the grants on a file. `Outlook` reads a mailbox.
+`Ikon.Connectors.Microsoft` reaches Microsoft 365 files and lists through Microsoft Graph. `SharePoint` covers sites, their document libraries and their lists. `OneDrive` covers the files in any drive, and in Graph a SharePoint document library *is* a drive: the same file calls serve a site's libraries and a person's own OneDrive, keyed by the library's `Id`. `EntraDirectory` finds people and their groups, for checking a person against the grants on a file. `Outlook` reads, sends and organises mail.
 
 ### Setting it up
 
@@ -161,7 +161,7 @@ deltaLink = delta.DeltaLink;   // store it for the next call
 
 ### Being told when something changed
 
-Polling delta works, but Graph can also call your app when a library, OneDrive or list changes. `GraphSubscriptions.CreateAsync` subscribes a `SubscriptionResource` — a drive's root (`SubscriptionResource.DriveRoot`; Graph does not watch one folder) or a list (`SubscriptionResource.List`) — to your app's public https endpoint, an `[HttpPost]` endpoint with `Auth = EndpointAuth.Public` (see the endpoints guide), and returns a `GraphSubscription`. Graph checks the URL on the spot by calling it with a token to echo, so the endpoint must be up before you subscribe. A subscription lives at most `GraphSubscriptions.MaxLifetime` (just under 30 days): `RenewAsync` extends it, `ReauthorizeAsync` answers Graph's `reauthorizationRequired`, and `DeleteAsync` and `ListAsync` manage the rest:
+Polling delta works, but Graph can also call your app when a library, OneDrive, list or mailbox changes. `GraphSubscriptions.CreateAsync` subscribes a `SubscriptionResource` — a drive's root (`SubscriptionResource.DriveRoot`; Graph does not watch one folder), a list (`SubscriptionResource.List`) or a mailbox (`SubscriptionResource.Messages`, see "Being told when mail arrives") — to your app's public https endpoint, an `[HttpPost]` endpoint with `Auth = EndpointAuth.Public` (see the endpoints guide), and returns a `GraphSubscription`. Graph checks the URL on the spot by calling it with a token to echo, so the endpoint must be up before you subscribe. A drive or list subscription lives at most `GraphSubscriptions.MaxLifetime` (just under 30 days), a mail one a week: `RenewAsync` extends it, `ReauthorizeAsync` answers Graph's `reauthorizationRequired`, and `DeleteAsync` and `ListAsync` manage the rest:
 
 <!-- ikon-example: connectors-graph-subscribe -->
 ```csharp
@@ -368,7 +368,86 @@ await SaveDeltaLinkAsync(delta.DeltaLink);
 
 ### Mail
 
-`Outlook` reads a mailbox in Exchange Online. It needs Graph's `Mail.Read` permission: application, for app-only credentials, reaches every mailbox in the tenant unless an Exchange application access policy narrows it; delegated reaches the signed-in person's own, named `me`. `MessagesDeltaAsync(user, folder)` works like `OneDrive.DeltaAsync`: every message of the folder on the first call (`inbox` by default, or another well-known name or folder id; subfolders are not included), then only what changed since the `DeltaLink` of the `MailDelta` it hands back, a removed message with `Deleted` set. It reads pages of 100 messages, so the default `maxPages` of 50 covers a folder of 5,000; a larger folder throws `ConnectorPageCapException<MailMessage>` whose `ResumeFrom` is passed back as the delta link to read on. Graph offers no way to start a mail feed from now, so the first call always reads the whole folder. A link Graph no longer honours throws with `IsResyncRequired` (a `410`): start again without one. Each `MailMessage` carries the sender's `From` address, `ReceivedAt`, the `Body` as Outlook stores it (`BodyIsHtml` says which), and the `ConversationId` its thread shares. `GetMessageAsync` reads one, null when it is gone:
+`Outlook` reads, sends and organises mail in Exchange Online. Every call names the mailbox first: a user principal name or object id with app-only credentials, which reach every mailbox in the tenant unless RBAC for Applications in Exchange Online narrows them to some, or `me` with delegated credentials. A folder is an id or one of Outlook's well-known names: `inbox`, `drafts`, `sentitems`, `deleteditems`, `archive`, `junkemail`, `msgfolderroot` and others. The permissions, application or delegated:
+
+| What | Graph permission |
+|---|---|
+| Reading mail, attachments and folders | `Mail.Read` |
+| Drafts, attachments on drafts, moving, flagging, deleting, folders | `Mail.ReadWrite` |
+| Sending, replying, forwarding | `Mail.Send` (plus `Mail.ReadWrite`, since a message is drafted first) |
+| Mailbox settings, categories, inbox rules | `MailboxSettings.Read` / `MailboxSettings.ReadWrite` |
+
+A mailbox someone else shared with the signed-in person is reached with the delegated `Mail.Read.Shared` family, which cannot subscribe to notifications.
+
+Message ids are Graph's *immutable* ids: every request asks for them, so an id stays the same when the message moves to another folder or the archive, and an id stored yesterday still finds the message today. An `OutlookMessage` carries its sender and recipients as `OutlookRecipient`s, `SentAt` and `ReceivedAt`, `BodyPreview`, the `Body` as Outlook stores it (`BodyIsHtml` says which), the `ConversationId` every message of its thread shares, and the RFC 5322 threading: `InternetMessageId`, `InReplyTo` and `References`, all without angle brackets. `GetMessageAsync` reads one, null when it is gone, and `GetMessagesAsync` reads many through `$batch`, four at a time, leaving out the ones gone or refused on their own; `OutlookReadOptions` leaves the body out, asks for it as plain text, or adds every internet header in `Headers`. `ListMessagesAsync` reads a folder, or the whole mailbox, narrowed by an `OutlookMessageQuery` (received between two dates, read or unread, with attachments, from one sender, one conversation); `ListMessagesPageAsync` reads one `OutlookMessagePage` at a time, its `NextCursor` handed back for the next. `SearchMessagesAsync` searches the way Outlook's search box does, words or KQL such as `from:ben hasattachment:true`, at most 1,000 results. `ListConversationAsync` reads a whole thread oldest first, and `FindMessageByInternetMessageIdAsync` finds the message a reply names in its `In-Reply-To`. `DownloadMessageAsync` streams the whole message as MIME (an `.eml`), and `DownloadMessageBytesAsync` reads it into memory up to a limit:
+
+<!-- ikon-example: connectors-outlook-read -->
+```csharp
+var thread = await outlook.ListConversationAsync("ada@contoso.com", message.ConversationId!);
+
+foreach (var earlier in thread)
+{
+    Log.Instance.Info($"{earlier.SentAt}: {earlier.From?.Address} {earlier.Subject}");
+}
+
+await using var mime = await outlook.DownloadMessageAsync("ada@contoso.com", message.Id);
+await KeepAsync($"{message.InternetMessageId}.eml", mime);
+```
+
+### Sending, replying and drafts
+
+`SendAsync` sends a `NewOutlookMessage`: `To`, `Cc`, `Bcc` and `ReplyTo` (each an address, or `Name <address>`), `Text` or `Html`, `Attachments`, `Importance`, custom `x-` `Headers`, and `From` to send as a shared mailbox the owner holds Send As rights on. The message is made as a draft and then sent, which is what lets `SendAsync` hand back an `OutlookSentMessage` with the `InternetMessageId` it went out with — the id a reply will name — and a copy lands in Sent Items. A failure before the send removes the draft; a failed send leaves it in Drafts. `ReplyAsync` and `ForwardAsync` start from the draft Outlook would make: the reply is threaded, its subject is the original's with `RE:` unless `Subject` is set, its recipients are the original's sender (everyone, with `replyAll`) unless `To` is set, and `Cc` adds to whom Outlook copies; the text goes above the quoted original. `CreateDraftAsync`, `UpdateDraftAsync`, `SendDraftAsync` and `DeleteDraftAsync` leave the sending to a person. `SendMimeAsync` sends a message an app wrote as MIME itself, up to 3 MB:
+
+<!-- ikon-example: connectors-outlook-send -->
+```csharp
+await using var ledger = File.OpenRead("./ledger.pdf");
+
+var sent = await outlook.SendAsync("ada@contoso.com", new NewOutlookMessage("Documents for case RTD-11")
+{
+    To = ["Ben Bitdiddle <ben@acme.com>"],
+    Bcc = ["case-rtd11@mail.example.com"],
+    Html = "<p>Please find the ledger attached.</p>",
+    Attachments = [new NewOutlookAttachment("ledger.pdf", "application/pdf", ledger, ledger.Length)],
+});
+
+await RememberSentAsync(sent.InternetMessageId);   // a reply names it in In-Reply-To
+```
+
+### Attachments
+
+`ListAttachmentsAsync` lists a message's attachments without their content: each `OutlookAttachment` has its `Kind` — a `File`, an attached Outlook `Item` such as a forwarded email, or a `Reference` link to a file in OneDrive — and `IsInline` with the `ContentId` the HTML body names it by as `cid:`. `DownloadAttachmentAsync` streams one (an attached email as MIME), `DownloadAttachmentBytesAsync` reads it up to a limit, and a `Reference` has no content to download. `AddAttachmentAsync` attaches a stream to a draft: under 3 MB in one request, larger (up to 150 MB) through an upload session in 3 MiB ranges that never carry the token:
+
+<!-- ikon-example: connectors-outlook-attachments -->
+```csharp
+foreach (var attachment in await outlook.ListAttachmentsAsync("ada@contoso.com", message.Id))
+{
+    if (attachment.Kind == OutlookAttachmentKind.Reference || attachment.IsInline)
+    {
+        continue;
+    }
+
+    await using var content = await outlook.DownloadAttachmentAsync("ada@contoso.com", message.Id, attachment.Id);
+    await KeepAsync(attachment.Name, content);
+}
+```
+
+### Organising mail
+
+`UpdateMessageAsync` changes only what it is given: read state, `Categories` (the names `ListCategoriesAsync` lists), the follow-up `OutlookFlag`, `OutlookImportance`, and Focused Inbox's `OutlookClassification`; `MarkReadAsync` and `MarkUnreadAsync` are the common case. `MoveMessageAsync` and `CopyMessageAsync` take a destination folder, `ArchiveAsync` moves to the Archive folder, `DeleteMessageAsync` moves to Deleted Items, where the owner can still restore it, and `PermanentDeleteMessageAsync` cannot be undone. The plural forms — `UpdateMessagesAsync`, `MoveMessagesAsync`, `DeleteMessagesAsync`, `PermanentDeleteMessagesAsync` — change many messages through Graph's `$batch`, twenty to a request; every message is tried, then any that failed throw with the first failure's `StatusCode` and the count. Each is safe to repeat, and a message already gone counts as deleted:
+
+<!-- ikon-example: connectors-outlook-organise -->
+```csharp
+await outlook.UpdateMessagesAsync("ada@contoso.com", selectedIds, isRead: true, categories: ["Case RTD-11"]);
+await outlook.MoveMessagesAsync("ada@contoso.com", selectedIds, "archive");
+```
+
+### Folders
+
+`FoldersDeltaAsync` reads every folder of the mailbox, at every depth, as one flat list of `OutlookFolder`s whose `ParentFolderId` rebuilds the tree, each with its item and unread counts; passed the `DeltaLink` of that `OutlookFolderDelta` again, it returns only the folders created, renamed, moved or removed since. `ListFoldersAsync` reads one level (hidden folders only when asked), `GetFolderAsync` one folder by id or well-known name, and `CreateFolderAsync`, `RenameFolderAsync`, `MoveFolderAsync` and `DeleteFolderAsync` change the tree.
+
+### Reading only what changed in a mailbox
+
+`MessagesDeltaAsync(user, folder)` works like `OneDrive.DeltaAsync`, one folder at a time: every message of the folder on the first call (`inbox` by default), then only what changed since the `DeltaLink` of the `OutlookDelta` it hands back. A new, read, flagged or moved-in message appears in its latest state; a removed message, or one moved out of the folder, has `Deleted` set. Graph will not read the threading on a change feed, so its messages carry no `InReplyTo` or `References`, and a message whose read state alone changed comes with only its `Id` and `IsRead`: read them in full with `GetMessagesAsync` before storing them. Subfolders are not included, so a mailbox is synced folder by folder, each with its own link, from the list `FoldersDeltaAsync` keeps. It reads pages of 100 messages, so the default `maxPages` of 50 covers a folder of 5,000; a larger folder throws `ConnectorPageCapException<OutlookMessage>` whose `ResumeFrom` is passed back as the delta link to read on. `receivedSince` starts the feed with recent mail only — Graph returns at most 5,000 messages to a feed started that way, so older history is read with `ListMessagesAsync` and `ReceivedBefore`. A link Graph no longer honours throws with `IsResyncRequired` (a `410`): start again without one:
 
 <!-- ikon-example: connectors-outlook-delta -->
 ```csharp
@@ -376,18 +455,35 @@ var delta = await outlook.MessagesDeltaAsync("ada@contoso.com", "inbox", deltaLi
 
 foreach (var message in delta.Items.Where(m => !m.Deleted))
 {
-    Log.Instance.Info($"{message.From}: {message.Subject}");
+    Log.Instance.Info($"{message.From?.Address}: {message.Subject}");
 }
 
 deltaLink = delta.DeltaLink;   // store it for the next call
 ```
 
+### Being told when mail arrives
+
+`SubscriptionResource.Messages(user, folder)` subscribes `GraphSubscriptions` to a mailbox, or one folder of it, for messages created, updated and deleted (see "Being told when something changed"). Its notification names the message in `ResourceId`; read the change with `MessagesDeltaAsync` on the folder. A mail subscription lives at most a week (`SubscriptionResource.MaxLifetime`), so renew it from its record, `RenewAsync(subscription)`, which keeps within that. Microsoft advises naming the mailbox by its object id here. Besides `reauthorizationRequired`, a mail subscription's lifecycle URL receives `missed` when Graph dropped notifications — read the folders with delta — and `subscriptionRemoved`, when it must be created again:
+
+<!-- ikon-example: connectors-outlook-subscribe -->
+```csharp
+var subscription = await subscriptions.CreateAsync(
+    SubscriptionResource.Messages(mailboxObjectId), notificationUrl, clientState, lifecycleNotificationUrl: notificationUrl);
+
+// Later, before it ends: renewing from the record keeps within the mail maximum.
+subscription = await subscriptions.RenewAsync(subscription);
+```
+
+### Mailbox settings
+
+`GetMailboxSettingsAsync` reads `OutlookMailboxSettings`: the mailbox's time zone, language, archive folder, purpose (a person's, shared, a room) and `OutlookAutomaticReplies`. `SetAutomaticRepliesAsync` turns the out-of-office reply on, off, or on between two times (`OutlookAutomaticRepliesStatus`), for whom outside the organisation `OutlookExternalAudience` says. `ListCategoriesAsync`, `CreateCategoryAsync`, `UpdateCategoryAsync` and `DeleteCategoryAsync` manage the `OutlookCategory`s messages are tagged with, each in one of Outlook's 25 preset colours (`OutlookCategoryColor`). `ListRulesAsync`, `CreateRuleAsync` (a `NewOutlookRule`), `UpdateRuleAsync` and `DeleteRuleAsync` manage inbox rules: each `OutlookRule`'s `OutlookRuleConditions` (sender, recipient, subject or body words, attachments, importance) choose the mail its `OutlookRuleActions` move, copy, mark read, categorise, forward or delete.
+
 ### Rate limits
 
-Graph and SharePoint throttle per app and per tenant, and a throttled call is retried before it surfaces: a `429` or `503` on any method and a `504` on a read (a gateway timeout on a write may hide a write that happened, so it is never repeated) are sent again up to three times, each after the `Retry-After` the service named, bounded at two minutes. A throttled answer that names a longer wait surfaces at once, since every retry inside it would be refused again. The one retry with a fresh token after a `401` does not count among the three. A call that still fails throws with `IsTransient` set: back off and try later rather than at once. Every request carries the `User-Agent` SharePoint's throttling guidance asks integrations to send, which it favours over anonymous traffic when it throttles. `CopyAsync` polls SharePoint every two seconds while it works, or as its `Retry-After` asks, and `CreateSiteAsync` every three, each until its `maxWait`.
+Graph and SharePoint throttle per app and per tenant, and a throttled call is retried before it surfaces: a `429` or `503` on any method and a `504` on a read (a gateway timeout on a write may hide a write that happened, so it is never repeated) are sent again up to three times, each after the `Retry-After` the service named, bounded at two minutes. A throttled answer that names a longer wait surfaces at once, since every retry inside it would be refused again. The one retry with a fresh token after a `401` does not count among the three. A call that still fails throws with `IsTransient` set: back off and try later rather than at once. Every request carries the `User-Agent` SharePoint's throttling guidance asks integrations to send, which it favours over anonymous traffic when it throttles. Outlook allows one app at most four requests at a time and 10,000 every ten minutes against one mailbox, so sync a mailbox's folders one after another rather than all at once; a request in a `$batch` is throttled on its own, and the bulk methods send a throttled one again after its `Retry-After`. `CopyAsync` polls SharePoint every two seconds while it works, or as its `Retry-After` asks, and `CreateSiteAsync` every three, each until its `maxWait`.
 
 ### What it does not reach
 
 The library uses Graph v1.0 and nothing from Graph's beta, so creating a site through `POST /sites`, the site recycle bin in Graph, page templates and archiving sites are not here (`CreateSiteAsync` and `ListRecycleBinAsync` reach the first two through SharePoint's own API). SharePoint Embedded containers, hub sites, site designs and scripts, list views and tenant administration settings are not covered, and change notifications arrive only by webhook, not over Graph's socket.io channel.
 
-Mail is read-only and one folder at a time: sending, replying, drafts, attachments, folders, flags and categories, mail search and change notifications for mail are not here. Nor are Calendar, Contacts, Teams, To Do, Planner, OneNote or Excel workbooks. `EntraDirectory` finds one person and a person's groups; it does not list the directory's users or groups, a group's members, photos or presence. Only Microsoft's global cloud is reached — not the national clouds (US Government, China) — and SharePoint only on `*.sharepoint.com` hosts, not a vanity domain.
+Mail reaches a mailbox's primary folders: the in-place archive mailbox, which Graph's v1.0 mail API does not open, is not reached, nor are mail signatures, which Graph does not expose, MailTips, Focused Inbox overrides, or notifications that carry the message itself (encrypted resource data). A sent or received message's subject and body cannot be changed, only a draft's. Nor are Calendar, Contacts, Teams, To Do, Planner, OneNote or Excel workbooks. `EntraDirectory` finds one person and a person's groups; it does not list the directory's users or groups, a group's members, photos or presence. Only Microsoft's global cloud is reached — not the national clouds (US Government, China) — and SharePoint only on `*.sharepoint.com` hosts, not a vanity domain.

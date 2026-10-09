@@ -1,4 +1,4 @@
-<!-- checked-against: 9f1897fab458a7c4f18e7b3a -->
+<!-- checked-against: 345d5d7bcd155880136a1c8e -->
 
 # Ikon.AI Library Overview
 
@@ -159,7 +159,12 @@ await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 
 A size outside the model's range is refused rather than clamped to a nearby one, with an exception
 naming what the model accepts; inside the range, Gemini, xAI and FLUX Kontext take only the nearest
-aspect ratio they support, so a 1000x700 request does not come back as 1000x700. `Width`
+aspect ratio they support, so a 1000x700 request does not come back as 1000x700. The OpenAI
+models list their sizes in `ImageGenerator.GetCapabilities(model).SizeRules`: gpt-image-1.5 and
+gpt-image-2 render 1024x1024, 1536x1024 and 1024x1536 only, while gpt-image-2.5 takes any size with
+edges in multiples of 16 up to 3840, shapes up to 3:1 and 0.66 to 8.3 megapixels (above 2560x1440
+OpenAI calls it experimental). `ImageGenerator.FitSize(model, width, height)` returns the nearest
+size the model renders. `Width`
 and `Height` default to 1024; set both to `0` to take the provider's own default. The 1024 default is
 a square size request, so editing a non-square input image comes back square unless both are `0`, and
 setting only one of them to `0` throws `NonRetryableAIException`; `Flux1Fill` is the exception, ignoring
