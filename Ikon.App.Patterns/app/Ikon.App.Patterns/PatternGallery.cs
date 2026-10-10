@@ -117,6 +117,7 @@ public static class PatternGallery
         new UndoRedoCursorHistory(),
         new UpscaleAnImage(),
         new UrlPathRouteState(app),
+        new VideoCallTiles(),
         new VirtualFileToolSet(),
         new VoiceEffectChain(app),
         new VoiceLoop(app),

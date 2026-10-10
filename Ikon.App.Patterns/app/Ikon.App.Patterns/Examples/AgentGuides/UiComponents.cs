@@ -385,12 +385,12 @@ internal sealed partial class AgentGuideExamples
             content: v => v.Icon([Icon.Default], name: "mic"));
 
         // Video capture (camera). Capture media always routes to the app on the server,
-        // never to the other clients — the app decides any fan-out.
+        // never to the other clients — the app shows it with Video.Play onto a surface.
         view.CaptureButton([Button.OutlineMd, Button.Icon],
             kind: MediaCaptureKind.Camera,
             captureMode: MediaCaptureButtonMode.Toggle,
             videoOptions: new ClientVideoCaptureOptions { Framerate = 10, Width = 1280, Height = 720 },
-            onCaptureStart: async args => { /* args.StreamId — but prefer args.StreamId from VideoInputStreamBeginAsync */ },
+            onCaptureStart: async args => { /* args.StreamId is the Id of the VideoInput that Video.InputStartedAsync hands the app */ },
             onCaptureStop: async args => { /* cleanup */ },
             content: v => v.Icon([Icon.Default], name: "video"));
         #endregion

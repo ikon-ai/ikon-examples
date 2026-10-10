@@ -1,3 +1,5 @@
+using Ikon.Common.Core.Protocol;
+
 namespace Ikon.App.Patterns.Examples;
 
 // The audio and video guide, as one file that compiles.
@@ -13,6 +15,8 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     #endregion
 
     private readonly Reactive<bool> _micBlocked = new(false);
+    private long _bytesReceived;
+    private long _keyFramesReceived;
 
     public async Task SendAsync(AudioChunk audioChunk, float[] samples, int sampleRate,
         int channelCount, bool isFirst, bool isLast, string streamId)
@@ -199,33 +203,169 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         #endregion
     }
 
-    #region example:av-video-streams-field
-    // The frame event carries no codec or geometry — those arrive once on the BEGIN event,
-    // so stash them per stream:
-    private readonly Dictionary<string, VideoInputStreamBeginEventArgs> _videoStreams = new();
+    #region example:av-video-tiles-field
+    // One tile per camera: the surface its relay plays on, and the input its owner previews
+    private readonly ReactiveList<CameraTile> _tiles = new();
+
+    private sealed record CameraTile(string Surface, string InputId);
     #endregion
 
-    public void ForwardVideo()
+    public void RelayCameras()
     {
-        #region example:av-video-forward
-        Video.VideoInputStreamBeginAsync += async args => _videoStreams[args.StreamId] = args;
-
-        Video.VideoInputFrameAsync += async args =>
+        #region example:av-video-relay
+        Video.InputStartedAsync += async input =>
         {
-            // args.Data is ENCODED codec bitstream (see the codec on the begin event), not pixels.
-            // Forward it as-is — e.g. echo to everyone except the sender:
-            var stream = _videoStreams[args.StreamId];
-            var targets = app.Clients.Ids.Where(id => id != args.ClientSessionId).ToList();
-            await Video.SendFrameAsync(MediaTargets.To(targets), args.Data, args.FrameNumber, args.IsKey,
-                args.TimestampInUs, args.DurationInUs, stream.Codec, stream.Width, stream.Height,
-                stream.Framerate, streamId: args.StreamId);
+            if (input.Kind != VideoSourceKind.Camera)
+            {
+                return;
+            }
+
+            // Each camera on a surface of its own, shown to everyone but its owner, later
+            // joiners included: the owner previews its camera locally (localPreviewStreamId).
+            // The platform forwards the frames, starts each viewer at a keyframe it asks the
+            // camera for, and ends the playback (SourceEnded) when the camera stops.
+            var surface = $"camera-{input.Id}";
+            Video.Play(MediaTargets.EveryoneExcept(input.ClientSessionId), surface, input);
+            _tiles.Add(new CameraTile(surface, input.Id));
         };
 
-        Video.VideoInputStreamEndAsync += async args =>
+        Video.InputEndedAsync += async input =>
         {
-            _videoStreams.Remove(args.StreamId);
-            await Video.CloseAsync(args.StreamId);
+            _tiles.RemoveAll(tile => tile.InputId == input.Id);
         };
         #endregion
+    }
+
+    public void CameraTiles(UIView view)
+    {
+        #region example:av-video-surface
+        view.Row(["flex-wrap gap-2"], content: row =>
+        {
+            if (_tiles.Count == 0)
+            {
+                row.Text(["text-sm text-muted-foreground"], text: "No cameras on yet");
+                return;
+            }
+
+            foreach (var tile in _tiles)
+            {
+                // The camera's owner sees its own capture locally, with no round trip;
+                // everyone else sees the relay. The placeholder shows until the first frame.
+                row.VideoSurface(["w-64 aspect-video rounded-lg bg-black"], surface: tile.Surface,
+                    fit: VideoFit.Cover,
+                    localPreviewStreamId: tile.InputId,
+                    placeholder: tileView => tileView.Spinner(),
+                    key: tile.Surface);
+            }
+        });
+        #endregion
+    }
+
+    public async Task PlayEncodedFramesAsync(EncodedFrameSource encoder, CancellationToken ct)
+    {
+        #region example:av-video-live
+        // Frames the app encodes itself (an ffmpeg process, a headless browser), in a codec the
+        // viewers decode: H.264 plays on every WebRTC browser.
+        await using var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264);
+
+        // A viewer joined or lost frames and needs a keyframe: make the next frame one.
+        live.KeyFrameRequestedAsync += async request => encoder.ForceKeyFrame();
+
+        await foreach (var frame in encoder.ReadFramesAsync(ct))
+        {
+            // Frames go out in step with their timestamps. WriteAsync waits while half a second
+            // is queued ahead of playout, and returns false once the playback has ended.
+            if (!await live.WriteAsync(frame.Data, frame.IsKey, frame.Timestamp, ct))
+            {
+                break;
+            }
+        }
+
+        live.Complete();   // plays out what is queued, then ends Finished
+        await live.Completion;
+        #endregion
+    }
+
+    public async Task PlayFfmpegAsync(CancellationToken ct)
+    {
+        #region example:av-video-ffmpeg
+        // ffmpeg encodes, the platform only routes: H.264 Constrained Baseline as raw Annex-B on stdout
+        var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
+            "-f lavfi -i testsrc2=size=640x360:rate=30 -c:v libx264 -profile:v baseline -pix_fmt yuv420p " +
+            "-preset veryfast -tune zerolatency -bf 0 -g 30 -x264-params repeat-headers=1 -f h264 pipe:1")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        })!;
+
+        await using var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264);
+
+        try
+        {
+            // Splits the stream into frames (all slices of a picture together), stamps them
+            // index / 30 and writes them in real time; false once the playback has ended
+            await live.WriteH264StreamAsync(ffmpeg.StandardOutput.BaseStream, frameRate: 30, ct);
+        }
+        finally
+        {
+            ffmpeg.Kill();
+        }
+        #endregion
+    }
+
+    public void TapFrames()
+    {
+        #region example:av-video-frame-tap
+        Video.InputStartedAsync += async input =>
+        {
+            // Every encoded frame of the input, off the message loop: the input's codec
+            // bitstream (input.Codec), never decoded pixels.
+            input.FrameReceivedAsync += async frame =>
+            {
+                Interlocked.Add(ref _bytesReceived, frame.Data.Length);
+
+                if (frame.IsKey)
+                {
+                    Interlocked.Increment(ref _keyFramesReceived);
+                }
+            };
+
+            // Asks the source for a keyframe now rather than at its next one.
+            input.RequestKeyFrame();
+        };
+        #endregion
+    }
+
+    public async Task ShareScreenAsync(VideoInput screen, int hostId, IReadOnlyList<int> approvedIds)
+    {
+        #region example:av-video-audience
+        // One playback, a changing audience: the presenter's screen, first to the host alone.
+        var share = Video.Play(MediaTargets.To(hostId), "presentation", screen);
+
+        // Clients who keep seeing it go on uninterrupted, new ones start at the next keyframe,
+        // and clients left out have the surface cleared. An empty audience stops it.
+        share.SetAudience(MediaTargets.To([hostId, .. approvedIds]));
+
+        // Done: ends it and clears the surface for its viewers.
+        share.Stop();
+        var outcome = await share.Completion;   // VideoPlaybackOutcome.Stopped
+        #endregion
+
+        Log.Instance.Debug($"{outcome}");
+    }
+}
+
+// What the live example assumes: the app's own encoder, handing out encoded frames in order
+file sealed class EncodedFrameSource
+{
+    public void ForceKeyFrame()
+    {
+    }
+
+    public async IAsyncEnumerable<(byte[] Data, bool IsKey, TimeSpan Timestamp)> ReadFramesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 }

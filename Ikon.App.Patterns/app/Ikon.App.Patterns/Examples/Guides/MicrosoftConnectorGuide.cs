@@ -39,6 +39,10 @@ file sealed class MicrosoftConnectorGuideExamples
 
     private static Task SaveDeltaLinkAsync(string deltaLink) => Task.CompletedTask;
 
+    private static Task KeepAsync(string name, Stream content) => Task.CompletedTask;
+
+    private static Task RememberSentAsync(string internetMessageId) => Task.CompletedTask;
+
     private static void QueueReauthorize(string subscriptionId)
     {
     }
@@ -107,11 +111,80 @@ file sealed class MicrosoftConnectorGuideExamples
 
         foreach (var message in delta.Items.Where(m => !m.Deleted))
         {
-            Log.Instance.Info($"{message.From}: {message.Subject}");
+            Log.Instance.Info($"{message.From?.Address}: {message.Subject}");
         }
 
         deltaLink = delta.DeltaLink;   // store it for the next call
         #endregion
+    }
+
+    public async Task OutlookReadAsync(Outlook outlook, OutlookMessage message)
+    {
+        #region example:connectors-outlook-read
+        var thread = await outlook.ListConversationAsync("ada@contoso.com", message.ConversationId!);
+
+        foreach (var earlier in thread)
+        {
+            Log.Instance.Info($"{earlier.SentAt}: {earlier.From?.Address} {earlier.Subject}");
+        }
+
+        await using var mime = await outlook.DownloadMessageAsync("ada@contoso.com", message.Id);
+        await KeepAsync($"{message.InternetMessageId}.eml", mime);
+        #endregion
+    }
+
+    public async Task OutlookSendAsync(Outlook outlook)
+    {
+        #region example:connectors-outlook-send
+        await using var ledger = File.OpenRead("./ledger.pdf");
+
+        var sent = await outlook.SendAsync("ada@contoso.com", new NewOutlookMessage("Documents for case RTD-11")
+        {
+            To = ["Ben Bitdiddle <ben@acme.com>"],
+            Bcc = ["case-rtd11@mail.example.com"],
+            Html = "<p>Please find the ledger attached.</p>",
+            Attachments = [new NewOutlookAttachment("ledger.pdf", "application/pdf", ledger, ledger.Length)],
+        });
+
+        await RememberSentAsync(sent.InternetMessageId);   // a reply names it in In-Reply-To
+        #endregion
+    }
+
+    public async Task OutlookAttachmentsAsync(Outlook outlook, OutlookMessage message)
+    {
+        #region example:connectors-outlook-attachments
+        foreach (var attachment in await outlook.ListAttachmentsAsync("ada@contoso.com", message.Id))
+        {
+            if (attachment.Kind == OutlookAttachmentKind.Reference || attachment.IsInline)
+            {
+                continue;
+            }
+
+            await using var content = await outlook.DownloadAttachmentAsync("ada@contoso.com", message.Id, attachment.Id);
+            await KeepAsync(attachment.Name, content);
+        }
+        #endregion
+    }
+
+    public async Task OutlookOrganiseAsync(Outlook outlook, IReadOnlyList<string> selectedIds)
+    {
+        #region example:connectors-outlook-organise
+        await outlook.UpdateMessagesAsync("ada@contoso.com", selectedIds, isRead: true, categories: ["Case RTD-11"]);
+        await outlook.MoveMessagesAsync("ada@contoso.com", selectedIds, "archive");
+        #endregion
+    }
+
+    public async Task<GraphSubscription> OutlookSubscribeAsync(GraphSubscriptions subscriptions, string mailboxObjectId, string notificationUrl, string clientState)
+    {
+        #region example:connectors-outlook-subscribe
+        var subscription = await subscriptions.CreateAsync(
+            SubscriptionResource.Messages(mailboxObjectId), notificationUrl, clientState, lifecycleNotificationUrl: notificationUrl);
+
+        // Later, before it ends: renewing from the record keeps within the mail maximum.
+        subscription = await subscriptions.RenewAsync(subscription);
+        #endregion
+
+        return subscription;
     }
 
     public async Task SharePointUploadAsync(OneDrive oneDrive, string driveId, string folderId)

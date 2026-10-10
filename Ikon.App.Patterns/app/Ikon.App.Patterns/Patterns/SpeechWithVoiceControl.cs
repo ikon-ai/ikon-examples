@@ -59,8 +59,9 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
             {
                 Text = line,
                 VoiceId = "Sarah",
-                // Speed is honoured by OpenAI, Google and Azure; ElevenLabs throws
-                // NonRetryableAIException for anything but null or 1.0, so null is required here.
+                // Speed is honoured by OpenAI, Azure and Google's Cloud TTS voices; ElevenLabs and
+                // Gemini 3.8 TTS throw NonRetryableAIException for anything but null or 1.0, so null
+                // is required here.
                 Speed = null,
                 Instructions = "warm, close-mic",
             }))

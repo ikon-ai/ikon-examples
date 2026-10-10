@@ -29,9 +29,8 @@ internal sealed class ScreenAndCameraCapture : IPatternDemo
                 // shares a screen at its native size, ignoring Width and Height; Flutter applies them.
                 videoOptions: new ClientVideoCaptureOptions
                 {
-                    // A receiver can only start decoding on a key frame, so this is the worst-case
-                    // join latency for anyone arriving mid-stream. Lower it for a share people
-                    // join late; leave it for a recording nobody watches live. Only the web
+                    // A viewer that joins or loses frames asks the capture for a key frame at
+                    // once, so this only sets the steady cadence between requests. Only the web
                     // client's protocol-channel fallback reads it; over WebRTC it changes nothing.
                     KeyFrameIntervalFrames = 30,
                 },
