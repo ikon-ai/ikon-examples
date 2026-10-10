@@ -128,14 +128,16 @@ public partial class Validation
                             });
                     });
 
-                    if (_cameraEchoStreamId.Value != null)
+                    if (_cameraEchoSurface.Value != null)
                     {
                         view.Text([Text.Caption, "mb-2"], $"Camera dimensions: {_cameraWidth.Value}x{_cameraHeight.Value}");
+                        view.Text([Text.Caption, "mb-2"], _cameraEchoStatus.Value, props: TestId("video-camera-echo"));
+                        RenderEchoControls(view);
                         view.Box([Media.VideoContainer], content: view =>
                         {
-                            view.VideoStreamCanvas(
-                                [Media.Fill, Media.Mirror],
-                                streamId: _cameraEchoStreamId.Value,
+                            view.VideoSurface(
+                                [Media.Fill, Media.Mirror], surface: _cameraEchoSurface.Value,
+                                fit: EchoFit,
                                 width: _cameraWidth.Value > 0 ? _cameraWidth.Value : 640,
                                 height: _cameraHeight.Value > 0 ? _cameraHeight.Value : 480,
                                 onTap: OnVideoCanvasTapAsync);
@@ -221,14 +223,14 @@ public partial class Validation
                             });
                     });
 
-                    if (_screenEchoStreamId.Value != null)
+                    if (_screenEchoSurface.Value != null)
                     {
                         view.Text([Text.Caption, "mb-2"], $"Screen dimensions: {_screenWidth.Value}x{_screenHeight.Value}");
+                        view.Text([Text.Caption, "mb-2"], _screenEchoStatus.Value, props: TestId("video-screen-echo"));
                         view.Box([Media.VideoContainer], content: view =>
                         {
-                            view.VideoStreamCanvas(
-                                [Media.Fill],
-                                streamId: _screenEchoStreamId.Value,
+                            view.VideoSurface(
+                                [Media.Fill], surface: _screenEchoSurface.Value,
                                 width: _screenWidth.Value > 0 ? _screenWidth.Value : 640,
                                 height: _screenHeight.Value > 0 ? _screenHeight.Value : 480,
                                 onTap: OnVideoCanvasTapAsync);

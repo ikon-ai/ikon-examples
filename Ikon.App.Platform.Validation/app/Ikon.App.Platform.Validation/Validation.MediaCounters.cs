@@ -95,20 +95,20 @@ public partial class Validation
         }
     }
 
-    private void RecordClientVideoStreamBegin(VideoInputStreamBeginEventArgs args)
+    private void RecordClientVideoStreamBegin(VideoInput input)
     {
         // The codec here is the one the CLIENT's encoder picked, which is not necessarily the one
         // its WebRTC peer connection negotiated — so it says what arrived, and must not be taken
         // as the codec to send back in.
-        _clientVideoDescription = $"{args.Width}x{args.Height} {args.Codec}";
+        _clientVideoDescription = $"{input.Width}x{input.Height} {input.Codec}";
         Interlocked.Exchange(ref _clientVideoKeyFrames, 0);
     }
 
-    private void RecordClientVideoFrame(VideoInputFrameEventArgs args)
+    private void RecordClientVideoFrame(VideoInputFrame frame)
     {
         Interlocked.Increment(ref _videoFramesFromClients);
 
-        if (args.IsKey && args.Data.Length > 0)
+        if (frame.IsKey && frame.Data.Length > 0)
         {
             Interlocked.Increment(ref _clientVideoKeyFrames);
         }

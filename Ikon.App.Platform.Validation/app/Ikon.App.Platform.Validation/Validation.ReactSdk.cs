@@ -72,8 +72,8 @@ public partial class Validation
                 view.AddNode("validation-sdk-probe", new Dictionary<string, object?>
                 {
                     ["siblingTest"] = SiblingClientTestParameter,
-                    ["cameraEchoStreamId"] = _cameraEchoStreamId.Value,
-                    ["screenEchoStreamId"] = _screenEchoStreamId.Value,
+                    ["cameraEchoStreamId"] = _cameraEchoSurface.Value,
+                    ["screenEchoStreamId"] = _screenEchoSurface.Value,
                 }, style: ["w-full mt-4"]);
             });
         });

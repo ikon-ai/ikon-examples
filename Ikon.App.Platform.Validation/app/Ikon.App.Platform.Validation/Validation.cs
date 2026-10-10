@@ -153,15 +153,20 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _isCameraCaptureActive = new(false);
     private readonly Reactive<bool> _isScreenCaptureActive = new(false);
 
-    // Video echo state
-    private readonly Dictionary<string, VideoEchoInfo> _videoEchos = new();
-    private readonly Dictionary<int, int> _echoToInputTrack = new();
+    // Video echo state. The surface names start with the source type because
+    // validation/validate_platform_current.py finds the echoed camera by the "camera_" prefix.
+    private const string CameraEchoSurface = "camera_echo";
+    private const string ScreenEchoSurface = "screen_echo";
+    private volatile VideoEcho? _cameraEcho;
+    private volatile VideoEcho? _screenEcho;
 
     // Video UI state
-    private readonly Reactive<string?> _cameraEchoStreamId = new(null);
+    private readonly Reactive<string?> _cameraEchoSurface = new(null);
+    private readonly Reactive<string> _cameraEchoStatus = new("");
     private readonly Reactive<int> _cameraWidth = new(0);
     private readonly Reactive<int> _cameraHeight = new(0);
-    private readonly Reactive<string?> _screenEchoStreamId = new(null);
+    private readonly Reactive<string?> _screenEchoSurface = new(null);
+    private readonly Reactive<string> _screenEchoStatus = new("");
     private readonly Reactive<int> _screenWidth = new(0);
     private readonly Reactive<int> _screenHeight = new(0);
 
@@ -534,16 +539,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     private void CleanupCameraEcho()
     {
-        if (_cameraEchoStreamId.Value == null) return;
-        _cameraEchoStreamId.Value = null;
+        if (_cameraEchoSurface.Value == null) return;
+        _cameraEchoSurface.Value = null;
         _cameraWidth.Value = 0;
         _cameraHeight.Value = 0;
     }
 
     private void CleanupScreenEcho()
     {
-        if (_screenEchoStreamId.Value == null) return;
-        _screenEchoStreamId.Value = null;
+        if (_screenEchoSurface.Value == null) return;
+        _screenEchoSurface.Value = null;
         _screenWidth.Value = 0;
         _screenHeight.Value = 0;
     }
@@ -625,136 +630,134 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     private void SetupVideoInputHandlers()
     {
-        Video.VideoInputStreamBeginAsync += async args =>
+        Video.InputStartedAsync += async input =>
         {
-            RecordClientVideoStreamBegin(args);
+            RecordClientVideoStreamBegin(input);
 
-            if (_videoEchos.TryGetValue(args.StreamId, out var existing))
+            var surface = input.Kind switch
             {
-                // Resolution change on existing stream — update dimensions in-place
-                existing.Width = args.Width;
-                existing.Height = args.Height;
+                VideoSourceKind.Camera => CameraEchoSurface,
+                VideoSourceKind.Screen => ScreenEchoSurface,
+                _ => null
+            };
 
-                if (args.SourceType == "camera")
+            VideoEcho? echo = null;
+
+            if (surface != null)
+            {
+                // Through the server on purpose, not a local preview: the round trip is what this tab tests
+                echo = new VideoEcho(input, Video.Play(MediaTargets.Everyone, surface, input));
+
+                if (input.Kind == VideoSourceKind.Camera)
                 {
-                    _cameraWidth.Value = args.Width;
-                    _cameraHeight.Value = args.Height;
+                    _cameraEcho = echo;
+                    _echoAudience.Value = "everyone";
+                    _echoAudienceResult.Value = "";
+                    _echoKeyFrameResult.Value = "";
                 }
-                else if (args.SourceType == "screen")
+                else
                 {
-                    _screenWidth.Value = args.Width;
-                    _screenHeight.Value = args.Height;
+                    _screenEcho = echo;
                 }
 
-                return;
+                ShowEcho(input);
+                _ = ReportEchoAsync(echo);
             }
 
-            var echoStreamId = $"{args.SourceType}_{Guid.NewGuid()}";
-            _videoEchos[args.StreamId] = new VideoEchoInfo(echoStreamId, args.Codec, args.Width, args.Height, args.Framerate, args.TrackId, args.SourceType);
-
-            if (args.SourceType == "camera")
+            input.ResizedAsync += async resized =>
             {
-                _cameraEchoStreamId.Value = echoStreamId;
-                _cameraWidth.Value = args.Width;
-                _cameraHeight.Value = args.Height;
-            }
-            else if (args.SourceType == "screen")
-            {
-                _screenEchoStreamId.Value = echoStreamId;
-                _screenWidth.Value = args.Width;
-                _screenHeight.Value = args.Height;
-            }
-        };
-
-        Video.VideoInputFrameAsync += async args =>
-        {
-            RecordClientVideoFrame(args);
-
-            if (!_videoEchos.TryGetValue(args.StreamId, out var echo))
-            {
-                return;
-            }
-
-            // Re-show video canvas when WebRTC capture resumes (server reuses the same stream)
-            if (echo.SourceType == "camera" && _isCameraCaptureActive.Value && _cameraEchoStreamId.Value == null)
-            {
-                _cameraEchoStreamId.Value = echo.EchoStreamId;
-                _cameraWidth.Value = echo.Width;
-                _cameraHeight.Value = echo.Height;
-            }
-            else if (echo.SourceType == "screen" && _isScreenCaptureActive.Value && _screenEchoStreamId.Value == null)
-            {
-                _screenEchoStreamId.Value = echo.EchoStreamId;
-                _screenWidth.Value = echo.Width;
-                _screenHeight.Value = echo.Height;
-            }
-
-            Interlocked.Increment(ref _videoFramesToClients);
-            await Video.SendFrameAsync(MediaTargets.Everyone, args.Data, args.FrameNumber, args.IsKey, args.TimestampInUs, args.DurationInUs,
-                echo.Codec, echo.Width, echo.Height, echo.Framerate, echo.EchoStreamId, trackId: echo.InputTrackId);
-
-            var outputInfo = Video.GetOutputStreamInfo(echo.EchoStreamId);
-
-            if (outputInfo != null)
-            {
-                _echoToInputTrack.TryAdd(outputInfo.TrackId, echo.InputTrackId);
-
-                // Request a keyframe shortly after echo starts so the viewer's decoder can begin
-                if (!echo.InitialIdrRequested)
+                if (IsCurrentEcho(echo))
                 {
-                    echo.InitialIdrRequested = true;
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(200);
-                        await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrVideoFrame(),
-                            trackId: echo.InputTrackId, targetIds: [args.ClientSessionId]));
-                    });
+                    ShowEcho(resized);
                 }
-            }
+            };
+
+            input.FrameReceivedAsync += async frame =>
+            {
+                RecordClientVideoFrame(frame);
+
+                if (echo != null && echo == _cameraEcho)
+                {
+                    NoteEchoFrame(frame);
+                }
+
+                if (echo == null || !IsCurrentEcho(echo))
+                {
+                    return;
+                }
+
+                // A capture stopped and started again on the same track keeps its input, so the
+                // echo has to come back on its frames rather than on a new input
+                if (input.Kind == VideoSourceKind.Camera && _isCameraCaptureActive.Value && _cameraEchoSurface.Value == null)
+                {
+                    ShowEcho(input);
+                }
+                else if (input.Kind == VideoSourceKind.Screen && _isScreenCaptureActive.Value && _screenEchoSurface.Value == null)
+                {
+                    ShowEcho(input);
+                }
+
+                // The relay forwards on the platform's side; a frame counts as sent to the clients
+                // once the echo's first frame has reached one of them
+                if (echo.Playback.Started.IsCompleted && !echo.Playback.IsEnded)
+                {
+                    Interlocked.Increment(ref _videoFramesToClients);
+                }
+            };
         };
 
-        Video.VideoInputStreamEndAsync += async args =>
+        Video.InputEndedAsync += async input =>
         {
-            if (!_videoEchos.Remove(args.StreamId, out var echo))
+            if (_cameraEcho?.Input == input)
             {
-                return;
+                _cameraEcho = null;
+                CleanupCameraEcho();
             }
-
-            var outputInfo = Video.GetOutputStreamInfo(echo.EchoStreamId);
-            if (outputInfo != null)
+            else if (_screenEcho?.Input == input)
             {
-                _echoToInputTrack.Remove(outputInfo.TrackId);
-            }
-
-            await Video.CloseAsync(echo.EchoStreamId);
-
-            if (_cameraEchoStreamId.Value == echo.EchoStreamId)
-            {
-                _cameraEchoStreamId.Value = null;
-                _cameraWidth.Value = 0;
-                _cameraHeight.Value = 0;
-            }
-            else if (_screenEchoStreamId.Value == echo.EchoStreamId)
-            {
-                _screenEchoStreamId.Value = null;
-                _screenWidth.Value = 0;
-                _screenHeight.Value = 0;
+                _screenEcho = null;
+                CleanupScreenEcho();
             }
         };
+    }
 
-        app.MessageReceivedAsync += async args =>
+    private bool IsCurrentEcho(VideoEcho? echo) => echo != null && (echo == _cameraEcho || echo == _screenEcho);
+
+    private void ShowEcho(VideoInput input)
+    {
+        if (input.Kind == VideoSourceKind.Camera)
         {
-            if (args.Message.Opcode != Opcode.VIDEO_REQUEST_IDR_FRAME)
-            {
-                return;
-            }
+            _cameraEchoSurface.Value = CameraEchoSurface;
+            _cameraWidth.Value = input.Width;
+            _cameraHeight.Value = input.Height;
+        }
+        else if (input.Kind == VideoSourceKind.Screen)
+        {
+            _screenEchoSurface.Value = ScreenEchoSurface;
+            _screenWidth.Value = input.Width;
+            _screenHeight.Value = input.Height;
+        }
+    }
 
-            if (_echoToInputTrack.TryGetValue(args.Message.TrackId, out var inputTrackId))
-            {
-                await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrVideoFrame(),
-                    trackId: inputTrackId, targetIds: [args.Message.SenderId]));
-            }
-        };
+    private async Task ReportEchoAsync(VideoEcho echo)
+    {
+        var status = echo.Input.Kind == VideoSourceKind.Camera ? _cameraEchoStatus : _screenEchoStatus;
+        status.Value = "Echo: waiting for the first frame to reach a viewer";
+
+        await echo.Playback.Started;
+        var reachedViewer = !echo.Playback.IsEnded;
+
+        if (reachedViewer && IsCurrentEcho(echo))
+        {
+            status.Value = "PASS Echo started: the first frame reached a viewer";
+        }
+
+        var outcome = await echo.Playback.Completion;
+
+        if (!reachedViewer && IsCurrentEcho(echo))
+        {
+            status.Value = $"FAIL Echo ended {outcome} before any frame reached a viewer";
+        }
     }
 
     private void SetupAudioInputHandlers()
@@ -882,17 +885,7 @@ internal class AudioStreamState(int sampleRate, int channelCount)
     public List<IAudioEffectInstance>? EffectInstances { get; set; }
 }
 
-internal class VideoEchoInfo(string echoStreamId, VideoCodec codec, int width, int height, double framerate, int inputTrackId, string sourceType)
-{
-    public string EchoStreamId { get; } = echoStreamId;
-    public VideoCodec Codec { get; } = codec;
-    public int Width { get; set; } = width;
-    public int Height { get; set; } = height;
-    public double Framerate { get; } = framerate;
-    public int InputTrackId { get; } = inputTrackId;
-    public string SourceType { get; } = sourceType;
-    public bool InitialIdrRequested { get; set; }
-}
+internal sealed record VideoEcho(VideoInput Input, VideoPlayback Playback);
 
 internal class EffectEntry(string effectType, IAudioEffect effect, Dictionary<string, Reactive<float>> reactiveParams)
 {

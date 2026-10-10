@@ -254,6 +254,7 @@ public partial class Validation
             new("mulaw", SelfTestMuLawAsync),
             new("barge-in", SelfTestBargeInAsync),
             new("audio-mixer", SelfTestAudioMixerAsync),
+            new("video-playback", SelfTestVideoPlaybackAsync),
         ];
     }
 

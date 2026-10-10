@@ -462,6 +462,8 @@ public partial class Validation
                 });
             });
 
+            RenderAudioMixerSection(view);
+
             // Sound Functions
             view.Box([Card.Default, "p-6"], content: view =>
             {

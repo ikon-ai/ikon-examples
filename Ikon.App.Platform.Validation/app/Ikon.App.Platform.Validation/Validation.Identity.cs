@@ -1,3 +1,5 @@
+using System.Reflection;
+
 public partial class Validation
 {
     private ClientProfiles ClientProfiles { get; } = new(app);
@@ -14,6 +16,12 @@ public partial class Validation
     private readonly ClientReactive<string> _identityAuthProvider = new("");
     private readonly ClientReactive<string> _identitySsoConnectionId = new("");
     private readonly ClientReactive<string> _ssoConnectionsResult = new("");
+
+    // The message envelope's version and opcode are the same for every Context, so they say nothing about the client
+    private static readonly PropertyInfo[] ContextProperties = typeof(Context)
+        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        .Where(p => p.GetIndexParameters().Length == 0 && p.Name is not ("MessageVersion" or "MessageOpcode"))
+        .ToArray();
 
     private async Task LoadIdentityAsync(Context clientContext)
     {
@@ -70,10 +78,37 @@ public partial class Validation
                     ("Test", v => v.Text([Text.Body], clientParams?.Test ?? "")));
             });
 
+            // Every property, read by reflection so a field the platform adds shows up without an edit
+            // here, and shown as-is on every run: comparing a local run with a deployment is the point.
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H3, "mb-4"], "Client Context");
+                app.ReactiveGlobalState.Clients.Value.TryGetValue(ReactiveScope.ClientId, out var clientContext);
+
+                if (clientContext == null)
+                {
+                    view.Text([Text.Body], "—");
+                    return;
+                }
+
+                RenderFieldGrid(view, ContextProperties
+                    .Select(p => (p.Name, (Action<UIView>)(v => v.Text([Text.Body], FormatContextValue(p.GetValue(clientContext)),
+                        props: TestId($"context-{NameConversions.ToKebabCase(p.Name)}")))))
+                    .ToArray());
+            });
+
         });
     }
 
     private static string Displayed(string value) => string.IsNullOrEmpty(value) ? "—" : value;
+
+    private static string FormatContextValue(object? value) => value switch
+    {
+        null => "—",
+        IDictionary<string, string> map => map.Count == 0 ? "—" : string.Join(", ", map.Select(kv => $"{kv.Key}={kv.Value}")),
+        IFormattable formattable => formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        _ => Displayed(value.ToString() ?? ""),
+    };
 
     private static void RenderFieldGrid(UIView view, params (string Label, Action<UIView> Value)[] rows)
     {

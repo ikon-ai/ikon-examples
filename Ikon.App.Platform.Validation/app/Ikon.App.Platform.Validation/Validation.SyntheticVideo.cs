@@ -1,12 +1,10 @@
-using System.Diagnostics;
-
 public partial class Validation
 {
     // Matches Data/synthetic-video.h264, regenerate it with:
     //   ffmpeg -f lavfi -i "testsrc2=size=320x240:rate=10:duration=2" -pix_fmt yuv420p -c:v libx264 \
     //     -preset veryfast -tune zerolatency -profile:v baseline -level 3.1 -b:v 400k -g 1 -keyint_min 1 \
     //     -sc_threshold 0 -threads 1 -x264-params repeat-headers=1:sliced-threads=0:slices=1 -f h264 synthetic-video.h264
-    private const string SyntheticVideoStreamId = "synthetic";
+    private const string SyntheticVideoSurface = "synthetic";
     private const int SyntheticVideoWidth = 320;
     private const int SyntheticVideoHeight = 240;
     private const double SyntheticVideoFramerate = 10;
@@ -15,7 +13,7 @@ public partial class Validation
     private readonly Reactive<string> _syntheticVideoStatus = new("(idle)");
     private readonly Reactive<string> _syntheticVideoCodec = new("h264");
 
-    private CancellationTokenSource? _syntheticVideoCts;
+    private LiveVideoPlayback? _syntheticVideo;
     private readonly Dictionary<VideoCodec, IReadOnlyList<byte[]>> _syntheticVideoFramesByCodec = new();
 
     private void RenderSyntheticVideoSection(UIView view)
@@ -38,6 +36,7 @@ public partial class Validation
                         [
                             new SelectOption("h264", "H.264"),
                             new SelectOption("vp8", "VP8"),
+                            new SelectOption("ffmpeg", "H.264 from ffmpeg"),
                         ],
                         disabled: _syntheticVideoRunning.Value,
                         onValueChange: async v => _syntheticVideoCodec.Value = v);
@@ -46,7 +45,7 @@ public partial class Validation
                 view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Status");
-                    view.Text([Text.Body], _syntheticVideoStatus.Value);
+                    view.Text([Text.Body], _syntheticVideoStatus.Value, props: TestId("video-synthetic-status"));
                 });
 
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
@@ -67,9 +66,8 @@ public partial class Validation
                 {
                     view.Box([Media.VideoContainer], content: view =>
                     {
-                        view.VideoStreamCanvas(
-                            [Media.Fill],
-                            streamId: SyntheticVideoStreamId,
+                        view.VideoSurface(
+                            [Media.Fill], surface: SyntheticVideoSurface,
                             width: SyntheticVideoWidth,
                             height: SyntheticVideoHeight);
                     });
@@ -97,6 +95,12 @@ public partial class Validation
             return;
         }
 
+        if (_syntheticVideoCodec.Value == "ffmpeg")
+        {
+            StartFfmpegSyntheticVideo();
+            return;
+        }
+
         var codec = _syntheticVideoCodec.Value == "vp8" ? VideoCodec.Vp8 : VideoCodec.H264;
         IReadOnlyList<byte[]> frames;
 
@@ -110,49 +114,45 @@ public partial class Validation
             return;
         }
 
-        _syntheticVideoCts = new CancellationTokenSource();
+        // Deliberately to everyone: this is the app-to-every-client fan-out, the exact path a
+        // client's own capture must never take.
+        var live = Video.PlayLive(MediaTargets.Everyone, SyntheticVideoSurface, codec);
+        _syntheticVideo = live;
         _syntheticVideoRunning.Value = true;
-        _syntheticVideoStatus.Value = $"Streaming {frames.Count} {codec} frames at {SyntheticVideoFramerate:F0} fps";
+        _syntheticVideoStatus.Value = $"Streaming {frames.Count} {codec} frames at {SyntheticVideoFramerate:F0} fps, waiting for a viewer";
 
-        var token = _syntheticVideoCts.Token;
-        _ = Task.Run(() => RunSyntheticVideoAsync(frames, codec, token));
+        _ = Task.Run(() => RunSyntheticVideoAsync(live, frames, codec));
+        _ = ReportSyntheticVideoStartedAsync(live, frames.Count, codec);
 
         await Task.CompletedTask;
     }
 
     private void StopSyntheticVideo()
     {
-        _syntheticVideoCts?.Cancel();
+        _syntheticVideo?.Stop();
     }
 
-    private async Task RunSyntheticVideoAsync(IReadOnlyList<byte[]> frames, VideoCodec codec, CancellationToken cancellationToken)
+    private async Task RunSyntheticVideoAsync(LiveVideoPlayback live, IReadOnlyList<byte[]> frames, VideoCodec codec)
     {
-        var frameDurationUs = (uint)(1_000_000 / SyntheticVideoFramerate);
-        var stopwatch = Stopwatch.StartNew();
         var frameNumber = 0;
 
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1 / SyntheticVideoFramerate));
-
-            while (await timer.WaitForNextTickAsync(cancellationToken))
+            // The fixture runs at a fixed rate, so each frame's presentation time is known and the
+            // playback paces the writes: no timer here
+            while (true)
             {
                 var frame = frames[frameNumber % frames.Count];
-                var timestampUs = (ulong)(stopwatch.Elapsed.TotalMilliseconds * 1000);
+                var timestamp = TimeSpan.FromSeconds(frameNumber / SyntheticVideoFramerate);
+
+                if (!await live.WriteAsync(frame, isKey: true, timestamp))
+                {
+                    break;
+                }
 
                 Interlocked.Increment(ref _videoFramesToClients);
-
-                // Deliberately untargeted: this is the app-to-every-client fan-out, the exact
-                // path a client's own capture must never take.
-                await Video.SendFrameAsync(MediaTargets.Everyone, frame, frameNumber, isKey: true, timestampUs, frameDurationUs,
-                    codec, SyntheticVideoWidth, SyntheticVideoHeight, SyntheticVideoFramerate,
-                    SyntheticVideoStreamId);
-
                 frameNumber++;
             }
-        }
-        catch (OperationCanceledException)
-        {
         }
         catch (Exception ex)
         {
@@ -160,13 +160,113 @@ public partial class Validation
         }
         finally
         {
-            await Video.CloseAsync(SyntheticVideoStreamId);
+            await live.DisposeAsync();
+            var outcome = await live.Completion;
             _syntheticVideoRunning.Value = false;
 
-            if (!_syntheticVideoStatus.Value.StartsWith("Stream failed", StringComparison.Ordinal))
+            if (outcome == VideoPlaybackOutcome.Failed)
             {
-                _syntheticVideoStatus.Value = "(idle)";
+                _syntheticVideoStatus.Value = $"Stream failed after {frameNumber} frames: {live.Error?.Message}";
             }
+            else if (!_syntheticVideoStatus.Value.StartsWith("Stream failed", StringComparison.Ordinal))
+            {
+                _syntheticVideoStatus.Value = $"(idle, the last {codec} stream ended {outcome} after {frameNumber} frames)";
+            }
+        }
+    }
+
+    // A live encoder rather than the fixture: x264 cuts each picture into slices and its output
+    // carries no timestamps, which LiveVideoPlayback.WriteH264StreamAsync is there to absorb
+    private void StartFfmpegSyntheticVideo()
+    {
+        // The surface first: a playback that cannot start must not leave an encoder running
+        var live = Video.PlayLive(MediaTargets.Everyone, SyntheticVideoSurface, VideoCodec.H264);
+        System.Diagnostics.Process ffmpeg;
+
+        try
+        {
+            ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
+                $"-hide_banner -loglevel error -f lavfi -i testsrc2=size={SyntheticVideoWidth}x{SyntheticVideoHeight}:rate={SyntheticVideoFramerate} " +
+                "-c:v libx264 -profile:v baseline -pix_fmt yuv420p -preset veryfast -tune zerolatency -bf 0 -g 10 " +
+                "-x264-params repeat-headers=1 -f h264 pipe:1")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            })!;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            live.Stop();
+            _syntheticVideoStatus.Value = "SKIP ffmpeg is not installed where the app runs";
+            return;
+        }
+
+        _syntheticVideo = live;
+        _syntheticVideoRunning.Value = true;
+        _syntheticVideoStatus.Value = "Streaming ffmpeg's test pattern, waiting for a viewer";
+
+        _ = Task.Run(() => RunFfmpegSyntheticVideoAsync(live, ffmpeg));
+        _ = ReportFfmpegSyntheticVideoStartedAsync(live);
+    }
+
+    private async Task RunFfmpegSyntheticVideoAsync(LiveVideoPlayback live, System.Diagnostics.Process ffmpeg)
+    {
+        // Drained, or a chatty encoder blocks on a full pipe; kept, to say why one that quits early did
+        var errors = ffmpeg.StandardError.ReadToEndAsync();
+
+        try
+        {
+            // The test pattern never ends: a stream that does means ffmpeg exited on its own
+            if (await live.WriteH264StreamAsync(ffmpeg.StandardOutput.BaseStream, SyntheticVideoFramerate))
+            {
+                await ffmpeg.WaitForExitAsync();
+                _syntheticVideoStatus.Value = $"FAIL ffmpeg exited with {ffmpeg.ExitCode}: {OneLine(await errors)}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _syntheticVideoStatus.Value = $"FAIL ffmpeg stream: {ex.Message}";
+        }
+        finally
+        {
+            try
+            {
+                ffmpeg.Kill();
+            }
+            catch (InvalidOperationException)
+            {
+                // It already exited: the stream ended because ffmpeg did
+            }
+
+            ffmpeg.Dispose();
+            await live.DisposeAsync();
+            var outcome = await live.Completion;
+            _syntheticVideoRunning.Value = false;
+
+            if (!_syntheticVideoStatus.Value.StartsWith("FAIL", StringComparison.Ordinal))
+            {
+                _syntheticVideoStatus.Value = $"(idle, the last ffmpeg stream ended {outcome})";
+            }
+        }
+    }
+
+    private async Task ReportFfmpegSyntheticVideoStartedAsync(LiveVideoPlayback live)
+    {
+        await live.Started;
+
+        if (!live.IsEnded)
+        {
+            _syntheticVideoStatus.Value = "PASS ffmpeg: its H.264 stream reached a viewer through WriteH264StreamAsync";
+        }
+    }
+
+    private async Task ReportSyntheticVideoStartedAsync(LiveVideoPlayback live, int frameCount, VideoCodec codec)
+    {
+        await live.Started;
+
+        if (!live.IsEnded)
+        {
+            _syntheticVideoStatus.Value = $"Streaming {frameCount} {codec} frames at {SyntheticVideoFramerate:F0} fps, the first frame reached a viewer";
         }
     }
 
@@ -233,7 +333,7 @@ public partial class Validation
 
     /// <summary>
     /// Splits an Annex-B elementary stream into access units, one per encoded frame, in the shape
-    /// <see cref="Video.SendFrameAsync"/> expects: start codes intact, each keyframe preceded by
+    /// <see cref="LiveVideoPlayback.WriteAsync"/> expects: start codes intact, each keyframe preceded by
     /// its own SPS and PPS. The fixture is encoded with every frame a keyframe carrying repeated
     /// headers, so an SPS NAL is exactly a frame boundary and any frame can start a stream.
     /// </summary>
