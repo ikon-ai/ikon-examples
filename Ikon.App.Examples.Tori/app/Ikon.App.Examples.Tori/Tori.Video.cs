@@ -1,117 +1,83 @@
 public partial class Tori
 {
+    private readonly Dictionary<string, (VideoInput Input, VideoPlayback? Playback)> _videoRelays = new();
+
+    private static string CameraSurface(int clientSessionId) => $"camera-{clientSessionId}";
+
+    private static string ScreenSurface(int clientSessionId) => $"screen-{clientSessionId}";
+
     private void SetupVideoInputHandlers()
     {
-        Video.VideoInputStreamBeginAsync += async args =>
+        Video.InputStartedAsync += async input =>
         {
-            if (_videoStreamStates.TryGetValue(args.StreamId, out var existingInfo))
+            _videoRelays[input.Id] = (input, null);
+
+            if (input.Kind == VideoSourceKind.Screen)
             {
-                existingInfo.Codec = args.Codec;
-                existingInfo.Width = args.Width;
-                existingInfo.Height = args.Height;
-                existingInfo.Framerate = args.Framerate;
+                UpdateParticipant(input.ClientSessionId, p => p with
+                {
+                    ScreenShareInputId = input.Id,
+                    IsScreenSharing = true
+                });
             }
             else
             {
-                var info = new VideoStreamInfo(args.Codec, args.Width, args.Height, args.Framerate, args.ClientSessionId, args.TrackId);
-                _videoStreamStates[args.StreamId] = info;
-
-                var isScreenShare = args.SourceType == "screen";
-
-                if (isScreenShare)
+                UpdateParticipant(input.ClientSessionId, p => p with
                 {
-                    UpdateParticipant(args.ClientSessionId, p => p with
-                    {
-                        ScreenShareStreamId = args.StreamId,
-                        IsScreenSharing = true
-                    });
-                }
-                else
-                {
-                    UpdateParticipant(args.ClientSessionId, p => p with
-                    {
-                        VideoStreamId = args.StreamId,
-                        EchoVideoStreamId = args.StreamId,
-                        IsVideoEnabled = true
-                    });
-                }
+                    CameraInputId = input.Id,
+                    IsVideoEnabled = true
+                });
             }
+
+            SyncVideoAudiences();
         };
 
-        Video.VideoInputFrameAsync += async args =>
+        Video.InputEndedAsync += async input =>
         {
-            if (!_videoStreamStates.TryGetValue(args.StreamId, out var info))
+            _videoRelays.Remove(input.Id);
+
+            if (input.Kind == VideoSourceKind.Screen)
             {
-                return;
-            }
-
-            // Broadcast to ALL participants (including sender for self-view)
-            var targetIds = _participants.Value
-                .Select(p => p.ClientSessionId)
-                .ToList();
-
-            if (targetIds.Count > 0)
-            {
-                await Video.SendFrameAsync(MediaTargets.To(targetIds), args.Data,
-                    args.FrameNumber,
-                    args.IsKey,
-                    args.TimestampInUs,
-                    args.DurationInUs,
-                    info.Codec,
-                    info.Width,
-                    info.Height,
-                    info.Framerate,
-                    args.StreamId);
-
-                // Register output→input mapping after first Send (when output stream is created)
-                if (!info.OutputMappingRegistered)
+                UpdateParticipant(input.ClientSessionId, p => p with
                 {
-                    var outputInfo = Video.GetOutputStreamInfo(args.StreamId);
-
-                    if (outputInfo != null)
-                    {
-                        _outputToInputTrack[outputInfo.TrackId] = (info.ClientSessionId, info.InputTrackId);
-                        info.OutputMappingRegistered = true;
-                    }
-                }
-            }
-        };
-
-        Video.VideoInputStreamEndAsync += async args =>
-        {
-            // Clean up output→input mapping
-            var outputInfo = Video.GetOutputStreamInfo(args.StreamId);
-
-            if (outputInfo != null)
-            {
-                _outputToInputTrack.Remove(outputInfo.TrackId);
-            }
-
-            await Video.CloseAsync(args.StreamId);
-            _videoStreamStates.Remove(args.StreamId);
-
-            // Check if this is a screen share or camera stream ending by comparing stream IDs
-            var participant = _participants.FirstOrDefault(p => p.ClientSessionId == args.ClientSessionId);
-            var isScreenShare = participant?.ScreenShareStreamId == args.StreamId;
-
-            if (isScreenShare)
-            {
-                UpdateParticipant(args.ClientSessionId, p => p with
-                {
-                    ScreenShareStreamId = null,
+                    ScreenShareInputId = null,
                     IsScreenSharing = false
                 });
             }
             else
             {
-                UpdateParticipant(args.ClientSessionId, p => p with
+                UpdateParticipant(input.ClientSessionId, p => p with
                 {
-                    VideoStreamId = null,
-                    EchoVideoStreamId = null,
+                    CameraInputId = null,
                     IsVideoEnabled = false
                 });
             }
         };
+    }
+
+    // The owner shows its own capture as a local preview, so each relay goes to the other participants only
+    private void SyncVideoAudiences()
+    {
+        var participantIds = _participants.Value.Select(p => p.ClientSessionId).ToList();
+
+        foreach (var (inputId, (input, playback)) in _videoRelays.ToList())
+        {
+            var viewers = participantIds.Where(id => id != input.ClientSessionId).ToList();
+
+            if (playback is { IsEnded: false })
+            {
+                playback.SetAudience(MediaTargets.To(viewers));
+                continue;
+            }
+
+            if (viewers.Count == 0)
+            {
+                continue;
+            }
+
+            var surface = input.Kind == VideoSourceKind.Screen ? ScreenSurface(input.ClientSessionId) : CameraSurface(input.ClientSessionId);
+            _videoRelays[inputId] = (input, Video.Play(MediaTargets.To(viewers), surface, input));
+        }
     }
 
     private async Task OnVideoCaptureStart(MediaCaptureEvent e)
@@ -162,7 +128,7 @@ public partial class Tori
 
         if (clientScope != null)
         {
-            UpdateParticipant(clientScope.Value.Id, p => p with { IsScreenSharing = false, ScreenShareStreamId = null });
+            UpdateParticipant(clientScope.Value.Id, p => p with { IsScreenSharing = false, ScreenShareInputId = null });
         }
     }
 }

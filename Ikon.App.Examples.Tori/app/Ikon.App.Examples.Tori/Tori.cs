@@ -15,12 +15,11 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         int ClientSessionId,
         string UserId,
         string Name,
-        string? VideoStreamId,
-        string? EchoVideoStreamId,
+        string? CameraInputId,
         bool IsVideoEnabled,
         bool IsAudioEnabled,
         bool IsScreenSharing = false,
-        string? ScreenShareStreamId = null,
+        string? ScreenShareInputId = null,
         bool IsMobile = false);
 
     // Participant background gradients (light mode) - expanded to fill more of the tile
@@ -51,10 +50,6 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
     private readonly ClientReactive<bool> _isVideoEnabled = new(false);
     private readonly ClientReactive<bool> _isAudioEnabled = new(false);
     private readonly ClientReactive<bool> _isScreenShareEnabled = new(false);
-
-    // Video stream tracking
-    private readonly Dictionary<string, VideoStreamInfo> _videoStreamStates = new();
-    private readonly Dictionary<int, (int ClientSessionId, int InputTrackId)> _outputToInputTrack = new();
 
     // Audio stream tracking
     private readonly Dictionary<string, AudioStreamState> _audioStreamStates = new();
@@ -390,25 +385,10 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         app.ClientLeftAsync += async args =>
         {
             _groupAudioMixer?.RemoveParticipant(args.ClientSessionId);
-            await CleanupClientStreamsAsync(args.ClientSessionId);
+            CleanupClientStreams(args.ClientSessionId);
 
             _participants.RemoveAll(p => p.ClientSessionId == args.ClientSessionId);
-        };
-
-        app.MessageReceivedAsync += async args =>
-        {
-            if (args.Message.Opcode == Opcode.VIDEO_REQUEST_IDR_FRAME)
-            {
-                // Forward IDR request to the video source client
-                if (_outputToInputTrack.TryGetValue(args.Message.TrackId, out var inputInfo))
-                {
-                    await app.SendMessageAsync(ProtocolMessage.Create(
-                        app.SessionId,
-                        new RequestIdrVideoFrame(),
-                        trackId: inputInfo.InputTrackId,
-                        targetIds: [inputInfo.ClientSessionId]));
-                }
-            }
+            SyncVideoAudiences();
         };
     }
 
@@ -424,24 +404,8 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         _isMobile.Value = clientContext.ClientType is ClientType.MobileWeb or ClientType.MobileApp;
     }
 
-    private async Task CleanupClientStreamsAsync(int clientSessionId)
+    private void CleanupClientStreams(int clientSessionId)
     {
-        var participant = _participants.FirstOrDefault(p => p.ClientSessionId == clientSessionId);
-
-        if (participant?.VideoStreamId != null)
-        {
-            // Clean up output→input mapping
-            var outputInfo = Video.GetOutputStreamInfo(participant.VideoStreamId);
-
-            if (outputInfo != null)
-            {
-                _outputToInputTrack.Remove(outputInfo.TrackId);
-            }
-
-            await Video.CloseAsync(participant.VideoStreamId);
-            _videoStreamStates.Remove(participant.VideoStreamId);
-        }
-
         // Clean up speech recognition state
         if (_participantSpeechStates.TryGetValue(clientSessionId, out var speechState))
         {
@@ -449,7 +413,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             _participantSpeechStates.Remove(clientSessionId);
         }
 
-        // Audio streams will be cleaned up when AudioInputStreamEndAsync fires
+        // Audio and video inputs are cleaned up when their end events fire
     }
 
     private Participant? GetCurrentClientParticipant()
@@ -481,7 +445,8 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             return;
         }
 
-        _participants.Add(new Participant(clientSessionId, userId, name, null, null, false, false, IsMobile: isMobile));
+        _participants.Add(new Participant(clientSessionId, userId, name, null, false, false, IsMobile: isMobile));
+        SyncVideoAudiences();
 
         _groupAudioMixer?.AddParticipant(clientSessionId);
     }
@@ -571,6 +536,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         // Remove from participants list
         _participants.RemoveAll(p => p.ClientSessionId == sessionId);
+        SyncVideoAudiences();
 
         // Mark as left
         _hasLeft.Value = true;
@@ -626,17 +592,6 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         return _isMobile.Value;
     }
-}
-
-internal class VideoStreamInfo(VideoCodec codec, int width, int height, double framerate, int clientSessionId, int inputTrackId)
-{
-    public VideoCodec Codec { get; set; } = codec;
-    public int Width { get; set; } = width;
-    public int Height { get; set; } = height;
-    public double Framerate { get; set; } = framerate;
-    public int ClientSessionId { get; } = clientSessionId;
-    public int InputTrackId { get; } = inputTrackId;
-    public bool OutputMappingRegistered { get; set; }
 }
 
 internal class AudioStreamState(int sampleRate, int channelCount, int clientSessionId)

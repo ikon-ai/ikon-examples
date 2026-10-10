@@ -581,7 +581,7 @@ public partial class Tori
         }
 
         // Check if anyone is screen sharing
-        var screenSharer = participants.FirstOrDefault(p => p.IsScreenSharing && p.ScreenShareStreamId != null);
+        var screenSharer = participants.FirstOrDefault(p => p.IsScreenSharing && p.ScreenShareInputId != null);
 
         if (screenSharer != null)
         {
@@ -614,11 +614,11 @@ public partial class Tori
         view.Box(["relative w-full h-full flex items-center justify-center bg-black rounded-lg overflow-hidden"], content: container =>
         {
             // Screen share video
-            if (screenSharer.ScreenShareStreamId != null)
+            if (screenSharer.ScreenShareInputId != null)
             {
-                container.VideoStreamCanvas(
-                    ["w-full h-full object-contain"],
-                    streamId: screenSharer.ScreenShareStreamId);
+                container.VideoSurface(
+                    ["w-full h-full"], surface: ScreenSurface(screenSharer.ClientSessionId),
+                    localPreviewStreamId: screenSharer.ScreenShareInputId);
             }
 
             // Presenter name badge at top left
@@ -648,12 +648,13 @@ public partial class Tori
 
         view.Box([Card.Default, gradient, "relative rounded-lg overflow-hidden"], key: $"participant-{participantKey}", content: tile =>
         {
-            if (participant.IsVideoEnabled && participant.EchoVideoStreamId != null)
+            if (participant.IsVideoEnabled && participant.CameraInputId != null)
             {
-                tile.VideoStreamCanvas(
-                    ["absolute inset-0 w-full h-full object-cover"],
-                    key: $"video-{participantKey}",
-                    streamId: participant.EchoVideoStreamId);
+                tile.VideoSurface(
+                    ["absolute inset-0 w-full h-full"], surface: CameraSurface(participant.ClientSessionId),
+                    fit: VideoFit.Cover,
+                    localPreviewStreamId: participant.CameraInputId,
+                    key: $"video-{participantKey}");
             }
             else
             {
