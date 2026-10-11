@@ -1,4 +1,4 @@
-<!-- checked-against: a39ac992ec051420db3691ae -->
+<!-- checked-against: cae59a5fec051420db3691ae -->
 
 # App Container Guide
 
@@ -31,8 +31,10 @@ Put programs in `tools/<runtime>/` at the app root, one folder per platform they
 `ikon deploy` puts `tools/linux-x64/` in the bundle, and the server puts it first on the app's
 `PATH`, so the app starts a program by name. A `lib/` folder inside it is on `LD_LIBRARY_PATH`, for
 every program the app's server starts. A binary or `#!` script keeps its execute bit; a symbolic link
-is copied as the file it points at. `ikon run` does the same with the folder for the machine it runs
-on, so the same `Process.Start("renode")` works in both places.
+is copied as the file or folder it points at. A link whose target does not exist on the machine
+running the deploy (an absolute link from a Linux tree unpacked on a Mac or Windows machine) is left
+out, and the deploy warns with `TOOLS_DANGLING_LINK` naming it. `ikon run` does the same with the
+folder for the machine it runs on, so the same `Process.Start("renode")` works in both places.
 
 Apps that share a server process with other apps (hosted mode) get no `PATH` change, since one app's
 programs would shadow another's. Hosted mode is something Ikon turns on per space; an app that ships

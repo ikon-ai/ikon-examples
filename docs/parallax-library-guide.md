@@ -1,4 +1,4 @@
-<!-- checked-against: e76afadb22f4f34bfdc88446 -->
+<!-- checked-against: 84026ca522f4f34bfdc88446 -->
 
 # Ikon.Parallax Library Overview
 
@@ -808,7 +808,9 @@ app.OnSnapshotRoutes(async () => (await store.GetListingsAsync()).Select(l => $"
 Two capture-quality tools:
 
 - **Settle signal** — capture treats a quiet UI stream as "settled" and additionally listens for an explicit ready signal; whichever arrives first wins, and everything is bounded by a per-route cap. A route whose content loads asynchronously after a silent gap could quiesce too early and bake its loading skeleton into the snapshot — call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded and capture snapshots at exactly that moment. Nothing to configure; the call is a harmless no-op for normal browser clients.
-- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled, and the bundle/deploy fails with it. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
+- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
+
+**A capture that falls short does not stop the deploy.** When the capture misses a declared route or variant — the app failed to start, a route redirected, it timed out — the bundle ships with no boot snapshots at all, the state of an app without `[BootSnapshot]`, and the deploy ends with a `BOOT_SNAPSHOT_SKIPPED` warning that leads with the app's own error and names the file holding the full capture output. Until a later deploy captures again the app has no prerendered first paint, and no `sitemap.xml` or `robots.txt` is generated for it.
 
 Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without login (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern, so for login-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
 
@@ -825,7 +827,7 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated; more than 50 routes in all fails the bundle:
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated; with more than 50 routes in all, the bundle ships without boot snapshots:
 
 <!-- ikon-example: px-how-to-use-it -->
 ```csharp
@@ -885,7 +887,7 @@ if (view.IsSnapshot)
 }
 ```
 
-Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction. Render it from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives — the capture client is unauthenticated, and the skeleton only needs the right geometry. Variant artifacts ship separately from the public routes: they are **not** prerendered to HTML and never appear in the route manifest or sitemap (a skeleton standing for unboundedly many URLs is not crawlable content — concrete SEO stays with `Routes` and `OnSnapshotRoutes`). A returning user's live-snapshot cache of their own last UI still wins over any seed rule. A declared variant the capture cannot produce fails the bundle/deploy, exactly like a missing route.
+Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction. Render it from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives — the capture client is unauthenticated, and the skeleton only needs the right geometry. Variant artifacts ship separately from the public routes: they are **not** prerendered to HTML and never appear in the route manifest or sitemap (a skeleton standing for unboundedly many URLs is not crawlable content — concrete SEO stays with `Routes` and `OnSnapshotRoutes`). A returning user's live-snapshot cache of their own last UI still wins over any seed rule. A declared variant the capture cannot produce leaves the bundle without boot snapshots, exactly like a missing route.
 
 The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:shell"]` seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
 

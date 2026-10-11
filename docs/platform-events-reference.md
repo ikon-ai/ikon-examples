@@ -1,4 +1,4 @@
-<!-- checked-against: e911b14036645cb4644cf1ec -->
+<!-- checked-against: 5ced93b336645cb4644cf1ec -->
 
 # Ikon Platform Events
 
@@ -406,18 +406,49 @@ wrong is not a command that broke:
 
 | Event | When | `class` |
 |---|---|---|
-| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build) | `defect`, or `dependency` for the backend and environment cases |
+| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases |
 | `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
 | `app_run_stopped` | `ikon run`'s app was killed by a signal or by `ikon stop` (on Windows the stop is all that tells a kill from a crash) | `expected` |
 
 Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
 without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it
-failed before one was picked), `toolVersion`, `os`, `isCi` and `isInteractive`.
+failed before one was picked), `toolVersion`, `os`, `isCi` and `isInteractive`. A command that acted
+on an app — through `--app-id`, or by running inside a linked app project — also carries that app's id
+as `spaceId`. The row's own space column stays empty, because the CLI signs in as a person, not as an
+app.
 
 When the backend is what failed or refused, `tool_failed` or `tool_rejected` also carries `statusCode`, `requestId`, and `route` —
 the path with its ids replaced by `:id`, so every caller of one broken endpoint groups into one row
 rather than into as many rows as there were ids.
+
+When a program the command ran exited non-zero (a build, `npm`), `message` is only which program
+failed and with what code, because its output holds local paths. The distinct compiler, NuGet,
+MSBuild, TypeScript and npm error codes in that output are kept as `errorCodes` (for example
+`["CS0103"]`), which is enough to tell a broken app from a broken package. When Windows refused to
+open a file the command needed, `tool_failed` carries `blockedBy`: `app-control` (Smart App Control),
+`antivirus` (Microsoft Defender) or `policy` (an App Control or group policy an administrator set).
+
+### Deploys
+
+Every deploy, from `ikon deploy` or from Studio, writes exactly one `deploy_finished` row when it ends,
+whatever the outcome, so a failure rate is a count over one event. A deploy from the command line that
+fails also writes a `tool_failed` or `tool_rejected` row; count deploys from `deploy_finished` alone.
+Only a process killed outright (closing the terminal, running out of memory) writes nothing.
+
+| Field | Meaning |
+|---|---|
+| `outcome` | `succeeded`, `failed` or `cancelled` (Ctrl+C, or Studio giving up on a deploy that ran too long) |
+| `step` | How far it got: `prepare` (config, the credit check, assets), `build` (app, boot snapshot capture, frontend), `package`, `upload`, `activate`, `finish` (after activation, such as restarting the person's own sessions) |
+| `durationMs` | From the start of the deploy to its end |
+| `spaceId` | The app deployed to, once it is known |
+| `bundleId`, `sizeMb` | The deployment, once the backend registered it, and the package size |
+| `fromPackage`, `noActivate` | The deploy uploaded a package `ikon bundle` made (`--bundle`), or did not activate it (`--no-activate`) |
+| `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED`, `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment) and `NOT_SAVED` (saving to version control failed) |
+| `activationErrors` | The backend's codes when activation refused the deployment, such as `INSUFFICIENT_CREDITS` |
+| `snapshotSkipReason`, `snapshotAppError` | When the boot snapshot capture fell short: what it missed, and the first error the app logged during the capture |
+| `failureType`, `failureMessage`, `errorCodes` | On a failed deploy: the exception, its message (for a failed program only which program and its exit code), and the program's error codes |
+| `toolVersion`, `isCi`, `isInteractive` | The run context. A deploy Studio ran is not interactive, and its row's own space column is Studio's app |
 
 ## Metered usage is not an event
 
