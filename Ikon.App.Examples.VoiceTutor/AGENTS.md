@@ -36,31 +36,37 @@ Each service has a static one-shot like these with a sensible default model; `ne
 
 ## Running and checking the app
 
-Run it from the app root with `ikon run` (add `--log-debug` for the server's own detail); the
-URLs land in `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`. Then check it as text
-before reaching for a browser:
+Run it from the app root with `ikon run` (add `--log-debug` for the server's own detail). Once the
+app is up it prints a `Ready:` line with its address, and the URLs are also written to
+`build/app/artifacts/bin/<App>/debug/ikon-server-info.json`. `ikon run` does not return while the app
+runs, so where a shell kills long commands use `ikon run --detach`: it starts the run in the
+background, returns once the app is ready and prints its address. `ikon status --wait` waits for a run
+started some other way. Then check it as text before reaching for a browser:
 
 ```bash
 ikon browse --steps "observe"                                   # screen text + [id] action handles
-ikon browse --steps "fill 1 hello; tap Send; wait 1500; look after.png"
+ikon browse --steps "fill Message hello; tap Send; expect Sent; look after.png"
 ikon browse --text-only --format json < steps.txt               # one step per line, one JSON object per step
 ```
 
-`observe` prints what the screen says and which actions exist; `tap <id|label>` and
-`fill <id|label> <text>` act through the SDK and print only what changed — a field's label of
-several words goes in quotes (`fill "Name for the cup" Aino`); `look [file.png]`
-screenshots a headless browser that has joined the **same client session**, so the pixels always
-match the text. `click <selector>`, `eval <js>` and `console` reach the DOM for custom React
-components. `expect <text>` and `expect-absent <text>` pass or fail on what the screen shows (visible
-text and control labels, case-insensitive, waiting a few seconds for it to settle), and a run with a
-failed step exits non-zero. An observation costs a few hundred tokens where a screenshot costs
-thousands — read the text first and screenshot only when the question is about pixels.
-`ikon stop` ends the run.
+`ikon browse --help` lists every step and option. `observe` prints what the screen says and which
+actions exist. `tap`, `fill`, `clear`, `submit` (Enter in a field) and `upload` act on the app and
+print only what changed. A target is an `[id]` or a control's label, aria-label or placeholder;
+quote a name of several words in `fill` (`fill "Name for the cup" Aino`). Each run is a new client
+session with its own ids, so a saved script uses labels. `look [file.png]` screenshots a
+headless browser that has joined the **same client session**, so the pixels always match the text.
+`click`, `eval <js>` and `console` reach the DOM for custom React components. `expect <text>` and
+`expect-absent <text>` pass or fail on what the screen shows, waiting a few seconds for it. The
+first failed step ends the run with a non-zero exit. An observation costs a few hundred tokens where
+a screenshot costs thousands — read the text first and screenshot only when the question is about
+pixels.
+`ikon stop` ends the run, and the app saves its persistent state before it exits.
 
 A script worth keeping becomes a **check gate**: `.ikon/gates/<name>.toml` (the name in lower-case
 letters, digits and `-`) with `kind = "check"`, an optional `description`, `blocking = false` for one
 that reports without failing the run (except under `--regression`, where every failed gate fails it), and the script in `steps`, one step per line (`#` starts a
-comment). A gate that creates data leaves none behind for the next run to trip over.
+comment). A gate runs without a browser unless it has a `look`, `click`, `eval`, `console` or
+`upload` step or sets `browser = true`. A gate that creates data leaves none behind for the next run to trip over.
 `ikon test` runs every gate against the local run or, with `--target`/`--app-id`,
 the deployed app; `ikon test <name>` runs one. The gate that shows a defect is the change's
 reproduction: `ikon task set <task-id> --reproduction <name>` attaches it to a proposed change,
@@ -76,7 +82,7 @@ is refused rather than started.
 ## The ikon tool's commands
 
 This part of AGENTS.md comes from the ikon tool and is rewritten whenever the tool or the app's
-Ikon libraries change. The tool's own help is the authority on its commands, ahead of any guide:
+IKON libraries change. The tool's own help is the authority on its commands, ahead of any guide:
 
 - `ikon help <section> --json` — one section's commands with their options, positionals and
   remarks; the sections are Develop, Source, Ship, Services, Operate, Autopilot, Account and Machine
