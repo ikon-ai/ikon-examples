@@ -40,16 +40,14 @@ internal sealed class AiPrefillFormFromDescription : IPatternDemo
         try
         {
             var result = await Emerge.Run<CaseDescriptionAnalysis>(
-                LLMModel.Claude46Sonnet, pass =>
+                LLMModel.Claude55Sonnet, pass =>
                 {
                     pass.SystemPrompt = "You are a legal case intake assistant. Analyze the case description and extract structured information. " +
                         "Extract every detail that is stated or strongly implied — names, identifiers, contact details, addresses. " +
                         "When ambiguous, pick the most likely option rather than leaving the field blank — the user will verify before submitting. " +
                         "Do not invent details that are not present in the description.";
                     pass.Command = $"Analyze this legal case description and extract structured information.\n\n" +
-                        $"Description:\n{_newCaseDescription.Value}\n\n" +
-                        $"Return JSON:\n{pass.JsonSchema}";
-                    pass.Temperature = 0.3;
+                        $"Description:\n{_newCaseDescription.Value}";
                     pass.MaxOutputTokens = 6000;
                 });
 

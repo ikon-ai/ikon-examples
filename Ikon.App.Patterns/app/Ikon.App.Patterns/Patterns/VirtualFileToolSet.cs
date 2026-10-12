@@ -40,7 +40,7 @@ internal sealed class VirtualFileToolSet : IPatternDemo
 
     private async Task RunCoderAgentAsync()
     {
-        await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+        await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
         {
             pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
                     (string path, string content) => WriteFile(state, path, content)))
@@ -61,8 +61,7 @@ internal sealed class VirtualFileToolSet : IPatternDemo
                 You are an expert software developer. Complete the following task:
                 {task}
                 Current workspace state:{filesList}
-                Return a JSON summary when done:
-                {pass.JsonSchema}
+                Return a summary when done.
                 """;
 
             pass.MaxIterations = maxIterations;

@@ -212,7 +212,7 @@ file static class PipelineGuideExamples
             ProcessFailureThreshold = 2,
             DisableMetadataOutput = true
             // Additional options available, such as cache paths and default retry configuration
-            // EnableRemoteHost and EnableRemoteClient make Initialize(Config) throw PipelineException: they run through PipelineRunner.RunRemote
+            // EnableRemoteHost and EnableRemoteClient make Initialize(Config) throw UserException: they run through PipelineRunner.RunRemote
         };
 
         await pipelineRunner.Initialize(pipelineRunnerConfig);

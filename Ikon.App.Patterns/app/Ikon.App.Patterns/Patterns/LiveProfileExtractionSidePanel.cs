@@ -47,9 +47,6 @@ internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
 
                     Recent conversation:
                     {conversation}
-
-                    Return JSON:
-                    {pass.JsonSchema}
                     """;
                 pass.Temperature = 0;
             });

@@ -22,7 +22,7 @@ internal sealed class GeneratedImageWithResult : IPatternDemo
         }
 
         _error.Value = null;
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
 
         try
         {

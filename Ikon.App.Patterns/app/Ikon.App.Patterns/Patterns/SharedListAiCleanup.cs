@@ -40,7 +40,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
             return;
         }
 
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
         var current = string.Join("\n", _items.Select(i => $"- {i.Text}"));
         var cleaned = await Emerge.AskAsync<List<string>>(
             $"Deduplicate and prioritize this todo list:\n{current}\n\nReturn the cleaned list, most important first.");

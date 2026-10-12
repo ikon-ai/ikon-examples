@@ -61,7 +61,7 @@ internal sealed class ShareableResultExport : IPatternDemo
             return;
         }
 
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
         var url = PublicResultUrl();
 
         try

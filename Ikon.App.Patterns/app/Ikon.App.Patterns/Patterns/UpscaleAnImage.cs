@@ -58,7 +58,7 @@ internal sealed class UpscaleAnImage : IPatternDemo
             return;
         }
 
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
 
         try
         {

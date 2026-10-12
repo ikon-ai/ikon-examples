@@ -18,11 +18,11 @@ file static class EmergeBasicExamples
     {
         #region example:emerge-basic
         // Streaming (observe each event)
-        await foreach (var ev in Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
+        await foreach (var ev in Emerge.Run<AnalysisResult>(LLMModel.Claude55Sonnet, new KernelContext(), pass =>
         {
             pass.SystemPrompt = "You are a helpful analyst.";
-            pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
-            pass.Temperature = 0.7;
+            pass.Command = $"Analyze: {topic}";
+            pass.ReasoningEffort = ReasoningEffort.Low;
             pass.MaxOutputTokens = 32000;
             pass.MaxIterations = 5;
         }))
@@ -34,10 +34,9 @@ file static class EmergeBasicExamples
         }
 
         // Direct result (no streaming) — awaiting the run returns non-null T or throws EmergenceStoppedException
-        var analysis = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, pass =>
+        var analysis = await Emerge.Run<AnalysisResult>(LLMModel.Claude55Sonnet, pass =>
         {
-            pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
-            pass.Temperature = 0.3;
+            pass.Command = $"Analyze: {topic}";
         });
         #endregion
 
@@ -52,7 +51,7 @@ internal sealed partial class AgentGuideExamples
 
     // The tools example configures a pass; this runs one with it
     private static async Task<string> DocEmergeToolsRunAsync() =>
-        await Emerge.Run<string>(LLMModel.Claude46Sonnet, pass =>
+        await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>
         {
             pass.Command = "What are the latest numbers on tide pools?";
             DocEmergeTools(pass);
@@ -63,9 +62,9 @@ internal sealed partial class AgentGuideExamples
         #region example:cancellation-timeout
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        var result = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, pass =>
+        var result = await Emerge.Run<AnalysisResult>(LLMModel.Claude55Sonnet, pass =>
         {
-            pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
+            pass.Command = $"Analyze: {topic}";
         }, cts.Token);
         #endregion
 
@@ -84,12 +83,12 @@ internal sealed partial class AgentGuideExamples
     private static async Task DocBestOfAsync(string prompt)
     {
         #region example:emerge-bestof
-        await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude46Sonnet, new KernelContext(), bo =>
+        await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude55Sonnet, new KernelContext(), bo =>
         {
-            bo.Command = $"Write a tagline for: {prompt}\n\nReturn JSON:\n{bo.JsonSchema}";
+            bo.Command = $"Write a tagline for: {prompt}";
             bo.Count = 3;
             bo.Score = (response, trace) => ScoreResponse(response);
-            bo.Candidate(c => { c.Temperature = 0.5 + c.Index * 0.2; });
+            bo.Candidate(c => { c.SystemPrompt = c.Index == 0 ? "Keep it short and plain." : "Be playful."; });
         }))
         {
             if (ev is Completed<CreativeResponse> completed) { /* best candidate */ }
@@ -101,14 +100,14 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:conversation-history
         // First user message — start with a fresh KernelContext
-        var (result1, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
+        var (result1, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, new KernelContext(), pass =>
         {
             pass.SystemPrompt = "You are a friendly assistant.";
             pass.Command = userMessage;
         }).FinalAsync();
 
         // Second message — pass the returned context so it carries the full conversation history automatically
-        var (result2, context2) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
+        var (result2, context2) = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, context, pass =>
         {
             pass.Command = nextUserMessage;
         }).FinalAsync();
@@ -121,7 +120,7 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:emerge-typed-run
         var brief = await Emerge.Run<TopicBrief>(
-            LLMModel.Claude45Sonnet,
+            LLMModel.Claude55Sonnet,
             pass =>
             {
                 pass.SystemPrompt = """
@@ -130,9 +129,8 @@ internal sealed partial class AgentGuideExamples
                     how grounded your facts are; lower it if you're guessing.
                     """;
                 pass.Command = $"Topic: {topic}\nDepth: {depth}";
-                pass.Temperature = 0.2;
                 pass.MaxIterations = depth;
-            }).ResultAsync();
+            });
         #endregion
 
         return brief;

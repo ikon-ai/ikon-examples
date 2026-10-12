@@ -186,7 +186,7 @@ file sealed class SlackConnectorGuideExamples
             {
                 Accessory = new SlackOverflow([new SlackOption(SlackText.Plain("Open docs"), "docs") { Url = "https://ikon.live/docs" }]) { ActionId = "more" },
             },
-            new SlackImageBlock("https://ikon.live/logo.png", "Ikon logo"),
+            new SlackImageBlock("https://ikon.live/logo.png", "IKON logo"),
             new SlackVideoBlock("Walkthrough", "https://ikon.live/embed/intro", "https://ikon.live/intro.jpg", "Intro video"),
             new SlackActionsBlock(
             [
@@ -335,7 +335,7 @@ file sealed class SlackConnectorGuideExamples
     public async Task SlackStreamReplyAsync(Slack slack, SlackAppMentionEvent mention)
     {
         #region example:connectors-slack-stream
-        var run = Emerge.Run<string>(LLMModel.Claude46Sonnet, pass => pass.Command = mention.Message.Text);
+        var run = Emerge.Run<string>(LLMModel.Claude55Sonnet, pass => pass.Command = mention.Message.Text);
         var feedback = new SlackContextActionsBlock(
             [new SlackFeedbackButtons(new SlackFeedbackButton("Good", "good"), new SlackFeedbackButton("Bad", "bad")) { ActionId = "feedback" }]);
 

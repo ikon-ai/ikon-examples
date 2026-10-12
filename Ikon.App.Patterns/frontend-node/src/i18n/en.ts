@@ -34,7 +34,7 @@ export const en: Translations = {
   'auth.email.error.verifyFailed': 'Could not verify the code. Please try again.',
   'connection.accessDenied.title': 'You don\'t have access to this app',
   'connection.accessDenied.message': '',
-  'connection.accessDenied.backToLogin': 'Back to login',
+  'connection.accessDenied.backToLogin': 'Back to sign-in',
   'auth.button.guest': 'Continue as Guest',
   'auth.button.provider': 'Continue with {provider}',
   'auth.button.registerPasskey': 'Register with Passkey',

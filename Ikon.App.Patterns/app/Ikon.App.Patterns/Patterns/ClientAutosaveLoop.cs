@@ -48,7 +48,7 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
             {
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
 
-                using var _ = ReactiveScope.Use(new ClientScope(clientId));
+                using var scope = ReactiveScope.Use(new ClientScope(clientId));
 
                 if (_currentPage.Value != AppPage.ManageWorkshop)
                 {

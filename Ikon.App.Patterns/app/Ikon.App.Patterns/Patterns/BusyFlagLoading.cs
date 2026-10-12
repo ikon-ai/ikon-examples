@@ -24,7 +24,7 @@ internal sealed class BusyFlagLoading : IPatternDemo
         }
 
         _error.Value = null;
-        using var _ = _busy.AsToken(); // flips _busy true here, false on dispose
+        using var busy = _busy.AsToken(); // flips _busy true here, false on dispose
 
         try
         {

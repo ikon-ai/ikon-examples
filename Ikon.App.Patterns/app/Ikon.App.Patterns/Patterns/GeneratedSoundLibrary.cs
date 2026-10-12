@@ -24,7 +24,7 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
             return;
         }
 
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
 
         try
         {

@@ -68,7 +68,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
     private async Task EmailFallbackAsync(string email, string subject, string body)
     {
         EmailService emailService = App.Email;
-        // To is an email address -- the backend rejects anything else, so an Ikon user id here
+        // To is an email address -- the backend rejects anything else, so an IKON user id here
         // fails the send. Keep the address from the user's profile alongside their id.
         var request = new EmailSendRequest(
             To: email,

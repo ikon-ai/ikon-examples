@@ -54,7 +54,7 @@ internal sealed class ComposerInputBar : IPatternDemo
                     return;
                 }
 
-                using var _ = _busy.AsToken();
+                using var busy = _busy.AsToken();
                 var sent = _attachments.ToList();
                 await SendAsync(text, [.. sent.Select(a => a.Path)]);
                 _draft.Value = "";

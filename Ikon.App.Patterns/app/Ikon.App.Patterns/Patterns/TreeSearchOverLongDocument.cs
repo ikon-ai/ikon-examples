@@ -71,12 +71,12 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
             return;
         }
 
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
         _error.Value = null;
 
         try
         {
-            var found = await Emerge.TreeSearch(LLMModel.Claude46Sonnet, new KernelContext(), options =>
+            var found = await Emerge.TreeSearch(LLMModel.Claude55Sonnet, new KernelContext(), options =>
             {
                 options.Index = index;
                 options.Query = question;

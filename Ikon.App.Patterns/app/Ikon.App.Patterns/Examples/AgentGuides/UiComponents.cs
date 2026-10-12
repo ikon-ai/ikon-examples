@@ -80,7 +80,7 @@ file sealed class ChatLayoutExamples
     {
         #region example:chat-layout
         // ChatLog pins the header and the footer and auto-scrolls the messages between them;
-        // Composer is the input bar, which clears itself on Enter or Send
+        // Composer is the input bar; Enter clears the draft, but after a Send click only onSubmit does
         view.ChatLog(["h-screen p-4 gap-4"],
             autoScrollKey: _messages,
             header: view => view.Text([Text.H2], "Chat"),
@@ -105,6 +105,8 @@ file sealed class ChatLayoutExamples
                     {
                         _messages.Add(new Message("User", submitted));
                     }
+
+                    _draft.Value = "";
                 }));
         #endregion
     }
@@ -334,6 +336,14 @@ internal sealed partial class AgentGuideExamples
         view.Text([Text.Caption, "text-muted-foreground"], "Small caption");
         view.Heading([Text.H3], text: "Heading component");   // or positional: view.Heading("Title")
         view.Markdown("**Bold** and `code`");
+
+        // Text is an inline span, so Texts nested in one Text flow as one sentence
+        view.Text([Text.Body], content: sentence =>
+        {
+            sentence.Text("Ship it ");
+            sentence.Text(["font-semibold text-brand-secondary"], text: "today");
+            sentence.Text(", not next week.");
+        });
         #endregion
     }
 

@@ -31,27 +31,21 @@ internal sealed class MapReduceLongDocumentSummary : IPatternDemo
         TranscriptAnalysis? analysis = null;
 
         await foreach (var ev in Emerge.MapReduce<string, TranscriptChunkSummary, TranscriptAnalysis>(
-            LLMModel.Claude45Sonnet, ctx, mr =>
+            LLMModel.Claude55Sonnet, ctx, mr =>
             {
                 mr.Chunks = chunks;
                 mr.MaxParallel = 3;
 
                 mr.Map(map =>
                 {
-                    map.Command = $"""
-                        Summarize the following transcript chunk and extract any action items.
-                        Return JSON:
-                        {map.JsonSchema}
-                        """;
+                    map.Command = "Summarize the following transcript chunk and extract any action items.";
                 });
 
                 mr.Reduce(reduce =>
                 {
-                    reduce.Command = $"""
+                    reduce.Command = """
                         Combine the chunk summaries into a concise overall summary.
                         Provide a clear list of actionable follow-ups based on the full transcript.
-                        Return JSON:
-                        {reduce.JsonSchema}
                         """;
                 });
             }).WithCancellation(ct))

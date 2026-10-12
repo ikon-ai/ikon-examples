@@ -15,7 +15,7 @@ internal sealed class PlanThenCodeIteration : IPatternDemo
     private sealed record GameResponse(string Code);
     private sealed record FocusedContext(string RelevantPlanSections, string CodeSummary, string FocusAreas);
 
-    private static readonly LLMModel CodeGenModel = LLMModel.Claude45Sonnet;
+    private static readonly LLMModel CodeGenModel = LLMModel.Claude55Sonnet;
     private const string PlanAdjustSystemPrompt = "Output ONLY the plan sections that need to change.";
     private const string PlanGenerateSystemPrompt = "Regenerate the full HTML game from the plan.";
 
@@ -45,7 +45,6 @@ internal sealed class PlanThenCodeIteration : IPatternDemo
             {
                 pass.SystemPrompt = PlanAdjustSystemPrompt;
                 pass.Command = $"Current plan:\n{existingPlan}\n\nRequested changes: {prompt}";
-                pass.Temperature = 0.7;
                 pass.MaxOutputTokens = 4000;
                 pass.UseJson = true;
             });

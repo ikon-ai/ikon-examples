@@ -52,7 +52,7 @@ internal sealed class RunTraceAndCost : IPatternDemo
         // exists (a timer, an endpoint handler, a background loop), so hand those the id instead.
         var clientSessionId = ReactiveScope.ClientId;
 
-        var (result, _, trace) = await Emerge.Run<Answer>(LLMModel.Claude46Sonnet, pass =>
+        var (result, _, trace) = await Emerge.Run<Answer>(LLMModel.Claude55Sonnet, pass =>
         {
             pass.Command = question;
 

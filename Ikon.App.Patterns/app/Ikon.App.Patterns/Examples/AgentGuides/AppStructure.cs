@@ -212,7 +212,7 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:host-services
         var spaceId = app.GlobalState.SpaceId;                  // Current space ID
-        var ikonServerId = app.GlobalState.IkonServerId;     // Id of this Ikon server instance
+        var ikonServerId = app.GlobalState.IkonServerId;     // Id of this IKON server instance
         var sessionIdentityHash = app.GlobalState.SessionIdentityHash;  // Hash of session identity params (logical session id)
         var publicUrl = app.PublicUrl;                          // The app's public URL (space access URL)
         var joinUrl = app.JoinUrl(new { id = gameId });         // PublicUrl + URL-encoded query string from an anonymous object

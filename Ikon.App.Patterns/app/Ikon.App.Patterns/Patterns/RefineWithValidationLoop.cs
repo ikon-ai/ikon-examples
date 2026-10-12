@@ -39,12 +39,11 @@ internal sealed class RefineWithValidationLoop : IPatternDemo
     {
         string? validationError = initialError;
 
-        var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = MaxAutoRetries;
-            opt.Temperature = 0.3f;
             opt.SystemPrompt = $"""
-                You are an expert UI code generator for Ikon Parallax.
+                You are an expert UI code generator for IKON Parallax.
                 ## UI Framework Documentation
                 {GetUIDocumentation()}
                 Generate ONLY the C# code body that goes inside a UI building function.

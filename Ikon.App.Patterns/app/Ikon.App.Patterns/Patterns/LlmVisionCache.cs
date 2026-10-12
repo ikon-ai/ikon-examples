@@ -40,7 +40,7 @@ internal sealed class LlmVisionCache : IPatternDemo
             {
                 pass.SystemPrompt = "Describe used-item photos so a sales agent can comment naturally. " +
                                     "Be concrete and honest. Only describe what's visible. 1 sentence per field.";
-                pass.Command = $"Return JSON: {pass.JsonSchema}";
+                pass.Command = "Describe the photos.";
                 pass.Temperature = 0.2;
                 pass.MaxOutputTokens = 500;
             });

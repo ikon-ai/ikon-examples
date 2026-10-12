@@ -52,7 +52,7 @@ internal sealed class BestOfWithRubric : IPatternDemo
     {
         var judged = new Dictionary<Tagline, ScoreBreakdown>();
 
-        var best = await Emerge.BestOf<Tagline>(LLMModel.Claude46Sonnet, new KernelContext(), options =>
+        var best = await Emerge.BestOf<Tagline>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
         {
             options.Command = brief;
             options.Count = 4;

@@ -33,7 +33,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
         _transcript.Add(new ChatMessage("You", text));
         _draft.Value = "";
         _streaming.Value = "";
-        using var _ = _busy.AsToken();
+        using var busy = _busy.AsToken();
 
         try
         {
@@ -47,7 +47,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
             // fills up with {"Reply":"He… instead of the reply.
             _ctx = _ctx.Add(new MessageBlock(MessageBlockRole.User, text));
             var sb = new System.Text.StringBuilder();
-            await foreach (var ev in Emerge.Run<string>(LLMModel.Claude46Sonnet, _ctx, pass =>
+            await foreach (var ev in Emerge.Run<string>(LLMModel.Claude55Sonnet, _ctx, pass =>
             {
                 pass.SystemPrompt = "You are a helpful assistant. Reply concisely.";
             }))
@@ -102,7 +102,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 foreach (var msg in _transcript)
                 {
                     var isUser = msg.Role == "You";
-                    // bg-brand-solid, not bg-primary: in the Ikon semantic set bg-primary is the
+                    // bg-brand-solid, not bg-primary: in the IKON semantic set bg-primary is the
                     // PAGE surface, so a bubble painted with it disappears into the page.
                     view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
                         v.Text(text: msg.Text));

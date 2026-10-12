@@ -33,7 +33,7 @@ file sealed class MediaUploadExamples(IApp<SessionIdentity, ClientParameters> ap
                 var clientId = ReactiveScope.ClientId;
                 _ = Task.Run(async () =>
                 {
-                    using var _ = ReactiveScope.Use(new ClientScope(clientId));
+                    using var scope = ReactiveScope.Use(new ClientScope(clientId));
                     await using var work = await app.BackgroundWork.StartAsync();
                     await AnalyzeMediaAsync(assetUri);
                 });

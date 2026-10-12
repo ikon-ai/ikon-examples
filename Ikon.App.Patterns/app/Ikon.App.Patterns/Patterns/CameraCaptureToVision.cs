@@ -64,7 +64,7 @@ internal sealed class CameraCaptureToVision : IPatternDemo
         try
         {
             var context = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
-            var reading = await Emerge.Run<Reading>(LLMModel.Claude46Sonnet, context, pass => { });
+            var reading = await Emerge.Run<Reading>(LLMModel.Claude55Sonnet, context, pass => { });
 
             _result.Value = reading.Text;
         }

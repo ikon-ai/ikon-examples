@@ -49,7 +49,7 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
     {
         // All or nothing: if any solver produces no result the run stops without merging, and
         // the await throws EmergenceStoppedException.
-        var merged = await Emerge.EnsembleMerge<Review>(LLMModel.Claude46Sonnet, new KernelContext(), options =>
+        var merged = await Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
         {
             options.Command = proposal;
             options.SolverCount = Perspectives.Length;

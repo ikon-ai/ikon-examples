@@ -40,18 +40,17 @@ internal sealed class PublicEndpointHost : IPatternDemo
         // it does not block for the host's lifetime. A failed relay allocation is non-fatal.
         await _host.StartAsync();
 
+        // The event fires when the background retry allocates the tunnel and again whenever the
+        // relay moves it to another address, but not for the URL StartAsync already got -- so
+        // both paths have to set the URL.
+        _host.PublicUrlAvailable += url => _publicUrl.Value = url;
+
         // HasPublicUrl is false when the relay was unreachable -- the host then serves on
         // LocalPort only and retries in the background. Reading PublicUrl in that state throws,
         // so it is guarded rather than assumed.
         if (_host.HasPublicUrl)
         {
             _publicUrl.Value = _host.PublicUrl;
-        }
-        else
-        {
-            // The retry event fires only for the background allocation, not when StartAsync
-            // already got the tunnel -- so both paths have to set the URL.
-            _host.PublicUrlAvailable += url => _publicUrl.Value = url;
         }
     }
 

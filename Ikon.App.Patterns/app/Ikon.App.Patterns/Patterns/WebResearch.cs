@@ -39,7 +39,7 @@ internal sealed class WebResearch : IPatternDemo
             var sources = results.Select(r => new Source(r.Title, r.Url, r.Content)).ToList();
             var context = string.Join("\n", sources.Select((s, i) => $"[{i + 1}] {s.Title}\n{s.Snippet}"));
 
-            var synthesisRaw = await Emerge.Run<string>(LLMModel.Claude46Sonnet,
+            var synthesisRaw = await Emerge.Run<string>(LLMModel.Claude55Sonnet,
                 pass => { pass.Command = $"Question: {q}\n\nSearch results:\n{context}\n\nWrite a concise answer citing sources by number [1], [2]…"; });
             var synthesis = string.IsNullOrEmpty(synthesisRaw) ? "(no synthesis)" : synthesisRaw;
 

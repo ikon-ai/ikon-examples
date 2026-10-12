@@ -36,7 +36,7 @@ public class MyFunctions
 public class MyVisibilityFunctions
 {
     #region example:sdk-function-visibility
-    // Local - not advertised (default); only an Ikon AI App keeps remote callers out
+    // Local - not advertised (default); only an IKON app keeps remote callers out
     [Function(Visibility = FunctionVisibility.Local)]
     public string LocalOnly() => "local";
 
