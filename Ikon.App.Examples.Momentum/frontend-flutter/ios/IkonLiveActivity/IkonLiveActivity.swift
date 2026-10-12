@@ -8,7 +8,7 @@ import ActivityKit
 // and the reason a running app can be glanced at without unlocking the phone.
 //
 // Nothing here knows what app it is drawing for. It renders the metrics it is handed in the accent it
-// is handed, which is what lets one widget serve every Ikon app.
+// is handed, which is what lets one widget serve every IKON app.
 @available(iOS 16.1, *)
 struct IkonLiveActivity: Widget {
   var body: some WidgetConfiguration {

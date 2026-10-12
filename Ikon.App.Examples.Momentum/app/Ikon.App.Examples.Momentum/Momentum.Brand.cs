@@ -1,4 +1,4 @@
-// Ikon's own identity, per brand/ikon-brand.md, in dark: monochrome charcoal with one electric
+// IKON's own identity, per brand/ikon-brand.md, in dark: monochrome charcoal with one electric
 // magenta accent, and hi-vis yellow held back for what the guide reserves it for — live signals and
 // reward. Colour comes from the content, which here is the route line and the medals.
 public static class Brand

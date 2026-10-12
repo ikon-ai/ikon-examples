@@ -3,7 +3,7 @@ import Foundation
 #if canImport(ActivityKit)
 import ActivityKit
 
-/// The contract between an Ikon app and its live banner.
+/// The contract between an IKON app and its live banner.
 ///
 /// Deliberately generic: an app sends *values*, never layout. A tracker sends distance and time, a
 /// delivery app sends stops remaining and an ETA, a timer sends what is left — the widget draws

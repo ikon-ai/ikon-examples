@@ -12,7 +12,7 @@ void main() {
 /// Connection configuration injected at build time via `--dart-define`.
 ///
 /// In local development no identity is injected, so [isDeployed] is false and
-/// the app auto-discovers the local Ikon server (the host launches the Flutter
+/// the app auto-discovers the local IKON server (the host launches the Flutter
 /// frontend with `--dart-define=IKON_PORT=<port>`).
 ///
 /// When bundled with `ikon bundle --flutter-*`, the tool injects the
@@ -33,7 +33,7 @@ class IkonFlutterApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Ikon App',
+      title: 'IKON app',
       debugShowCheckedModeBanner: false,
       // Momentum's page colour, shown until the first page renders; from then on IkonPageScaffold
       // paints the safe areas in the page's own background.

@@ -14,11 +14,11 @@ phone. Verified on the iOS simulator: with the app backgrounded behind Safari, C
 
 It also lives in `Ikon.App.Examples.*` rather than `Ikon.App.Showcase.*`: the Showcase six share
 `ShowcaseKit.cs`, a fixed paper-light theme and an operator-and-approval narrative that a consumer
-tracker does not fit. It is the first Ikon app with a real map on Flutter.
+tracker does not fit. It is the first IKON app with a real map on Flutter.
 
 ## Brand
 
-Ikon's own identity, per `brand/ikon-brand.md`, in dark. Monochrome charcoal with one electric magenta
+IKON's own identity, per `brand/ikon-brand.md`, in dark. Monochrome charcoal with one electric magenta
 accent; colour comes from the content — here the route line and the medals. `Momentum.Brand.cs` is the
 implementation.
 
@@ -418,11 +418,11 @@ highlights were detected the same way a real one's are.
 
 - `frontend-node` — Leaflet, registered as the `momentum-map` node.
 - `frontend-flutter` — `flutter_map` with OSM tiles, registered as the *same* node type through
-  `IkonComponentRegistry`, so one `view.MomentumMap(...)` call in C# drives both. First Ikon app to add
+  `IkonComponentRegistry`, so one `view.MomentumMap(...)` call in C# drives both. First IKON app to add
   a Flutter dependency of its own.
 - `ios/Runner/Info.plist` carries `NSLocationWhenInUseUsageDescription`,
   `NSLocationAlwaysAndWhenInUseUsageDescription`, `NSMotionUsageDescription` and the `location`
-  background mode. **The scaffold does not include these** — an Ikon Flutter app that wants location
+  background mode. **The scaffold does not include these** — an IKON Flutter app that wants location
   has to add them itself, and without them iOS refuses the permission request outright. Android's
   scaffold already declares background location and the foreground-service permissions.
 

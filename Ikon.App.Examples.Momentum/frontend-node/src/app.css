@@ -1,6 +1,6 @@
 /* Your app's styles.
 
-   The Ikon app shell — the connecting, reconnecting and offline overlays, the toast strip and the
+   The IKON app shell — the connecting, reconnecting and offline overlays, the toast strip and the
    hero layout — is styled by @ikonai/sdk-react-ui/theme/ikon-app.css, imported in main.tsx. That
    file is part of the package, so `ikon update` keeps it current.
 
