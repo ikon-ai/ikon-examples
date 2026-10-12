@@ -3,10 +3,10 @@ public partial class DynamicUI
     private static string GetUIDocumentation()
     {
         return """
-            # Ikon Parallax UI Framework Documentation
+            # IKON Parallax UI Framework Documentation
 
             ## Overview
-            The Ikon Parallax UI framework uses a fluent builder pattern. UI is built by calling extension methods on a `UIView` object. All components accept a `style` parameter for Crosswind/Tailwind CSS classes.
+            The IKON Parallax UI framework uses a fluent builder pattern. UI is built by calling extension methods on a `UIView` object. All components accept a `style` parameter for Crosswind/Tailwind CSS classes.
 
             ## Available Namespaces (already imported)
             - Ikon.Parallax

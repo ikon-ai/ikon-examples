@@ -167,7 +167,7 @@ public partial class DynamicUI
             opt.Temperature = 0.3f;
             opt.MaxOutputTokens = 4000;
             opt.SystemPrompt = $"""
-                You are an expert UI code generator for the Ikon Parallax UI framework.
+                You are an expert UI code generator for the IKON Parallax UI framework.
                 Your task is to generate C# code that creates UI components based on user descriptions.
 
                 ## UI Framework Documentation
