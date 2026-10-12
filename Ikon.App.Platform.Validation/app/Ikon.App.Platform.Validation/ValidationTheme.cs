@@ -1,5 +1,5 @@
 /// <summary>
-/// The Ikon brand identity from <c>brand/ikon-brand.md</c>: one electric-magenta accent on
+/// The IKON brand identity from <c>brand/ikon-brand.md</c>: one electric-magenta accent on
 /// warm paper and ink surfaces, the palette Studio ships. Every value goes through the
 /// <see cref="IkonTheme"/> indexer, never global CSS, so native clients receive it through the
 /// Flutter theme bridge as well as the web.

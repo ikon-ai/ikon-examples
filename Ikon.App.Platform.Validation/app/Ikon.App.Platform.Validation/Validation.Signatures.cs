@@ -303,8 +303,8 @@ public partial class Validation
         var document = _sigDocument.Value switch
         {
             SigDocSample => new SignatureDocument("sample.pdf", "application/pdf", await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "sample.pdf"))),
-            SigDocText => new SignatureDocument("validation-agreement.txt", "text/plain", Encoding.UTF8.GetBytes($"Ikon platform validation agreement\n\nCreated {stamp}. Signing this text document has no legal effect.\n")),
-            _ => new SignatureDocument("validation-agreement.pdf", "application/pdf", BuildValidationPdf(["Ikon platform validation agreement", $"Created {stamp}", "Signing this document has no legal effect."])),
+            SigDocText => new SignatureDocument("validation-agreement.txt", "text/plain", Encoding.UTF8.GetBytes($"IKON platform validation agreement\n\nCreated {stamp}. Signing this text document has no legal effect.\n")),
+            _ => new SignatureDocument("validation-agreement.pdf", "application/pdf", BuildValidationPdf(["IKON platform validation agreement", $"Created {stamp}", "Signing this document has no legal effect."])),
         };
 
         var schemes = _sigSchemes.Value
@@ -338,7 +338,7 @@ public partial class Validation
                 IdentitySchemes: schemes.Count > 0 ? schemes : null,
                 RequestedAttributes: attributes),
             CostAttributionKey: "validation-signatures",
-            Title: "Ikon validation: sign a test document",
+            Title: "IKON validation: sign a test document",
             ClientReturnUrl: _sigReturnToApp.Value ? SignatureReturnUrl() : null);
     }
 

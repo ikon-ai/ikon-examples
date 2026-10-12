@@ -252,7 +252,7 @@ public partial class Validation
                 return;
             }
 
-            _notificationInbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => NotificationChannelTarget("email", userId), senderDisplayName: "Ikon Validation"));
+            _notificationInbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => NotificationChannelTarget("email", userId), senderDisplayName: "IKON Validation"));
             _notificationInbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => NotificationChannelTarget("sms", userId)));
             _notificationInbox.Channels.Add(new TelegramNotificationChannel("", userId => NotificationChannelTarget("telegram", userId)));
             _notificationInbox.Channels.Add(new WhatsAppNotificationChannel("", "", userId => NotificationChannelTarget("whatsapp", userId)));

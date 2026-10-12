@@ -11,7 +11,7 @@ public partial class Validation
     // SMS send
     private readonly Reactive<string> _telSmsTo = new("");
     private readonly Reactive<string> _telSmsFrom = new("auto");
-    private readonly Reactive<string> _telSmsText = new("Hello from the Ikon validation app");
+    private readonly Reactive<string> _telSmsText = new("Hello from the IKON validation app");
     private readonly Reactive<bool> _telSmsBusy = new(false);
     private readonly Reactive<string> _telSmsResult = new("");
 

@@ -4,7 +4,7 @@ public partial class Validation
 {
     private ClientProfiles ClientProfiles { get; } = new(app);
 
-    // Per-client identity, resolved from the backend profile when a client joins. Deferred login means
+    // Per-client identity, resolved from the backend profile when a client joins. Deferred sign-in means
     // every visitor starts anonymous; these reflect that until (and after) they sign in on demand.
     private readonly ClientReactive<bool> _identityLoaded = new(false);
     private readonly ClientReactive<bool> _identityIsAnonymous = new(true);

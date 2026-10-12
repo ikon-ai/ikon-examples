@@ -189,7 +189,7 @@ public partial class Validation
         try
         {
             _telLoopProgress.Value = $"Sending {token} from {a.Number} to {b.Number}…";
-            var sent = await app.Telephony.SendSmsAsync(b.Number, $"Ikon validation loopback {token}", from: a.Number);
+            var sent = await app.Telephony.SendSmsAsync(b.Number, $"IKON validation loopback {token}", from: a.Number);
             var sentMs = (DateTime.UtcNow - started).TotalMilliseconds;
             _telLoopProgress.Value = $"Accepted as {sent.MessageId} after {sentMs:0} ms, waiting for it on {b.Number}…";
 

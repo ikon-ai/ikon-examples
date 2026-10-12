@@ -1,5 +1,5 @@
 name: ikon_app_platform_validation
-description: Ikon AI App Flutter frontend
+description: IKON app Flutter frontend
 
 environment:
   sdk: ^3.8.0

@@ -10,7 +10,7 @@ void main() {
 /// Connection configuration injected at build time via `--dart-define`.
 ///
 /// In local development no identity is injected, so [isDeployed] is false and
-/// the app auto-discovers the local Ikon server (the host launches the Flutter
+/// the app auto-discovers the local IKON server (the host launches the Flutter
 /// frontend with `--dart-define=IKON_PORT=<port>`).
 ///
 /// When bundled with `ikon bundle --flutter-*`, the tool injects the
@@ -23,7 +23,7 @@ class IkonAppConfig {
   static const String authUrl = String.fromEnvironment('IKON_AUTH_URL');
 
   /// Local dev only: the developer's backend user id — the Flutter counterpart of the web
-  /// dev server's auto-login; without it a sign-in-gated app enters as a synthetic user and
+  /// dev server's automatic sign-in; without it a sign-in-gated app enters as a synthetic user and
   /// never gets past its gate. Injected at launch; ignored when deployed.
   static const String devUserId = String.fromEnvironment('IKON_DEV_USER_ID');
 
@@ -35,13 +35,13 @@ class IkonFlutterApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The app's own appearance comes from the Ikon theme it streams, so the shell must not
+    // The app's own appearance comes from the IKON theme it streams, so the shell must not
     // impose one: a light-themed app forced onto a dark Material theme renders white-on-white
     // wherever the streamed styles do not paint a colour themselves. Following the platform
     // keeps Material's own chrome (text selection, scrollbars, dialogs) legible either way.
     // No scaffold colour: IkonPageScaffold paints the safe areas in the streamed page's own.
     return MaterialApp(
-      title: 'Ikon App',
+      title: 'IKON app',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.light, useMaterial3: true),
       darkTheme: ThemeData(brightness: Brightness.dark, useMaterial3: true),

@@ -113,7 +113,7 @@ public partial class Validation
         var (sharePoint, _) = SpClients();
         var title = _spNewPageTitle.Value.Trim();
         var paragraph = _spNewPageText.Value.Trim();
-        var html = $"<p>{WebUtility.HtmlEncode(paragraph.Length > 0 ? paragraph : "Created from the Ikon Validation app.")}</p>";
+        var html = $"<p>{WebUtility.HtmlEncode(paragraph.Length > 0 ? paragraph : "Created from the IKON Validation app.")}</p>";
         var page = await sharePoint.CreatePageAsync(_spSite.Value!.Id, $"{SpTestPagePrefix}{DateTime.UtcNow:yyyyMMdd-HHmmss}", title, [PageSection.OneColumn(PageWebPart.Text(html))]);
 
         _spNewPageTitle.Value = "";

@@ -26,7 +26,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-1"], "Primary");
-                view.Text([Text.BodySm, "text-tertiary mb-4"], "Follows the theme's brand-button tokens — under the Ikon brand that is brand-600 with a white label in both modes, where Solid is pinned to it regardless of theme");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "Follows the theme's brand-button tokens — under the IKON brand that is brand-600 with a white label in both modes, where Solid is pinned to it regardless of theme");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimarySm],  text: "Primary Sm");

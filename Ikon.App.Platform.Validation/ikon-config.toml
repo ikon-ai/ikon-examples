@@ -50,10 +50,11 @@ UiActions = false
 # The Parallax guide's "Per-route snapshots and SEO" section has the details.
 [BootSnapshot]
 # Public routes to snapshot (e.g. ["/", "/pricing"]); empty disables snapshots. Each must be a path the
-# app serves without redirecting — a redirect during capture fails the bundle, so declare "/home",
-# not "/", if "/" redirects there. When the app opens without signing in (RequireSignIn = false, or
-# "guest"/"global" in Auth.Methods) each route is also prerendered to crawlable HTML with a generated
-# sitemap.xml and robots.txt. Add content routes (one per article) in code with app.OnSnapshotRoutes(...).
+# app serves without redirecting — a redirect during capture ships the bundle without snapshots, so
+# declare "/home", not "/", if "/" redirects there. When the app opens without signing in
+# (RequireSignIn = false, or "guest"/"global" in Auth.Methods) each route is also prerendered to
+# crawlable HTML with a generated sitemap.xml and robots.txt. Add content routes (one per article) in
+# code with app.OnSnapshotRoutes(...).
 Routes = ["/"]
 # Seed rules, only for apps that render different pages per identity or path shape: ordered
 # "pattern:variantId" entries, first match wins. A segment is a literal, "*" (one segment) or a final

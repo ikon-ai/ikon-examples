@@ -8,7 +8,7 @@ public partial class Validation
     // Outbound call
     private readonly Reactive<string> _telCallTo = new("");
     private readonly Reactive<string> _telCallFrom = new("auto");
-    private readonly Reactive<string> _telCallLine = new("This is the Ikon validation app calling. One, two, three.");
+    private readonly Reactive<string> _telCallLine = new("This is the IKON validation app calling. One, two, three.");
     private readonly Reactive<bool> _telCallBusy = new(false);
     private readonly Reactive<string> _telCallInfo = new("");
     private readonly Reactive<string> _telCallEnergy = new("");
@@ -398,7 +398,7 @@ public partial class Validation
         var listening = ListenIntoAsync(call, meter, cts.Token);
 
         await call.SpeakAsync(TelTone(TimeSpan.FromSeconds(2)), cts.Token);
-        await SpeakTextOnCallAsync(call, "Ikon validation app. You are heard. Goodbye.", cts.Token);
+        await SpeakTextOnCallAsync(call, "IKON validation app. You are heard. Goodbye.", cts.Token);
         await call.WaitForPlaybackAsync(cts.Token);
         await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
         await cts.CancelAsync();

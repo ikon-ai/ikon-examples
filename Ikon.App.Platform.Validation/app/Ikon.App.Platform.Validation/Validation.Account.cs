@@ -65,13 +65,13 @@ public partial class Validation
                 {
                     row.Button([Button.PrimaryMd], text: "Sign in with Google", onClick: () => TriggerLoginAsync("google"));
                     row.Button([Button.PrimaryMd], text: "Sign in with Microsoft", onClick: () => TriggerLoginAsync("microsoft"));
-                    row.Button([Button.PrimaryMd], text: "Show login UI",
+                    row.Button([Button.PrimaryMd], text: "Show sign-in UI",
                         onClick: async () => await ClientFunctions.LoginShowAsync("Sign in to see your full profile"));
                 });
             }
             else
             {
-                view.Button([Button.ErrorMd, "mt-4"], text: "Log out", onClick: async () => await ClientFunctions.LogoutAsync());
+                view.Button([Button.ErrorMd, "mt-4"], text: "Sign out", onClick: async () => await ClientFunctions.LogoutAsync());
             }
 
             // The app's own legal pages, which the platform serves from legal/*.md at the [Legal] paths.
@@ -161,7 +161,7 @@ public partial class Validation
                 open: _accountRemovalConfirmOpen.Value,
                 onOpenChange: async open => _accountRemovalConfirmOpen.Value = open,
                 title: "Erase your account?",
-                description: "Your Ikon account is erased after the grace period (14 days by default). Cancel removal takes it back until then.",
+                description: "Your IKON account is erased after the grace period (14 days by default). Cancel removal takes it back until then.",
                 cancelLabel: "Keep my account",
                 actionLabel: "Request removal",
                 onAction: async () =>

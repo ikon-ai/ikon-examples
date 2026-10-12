@@ -5,7 +5,7 @@ public partial class Validation
     // Send state
     private readonly Reactive<string> _emailTo = new("");
     private readonly Reactive<string> _emailSubject = new("Validation test email");
-    private readonly Reactive<string> _emailBody = new("<p>Hello from the Ikon validation app.</p>");
+    private readonly Reactive<string> _emailBody = new("<p>Hello from the IKON validation app.</p>");
     private readonly Reactive<bool> _emailAttachSample = new(false);
     private readonly Reactive<bool> _emailSending = new(false);
     private readonly Reactive<string?> _emailSendResult = new(null);
