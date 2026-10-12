@@ -1,7 +1,7 @@
 IKON PLATFORM KNOWLEDGE BASE
 
 == CORE ARCHITECTURE ==
-Ikon is a platform for building AI-native applications. The architecture is fundamentally different from traditional web stacks.
+IKON is a platform for building AI-native applications. The architecture is fundamentally different from traditional web stacks.
 - The server owns everything: all interface rendering, all AI calls, all business logic, all state.
 - The client is a thin renderer with no business logic. It maintains a persistent connection, renders interface updates, and sends user inputs back.
 - Apps run as long-lived stateful processes in isolated cloud containers. They persist even when all clients disconnect.
@@ -11,7 +11,7 @@ Ikon is a platform for building AI-native applications. The architecture is fund
 - Hot reload during development preserves all Reactive<T> state across code changes.
 
 == TELEPORT PROTOCOL ==
-Ikon uses Teleport, a purpose-built binary protocol, instead of REST/JSON/WebSocket.
+IKON uses Teleport, a purpose-built binary protocol, instead of REST/JSON/WebSocket.
 - A single persistent connection carries everything: UI updates, audio streams, video frames, function calls, and events.
 - No REST endpoints, no GraphQL, no separate real-time servers needed.
 - Every message has a compact 27-byte header. Field names are compressed to tiny identifiers at build time.
@@ -65,7 +65,7 @@ All patterns are composable. A Router can delegate to a SolverCriticVerifier whi
 - Video enhancement: Upscaling and frame interpolation
 
 == CROSSWIND: STYLING WITH MOTION ==
-Crosswind is Ikon's styling system, compatible with Tailwind CSS but extended with a declarative motion/animation language.
+Crosswind is IKON's styling system, compatible with Tailwind CSS but extended with a declarative motion/animation language.
 - Styles applied as string arrays directly in C# code.
 - The motion language supports keyframe animations, per-letter and per-word text animations, staggered delays, easing functions, 3D transforms, and filter animations — all as styling utilities.
 - motion-[0:property-value,50:property-value,100:property-value] defines keyframe animations.
@@ -85,7 +85,7 @@ The security architecture eliminates entire categories of vulnerabilities by des
 - Apps have passed enterprise security reviews in financial services and healthcare on day one.
 
 == PERSISTENCE & BACKGROUND WORK ==
-Ikon apps are long-lived stateful processes, not stateless request handlers.
+IKON apps are long-lived stateful processes, not stateless request handlers.
 - State lives in the application's memory. When a user disconnects and reconnects, everything is exactly where they left it.
 - Background work is first-class. Tasks run within the app process with direct access to live state. If no users are connected, tasks keep running.
 - No job queues, no message brokers, no worker processes needed for background tasks.
@@ -103,7 +103,7 @@ One server-side codebase serves web browsers, game engines, and native/embedded 
 - Use cases: AI-powered NPCs in Unity games, companion web dashboards for native apps, AI on embedded/kiosk hardware.
 
 == THREADS: AI-POWERED DEVELOPMENT ==
-Threads is Ikon's built-in development environment — itself an Ikon app.
+Threads is IKON's built-in development environment — itself an IKON app.
 - Multiple specialized AI agents collaborate to build apps: Planner, Coder, Designer, Critic, Magician.
 - The Planner queries platform documentation, designs screens, creates structured plans with scorable milestones.
 - The Coder writes code, compiles, runs, takes screenshots, and iterates. It can consult a documentation oracle.
@@ -112,7 +112,7 @@ Threads is Ikon's built-in development environment — itself an Ikon app.
 - The Critic evaluates by actually running the app, clicking buttons, filling forms, and scoring against the plan.
 - Key difference from vibe coding tools (Lovable, Base44): the AI can RUN what it builds, interact with it, and evaluate it in a closed feedback loop.
 - Agents communicate through threads, spawning child threads for subtasks, sharing artifacts, tracking convergence through scored milestones.
-- The generated apps run on the full Ikon runtime, not a limited web stack.
+- The generated apps run on the full IKON runtime, not a limited web stack.
 
 == REAL-WORLD APP EXAMPLES ==
 These demonstrate the range of what's buildable on the platform:

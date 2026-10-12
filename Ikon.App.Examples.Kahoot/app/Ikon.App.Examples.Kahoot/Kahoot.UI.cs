@@ -38,12 +38,12 @@ public partial class Kahoot
                         "motion-[0:brightness-100,40:brightness-[1.8],100:brightness-100]",
                         "motion-duration-1500ms motion-stagger-200ms motion-per-letter-loop"
                     ],
-                    text: "Ikon Kahoot"
+                    text: "IKON Kahoot"
                 );
 
                 view.Text(
                     style: ["text-xl text-gray-400 mt-2"],
-                    text: "Test your Ikon platform knowledge!"
+                    text: "Test your IKON platform knowledge!"
                 );
 
                 view.Button(
@@ -105,7 +105,7 @@ public partial class Kahoot
                     "motion-[0:brightness-100,40:brightness-[1.8],100:brightness-100]",
                     "motion-duration-2000ms motion-stagger-150ms motion-per-letter-loop"
                 ],
-                text: "Ikon Kahoot"
+                text: "IKON Kahoot"
             );
 
             view.Row(style: ["gap-12 items-start flex-1 min-h-0"], content: view =>
@@ -559,10 +559,10 @@ public partial class Kahoot
                     "motion-[0:brightness-100,40:brightness-[1.8],100:brightness-100]",
                     "motion-duration-2000ms motion-stagger-150ms motion-per-letter-loop"
                 ],
-                text: "Ikon Kahoot"
+                text: "IKON Kahoot"
             );
 
-            view.Text(style: ["text-lg text-gray-400 mt-2 text-center"], text: "Ready to test your Ikon knowledge?");
+            view.Text(style: ["text-lg text-gray-400 mt-2 text-center"], text: "Ready to test your IKON knowledge?");
 
             view.ActionButton(
                 style: ["w-full max-w-sm py-4 rounded-full bg-purple-600 text-white text-lg font-bold border-none mt-4"],

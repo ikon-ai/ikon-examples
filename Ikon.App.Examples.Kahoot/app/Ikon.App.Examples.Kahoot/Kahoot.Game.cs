@@ -192,7 +192,7 @@ public partial class Kahoot
                 : "None yet.";
 
             string command = $"""
-                              You are generating a trivia question about the Ikon platform for a Kahoot-style quiz game.
+                              You are generating a trivia question about the IKON platform for a Kahoot-style quiz game.
 
                               # Knowledge Base
                               {_knowledgeBase ?? "No knowledge base available."}
@@ -201,18 +201,18 @@ public partial class Kahoot
                               Focus on this category: {category}
 
                               # Command
-                              Generate a multiple-choice trivia question about the Ikon platform.
+                              Generate a multiple-choice trivia question about the IKON platform.
                               The question must have exactly 4 answer options, with only one correct answer.
 
                               IMPORTANT: Focus on architecture, design philosophy, and conceptual understanding.
-                              Ask about WHY things work the way they do, what makes Ikon different, and what the platform enables.
+                              Ask about WHY things work the way they do, what makes IKON different, and what the platform enables.
                               Good questions test whether someone understands the platform's core ideas and design decisions.
                               Use real facts and stats from the knowledge base (e.g., number of models, protocol details, app examples).
                               Do NOT ask about specific API syntax, method signatures, or class names.
 
                               Examples of good question styles:
-                              - "Why doesn't Ikon need a separate WebSocket server for real-time updates?"
-                              - "How many AI providers does Ikon support through Emergence?"
+                              - "Why doesn't IKON need a separate WebSocket server for real-time updates?"
+                              - "How many AI providers does IKON support through Emergence?"
                               - "What Emergence pattern runs multiple attempts and picks the best result?"
                               - "How many lines of code was the animated voice chat app?"
                               - "What keeps lip sync from drifting in the animated voice chat?"
