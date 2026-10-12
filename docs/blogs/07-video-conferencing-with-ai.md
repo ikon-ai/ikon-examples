@@ -8,7 +8,7 @@ This app has video conferencing, live transcription and AI meeting summaries. On
 
 ## Why one person could build it
 
-**Multiuser without extra code.** Nobody wrote multiuser support for this app. No code says "when participant A's transcript updates, send it to participants B, C, and D", and there is no event routing, real-time sync layer or pub/sub configuration. The developer updates a value, and every connected participant's screen shows the change, because on Ikon state is shared with every client by default.
+**Multiuser without extra code.** Nobody wrote multiuser support for this app. No code says "when participant A's transcript updates, send it to participants B, C, and D", and there is no event routing, real-time sync layer or pub/sub configuration. The developer updates a value, and every connected participant's screen shows the change, because on IKON state is shared with every client by default.
 
 **One developer instead of a team.** Video conferencing with AI features is one of the hardest kinds of application to build. On a traditional stack, you need a WebRTC signaling server, a media routing server, a speech-to-text microservice, a separate AI service for summarization, a real-time state sync layer, and a frontend application with its own state management. That takes several teams several months. This app is one person's work in a few files.
 
@@ -20,7 +20,7 @@ This app has video conferencing, live transcription and AI meeting summaries. On
 
 Every participant's microphone audio goes to every other participant but not back to the sender. On a traditional stack, this requires a selective forwarding unit that tracks which streams go where, plus ICE negotiation and TURN server fallbacks for network traversal.
 
-On Ikon, the application states the rule: send each participant's audio to everyone except themselves. The platform handles the transport, so there is no signaling server to configure, no peer connections to manage and no media server to deploy.
+On IKON, the application states the rule: send each participant's audio to everyone except themselves. The platform handles the transport, so there is no signaling server to configure, no peer connections to manage and no media server to deploy.
 
 ### Speaker detection
 

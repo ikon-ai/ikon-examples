@@ -6,7 +6,7 @@ You built a project tracker in ten minutes with a vibe coding tool. The client l
 
 Vibe coding tools are platforms like Lovable and Base44, where you describe an app and AI generates it. They run into this limit again and again. They are good at producing traditional web applications from a description, but those applications can only do what the stack they generate for can do. That stack was not designed for applications that listen, speak, watch, work in the background and collaborate in real time.
 
-Ikon is a different kind of platform. It can also do what they do, and it builds apps they cannot.
+IKON is a different kind of platform. It can also do what they do, and it builds apps they cannot.
 
 ## What Lovable and Base44 actually are
 
@@ -18,9 +18,9 @@ But the apps they produce are traditional web applications, with AI added as a f
 
 Even in business tools, which people assume these platforms are best at, the AI part is a form that calls an LLM API and shows the response. That is a limited kind of AI integration.
 
-## What Ikon is
+## What IKON is
 
-Ikon is a runtime for AI-native applications, meaning apps where AI runs inside the app. That covers business tools as well as immersive creative apps. The platform provides real-time transport over a single binary connection and server-driven UI that streams to every connected client. It has over 150 AI models in 14 categories, with multi-agent orchestration. It also handles two-way audio and video, runs apps as persistent processes that keep their state, and deploys to the web, game engines and native devices.
+IKON is a runtime for AI-native applications, meaning apps where AI runs inside the app. That covers business tools as well as immersive creative apps. The platform provides real-time transport over a single binary connection and server-driven UI that streams to every connected client. It has over 150 AI models in 14 categories, with multi-agent orchestration. It also handles two-way audio and video, runs apps as persistent processes that keep their state, and deploys to the web, game engines and native devices.
 
 Here the AI does not build your app. It runs inside your app, as part of what the app does.
 
@@ -32,9 +32,9 @@ The earlier posts in this series show the range: video conferencing with live AI
 
 ## The comparison most people expect
 
-| | **Base44 / Lovable** | **Ikon** |
+| | **Base44 / Lovable** | **IKON** |
 |---|---|---|
-| How you build | Describe in chat, AI writes code | Describe it in Ikon Studio (or from a brief with the ikon CLI) and AI agents build it, or write code directly |
+| How you build | Describe in chat, AI writes code | Describe it in IKON Studio (or from a brief with the ikon CLI) and AI agents build it, or write code directly |
 | What it produces | React + Supabase web apps | AI-native apps across web, Unity, and native |
 | AI inside the app | API call integrations | 200+ models, multi-agent orchestration, streaming, structured output, tool use |
 | Audio and video | Not supported | Native bidirectional streaming, STT, TTS, lip sync, audio effects |
@@ -44,15 +44,15 @@ The earlier posts in this series show the range: video conferencing with live AI
 | Security | Client has database keys and API tokens | Client has no credentials. All credentials stay on the server. |
 | Best for | CRMs, dashboards, admin panels, business tools | AI-powered experiences where intelligence is the product |
 
-In this comparison Ikon looks like a different kind of product, and it is. If you want a business tool built fast, Base44 or Lovable will build it before you finish reading this post. If you want an AI-native app with voice, video, several models, real-time collaboration or persistent processes, they cannot help, because the stack they generate for does not support it.
+In this comparison IKON looks like a different kind of product, and it is. If you want a business tool built fast, Base44 or Lovable will build it before you finish reading this post. If you want an AI-native app with voice, video, several models, real-time collaboration or persistent processes, they cannot help, because the stack they generate for does not support it.
 
-But Ikon also builds apps from a description, the same way they do.
+But IKON also builds apps from a description, the same way they do.
 
-## Ikon Studio builds apps from a description
+## IKON Studio builds apps from a description
 
-Ikon has a built-in development environment called Ikon Studio. Ikon Studio is itself an Ikon app, built on the same platform with the same reactive UI, AI orchestration and persistent processes.
+IKON has a built-in development environment called IKON Studio. IKON Studio is itself an IKON app, built on the same platform with the same reactive UI, AI orchestration and persistent processes.
 
-You describe what you want to build, and several specialized AI agents build it together: a planner that designs the app, a coder that writes it, a designer that improves the interface, a critic that checks the result, and a "magician" that adds AI features. Each agent can read the full Ikon platform documentation and knows the correct APIs, patterns and conventions.
+You describe what you want to build, and several specialized AI agents build it together: a planner that designs the app, a coder that writes it, a designer that improves the interface, a critic that checks the result, and a "magician" that adds AI features. Each agent can read the full IKON platform documentation and knows the correct APIs, patterns and conventions.
 
 So far this sounds like Lovable or Base44. The difference is that the agents run and test the app they build.
 
@@ -74,7 +74,7 @@ The **coder** reads the plan, writes code into the workspace, compiles, runs, te
 
 The **designer** works on layout, styling and motion, so that the interface looks designed and not generated.
 
-The **magician** adds AI features, and this is where Ikon differs most from other platforms. A vibe coding tool can generate a form that calls an LLM API. The magician agent can set up multi-model orchestration, add speech recognition to a voice interface, generate images from user input, or build a system that changes its behavior based on what it has learned so far. It can use every AI capability the platform provides, so it can turn a static app into one that reasons and adapts.
+The **magician** adds AI features, and this is where IKON differs most from other platforms. A vibe coding tool can generate a form that calls an LLM API. The magician agent can set up multi-model orchestration, add speech recognition to a voice interface, generate images from user input, or build a system that changes its behavior based on what it has learned so far. It can use every AI capability the platform provides, so it can turn a static app into one that reasons and adapts.
 
 The **critic** checks each phase by running the app, using it and scoring it against the plan, so quality is measured instead of assumed.
 
@@ -96,29 +96,29 @@ The result is a multiplayer quiz app with AI-generated questions, voice narratio
 
 ### You describe, the agents build
 
-When you use Ikon Studio, you describe what you want in natural language, the same way you would on Lovable or Base44. The agents write the code. The difference is that the generated code targets the Ikon runtime instead of a traditional web stack. The agents writing it have been trained on the platform's documentation, know the correct APIs and can check their work by running the result.
+When you use IKON Studio, you describe what you want in natural language, the same way you would on Lovable or Base44. The agents write the code. The difference is that the generated code targets the IKON runtime instead of a traditional web stack. The agents writing it have been trained on the platform's documentation, know the correct APIs and can check their work by running the result.
 
 You can open the generated code, read it and change it directly, because the code is yours. You do not have to, though. You say what the app should do and the agents do the rest.
 
-### It builds on the full Ikon runtime
+### It builds on the full IKON runtime
 
-This is the biggest difference. A React + Supabase app that Lovable generates can do only what React + Supabase can do. An Ikon app that Studio builds can do everything described in this blog series.
+This is the biggest difference. A React + Supabase app that Lovable generates can do only what React + Supabase can do. An IKON app that Studio builds can do everything described in this blog series.
 
-The AI agents know the Ikon platform APIs. They can generate apps with real-time multiplayer out of the box. They can add speech recognition, text-to-speech, image generation, and multi-model AI orchestration. They can build apps with persistent background processes, live audio effects, and video streaming. They build on the same runtime that produced the video conferencing app, the animated voice chat, and the ambient cinema generator.
+The AI agents know the IKON platform APIs. They can generate apps with real-time multiplayer out of the box. They can add speech recognition, text-to-speech, image generation, and multi-model AI orchestration. They can build apps with persistent background processes, live audio effects, and video streaming. They build on the same runtime that produced the video conferencing app, the animated voice chat, and the ambient cinema generator.
 
-In a Lovable-generated app, "uses AI" typically means a text field, a fetch call to an LLM API and a response shown on screen. A Studio-generated Ikon app can have several AI models working together in an Emergence pattern. Emergence is the platform's library of multi-agent workflows that can be combined, such as draft-critique-verify loops, parallel best-of-N selection and debate-then-judge. The results stream to every connected user in real time, with synthesized audio and a reactive UI that updates while the AI works.
+In a Lovable-generated app, "uses AI" typically means a text field, a fetch call to an LLM API and a response shown on screen. A Studio-generated IKON app can have several AI models working together in an Emergence pattern. Emergence is the platform's library of multi-agent workflows that can be combined, such as draft-critique-verify loops, parallel best-of-N selection and debate-then-judge. The results stream to every connected user in real time, with synthesized audio and a reactive UI that updates while the AI works.
 
 The generated app runs as a persistent process, handles multiplayer automatically, can run background tasks and can stream audio and video. Nobody added these features by hand. The runtime provides them by default.
 
 ## The updated comparison
 
-| | **Base44 / Lovable** | **Ikon Studio** |
+| | **Base44 / Lovable** | **IKON Studio** |
 |---|---|---|
 | Describe and build | Yes, chat-driven code generation | Yes, development by several orchestrated agents |
 | AI tests its own work | No, you check the preview yourself | Yes, the AI runs the app, clicks, takes screenshots and evaluates |
 | Development agents | Single LLM writing code | Specialized agents: planner, coder, designer, critic, magician |
 | When it is done | You decide | Scored milestones reach a quality threshold |
-| What generated apps can do | React + Supabase web apps | Full Ikon runtime: real-time multiplayer, audio/video, 200+ AI models, persistent processes, cross-platform |
+| What generated apps can do | React + Supabase web apps | Full IKON runtime: real-time multiplayer, audio/video, 200+ AI models, persistent processes, cross-platform |
 | AI inside generated apps | API call integrations | Native multi-model orchestration, streaming, structured output, tool use |
 | Audio/video in generated apps | Not possible | Speech, voice, video, lip sync and audio effects |
 | Multiplayer in generated apps | Requires manual setup | Automatic by default |
@@ -138,7 +138,7 @@ They cannot build an app that needs real-time collaboration deeper than database
 
 The reason is the runtime their generated code targets, not how well their AI writes code. React + Supabase is a capable stack for many kinds of applications, but it cannot produce a video conferencing app with live AI transcription, an animated character with lip-synced speech, or a game generator that critiques its own output. Better prompts or smarter models will not change that, because the limit is in the stack.
 
-Ikon's runtime was built for these apps. With Studio you can build them the same way you would on Lovable, by describing what you want and letting AI agents write the code. The difference is that the agents can run, see and use what they build. The result runs on a platform where AI, media and real-time collaboration are part of the runtime instead of external services.
+IKON's runtime was built for these apps. With Studio you can build them the same way you would on Lovable, by describing what you want and letting AI agents write the code. The difference is that the agents can run, see and use what they build. The result runs on a platform where AI, media and real-time collaboration are part of the runtime instead of external services.
 
 ## Summary
 
@@ -146,6 +146,6 @@ Base44 and Lovable made it possible for non-developers to create working web app
 
 But more applications are becoming AI-first, and an AI-first application is more than a form with a generate button. Examples are a meeting tool with real-time transcription, a customer support dashboard that listens to calls and suggests responses, and a project tracker that monitors progress overnight and has a summary waiting in the morning. In a business frontend built this way, AI is part of every interaction from the start instead of being added later.
 
-For these applications, whether they are business tools, internal apps or customer-facing products, the runtime decides what is possible. A React + Supabase stack cannot do real-time audio transcription, persistent background AI processing, or automatic multiplayer collaboration. Ikon can, because the platform was built for it.
+For these applications, whether they are business tools, internal apps or customer-facing products, the runtime decides what is possible. A React + Supabase stack cannot do real-time audio transcription, persistent background AI processing, or automatic multiplayer collaboration. IKON can, because the platform was built for it.
 
 Studio is vibe coding for applications that need a runtime built for AI. You describe what you want, and specialized agents plan, build, design and evaluate the app. They run it themselves, use it and score it against the plan. The result is an application that can listen, speak, reason, collaborate with its users in real time and keep working after everyone goes home.

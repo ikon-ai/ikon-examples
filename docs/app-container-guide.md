@@ -1,8 +1,8 @@
-<!-- checked-against: cae59a5fec051420db3691ae -->
+<!-- checked-against: aa9df627c6c3498ddb3691ae -->
 
 # App Container Guide
 
-How an Ikon AI app gets a native program, system library or font that the platform's server image
+How an IKON app gets a native program, system library or font that the platform's server image
 does not have: in its `tools/` folder, or by shipping its own Dockerfile. Read this before an app
 starts a process other than `ffmpeg`.
 
@@ -37,7 +37,7 @@ out, and the deploy warns with `TOOLS_DANGLING_LINK` naming it. `ikon run` does 
 folder for the machine it runs on, so the same `Process.Start("renode")` works in both places.
 
 Apps that share a server process with other apps (hosted mode) get no `PATH` change, since one app's
-programs would shadow another's. Hosted mode is something Ikon turns on per space; an app that ships
+programs would shadow another's. Hosted mode is something IKON turns on per space; an app that ships
 tools should stay off it.
 
 A program that is too large to keep in the repository is better downloaded than committed. Name the
@@ -64,7 +64,7 @@ The bundle, tools included, is limited to 512 MB.
 
 ## Custom containers
 
-Custom containers are off for every space until Ikon turns them on for it. A deploy with
+Custom containers are off for every space until IKON turns them on for it. A deploy with
 `container/` to a space without them stops before anything is built and says so.
 
 ### The Dockerfile
@@ -112,7 +112,7 @@ Other files in `container/` are the build context: `COPY scripts/setup.sh /opt/s
    "Building the app image and activating". A build that fails fails the deploy, and the end of the
    build log is printed under the error.
 
-When Ikon updates the server image, for example with security fixes, the platform rebuilds your
+When IKON updates the server image, for example with security fixes, the platform rebuilds your
 image on it. Sessions keep starting on the previous image until the new one is ready.
 
 ### Limits
@@ -124,7 +124,7 @@ image on it. Sessions keep starting on the previous image until the new one is r
 | Built image | 10 GB uncompressed |
 | Builds per space | 20 per day, shared by every app in the space |
 
-Every image is scanned for known vulnerabilities. The findings are reported, never block a deploy.
+Every image is scanned for known vulnerabilities. The findings are reported but never block a deploy.
 
 ## Starting the program from the app
 

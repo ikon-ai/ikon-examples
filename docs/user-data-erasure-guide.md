@@ -1,4 +1,4 @@
-<!-- checked-against: d475135c0bc7ed76d6531655 -->
+<!-- checked-against: 710f94020bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -40,27 +40,26 @@ merged into the account, the previous ids are erased together with it.
   invoices, refunds, subscriptions) are retained under legal (bookkeeping) retention.
 - **Merge records** — the account's own merge record, which lists its merged-away ids, is deleted with
   the account; as the final step, once every other step has completed, the merge records of the other
-  closure ids are destroyed and the erased ids are removed from any that remain. Analytics events keyed by user id (BigQuery) are not deleted; destroying the linkage is
-  what leaves those ids pseudonymous — after erasure nothing on the platform can map them back to a
-  person.
+  closure ids are destroyed and the erased ids are removed from any that remain. Analytics events
+  keyed by user id (BigQuery) are not deleted. Destroying the linkage is what makes those ids
+  pseudonymous: after erasure, nothing on the platform can map them back to a person.
 
 Every erasure writes a persisted report (per-app and per-step outcomes and counts). Every step is
-idempotent, so a partial failure is retried on a widening backoff and each retry only has to finish
-what is left. The retries are bounded: once they are spent — or when what is left cannot be retried
-at all — the erasure is marked as needing a person, and a platform administrator resolves it by hand
-rather than it retrying silently forever. Two things count as not retryable: a database only your
-app's network can reach, which the platform never attempts, and one that refuses the delete outright
-— the role it connects as may not delete, the stored credential is not accepted, the database is not
-there. The report names the database and the reason in both cases, because what has to happen next
-differs.
+idempotent, so after a partial failure the erasure is retried with an increasing backoff, and each
+retry only has to finish what is left. The number of retries is limited. When they run out, or when
+what is left cannot be retried at all, the erasure is marked as needing a person, and a platform
+administrator resolves it by hand. Two cases are not retried: a database only your app's network can
+reach, which the platform never attempts, and a database that refuses the delete outright (the role
+it connects as may not delete, the stored credential is not accepted, or the database does not
+exist). In both cases the report names the database and the reason, because the next step differs.
 
 ## What is not erased
 
 - **Audit events** — kept for legal compliance and security accountability (GDPR Article 17(3)),
   with a 13-month TTL. Stored events are immutable by design, so they are minimized at write time
   instead: user actors and user targets are recorded as user ids only (never email or name), and the
-  Portal resolves the id to a live name at view time — for an erased user the views fall back to the
-  bare id, which the erasure has left unlinkable. The request IP on an event is a short-lived
+  Portal resolves the id to a live name at view time. For an erased user the views show the bare id,
+  which the erasure has made unlinkable. The request IP on an event is a short-lived
   operational value bounded by the same TTL. Invitation events keep the invited email: that address
   is the audited fact itself, and it may never correspond to a user account. Account-change events
   keep the changed value as well: `user.email_updated` records the previous and the new email, and
@@ -72,8 +71,7 @@ differs.
 
 ## Retention windows for residual copies
 
-Erasure removes the source of truth immediately; two bounded windows cover copies that live outside
-it:
+Erasure removes the source of truth immediately. Copies kept outside it remain for a bounded time:
 
 - **App-session logs** — session console output and crash logs are unstructured app output that can
   embed personal data. A daily sweep clears both from session records older than the log retention
@@ -83,8 +81,8 @@ it:
   cache invalidation: deleting the object removes it from storage but not from caches that already
   hold it. Both the CDN edge TTL and the `Cache-Control` max-age stamped on uploaded public objects
   are bounded to 24 hours, so after erasure a cached public asset can remain servable for at most
-  24 hours at the edge plus 24 hours in a browser that fetched it last-minute (~48 hours worst
-  case). Private assets are unaffected — they are served via short-lived signed URLs.
+  24 hours at the edge plus 24 hours in a browser that fetched it just before the erasure (~48
+  hours worst case). Private assets are unaffected — they are served via short-lived signed URLs.
 
 ## What your app is responsible for
 
@@ -98,8 +96,8 @@ erase:
   inside them belongs to whom.
 
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
-`[Trigger(TriggerEventType.UserErased)]` method on your app class, and it is what makes the platform
-ask your app at all — an app whose active deployment declares no listener is never sent the event. (This
+`[Trigger(TriggerEventType.UserErased)]` method on your app class. Without it the platform does not
+call your app: an app whose active deployment declares no listener is never sent the event. (This
 example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package and `using Dapper;`.)
 
 <!-- ikon-example: user-data-erasure-database -->
@@ -120,12 +118,12 @@ handler only needs to cover app-owned data. It runs **once per app per erasure**
 shared userless instance — the same one `[Cron]` ticks in, cold-started if none is running — however
 many instances of your app are live, and the session stays open for the whole run however long it
 takes. Delivery is durable and at-least-once: it is a platform event stored per app and redelivered
-until a run completes without throwing — write the handler to be idempotent, and let exceptions
+until a run completes without throwing. Write the handler to be idempotent, and let exceptions
 propagate so an incomplete cleanup is retried instead of being acknowledged.
 
 `app.OnUserDataErasure(userId => ...)` still attaches a handler at runtime and runs alongside the
-declared one, but it does not earn delivery on its own: the declaration is what the bundle carries
-and what the backend reads. Declaring no listener is fine when your app stores no user data outside
+declared one, but on its own it does not get the event delivered: the backend reads only the
+declaration, which the bundle carries. Declaring no listener is fine when your app stores no user data outside
 the per-user reactive scope — the platform erases the platform-managed state centrally whether or not
 your app ever runs. See the "User data erasure" section in
-[Ikon Platform Events](platform-events-reference.md) for the exact delivery semantics.
+[IKON Platform Events](platform-events-reference.md) for the exact delivery semantics.

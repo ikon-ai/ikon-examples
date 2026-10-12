@@ -86,7 +86,7 @@ Each round generates the game, tests it, critiques it and picks the weakest area
 
 Building an equivalent system on a traditional stack would mean assembling and maintaining several independent services: code generation backends with multiple AI provider integrations, a sandboxed execution environment for safely running generated code, headless browser infrastructure for testing, an AI evaluation pipeline for feeding screenshots back to vision models, a prompt management framework, file storage for game libraries and version histories, and job orchestration with progress tracking for loops that run for minutes at a time.
 
-On the Ikon platform, all of this is one project. AI orchestration handles multi-model calls. The persistent app process runs the long generation loops. Reactive state keeps the UI updated live. The asset system handles storage. The headless browser runs in the same process.
+On the IKON platform, all of this is one project. AI orchestration handles multi-model calls. The persistent app process runs the long generation loops. Reactive state keeps the UI updated live. The asset system handles storage. The headless browser runs in the same process.
 
 ## What we learned
 

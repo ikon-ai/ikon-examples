@@ -1,10 +1,10 @@
-<!-- checked-against: 4546bcbce720ebe49eb76bd5 -->
+<!-- checked-against: 8914849e1ffc3b66a7090300 -->
 
 # Crosswind Styling and Motion Guide
 
 ## Overview
 
-Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
+Crosswind is IKON's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
 
 The library lives in `Ikon.Crosswind` and provides:
 
@@ -28,7 +28,7 @@ When you pass style strings to UI components, Crosswind processes them through a
 
 ## Usage in Applications
 
-In Ikon AI Apps, styles are passed as string arrays to UI components. The `Ikon.Parallax` UI system handles the integration with Crosswind automatically.
+In IKON apps, styles are passed as string arrays to UI components. The `Ikon.Parallax` UI system handles the integration with Crosswind automatically.
 
 <!-- ikon-example: cw-usage-in-applications -->
 ```csharp
@@ -94,18 +94,18 @@ public static class AppStyles
 
 ### Three styling layers, all valid in the same style array
 
-Crosswind supports three ways to style a component. They compose freely in the same array — the right choice depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
+Crosswind supports three ways to style a component, and you can mix them freely in the same array. Which one to use depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
 
-**1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
+**1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` repaints the UI automatically, and a per-app brand change reaches every place that uses a semantic class, with no change to the style arrays.
 
 <!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array -->
 ```csharp
 view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { });
 ```
 
-Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They render unchanged forever, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
+Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
 
-**2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
+**2. `Ikon.Parallax.Theming` token shortcuts**. Named constants that bundle layer 1 classes per role and size. Use them as shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
 
 Needs the `Ikon.Parallax.Theming` using directive.
 
@@ -116,7 +116,7 @@ view.TextField(style: [Input.Default], defaultValue: "");
 view.Box(style: [Card.Default], content: view => { });
 ```
 
-**3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
+**3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so if you later add light/dark switching or a brand change, you have to revisit every fixed-color site by hand.
 
 <!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array-3 -->
 ```csharp
@@ -126,7 +126,7 @@ view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"]
 
 The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
 
-This split is deliberate — Ikon styling is two-tier. The structural core (surfaces, text, borders, radius, fonts, density) lives in semantic classes and the committed `IkonTheme`, so it re-themes and dark-flips in one place. Everything with personality — gradients, textures, glows, decorative colors — is ENCOURAGED as concrete classes and arbitrary values right at the use point, with no token obligation. Coherence of the expressive layer is judged against the app's DESIGN brief, not enforced by token discipline.
+This split is deliberate: IKON styling has two tiers. The structural core (surfaces, text, borders, radius, fonts, density) uses semantic classes and the committed `IkonTheme`, so re-theming and switching to dark happen in one place. Decorative styling (gradients, textures, glows, decorative colors) is ENCOURAGED as concrete classes and arbitrary values where it is used, with no requirement to use tokens. Whether the decorative styling fits together is judged against the app's DESIGN brief, not enforced through tokens.
 
 ## Hover only applies on devices that can hover
 
@@ -160,20 +160,20 @@ public async Task Main()
     _theme = UI.UseTheme(); // defaults: dark, but follows the theme each browser client reports
 }
 ```
-   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that reports a theme keeps it and clients without one get `defaultTheme` — a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`); with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (a read-only `IReadOnlyReactive<Theme>` of the calling client's theme) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client. With `followClient: true`, a client that reports a theme keeps it and clients without one get `defaultTheme`; a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`). With `followClient: false`, every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (a read-only `IReadOnlyReactive<Theme>` of the calling client's theme) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
 <!-- ikon-example: cw-theme-activation-2 -->
 ```csharp
 view.Button([Button.GhostMd, Button.Icon],
     onClick: _theme.ToggleAsync,
     content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
 ```
-   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme. Make it replace the plain `UI.UseTheme()` call above, not sit beside it: a repeat call with different arguments throws `InvalidOperationException`.
+   Do not hand-write the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` code this replaces. If you rewrite the app body and drop the `UseTheme` call, the invisible-button problem comes back. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme. Make it replace the plain `UI.UseTheme()` call above, not sit beside it: a repeat call with different arguments throws `InvalidOperationException`.
 
-The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
+The same applies in reverse for a fixed-light UI: don't leave `text-primary` on a fixed-white background while the theme is dark.
 
 ### Customizing the Theme
 
-For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory; the `primary-foreground` label is picked for `["primary"]` or `["brand"]` when no label is set, and a `ThemeMode.Fixed` theme whose background measures dark builds on the dark scheme, so the tokens it leaves unset take their dark values).
+For per-app palette / radius / density / font / motion overrides, see the [IKON Theming Guide](theming-guide.md). It documents `new IkonTheme { ... }`, an object initializer keyed by indexer, where each entry sets one theme key. A key like `["primary"]` sets its whole documented variable cluster, and there is no factory. The `primary-foreground` label is picked for `["primary"]` or `["brand"]` when no label is set, and a `ThemeMode.Fixed` theme whose background measures dark builds on the dark scheme, so the tokens it leaves unset take their dark values.
 
 ## Utility Classes
 
@@ -265,8 +265,8 @@ string[] Classes =
 ];
 ```
 
-A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Reach for
-these where the renderers genuinely differ — e.g. browser-only effects (focus rings,
+A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Use
+these where the renderers differ — e.g. browser-only effects (focus rings,
 `hover:`, `data-[state]`) that Flutter doesn't render, or concrete colours you want on
 Flutter instead of theme semantic colours. Unprefixed classes (including the theme's
 semantic colours like `bg-background`) already resolve on both, so most styling needs no
@@ -297,7 +297,7 @@ Crosswind extends Tailwind with a motion system for declarative animations. Moti
 
 ### Keyframe Timelines
 
-Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs. A track also needs a `motion-duration-*`: without one it compiles to `animation-duration: 0s` and plays nothing visible.
+Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs; a step without a time is dropped (build warning IKON022). A track also needs a `motion-duration-*`: without one it compiles to `animation-duration: 0s` and plays nothing visible.
 
 Within `motion-[...]`, keyframe steps are comma-separated. Within each step, multiple utilities are separated by underscores (`_`). Underscores outside of brackets and parentheses are converted to spaces during parsing, so `opacity-0_translate-y-[12px]` is equivalent to `opacity-0 translate-y-[12px]`.
 
@@ -809,7 +809,7 @@ Note: The Icon component internally uses `display: inline-flex` to ensure width/
 
 ### Canonical Icon + Text Pattern
 
-This is the robust, clean pattern that works everywhere:
+This pattern works everywhere:
 
 <!-- ikon-example: cw-canonical-icon-text-pattern -->
 ```csharp

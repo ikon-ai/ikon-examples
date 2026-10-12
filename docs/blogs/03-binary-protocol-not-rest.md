@@ -4,23 +4,23 @@
 
 Every modern web application uses the same approach: JSON over HTTP. The client makes a request, the server sends a response, and the connection closes. Real-time updates need WebSockets, file uploads and streaming each need their own mechanism, and video needs a separate media server. Each requirement adds another layer on top of the original request-response model.
 
-In Ikon, a single persistent connection carries interface updates, audio streams, video frames, function calls, and events, all multiplexed over one channel. There are no REST endpoints, no GraphQL, and no separate real-time servers.
+In IKON, a single persistent connection carries interface updates, audio streams, video frames, function calls, and events, all multiplexed over one channel. There are no REST endpoints, no GraphQL, and no separate real-time servers.
 
 ## What you can build
 
 Because everything goes over one connection, you can build some kinds of AI applications without specialized infrastructure knowledge.
 
-**Build voice and video AI apps without media expertise.** Building a voice-enabled AI application on a traditional stack means setting up a media server, coordinating signaling protocols, handling codec negotiation, and somehow synchronizing audio with your AI responses. On Ikon, audio frames travel over the same connection as interface updates and AI responses. A developer built a full video conferencing app with per-participant speech recognition and real-time AI summaries. It uses one connection per client and no media server or signaling protocol. The audio, the transcription updates, and the AI-generated summaries all arrive interleaved on the same channel.
+**Build voice and video AI apps without media expertise.** Building a voice-enabled AI application on a traditional stack means setting up a media server, coordinating signaling protocols, handling codec negotiation, and somehow synchronizing audio with your AI responses. On IKON, audio frames travel over the same connection as interface updates and AI responses. A developer built a full video conferencing app with per-participant speech recognition and real-time AI summaries. It uses one connection per client and no media server or signaling protocol. The audio, the transcription updates, and the AI-generated summaries all arrive interleaved on the same channel.
 
-**Multimodal apps over a single connection.** Consider an app where people describe a scene in natural language, the AI generates a visualization, and synthesized speech narrates the result. That is three modalities (text, graphics, and audio) going in both directions. On a traditional stack, you'd coordinate a separate service for each. On Ikon, it's one connection with different message types. The creator doesn't have to think about transport and can focus on what the AI should do.
+**Multimodal apps over a single connection.** Consider an app where people describe a scene in natural language, the AI generates a visualization, and synthesized speech narrates the result. That is three modalities (text, graphics, and audio) going in both directions. On a traditional stack, you'd coordinate a separate service for each. On IKON, it's one connection with different message types. The creator doesn't have to think about transport and can focus on what the AI should do.
 
-**Interactions that feel instant.** In interactive AI applications, people type and expect streaming responses, speak and expect real-time transcription, and click and expect immediate feedback. The overhead of traditional approaches adds up across all these interactions. On Ikon, no interaction pays for per-request framing, headers, or text-based parsing. For an AI character with lip-synced speech and reactive expressions, that overhead decides whether the character feels alive or seems to be buffering.
+**Interactions that feel instant.** In interactive AI applications, people type and expect streaming responses, speak and expect real-time transcription, and click and expect immediate feedback. The overhead of traditional approaches adds up across all these interactions. On IKON, no interaction pays for per-request framing, headers, or text-based parsing. For an AI character with lip-synced speech and reactive expressions, that overhead decides whether the character feels alive or seems to be buffering.
 
 **The server can contact the client without being asked.** The server can push interface updates, stream audio, and invoke client-side functions without a request from the client. An AI agent can work in the background and push results when they are ready. Text and speech can stream in sync. These are common patterns in interactive AI applications, and the connection supports them directly.
 
 ## Teleport: a protocol built for real-time apps
 
-Ikon's communication layer is built on **Teleport**, a binary format designed for real-time interactive applications. Every message has a 27-byte header followed by a payload. In the payload, field names are replaced with short identifiers at build time.
+IKON's communication layer is built on **Teleport**, a binary format designed for real-time interactive applications. Every message has a 27-byte header followed by a payload. In the payload, field names are replaced with short identifiers at build time.
 
 As a result, a typical interface update that would be 2KB in JSON is a few hundred bytes in Teleport, before compression is applied.
 
@@ -46,7 +46,7 @@ In interactive AI applications, people expect immediate feedback when they type,
 
 Traditional web architecture is one-directional: the client asks and the server answers. For the server to push data to the client, you have to add a separate mechanism.
 
-Ikon's protocol is two-way from the start. The server can push interface updates, stream audio, and invoke functions on the client without the client asking. The client can send input, stream audio, and call server functions. Both directions use the same protocol and the same message format.
+IKON's protocol is two-way from the start. The server can push interface updates, stream audio, and invoke functions on the client without the client asking. The client can send input, stream audio, and call server functions. Both directions use the same protocol and the same message format.
 
 This makes several patterns possible that are awkward or impossible with traditional approaches:
 

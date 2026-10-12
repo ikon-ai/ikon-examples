@@ -1,4 +1,4 @@
-<!-- checked-against: 2d74459db9147584ee935860 -->
+<!-- checked-against: 8e947403d32bba41ee935860 -->
 
 # Ikon.App.Sso Guide
 
@@ -86,7 +86,7 @@ its `ClientId` and `ClientSecret`, and ask whether it sends `xms_edov`, recordin
 
 - a **Web** redirect URI of `https://auth.ikonai.com/oauth/sso/callback` — the same for every customer;
 - the `email` optional claim on the ID token, and `xms_edov` too for `EntraDomainAttestation = true`.
-  Without `xms_edov` a domain signs no one in until it is proven by DNS.
+  Without `xms_edov`, nobody on a domain can sign in until the domain is proven by DNS.
 
 ## Google Workspace
 
@@ -209,9 +209,9 @@ Every connection reads the OIDC standard claims into the profile's own fields:
 | `address` (object), or `street_address`, `locality`, `postal_code`, `region`, `country` | `Address` |
 
 Anything else is per customer, job title and department included: name the claims in
-`SsoConnection.ProfileClaims` (on create or with `SsoConnectionUpdate.ProfileClaims`) and each lands in
-the profile's attributes under its own name, read with `ClientProfile.GetAttribute` — `job_title`
-and `department` are the names to suggest when the customer has no convention of their own. Up to 20 names, each a letter followed by letters, digits, `_`
+`SsoConnection.ProfileClaims` (on create or with `SsoConnectionUpdate.ProfileClaims`) and each is stored in
+the profile's attributes under its own name, read with `ClientProfile.GetAttribute`. Suggest `job_title`
+and `department` when the customer has no naming convention of their own. Up to 20 names, each a letter followed by letters, digits, `_`
 or `-`; an identity claim such as `sub` or `email` is refused. Every other claim in the token is
 dropped, so the profile holds only what some app asked for.
 
@@ -230,7 +230,7 @@ configuration in the app registration). The other attributes come from claims ma
 enterprise application, Single sign-on → Attributes & Claims, add a claim per row, for example
 `job_title` from `user.jobtitle`, `department` from `user.department`, `phone_number` from
 `user.telephonenumber`, the address parts from the matching address attributes, and any extra claim
-the app captures — `office_location` from `user.physicaldeliveryofficename`, say. Entra issues mapped
+the app captures, such as `office_location` from `user.physicaldeliveryofficename`. Entra issues mapped
 claims only to an app that accepts them: on the customer's own registration set `acceptMappedClaims`
 to `true` in its manifest; the platform's registration is shared by many directories, so there the
 customer must instead give the enterprise application its own signing certificate. Entra has no claim

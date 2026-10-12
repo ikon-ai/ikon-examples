@@ -2,7 +2,7 @@
 
 *Published 2026-03-31*
 
-You built a talking teddy bear for your kid. It is a Pi Zero with a microphone and a speaker inside a stuffed animal, connected to an Ikon server. The bear tells stories, answers questions and remembers yesterday's conversation. It is its own app, and it works well.
+You built a talking teddy bear for your kid. It is a Pi Zero with a microphone and a speaker inside a stuffed animal, connected to an IKON server. The bear tells stories, answers questions and remembers yesterday's conversation. It is its own app, and it works well.
 
 Separately, you set up a room sensor in the kid's bedroom. It measures temperature, light level and noise. It is its own app too, and you check the readings on your phone. You used it to find out that the room gets too cold around 3 AM, and you adjusted the thermostat.
 

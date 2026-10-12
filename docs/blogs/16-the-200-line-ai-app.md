@@ -4,7 +4,7 @@
 
 A platform's floor, the least code a working app needs, matters as much as its ceiling, the most complex app it can run. If the simplest possible app needs boilerplate and configuration files before anything works, something has gone wrong. The simplest app shows whether a platform's abstractions reduce complexity or only move it somewhere else.
 
-On Ikon, the simplest AI app is a haiku generator of about two hundred lines. You type a topic, and it writes a haiku, generates a matching illustration, and shows both. It is one file, with no separate frontend, API routes, environment variables, or client-side state management, and no loading indicators you have to connect yourself.
+On IKON, the simplest AI app is a haiku generator of about two hundred lines. You type a topic, and it writes a haiku, generates a matching illustration, and shows both. It is one file, with no separate frontend, API routes, environment variables, or client-side state management, and no loading indicators you have to connect yourself.
 
 The same platform also runs video conferencing apps, game generators, and animated characters with lip-synced speech. This post compares the two ends of that range.
 

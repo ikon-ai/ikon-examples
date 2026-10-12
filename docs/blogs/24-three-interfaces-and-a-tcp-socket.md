@@ -2,7 +2,7 @@
 
 *Published 2026-03-31*
 
-You have a small sensor board on your balcony. It is an ESP32 microcontroller with a temperature sensor, a humidity sensor and a light sensor, and it cost twelve euros. It connects to an Ikon server over Wi-Fi, and you check the weather on your balcony from your phone. Besides the raw numbers, the phone shows an AI-generated forecast: "Sunny this afternoon, but humidity is climbing. Rain likely by evening. Good day to bring the laundry in before 5 PM."
+You have a small sensor board on your balcony. It is an ESP32 microcontroller with a temperature sensor, a humidity sensor and a light sensor, and it cost twelve euros. It connects to an IKON server over Wi-Fi, and you check the weather on your balcony from your phone. Besides the raw numbers, the phone shows an AI-generated forecast: "Sunny this afternoon, but humidity is climbing. Rain likely by evening. Good day to bring the laundry in before 5 PM."
 
 The sensor board does not generate forecasts. It reads three numbers and sends them to the server. The server runs AI models that interpret the readings, compare them with patterns and write a forecast in plain language. Your phone shows the forecast on a web page served by the same application.
 
@@ -43,7 +43,7 @@ client.Ready = [&]()
 client.Connect();
 ```
 
-After this code runs, the sensor is connected. The server can ask it for readings, and the browser on your phone can show the results. The only credential on the device, `ikon-xxxxx`, is an Ikon session key that you can revoke. It is not an OpenAI key or any other cloud provider secret. Those secrets stay on the server.
+After this code runs, the sensor is connected. The server can ask it for readings, and the browser on your phone can show the results. The only credential on the device, `ikon-xxxxx`, is an IKON session key that you can revoke. It is not an OpenAI key or any other cloud provider secret. Those secrets stay on the server.
 
 ## The three adapters
 
@@ -72,7 +72,7 @@ These three adapters are all you write to connect a device. The SDK handles ever
 
 ## What you get
 
-Once connected, the sensor board takes part in the Ikon session like any other client. The server can call its functions to read temperature, humidity and light level. The AI on the server can interpret those readings and generate forecasts. Your phone's browser shows the results on a live dashboard, and the device, the server and the dashboard all belong to the same application.
+Once connected, the sensor board takes part in the IKON session like any other client. The server can call its functions to read temperature, humidity and light level. The AI on the server can interpret those readings and generate forecasts. Your phone's browser shows the results on a live dashboard, and the device, the server and the dashboard all belong to the same application.
 
 If the Wi-Fi drops during a storm, the SDK reconnects automatically, waiting longer between each attempt. When the signal comes back, the session resumes.
 

@@ -4,7 +4,7 @@
 
 A multiplayer game needs a server. It handles persistent connections, player sessions, shared world state, real-time synchronization and reconnection. Adding AI-powered NPCs means a second server, or at least a separate backend, to run language models, manage prompts and feed responses back into the game. A web-based companion app or spectator view needs a third layer. That makes three systems, three deployments and three sets of state to keep in sync.
 
-With Ikon, one IkonServer does all of it.
+With IKON, one IkonServer does all of it.
 
 ## What this makes possible
 
@@ -43,7 +43,7 @@ The server can see these functions, and the AI logic calls them when it needs co
 
 ## World state is kept on the server
 
-In a traditional multiplayer game, the server keeps the authoritative state and clients keep local copies with prediction and reconciliation. On Ikon, the server keeps all state and clients render what they receive, so there is no prediction, reconciliation or desync. When an NPC changes behavior, every player sees it in the same frame.
+In a traditional multiplayer game, the server keeps the authoritative state and clients keep local copies with prediction and reconciliation. On IKON, the server keeps all state and clients render what they receive, so there is no prediction, reconciliation or desync. When an NPC changes behavior, every player sees it in the same frame.
 
 This is what AI game logic looks like on the server:
 
@@ -66,7 +66,7 @@ The NPC has a personality that persists across sessions. It knows about world ev
 
 Every game that uses AI today has to keep its API keys somewhere. Keys bundled in the client get extracted within hours. Proxying them through a backend means maintaining a second codebase.
 
-On Ikon, neither the game client nor the server-side game code touches AI credentials. When you call `Emerge.Run`, the platform resolves the credentials internally, so there is nothing in the game build to extract and nothing in the server code to leak. If you swap a model or rotate an API key on the platform side, every game session picks up the change without a new build or patch.
+On IKON, neither the game client nor the server-side game code touches AI credentials. When you call `Emerge.Run`, the platform resolves the credentials internally, so there is nothing in the game build to extract and nothing in the server code to leak. If you swap a model or rotate an API key on the platform side, every game session picks up the change without a new build or patch.
 
 ## Scenarios
 

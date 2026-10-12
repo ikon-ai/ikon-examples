@@ -1,8 +1,8 @@
-<!-- checked-against: 68af661044c2a66dafe414b7 -->
+<!-- checked-against: cb92fd5eba08929fa0f30293 -->
 
 # Slack Connector Guide
 
-This guide covers `Ikon.Connectors.Slack` — installing into a Slack workspace, posting Block Kit messages and files, reading conversations and people, receiving events, interactions and slash commands over HTTP or Socket Mode, modals and App Home, and streaming agent replies — for app developers wiring Slack into an Ikon app.
+This guide covers `Ikon.Connectors.Slack` — installing into a Slack workspace, posting Block Kit messages and files, reading conversations and people, receiving events, interactions and slash commands over HTTP or Socket Mode, modals and App Home, and streaming agent replies — for app developers wiring Slack into an IKON app.
 
 ## Slack
 
@@ -13,7 +13,15 @@ The types are in namespace `Ikon.Connectors`, not the package's name — `using 
 var slack = new Slack(botToken);
 ```
 
-Every failed Slack call is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"slack"`; the exceptions are a paging cap (`ConnectorPageCapException<T>`, which derives from `Exception`, so `catch (ConnectorException)` misses it), a bad argument (`ArgumentException` or `ArgumentOutOfRangeException`), a stopped `SlackMessageStream` (`InvalidOperationException`), a network failure, which passes through as `HttpRequestException` (or `TaskCanceledException` when the `HttpClient` times out), and a string `SlackBlock.Raw` cannot parse (`JsonException`). Slack answers every API error with HTTP 200 and `ok:false`, and the connector stamps the ones that mean something about the credential: an invalid, revoked or expired token is `StatusCode` `401`, and `missing_scope`, `not_allowed_token_type` and `ekm_access_denied` are `403` — so `IsReconnectRequired` means ask the person to reconnect, or reinstall with the scope the message names, rather than retry. `ratelimited` (or `rate_limited`) is `429`, `request_timeout` `408`, `internal_error` or `fatal_error` `500`, and `service_unavailable` `503`. Any other Slack API error has a null `StatusCode` and Slack's code (`channel_not_found`, `not_in_channel`, `is_archived`) in `ErrorCode`, and fails the same way again; for `invalid_blocks` and `invalid_arguments` the message carries Slack's explanation. A `429` is retried up to three times on Slack's `Retry-After` (one second when it names none) before it surfaces, and one whose `Retry-After` is longer than two minutes surfaces at once; `IsTransient` marks one that still did. A `401` or `403` from a URL that is sent no token — a `response_url`, an incoming webhook, a file's pre-signed upload URL — says nothing about the credential, so its `StatusCode` is null.
+Every failed Slack call is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"slack"`, except for these:
+
+- a paging cap is `ConnectorPageCapException<T>`, which derives from `Exception`, so `catch (ConnectorException)` misses it;
+- a bad argument is `ArgumentException` or `ArgumentOutOfRangeException`;
+- a stopped `SlackMessageStream` is `InvalidOperationException`;
+- a network failure passes through as `HttpRequestException` (or `TaskCanceledException` when the `HttpClient` times out);
+- a string `SlackBlock.Raw` cannot parse is `JsonException`.
+
+Slack answers every API error with HTTP 200 and `ok:false`, and the connector gives a `StatusCode` to the ones that say something about the credential. An invalid, revoked or expired token is `StatusCode` `401`, and `missing_scope`, `not_allowed_token_type` and `ekm_access_denied` are `403`. So `IsReconnectRequired` means you should ask the person to reconnect, or reinstall with the scope the message names, instead of retrying. `ratelimited` (or `rate_limited`) is `429`, `request_timeout` `408`, `internal_error` or `fatal_error` `500`, and `service_unavailable` `503`. Any other Slack API error has a null `StatusCode` and Slack's code (`channel_not_found`, `not_in_channel`, `is_archived`) in `ErrorCode`, and fails the same way again if retried; for `invalid_blocks` and `invalid_arguments` the message carries Slack's explanation. A `429` is retried up to three times on Slack's `Retry-After` (one second when it names none) before it is thrown, and one whose `Retry-After` is longer than two minutes is thrown at once; a `429` that is thrown has `IsTransient` set. A `401` or `403` from a URL that is sent no token (a `response_url`, an incoming webhook, a file's pre-signed upload URL) says nothing about the credential, so its `StatusCode` is null.
 
 ### Posting
 
@@ -24,7 +32,7 @@ var posted = await slack.PostAsync("C0123456789", "Deploy finished", threadTs: r
 
 The returned `SlackPostResult` is what Slack echoed back: the posted message's `Ts` and the `Channel` id a name like `#general` resolved to. Pass that `Ts` as `threadTs` to reply in the thread; the post's author, subtype and files are not returned — read the message back from history for those.
 
-A richer message is a `SlackMessageContent` — its `Text`, which notifications and screen readers show, plus `Blocks`, legacy `Attachments` as raw JSON, and `SlackMessageMetadata` (an `EventType` and a JSON `EventPayload` the app reads back on the messages history and threads return) — posted with `SlackPostOptions` for the thread, `ReplyBroadcast`, unfurling, and a custom `Username` and icon (which need `chat:write.customize`). A string converts to a text-only `SlackMessageContent`. Slack paces posting at about one message a second per channel; a burst past it comes back as a `429` and is retried.
+A richer message is a `SlackMessageContent`: its `Text`, which notifications and screen readers show, plus `Blocks`, legacy `Attachments` as raw JSON, and `SlackMessageMetadata` (an `EventType` and a JSON `EventPayload` that the app reads back on the messages history and threads return). Post it with `SlackPostOptions` for the thread, `ReplyBroadcast`, unfurling, and a custom `Username` and icon (which need `chat:write.customize`). A string converts to a text-only `SlackMessageContent`. Slack paces posting at about one message a second per channel; a burst past it comes back as a `429` and is retried.
 
 <!-- ikon-example: connectors-slack-blocks -->
 ```csharp
@@ -46,14 +54,14 @@ var posted = await slack.PostAsync(channelId, content, new SlackPostOptions { Un
 
 The rest of a message's life:
 
-- `UpdateAsync(channel, ts, content)` replaces what a message the app posted says — content without `Blocks` clears the old ones — and `DeleteAsync(channel, ts)` removes it; another's message is `cant_update_message` or `cant_delete_message`.
+- `UpdateAsync(channel, ts, content)` replaces the content of a message the app posted (content without `Blocks` clears the old ones), and `DeleteAsync(channel, ts)` removes it. On a message someone else posted they fail with `cant_update_message` or `cant_delete_message`.
 - `PostEphemeralAsync(channel, user, content)` shows a message to one person in the channel until they reload Slack. It cannot be updated or deleted through the API afterwards — only through the `response_url` of an interaction on it.
 - `ScheduleAsync(channel, postAt, content)` has Slack post a message up to 120 days ahead and returns a `SlackScheduledMessage`; `ListScheduledAsync` lists those not yet posted and `DeleteScheduledAsync(channel, id)` cancels one that is not about to be posted.
-- `GetPermalinkAsync(channel, ts)` is a link that opens the message in Slack.
+- `GetPermalinkAsync(channel, ts)` returns a link that opens the message in Slack.
 - `AddReactionAsync`/`RemoveReactionAsync(channel, ts, name)` react with an emoji code such as `thumbsup`, and `GetReactionsAsync` reads every `SlackReaction` with its `Count` and `Users`. `PinAsync`/`UnpinAsync` pin, and `ListPinsAsync(channel)` returns the pinned messages.
 - `UnfurlAsync(channel, ts, unfurls)` answers a `link_shared` event with a `SlackUnfurl` of blocks for each URL of the app's own domains; `UnfurlByIdAsync(unfurlId, source, unfurls)` does the same for a link still in the composer.
 
-`SlackResponseUrl.SendAsync(url, content, responseType, replaceOriginal, deleteOriginal)` answers through the `response_url` of a slash command, button or shortcut — `SlackResponseType.InChannel` for everyone, `Ephemeral` for the person who acted — and posts to an incoming webhook's URL the same way. Neither needs a token, the URL itself is the credential, and a `response_url` takes five messages within 30 minutes. It posts only to `https://hooks.slack.com`; any other URL throws `ArgumentException` without a request, so one taken from an untrusted payload cannot aim it elsewhere.
+`SlackResponseUrl.SendAsync(url, content, responseType, replaceOriginal, deleteOriginal)` answers through the `response_url` of a slash command, button or shortcut — `SlackResponseType.InChannel` for everyone, `Ephemeral` for the person who acted — and posts to an incoming webhook's URL the same way. Neither needs a token, because the URL itself is the credential. A `response_url` accepts five messages within 30 minutes. `SendAsync` posts only to `https://hooks.slack.com`; any other URL throws `ArgumentException` without a request, so a URL taken from an untrusted payload cannot send the message anywhere else.
 
 <!-- ikon-example: connectors-slack-response-url -->
 ```csharp
@@ -62,7 +70,7 @@ await SlackResponseUrl.SendAsync(responseUrl, "Rolled back to 411", SlackRespons
 
 ### Block Kit
 
-Every Block Kit block, element and text object is a record serialized to Slack's JSON by its type, with Slack's field names in PascalCase: `SlackSectionBlock(text) { Accessory = ... }` is `{"type":"section","text":...,"accessory":...}`. `SlackText.Plain` and `SlackText.Markdown` build the two text objects — `SlackPlainText` for labels, headers and placeholders, to which a string converts, and `SlackMarkdownText` for Slack's own mrkdwn (`*bold*`, `<url|label>`, `<@U123>`). The `markdown` block (`SlackBlock.Markdown`) takes CommonMark instead, as an AI reply is written.
+Every Block Kit block, element and text object is a record serialized to Slack's JSON by its type, with Slack's field names in PascalCase: `SlackSectionBlock(text) { Accessory = ... }` is `{"type":"section","text":...,"accessory":...}`. `SlackText.Plain` and `SlackText.Markdown` build the two text objects — `SlackPlainText` for labels, headers and placeholders, to which a string converts, and `SlackMarkdownText` for Slack's own mrkdwn (`*bold*`, `<url|label>`, `<@U123>`). The `markdown` block (`SlackBlock.Markdown`) takes CommonMark instead, the format an AI reply is written in.
 
 | Kind | Types |
 |---|---|
@@ -125,7 +133,7 @@ var content = new SlackMessageContent("Weekly report")
 };
 ```
 
-Rich text is how Slack's own composer writes, and what a `SlackRichTextInput` hands back:
+Rich text is the format Slack's own composer writes, and what a `SlackRichTextInput` returns:
 
 <!-- ikon-example: connectors-slack-rich-text -->
 ```csharp
@@ -203,7 +211,7 @@ SlackBlock[] form =
     {
         Accessory = new SlackOverflow([new SlackOption(SlackText.Plain("Open docs"), "docs") { Url = "https://ikon.live/docs" }]) { ActionId = "more" },
     },
-    new SlackImageBlock("https://ikon.live/logo.png", "Ikon logo"),
+    new SlackImageBlock("https://ikon.live/logo.png", "IKON logo"),
     new SlackVideoBlock("Walkthrough", "https://ikon.live/embed/intro", "https://ikon.live/intro.jpg", "Intro video"),
     new SlackActionsBlock(
     [
@@ -268,13 +276,13 @@ foreach (var message in messages)
 
 **In-thread replies are not in that result, and nothing reports their absence.** Both methods call `conversations.history`, which returns only the messages posted to the channel itself; a reply posted inside a thread is reached by `RepliesAsync` on its parent's `ThreadTs`. So a channel feed built on `HistorySinceAsync` alone silently drops every threaded reply, however far the cursor advances. A message that owns a thread carries its own `ts` as `ThreadTs` — read each such thread with `RepliesAsync` if replies matter to you.
 
-Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200), and the bound is never silent: when it trips with Slack still reporting a `next_cursor`, the call throws `ConnectorPageCapException<SlackMessage>` instead of returning, with empty `Items` and a null `ResumeFrom`. Because Slack pages **backward in time**, the messages read are the most recent ones and the unread gap sits **below** them, so none are handed out — keep your cursor at the `oldestTs` you called with, and close the gap by calling again with a larger `maxPages` or by reading narrower windows with the `HistorySinceAsync(channel, oldestTs, latestTs)` overload. `maxPages` must be positive and `pageLimit` 1–1000, or the call throws `ArgumentOutOfRangeException`. A caller that stays under the bound sees no exception at all.
+Paging is capped by `maxPages` (default 50 pages of `pageLimit` 200). When the cap is reached while Slack still reports a `next_cursor`, the call throws `ConnectorPageCapException<SlackMessage>` instead of returning, with empty `Items` and a null `ResumeFrom`. Slack pages **backward in time**, so the messages read are the most recent ones and the unread gap is **older** than them, which is why none are returned. Keep your cursor at the `oldestTs` you called with, and read the gap by calling again with a larger `maxPages` or by reading narrower windows with the `HistorySinceAsync(channel, oldestTs, latestTs)` overload. `maxPages` must be positive and `pageLimit` 1–1000, or the call throws `ArgumentOutOfRangeException`. A caller that stays under the cap sees no exception at all.
 
 ### Conversations
 
-`ListConversationsAsync` returns the public and private channels the token can see, paging up to `maxPages`; a workspace with more channels than the cap admits gets a `ConnectorPageCapException<SlackConversation>` carrying the channels read so far as `Items` and a null `ResumeFrom`, never a shortened list presented as the total — raise `maxPages` for such a workspace. Archived channels are included; filter on `SlackConversation.IsArchived` before posting, which fails on one with `is_archived`. `ListConversationsAsync(types, excludeArchived)` lists other kinds too — `SlackConversationTypes` flags `Public`, `Private`, `Im` and `Mpim`, each needing its own read scope — and `ListUserConversationsAsync(userId, types)` only those one person (or, with no id, the app itself) is in. `GetConversationAsync(channelId)` fetches one. All hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM, its `Topic`, `Purpose`, `MemberCount` and `Creator`, `IsShared` and `IsExtShared` for one shared with another workspace or organisation, and for a DM the `UserId` on the other side. `ListMembersAsync(channelId)` returns the user ids in one.
+`ListConversationsAsync` returns the public and private channels the token can see, paging up to `maxPages`. For a workspace with more channels than the cap allows, the call throws `ConnectorPageCapException<SlackConversation>` carrying the channels read so far as `Items` and a null `ResumeFrom`, instead of returning a shortened list as if it were complete. Raise `maxPages` for such a workspace. Archived channels are included; filter on `SlackConversation.IsArchived` before posting, which fails on one with `is_archived`. `ListConversationsAsync(types, excludeArchived)` lists other kinds too — `SlackConversationTypes` flags `Public`, `Private`, `Im` and `Mpim`, each needing its own read scope — and `ListUserConversationsAsync(userId, types)` only those one person (or, with no id, the app itself) is in. `GetConversationAsync(channelId)` fetches one. All return `SlackConversation` records — `Id`, `Name`, `IsMember`, the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM, its `Topic`, `Purpose`, `MemberCount` and `Creator`, `IsShared` and `IsExtShared` for one shared with another workspace or organisation, and for a DM the `UserId` on the other side. `ListMembersAsync(channelId)` returns the user ids in one.
 
-The app joins a public channel with `JoinAsync` (`channels:join`); a private one has to invite it. `CreateConversationAsync(name, isPrivate)`, `RenameAsync`, `SetTopicAsync`, `SetPurposeAsync`, `InviteAsync(channelId, userIds)` (1–1000 people), `KickAsync`, `LeaveAsync`, `ArchiveAsync` and `UnarchiveAsync` manage channels, each needing the `:manage` or `:write` scope of its kind. To write to a person, `OpenDirectMessageAsync([userId])` opens (or finds) the app's DM with them — up to eight ids make a group DM — and returns the id to post to; an empty list, or more than Slack takes, throws `ArgumentException` without a request; `CloseAsync` takes it out of the sidebar again and `MarkAsync(channelId, ts)` moves a user token's read cursor.
+The app joins a public channel with `JoinAsync` (`channels:join`); a private channel has to invite the app. `CreateConversationAsync(name, isPrivate)`, `RenameAsync`, `SetTopicAsync`, `SetPurposeAsync`, `InviteAsync(channelId, userIds)` (1–1000 people), `KickAsync`, `LeaveAsync`, `ArchiveAsync` and `UnarchiveAsync` manage channels, each needing the `:manage` or `:write` scope of its kind. To write to a person, `OpenDirectMessageAsync([userId])` opens (or finds) the app's DM with them — up to eight ids make a group DM — and returns the id to post to. An empty list, or more ids than Slack accepts, throws `ArgumentException` without a request. `CloseAsync` takes the DM out of the sidebar again and `MarkAsync(channelId, ts)` moves a user token's read cursor.
 
 <!-- ikon-example: connectors-slack-dm -->
 ```csharp
@@ -300,11 +308,11 @@ var file = await slack.UploadFileAsync(
 
 `GetFileAsync(fileId)` reads one file, `ListFilesAsync(channel, user, types, from, to)` lists them newest first — throwing `ConnectorPageCapException<SlackFile>` with the files read when `maxPages` pages of 100 are not enough — and `DeleteFileAsync` deletes one the app owns.
 
-A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when Slack sends no `url_private_download` for it, plus `Name`, `Title`, `Size`, `FileType`, `Permalink`, `Created` and the sharing `User`). `DownloadFileAsync(url)` streams a shared file's `url_private_download` with the bot token — dispose the stream to release the connection — and `DownloadFileBytesAsync(url, maxBytes)` reads it whole, refusing rather than truncating a file larger than `maxBytes`; when Slack answers with its HTML sign-in page instead (the token lacks `files:read` or the file is not shared with the bot), it throws `ConnectorException` rather than returning that page as the file. A `401` for a rotating token is refreshed once and the download sent again, as an API call's `token_expired` is. It fetches Slack-owned hosts only (`slack.com` and subdomains); any other URL — e.g. one parsed out of untrusted message text — throws `ArgumentException` without a request, so the token can never leak to another server.
+A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when Slack sends no `url_private_download` for it, plus `Name`, `Title`, `Size`, `FileType`, `Permalink`, `Created` and the sharing `User`). `DownloadFileAsync(url)` streams a shared file's `url_private_download` with the bot token (dispose the stream to release the connection), and `DownloadFileBytesAsync(url, maxBytes)` reads it whole, refusing rather than truncating a file larger than `maxBytes`. When Slack answers with its HTML sign-in page instead (the token lacks `files:read` or the file is not shared with the bot), the download throws `ConnectorException` rather than returning that page as the file. On a `401` a rotating token is refreshed once and the download sent again, as for an API call's `token_expired`. Downloads go to Slack-owned hosts only (`slack.com` and subdomains). Any other URL, such as one parsed out of untrusted message text, throws `ArgumentException` without a request, so the token can never leak to another server.
 
 ### Receiving events
 
-Slack tells an app what happens in a workspace — a message, a mention, a reaction, a person opening the app's Home — through the Events API: it posts each event to a URL the app gives in its settings, or sends it down a Socket Mode connection (below). Over HTTP the endpoint is an `[HttpPost]` with `Auth = EndpointAuth.Public`, because Slack carries no Ikon credential: check every request with `SlackAuth.VerifyRequest` (see "Installing the app and checking requests") and read it with `SlackEvents.Parse(body)`.
+Slack tells an app what happens in a workspace — a message, a mention, a reaction, a person opening the app's Home — through the Events API: it posts each event to a URL the app gives in its settings, or sends it down a Socket Mode connection (below). Over HTTP the endpoint is an `[HttpPost]` with `Auth = EndpointAuth.Public`, because Slack carries no IKON credential: check every request with `SlackAuth.VerifyRequest` (see "Installing the app and checking requests") and read it with `SlackEvents.Parse(body)`.
 
 <!-- ikon-example: connectors-slack-events -->
 ```csharp
@@ -336,7 +344,7 @@ public HttpResult OnSlackEvent(Ikon.App.HttpRequest request)
 }
 ```
 
-`SlackEvents.Parse` returns a `SlackEnvelope`: a `SlackUrlVerification` when Slack checks the URL — answer with its `Challenge` — a `SlackEventCallback` for an event, `SlackAppRateLimited` when Slack has stopped sending the workspace's events for the rest of the minute, and null for an envelope type Slack adds later or a body that is not Slack's JSON; it never throws. A callback names the `TeamId`, its `Authorizations` (each a `SlackAuthorization`: which install it concerns), and an `EventId` that is the same on every retry of one event. Its `Event` is a `SlackEvent`:
+`SlackEvents.Parse` returns a `SlackEnvelope`: a `SlackUrlVerification` when Slack checks the URL (answer with its `Challenge`), a `SlackEventCallback` for an event, `SlackAppRateLimited` when Slack has stopped sending the workspace's events for the rest of the minute, and null for an envelope type Slack adds later or a body that is not Slack's JSON; it never throws. A callback names the `TeamId`, its `Authorizations` (each a `SlackAuthorization`: which install it concerns), and an `EventId` that is the same on every retry of one event. Its `Event` is a `SlackEvent`:
 
 | Event | Record |
 |---|---|
@@ -354,7 +362,7 @@ public HttpResult OnSlackEvent(Ikon.App.HttpRequest request)
 | what an agent app's person is looking at changed | `SlackAppContextChangedEvent` of `SlackContextEntity`s |
 | a person stopped an agent's reply, or renamed its session | `SlackAgentSessionStoppedEvent`, `SlackAgentSessionTitleChangedEvent` |
 
-Any other type arrives as `SlackUnknownEvent`, and every event keeps Slack's JSON in `Raw` for a field no record names. What each one carries, and the interactions below beside them:
+Any other type arrives as `SlackUnknownEvent`, and every event keeps Slack's JSON in `Raw` for a field no record names. The example shows what each event carries, together with the interactions described in the next section:
 
 <!-- ikon-example: connectors-slack-event-kinds -->
 ```csharp
@@ -404,11 +412,11 @@ private static string Describe(SlackSocketRequest request) => request switch
 };
 ```
 
-Slack wants a 2xx within three seconds, and resends an event it got no answer for — up to three times, the retry carrying an `X-Slack-Retry-Num` header — so answer first and work after, and deduplicate on `EventId` when a repeat would do harm. An app's own posts come back as events too: skip a `SlackMessage` whose `BotId` is set, or whose `User` is the app's bot user from `AuthTestAsync`.
+Slack wants a 2xx within three seconds, and resends an event it got no answer for — up to three times, the retry carrying an `X-Slack-Retry-Num` header — so answer first and do the work afterwards, and deduplicate on `EventId` when a repeat would do harm. An app's own posts come back as events too: skip a `SlackMessage` whose `BotId` is set, or whose `User` is the app's bot user from `AuthTestAsync`.
 
 ### Interactivity and slash commands
 
-A person's buttons, menus, form submissions and shortcuts arrive at the app's interactivity URL; `SlackInteractions.Parse(body)` reads one into a `SlackInteraction` carrying the `User` (a `SlackInteractionUser`), the team, and the `TriggerId` that can open a modal within three seconds; a body without a `payload` field of JSON is null, never an exception:
+A person's buttons, menus, form submissions and shortcuts arrive at the app's interactivity URL; `SlackInteractions.Parse(body)` reads one into a `SlackInteraction` carrying the `User` (a `SlackInteractionUser`), the team, and the `TriggerId` that can open a modal within three seconds. A body without a JSON `payload` field parses to null instead of throwing:
 
 - `SlackBlockActions` — a button pressed or a value picked: each `SlackAction` with its `ActionId`, `BlockId` and a `SlackInputValue`, plus the `Message` or `View` it happened in, the surface's whole `State`, and a `ResponseUrl` for answering in a message's conversation.
 - `SlackViewSubmission` — a modal submitted: its `View` (a `SlackViewInfo`) holds the `State`, the `CallbackId` and `PrivateMetadata` the app gave it, and `ResponseUrls` holds a `SlackResponseUrlTarget` per conversation picker that asked for one.
@@ -483,15 +491,15 @@ public async Task<HttpResult> OnSlackCommandAsync(Ikon.App.HttpRequest request)
 
 ### Modals and App Home
 
-A `SlackView` is a modal (`SlackView.Modal(title, blocks, submit)`) or a person's Home tab (`SlackView.Home(blocks)`) — its `SlackViewType` — of up to 100 blocks, with the `CallbackId`, `PrivateMetadata` (3000 characters the app gets back with every interaction on it) and `ExternalId` the app wants, and `NotifyOnClose` for a `SlackViewClosed`. `OpenViewAsync(triggerId, view)` opens a modal and `PushViewAsync` stacks another on it, three deep at most; both need a trigger id from the interaction, which works once and within three seconds — open a modal before slow work, and fill it in afterwards. `UpdateViewAsync(view, viewId or externalId, hash)` replaces an open one at any time; with the `Hash` of the `SlackViewInfo` last read, a change made since fails with `hash_conflict` instead of being overwritten. `PublishHomeAsync(userId, view)` sets what a person's Home shows — publish it when a `SlackAppHomeOpenedEvent` arrives, and again whenever its content changes.
+A `SlackView` is a modal (`SlackView.Modal(title, blocks, submit)`) or a person's Home tab (`SlackView.Home(blocks)`) — its `SlackViewType` — of up to 100 blocks, with the `CallbackId`, `PrivateMetadata` (3000 characters the app gets back with every interaction on it) and `ExternalId` the app wants, and `NotifyOnClose` for a `SlackViewClosed`. `OpenViewAsync(triggerId, view)` opens a modal and `PushViewAsync` stacks another on it, three deep at most. Both need a trigger id from the interaction, which works once and within three seconds, so open a modal before slow work and fill it in afterwards. `UpdateViewAsync(view, viewId or externalId, hash)` replaces an open one at any time; with the `Hash` of the `SlackViewInfo` last read, a change made since fails with `hash_conflict` instead of being overwritten. `PublishHomeAsync(userId, view)` sets what a person's Home shows — publish it when a `SlackAppHomeOpenedEvent` arrives, and again whenever its content changes.
 
 ### Streaming agent replies
 
-An AI reply can grow in Slack as the model writes it, as Slack's own agents do. `StreamAsync(channel, deltas, options, stop)` takes any `IAsyncEnumerable<string>` of text — an `Emerge.Run`'s `ModelText` tokens, say — and streams it into one message, stopping the stream when the text ends or the source throws:
+An AI reply can grow in Slack as the model writes it, as Slack's own agents do. `StreamAsync(channel, deltas, options, stop)` takes any `IAsyncEnumerable<string>` of text (for example an `Emerge.Run`'s `ModelText` tokens) and streams it into one message, stopping the stream when the text ends or the source throws:
 
 <!-- ikon-example: connectors-slack-stream -->
 ```csharp
-var run = Emerge.Run<string>(LLMModel.Claude46Sonnet, pass => pass.Command = mention.Message.Text);
+var run = Emerge.Run<string>(LLMModel.Claude55Sonnet, pass => pass.Command = mention.Message.Text);
 var feedback = new SlackContextActionsBlock(
     [new SlackFeedbackButtons(new SlackFeedbackButton("Good", "good"), new SlackFeedbackButton("Bad", "bad")) { ActionId = "feedback" }]);
 
@@ -520,9 +528,9 @@ await stream.AppendMarkdownAsync("The **api** deploy at 09:12 broke sign-in; rol
 await stream.StopAsync(new SlackStreamStop { SessionStatus = SlackSessionStatus.Active });
 ```
 
-Appends are buffered and sent at most once per `FlushInterval` (a second by default) and whenever the buffer reaches Slack's limits — 12,000 characters of text and 50 chunks a request, longer text going out over several requests and never cut inside a character — so a token-by-token feed costs one request a second, not one per token. Slack allows about a hundred appends a minute per workspace, shared by every stream. A send Slack refused or throttled keeps its text buffered for the next send, and `StopAsync` still sends what was kept; a stop that fails can be tried again. A send whose outcome is unknown — a timeout, a dropped connection, a `5xx`, or Slack's `internal_error`, after which Slack may already show the text — is not repeated, since that would show the text twice: its text is dropped and the failure thrown. A failure in the background throws once from the next append or flush, and the chunk handed to that append is buffered all the same.
+Appends are buffered and sent at most once per `FlushInterval` (a second by default), and whenever the buffer reaches Slack's limits of 12,000 characters of text and 50 chunks a request. Longer text goes out over several requests and is never cut inside a character. A token-by-token feed therefore costs one request a second, not one per token. Slack allows about a hundred appends a minute per workspace, shared by every stream. A send Slack refused or throttled keeps its text buffered for the next send, and `StopAsync` still sends what was kept; a stop that fails can be tried again. A send whose outcome is unknown (a timeout, a dropped connection, a `5xx`, or Slack's `internal_error`, after which Slack may already show the text) is not repeated, because that could show the text twice; its text is dropped and the failure is thrown. A failure in the background throws once from the next append or flush, and the chunk passed to that append is still buffered.
 
-An agent app also tells Slack where its session stands — `SetAgentStatusAsync(SlackSessionStatus.Processing, ...)` while it works, which falls back to `Active` after an hour unless set again — renames the session with `RenameAgentSessionAsync`, and offers up to four `SlackSuggestedPrompt`s to a person who opens it with `SetSuggestedPromptsAsync`. A person who presses stop sends a `SlackAgentSessionStoppedEvent` naming the messages still streaming: stop them, since Slack leaves the session's status to the app.
+An agent app also reports its session status with `SetAgentStatusAsync(SlackSessionStatus.Processing, ...)` while it works; the status falls back to `Active` after an hour unless set again. It renames the session with `RenameAgentSessionAsync`, and offers up to four `SlackSuggestedPrompt`s to a person who opens it with `SetSuggestedPromptsAsync`. A person who presses stop sends a `SlackAgentSessionStoppedEvent` naming the messages still streaming: stop them, since Slack leaves the session's status to the app.
 
 <!-- ikon-example: connectors-slack-agent-session -->
 ```csharp
@@ -561,13 +569,13 @@ var socket = new SlackSocketClient(appToken, async (request, ct) =>   // xapp-..
 await socket.RunAsync(stoppingToken);
 ```
 
-The handler has `SlackSocketOptions.AckTimeout` (2.5 seconds) before Slack is acknowledged without its answer while it keeps running; a handler that throws is logged and acknowledged empty, so Slack does not resend it. When Slack asks for a reconnect, the client opens the next connection before the old one closes, so nothing sent in between is lost; a connection that drops is reopened after a growing delay, up to `MaxReconnectDelay`. One that dies without a close, as when a NAT or proxy forgets it, is caught by a WebSocket ping every 15 seconds: a ping Slack does not answer within 15 more ends the connection, and the next one opens, rather than events stopping with no error. `RunAsync` throws `ConnectorException` with `StatusCode` `401` when Slack refuses the app token or Socket Mode is turned off for the app. Socket Mode suits an app installed in its own workspaces: Slack does not list a Socket Mode app in its Marketplace, so an app distributed there takes requests over HTTP. `OpenSocketUrlAsync(appToken)` returns a single connection URL, for an app running its own client.
+The handler has `SlackSocketOptions.AckTimeout` (2.5 seconds) before Slack is acknowledged without its answer while it keeps running; a handler that throws is logged and acknowledged empty, so Slack does not resend it. When Slack asks for a reconnect, the client opens the next connection before the old one closes, so nothing sent in between is lost; a connection that drops is reopened after a growing delay, up to `MaxReconnectDelay`. A connection that dies without a close, as when a NAT or proxy forgets it, is detected by a WebSocket ping every 15 seconds. If Slack does not answer a ping within another 15 seconds, the client ends the connection and opens the next one, so events do not stop silently. `RunAsync` throws `ConnectorException` with `StatusCode` `401` when Slack refuses the app token or Socket Mode is turned off for the app. Socket Mode suits an app installed in its own workspaces: Slack does not list a Socket Mode app in its Marketplace, so an app distributed there takes requests over HTTP. `OpenSocketUrlAsync(appToken)` returns a single connection URL, for an app running its own client.
 
 `Slack.ParseMessage(JsonElement, channel)` maps a raw message object — from a history page or an event payload — to a `SlackMessage`, returning `null` for non-message objects (no `ts`).
 
 ### Threads and people
 
-`RepliesAsync(channel, threadTs)` reads a whole thread — the parent first, then its replies oldest-first — which is how a feed built on `HistorySinceAsync` picks up the replies it leaves out: for each message whose `ThreadTs` is its own `Ts`, read its thread. It pages up to `maxPages` and throws `ConnectorPageCapException<SlackMessage>` with the messages read past it. `GetUserAsync(userId)` turns the user id a message names into a `SlackUser` — `Name`, `RealName`, `DisplayName`, `IsBot`, `IsDeleted`, `TimeZone`, `Title`, `AvatarUrl`, the `IsAdmin`, `IsOwner` and guest (`IsRestricted`, `IsUltraRestricted`) flags, and `Email` when the token has `users:read.email`. `ListUsersAsync` lists the whole workspace, bots and deactivated accounts included, and `LookupUserByEmailAsync(email)` finds one person by address, or null. `GetUserProfileAsync(userId)` reads the `SlackUserProfile` — status text, emoji and expiry, title, phone and pronouns — and `GetPresenceAsync` the `SlackPresence`. `GetTeamAsync()` describes the workspace as a `SlackTeam`, and `ListEmojiAsync()` its custom emoji.
+`RepliesAsync(channel, threadTs)` reads a whole thread — the parent first, then its replies oldest-first — which is how a feed built on `HistorySinceAsync` picks up the replies it leaves out: for each message whose `ThreadTs` is its own `Ts`, read its thread. It pages up to `maxPages`, and past that throws `ConnectorPageCapException<SlackMessage>` with the messages read so far. `GetUserAsync(userId)` turns the user id a message names into a `SlackUser` — `Name`, `RealName`, `DisplayName`, `IsBot`, `IsDeleted`, `TimeZone`, `Title`, `AvatarUrl`, the `IsAdmin`, `IsOwner` and guest (`IsRestricted`, `IsUltraRestricted`) flags, and `Email` when the token has `users:read.email`. `ListUsersAsync` lists the whole workspace, bots and deactivated accounts included, and `LookupUserByEmailAsync(email)` finds one person by address, or null. `GetUserProfileAsync(userId)` reads the `SlackUserProfile` — status text, emoji and expiry, title, phone and pronouns — and `GetPresenceAsync` the `SlackPresence`. `GetTeamAsync()` describes the workspace as a `SlackTeam`, and `ListEmojiAsync()` its custom emoji.
 
 ### Installing the app and checking requests
 
@@ -584,7 +592,7 @@ await SaveBotTokenAsync(installation.TeamId, installation.BotToken);
 
 Pass `userScopes` as well and the installer's own token comes back in `installation.AuthedUser` — a `SlackAuthedUser` with their `Id`, the `Scopes` they granted and `Tokens` for a second `Slack` client that acts as them; an install that asks for user scopes only has an empty `BotToken`. An app that asked for `incoming-webhook` also gets the `SlackIncomingWebhook` the installer picked, whose `Url` posts to that channel without a token and is a secret to keep. An app installed with PKCE has no client secret: put `PkceCodes.Create()`'s `Challenge` in `AuthorizeUrl` as `codeChallenge`, keep its `Verifier` with the state, and pass `null` as the secret and the verifier as `codeVerifier` to `ExchangeCodeAsync`. `SlackAuth.RevokeAsync(token)` revokes a token when a person disconnects, and treats one that already stopped working as revoked.
 
-`slack.AuthTestAsync()` answers who a token acts as — a `SlackIdentity` with the workspace's `TeamId`, the token's `UserId` (the bot user's id, which is how an app recognises its own messages among the ones it reads) and its `BotId` — and is the cheapest way to check that a stored token still works.
+`slack.AuthTestAsync()` returns who a token acts as — a `SlackIdentity` with the workspace's `TeamId`, the token's `UserId` (the bot user's id, which is how an app recognises its own messages among the ones it reads) and its `BotId` — and is the cheapest way to check that a stored token still works.
 
 #### Rotating tokens
 
@@ -609,7 +617,7 @@ if (!SlackAuth.VerifyRequest(signingSecret, timestampHeader, signatureHeader, bo
 
 ### Rate limits
 
-Slack limits each Web API method per app and workspace, and answers a call past its limit with a `429` that the connector retries on Slack's `Retry-After` (see the top of this guide). Posting runs at about one message a second per channel. A commercially distributed app that is not listed in Slack's Marketplace — as opposed to an app built for its own workspaces — may read `conversations.history` and `conversations.replies` (`HistoryAsync`, `HistorySinceAsync`, `RepliesAsync`) only once a minute, at most 15 messages a page; for such an app, keep a channel feed on events rather than polling history. Streaming replies share about a hundred appends a minute per workspace (see "Streaming agent replies"), and the Events API stops a workspace's events for the rest of the minute past 30000 an hour, which arrives as `SlackAppRateLimited`.
+Slack limits each Web API method per app and workspace, and answers a call past its limit with a `429` that the connector retries on Slack's `Retry-After` (see the top of this guide). Posting runs at about one message a second per channel. A commercially distributed app that is not listed in Slack's Marketplace — as opposed to an app built for its own workspaces — may read `conversations.history` and `conversations.replies` (`HistoryAsync`, `HistorySinceAsync`, `RepliesAsync`) only once a minute, at most 15 messages a page; for such an app, build a channel feed on events rather than polling history. Streaming replies share about a hundred appends a minute per workspace (see "Streaming agent replies"), and the Events API stops a workspace's events for the rest of the minute past 30000 an hour, which arrives as `SlackAppRateLimited`.
 
 ### What it does not reach
 

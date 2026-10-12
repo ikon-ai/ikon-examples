@@ -2,17 +2,17 @@
 
 *Published 2026-03-28*
 
-You do not need to know how to code to build an Ikon app. You need two terminals and the ability to describe what you want.
+You do not need to know how to code to build an IKON app. You need two terminals and the ability to describe what you want.
 
 ## Start
 
 Create your app:
 
 ```
-ikon new Ikon.App.MyProject
+ikon new Ikon.App.MyProject --minimal
 ```
 
-This gives you a working project that compiles, runs and shows a page in your browser. The page is almost empty, but the whole Ikon runtime is available to it.
+This gives you a working project that compiles, runs and shows a page in your browser. The page is almost empty, but the whole IKON runtime is available to it.
 
 ## Two terminals
 
@@ -70,7 +70,7 @@ Errors show up in the first terminal where the app is running. You can tell Clau
 
 ## What you can ask for
 
-You can ask for anything the Ikon platform supports, for example:
+You can ask for anything the IKON platform supports, for example:
 
 - "Add voice input so I can speak instead of typing"
 - "Generate an image based on the user's description"
@@ -96,4 +96,4 @@ The app you built locally is the production app. There is no rewrite step. What 
 
 The traditional way to build software is to learn a programming language, set up a development environment, write code, debug, iterate manually, deploy through a pipeline.
 
-With Ikon, you open two terminals, describe what you want and watch it appear. The AI writes the code, the platform runs the app, and you decide what to build.
+With IKON, you open two terminals, describe what you want and watch it appear. The AI writes the code, the platform runs the app, and you decide what to build.

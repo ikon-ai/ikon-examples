@@ -1,6 +1,6 @@
-<!-- checked-against: 00ce3502ced2e7b48f508afe -->
+<!-- checked-against: e0a36e2d38c84c9d8f508afe -->
 
-# Ikon Persistent State Guide
+# IKON Persistent State Guide
 
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
@@ -21,19 +21,19 @@ _state.Value = next;
 var current = _state.Value;
 ```
 
-That's it. The framework loads from cloud storage before `Main()` runs and saves on graceful shutdown. No file paths, no `Directory.CreateDirectory`, no AssetUri ceremony.
+The framework loads from cloud storage before `Main()` runs and saves on graceful shutdown. You need no file paths, no `Directory.CreateDirectory` and no hand-built AssetUri.
 
 ## Three scopes — pick by who shares the value
 
 | Class | Same value seen by | When to pick |
 |---|---|---|
-| `PersistentReactive<T>` | All session identities, all users (app-wide) | Truly app-wide config. Rare — most apps don't need this. |
+| `PersistentReactive<T>` | All session identities, all users (app-wide) | App-wide config. Rare — most apps don't need this. |
 | **`PersistentSessionReactive<T>`** | The same SessionIdentity (the app's routing key) | **Default.** One app instance = one bucket of state. |
 | `PersistentUserReactive<T>` | The same UserId, across all of their sessions | State that follows a user (preferences, history, profile). |
 
 Heuristic: if you can't articulate why it should be `Global` or `User`, it's `Session`. The session identity is what the app already declared as its routing key — using the same key for storage means your data partitions match how your app instances partition.
 
-**Composer drafts and other "the user's words in progress" belong in USER scope** (`UserReactive<string>`, or `PersistentUserReactive<string>` to survive app restarts) — never `ClientReactive`. A page reload mints a NEW client session, so per-client state evaporates with it by design: a draft bound to `ClientReactive` is lost on every reload. User scope survives reloads and follows the user across tabs. Do NOT reach for browser storage (localStorage/sessionStorage in a custom component) to patch this — draft persistence is server state's job on this platform.
+**Composer drafts and other "the user's words in progress" belong in USER scope** (`UserReactive<string>`, or `PersistentUserReactive<string>` to survive app restarts) — never `ClientReactive`. A page reload mints a NEW client session, so per-client state ends with it by design: a draft bound to `ClientReactive` is lost on every reload. User scope survives reloads and follows the user across tabs. Do NOT use browser storage (localStorage/sessionStorage in a custom component) to work around this; on this platform, drafts are kept in server state.
 
 Each scope also has persistent collection variants — the durable counterparts of `ReactiveList<T>`, `ReactiveHashSet<T>` and `ReactiveDictionary<TKey, TValue>`. Use these instead of wrapping a collection in a `Persistent...Reactive<List<T>>`:
 
@@ -102,16 +102,16 @@ var url = _logo.PublicUrl;  // null until a value is stored; loaded before Main(
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to
 create it: the platform provisions it the first time the app asks for a database, and it is
-quota-free. The default backend routes on the storage doctrine — structured state belongs in
-Postgres, asset storage is for binaries and public files:
+quota-free. The default backend follows one rule: structured state goes to Postgres, and asset
+storage is for binaries and public files:
 
 - `Default` (what you get when you name no backend) — structured values (`T` is not `byte[]`) are
   stored as one row in the `ikon_reactive_storage` table of the app's state database: the
   built-in `app` database when the app has one, otherwise its only platform-created database.
   Persistence never provisions `app` itself — it exists once the app has asked for a database.
   `byte[]` payloads go to private asset storage. If the session has no state database (no database
-  yet, several created ones and no `app`, plain local run), everything falls back to asset storage —
-  same behavior, different shelf. The app warns once only when `StateDatabase` in its `ikon-config`
+  yet, several created ones and no `app`, plain local run), everything falls back to asset storage,
+  with the same behavior. The app warns once only when `StateDatabase` in its `ikon-config`
   names a database it was not given.
 - `Private` — S3-backed private cloud file, explicitly. Pick it only when a structured value must
   stay on asset storage despite the default.
@@ -132,7 +132,7 @@ the row. The old asset blob is left in place. Apps already using a named databas
 Every load and save logs its destination at debug level (member name, scope, and the postgres
 database or asset path), so "where is my data?" is answered by the app's logs.
 
-Backend ≠ scope. Scope decides who sees the value; backend decides where it lives. They're chosen independently.
+Backend and scope are chosen independently. Scope decides who sees the value; backend decides where it is stored.
 
 ### Database tiers
 
@@ -190,7 +190,7 @@ Without `key:`, a field's stored value is found by its declaring source file's p
 ## Save semantics
 
 - **Load**: parallel for all persistent reactives that exist once the app instance is constructed, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
-- **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown).
+- **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown). Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.
 - **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.DatabaseAsync()`.
 
 ## Erasing a user's state
@@ -246,14 +246,14 @@ public sealed partial class PlayerProfile
 ```
 
 Then use it like any other persisted value — `new PersistentSessionReactive<PlayerProfile>(new())`.
-Nothing else changes; the contract rides inside the stored payload. Three guarantees come with it:
+Nothing else changes; the contract is stored inside the payload. Three guarantees come with it:
 
 - **Renames survive.** A removed property moves to the schema's `[obsolete]` ledger; on load its
   stored value arrives typed in `RetiredFields` and your `UpgradeFrom` step decides what it means.
 - **Old branches can't destroy new fields.** Keys this build doesn't know — at the top level and
   inside nested section objects — are carried through a load→save cycle untouched, so a rollback
-  build saving over a newer build's data keeps the newer fields. Honest scope: the preservation
-  window is one process's load→save cycle, and saves are whole-blob last-writer-wins across
+  build saving over a newer build's data keeps the newer fields. This covers only one process's
+  load→save cycle, and saves are whole-blob last-writer-wins across
   instances — with `[Sharded]`/multi-instance saves, a stale instance's save can still resurrect
   values another instance changed (merge-on-save is future work). Arrays are not merged either;
   the last saved list wins whole.

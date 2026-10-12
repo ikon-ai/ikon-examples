@@ -1,11 +1,11 @@
-<!-- checked-against: 03425468eaa8dafa7466fd2c -->
+<!-- checked-against: 585bc82eeaa8dafa7466fd2c -->
 
 # Crosswind Tailwind Spec
 
-Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.
+This is an exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.
 
 * The categories and families are based on Tailwind's v4 "Styling with utility classes" index, which enumerates every utility family by CSS property.
-* Items documented under other pages (e.g. rings under box-shadow, gradient stops under background-image) have been incorporated.
+* Items documented under other pages (e.g. rings under box-shadow, gradient stops under background-image) are included here.
 * Where v4 removed or renamed families relative to v3, notes reference the v4 upgrade guide.
 
 > **Notation & patterns**
@@ -161,8 +161,8 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Behavior**: `transition-normal`, `transition-discrete` (Tailwind v4 names), plus the explicit `transition-behavior-{normal|allow-discrete}`. The shorthand `transition-behavior-discrete` is also accepted and maps to `allow-discrete`.
 * **Animation**: `animate-{spin|ping|pulse|bounce|none|[custom]}`
 * **`tailwindcss-animate` enter/exit primitives**: `animate-in` / `animate-out` bind the built-in `enter` / `exit` keyframes; layer shorthands set `--tw-enter-*` / `--tw-exit-*` CSS vars the keyframe consumes:
-  * Fade: `fade-in-{n}`, `fade-out-{n}` (0–100 → opacity 0.0–1.0)
-  * Zoom: `zoom-in-{n}`, `zoom-out-{n}` (0–100 → scale 0.0–1.0)
+  * Fade: `fade-in-{n}`, `fade-out-{n}` (0–100 → opacity 0.0–1.0; a bracketed value is used as written, so `fade-in-[0.5]` is opacity 0.5)
+  * Zoom: `zoom-in-{n}`, `zoom-out-{n}` (0–100 → scale 0.0–1.0; `zoom-in-[0.5]` is scale 0.5)
   * Spin: `spin-in-{deg}`, `spin-out-{deg}` (rotation, defaults to 30deg)
   * Slide: `slide-in-from-{top|bottom|left|right}{-n}?`, `slide-out-to-{top|bottom|left|right}{-n}?` (spacing scale or `%`)
 

@@ -1,8 +1,8 @@
-<!-- checked-against: c42fd3e7b254463de3b0c442 -->
+<!-- checked-against: f9193815fe919c77e3b0c442 -->
 
-# Ikon AI C++ SDK
+# IKON C++ SDK
 
-The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applications. It is a header-only library requiring C++17, and every example below compiles as C++17.
+The IKON C++ SDK connects C++ applications to an IKON app. It is a header-only library requiring C++17, and every example below compiles as C++17.
 
 ## Features
 
@@ -77,7 +77,7 @@ The SDK supports two authentication modes. Exactly one must be configured.
 
 ### API Key Authentication
 
-Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
+Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
 
 <!-- ikon-example: cpp-sdk-auth-api-key -->
 ```cpp
@@ -98,13 +98,20 @@ Set `joinOnly = true` on the `ApiKeyConfig` for a client that should join the ap
 else has it running, and never start it: a device or agent that stays connected around the clock
 would otherwise keep a server running, billed to the app's organisation. When nothing is running,
 `Connect()` throws `NoLiveSessionException`, whose `retryAfter` (a `std::chrono::seconds`, empty when
-the backend named none) is how long the backend asks you to wait before trying again. A reconnect after the server shut down reports it through
-`ErrorOccurred` and goes offline instead of retrying. Pair it with `UserType::Machine`, so the
-connection does not count as a person and keep the session open either.
+the backend named none) is how long the backend asks you to wait before trying again. If the server
+shuts down, the next reconnect reports that through `ErrorOccurred` and goes offline instead of
+retrying. Pair `joinOnly` with `UserType::Machine`, so the connection does not count as a person and
+does not keep the session open either.
+
+While the app's server is starting, `Connect()` keeps retrying for up to `connectionTimeoutSec`. When
+the server refuses the connect token because it was issued for a server that has since been replaced,
+or because it has expired, `Connect()` stops retrying and asks `/init` for a new token once. If that
+one is refused too, it throws `ServerChangedException`. The API key is still valid, so call `Connect()`
+again later.
 
 ### Local Development
 
-Connect directly to a local Ikon server during development.
+Connect directly to a local IKON server during development.
 
 <!-- ikon-example: cpp-sdk-auth-local -->
 ```cpp
@@ -333,7 +340,7 @@ public:
     {
         // Send request.content to request.url with request.headers, as GET or POST
         // (request.method), giving up after request.timeoutMs. disableCertificateValidation
-        // is true when connecting to a local Ikon server, whose certificate is self-signed, and
+        // is true when connecting to a local IKON server, whose certificate is self-signed, and
         // when fetching the entrypoints with an API key on BackendType::Development.
         const char* method = request.method == HttpMethod::Post ? "POST" : "GET";
         std::cout << method << " " << request.url << std::endl;
@@ -426,7 +433,7 @@ config.parameters = {
 
 | Type | Description |
 |------|-------------|
-| `IkonClient` | Main client class for connecting to Ikon servers |
+| `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration struct for the client |
 | `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline` |
 | `FunctionRegistry` | Registry for local and shared (cross-client) functions |
@@ -463,4 +470,4 @@ This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
 
 ## Support
 
-For issues and feature requests, contact Ikon support or open an issue on GitHub.
+For issues and feature requests, contact IKON support or open an issue on GitHub.

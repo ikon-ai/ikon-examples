@@ -1,8 +1,8 @@
-<!-- checked-against: aa0183c659a1df1ae3b0c442 -->
+<!-- checked-against: 7fdbd97559a1df1ae3b0c442 -->
 
-# Authenticating the Ikon tool in CI
+# Authenticating the IKON tool in CI
 
-How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
+How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an IKON app from CI rather than from your own terminal.
 
 ## The short version
 
@@ -22,9 +22,9 @@ ikon deploy
 
 `ikon login` signs a person in through a browser. That is the right flow for a human and the wrong one for a pipeline, so automation gets a credential of its own: a **service token**.
 
-The two credentials a login leaves behind are both unsuitable for CI, and it is worth knowing why so you do not reach for them:
+The two credentials signing in leaves behind are both unsuitable for CI:
 
-- The **access token** the tool sends with each request lives one hour. Put it in a secret store and your pipeline works until lunchtime.
+- The **access token** the tool sends with each request lives one hour. If you put it in a secret store, your pipeline stops working within the hour.
 - The **refresh token** lives 90 days but **rotates on every use** — using it returns a replacement and invalidates the one you presented. A CI job cannot write the replacement back into your secret store, so the second run would present a token that is no longer valid. The platform treats a rotated token presented again as a stolen one and revokes the whole chain, which would sign your own laptop out too.
 
 A service token does not rotate. You present the same value on every run, and the tool exchanges it for a short-lived access token in memory.
@@ -71,11 +71,11 @@ Set two environment variables in your CI configuration, and a third only for com
 | `IKON_SPACE_ID` | Optional. The id of the app to act on, for commands run outside a linked app project; `ikon deploy` and `ikon bundle` never need it. The variable keeps the platform's own word for a cloud app, a space. |
 | `IKON_BACKEND_ENV` | `dev` or `prod` — which platform the pipeline runs against. |
 
-`ikon deploy` and `ikon bundle` do not read `IKON_SPACE_ID` or take `--app-id`: they act only on the app the project's `ikon-config` file for the environment is linked to, so commit that linked file and the variable is not needed for them. For commands that resolve an app outside a project, `IKON_SPACE_ID` stands in for the organisation and app defaults that `ikon default set` sets, which live in the login file on your own machine that a CI runner does not have; you can pass `--app-id` on each such command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`. `ikon release` and `ikon pipeline --dll-path` are the exceptions: in an unlinked project they fall back to `IKON_SPACE_ID`, then the saved default, and act on that app.
+`ikon deploy` and `ikon bundle` do not read `IKON_SPACE_ID` or take `--app-id`: they act only on the app the project's `ikon-config` file for the environment is linked to, so commit that linked file and the variable is not needed for them. For commands that resolve an app outside a project, `IKON_SPACE_ID` stands in for the organisation and app defaults that `ikon default set` sets, which live in the sign-in file on your own machine that a CI runner does not have; you can pass `--app-id` on each such command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`. `ikon release` and `ikon pipeline --dll-path` are the exceptions: in an unlinked project they fall back to `IKON_SPACE_ID`, then the saved default, and act on that app.
 
-`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. Without the variable or a flag, the tool first looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present; only then does it use the default your login or `ikon default set` saved on your own machine, and a CI runner has neither — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
+`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. Without the variable or a flag, the tool first looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present; only then does it use the default your sign-in or `ikon default set` saved on your own machine, and a CI runner has neither — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
 
-Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on. No browser, no prompts.
+Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on — with no browser and no prompts.
 
 The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV` must name that same environment.
 
@@ -96,7 +96,7 @@ ikon auth token list                # your service tokens, with ids and expiry
 ikon auth token revoke <id>         # kill one immediately
 ```
 
-`ikon auth token list` also shows when each token was last used, which is how you find one nothing needs any more.
+`ikon auth token list` also shows when each token was last used, so you can find tokens that nothing uses any more.
 
 To see which machines are signed in to your account with the tool:
 
@@ -114,7 +114,7 @@ A service token acts as **you**. It carries the same access to the platform your
 - Store it in your CI provider's secret store, never in a committed file. It starts with `ikon_svc_` so that secret scanners — including GitHub's push protection — can recognise it if it ever reaches a repository.
 - Give each pipeline its own token, named for that pipeline. Then revoking one does not break the others, and the last-used column tells you which is which. One account can hold at most 25 live service tokens; revoke one before creating more.
 - Revoke it when the pipeline that used it goes away, and when anyone with access to the secret store leaves.
-- It cannot create or manage other service tokens. That is deliberate: a leaked token cannot mint itself a replacement to outlive your revoking it.
+- It cannot create or manage other service tokens. This is deliberate, so that a leaked token cannot create a replacement for itself that still works after you revoke it.
 
 `ikon logout` on your own machine does **not** revoke your service tokens — signing out of a laptop should not break a running pipeline. Use `ikon auth token revoke` for that.
 
@@ -124,7 +124,7 @@ A service token acts as **you**. It carries the same access to the platform your
 
 **`The ... service token in IKON_SERVICE_TOKEN expires on ...`** — advisory, printed once per run inside the token's last 14 days. Nothing is wrong yet: create the replacement and update the secret before that date.
 
-**`Not logged in to the Ikon platform ... Set IKON_SERVICE_TOKEN ...`** — the variable is not reaching the tool. In most CI systems a secret has to be named explicitly in the step's `env` block; check it is not only defined at the repository level.
+**`Not signed in to the IKON platform ... Set IKON_SERVICE_TOKEN ...`** — the variable is not reaching the tool. In most CI systems a secret has to be named explicitly in the step's `env` block; check it is not only defined at the repository level.
 
 **`Could not tell which platform environment to use`** — set `IKON_BACKEND_ENV` to `dev` or `prod`, or pass `--dev` / `--prod`. Your token is fine; the tool does not know which platform to present it to.
 

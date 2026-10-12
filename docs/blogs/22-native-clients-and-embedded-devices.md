@@ -30,7 +30,7 @@ The Raspberry Pi costs $35. The camera module, sensor, and motors add maybe $25.
 
 That is why the robot seems far more capable than its hardware. The hardware is a hobby project, but the robot navigates rooms, recognizes objects, describes what it sees in plain English and builds a map. The server does everything the hardware cannot.
 
-The device carries only one credential, an Ikon session key. Your OpenAI API key and your cloud secrets are not on it. If someone takes the robot apart, they find a key that can be revoked in seconds. The AI credentials stay on the server, where the device cannot reach them.
+The device carries only one credential, an IKON session key. Your OpenAI API key and your cloud secrets are not on it. If someone takes the robot apart, they find a key that can be revoked in seconds. The AI credentials stay on the server, where the device cannot reach them.
 
 If the robot rolls behind the couch and loses Wi-Fi, the connection is restored automatically and the session continues where it left off.
 

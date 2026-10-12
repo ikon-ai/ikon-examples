@@ -1,8 +1,8 @@
-<!-- checked-against: 3d40641e0aaca08fe3b0c442 -->
+<!-- checked-against: 715e30e69a5d6ee8e3b0c442 -->
 
-# Ikon AI TypeScript SDK
+# IKON TypeScript SDK
 
-The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 22+ (it needs a global `WebSocket`, which earlier Node.js versions lack).
+The IKON TypeScript SDK connects browser and Node.js applications to an IKON app. It supports modern browsers with ES2020+ and Node.js 22+ (it needs a global `WebSocket`, which earlier Node.js versions lack).
 
 ## Features
 
@@ -10,7 +10,7 @@ The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser
 - UI-friendly connection states, with slow-connection detection in the React layer (`isConnectingSlow`)
 - Automatic reconnection with fixed-delay retries
 - Web Worker support for off-UI-thread protocol processing
-- Smart endpoint selection (WebSocket → proxied variants → HTTP stream; opt-in WebTransport preferred when enabled)
+- Automatic endpoint selection (WebSocket → proxied variants → HTTP stream; opt-in WebTransport preferred when enabled)
 - Function registration and remote invocation
 - Audio/video playback and capture pipelines
 - Framework-agnostic UI state management (sdk-ui)
@@ -62,7 +62,7 @@ The SDK supports three authentication modes. Exactly one must be configured.
 
 ### API Key Authentication
 
-Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
+Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
 
 <!-- ikon-example: ts-sdk-auth-api-key -->
 ```ts
@@ -84,7 +84,7 @@ const client = new IkonClient({
 
 ### Local Development
 
-Connect directly to a local Ikon server during development.
+Connect directly to a local IKON server during development.
 
 <!-- ikon-example: ts-sdk-auth-local -->
 ```ts
@@ -112,9 +112,9 @@ const client = new IkonClient({
 });
 ```
 
-An access token expires while the app is still running. It is a connect-time credential — an open
-connection is already authenticated and never presents it again — so hand a renewed one to the
-running client instead of building a new one:
+An access token expires while the app is still running. The token is presented only at connect
+time, and an open connection is already authenticated, so give a renewed token to the running client
+instead of building a new client:
 
 <!-- ikon-example: ts-sdk-update-auth-token -->
 ```ts
@@ -124,7 +124,8 @@ client.updateAuthToken(renewedToken);
 ```
 
 The React layer (`useIkonApp`) already does this for you: it rebuilds the client when the identity
-behind the connection changes and pushes the token through when only the credential did.
+behind the connection changes, and passes the new token to the running client when only the
+credential changed.
 
 To open a second session next to the app connection — a media leg to a cell room, say — use
 `createSibling`, which keeps the sibling's credential in step with this client's:
@@ -135,7 +136,7 @@ const sibling = client.createSibling({ 'ikon-cell-type': 'room', RoomId: 'r1' })
 ```
 
 `deriveConfig` still exists for building a config by hand, but the credential it returns is a
-snapshot that will not follow renewals.
+copy that is not updated when the token is renewed.
 
 ## Connection Lifecycle
 
@@ -266,7 +267,7 @@ Renewing the access token is not a reason to reconnect — see `updateAuthToken`
 
 ### Subscribing to Protocol Messages
 
-The SDK provides a subscription-based approach for handling protocol messages:
+Subscribe to protocol messages with a callback:
 
 <!-- ikon-example: ts-sdk-subscribe-messages -->
 ```ts
@@ -339,7 +340,7 @@ client.sendActionCall(actionId, JSON.stringify({ key: 'value' }));
 
 ## Functions
 
-The SDK provides a function registry system that allows you to register callable functions that the app server can invoke. The server offers a browser client's functions to the app: the app can call them, and another browser client cannot, though it may see them listed (the server normally relays the registrations to the app alone).
+Register functions in the client's function registry for the app server to call. The server offers a browser client's functions to the app: the app can call them, and another browser client cannot, though it may see them listed (the server normally relays the registrations to the app alone).
 
 ### Function Registry
 
@@ -474,7 +475,7 @@ All descriptors support an optional `nullable` property.
 
 ## Media Pipelines
 
-The SDK provides built-in audio and video playback/capture pipelines.
+The SDK has built-in audio and video playback and capture pipelines.
 
 ### Accessing Media
 
@@ -507,7 +508,7 @@ const client = new IkonClient({
   },
   mediaSession: {
     title: 'My App Audio',
-    artist: 'Ikon AI',
+    artist: 'IKON',
   },
 });
 ```
@@ -546,7 +547,7 @@ const stopListening = client.addWebRtcTrackMapListener((info) => {
 
 ## UI State Management (sdk-ui)
 
-The `@ikonai/sdk-ui` library provides framework-agnostic UI state management for rendering Ikon UI updates.
+The `@ikonai/sdk-ui` library provides framework-agnostic UI state management for rendering IKON UI updates.
 
 ### IkonUiCore
 
@@ -709,13 +710,12 @@ export function SendFeedbackButton({ app }: { app: UseIkonAppResult }) {
 }
 ```
 
-`available` is false for anyone the app does not offer feedback. `open()` behaves as a tap on the platform's button, screenshot included, and needs an `IkonApp` on the page to show the sheet. Without React, `client.requestFeedback()` does the same. With `[Feedback] Button = "none"` the platform draws no button, and controls like this are the only way in.
+`available` is false for anyone the app does not offer feedback. `open()` behaves as a tap on the platform's button, screenshot included, and needs an `IkonApp` on the page to show the sheet. Without React, `client.requestFeedback()` does the same. With `[Feedback] Button = "none"` the platform draws no button, and a control like this is the only way to open feedback.
 
 ### Query Parameters
 
-The SDK reads `ikon-*` query parameters from the page URL at startup. They are diagnostic and
-testing affordances — nothing an app needs in normal operation — and they override the matching
-constructor options. Both the hyphen form (`?ikon-proxy`) and the underscore form (`?ikon_proxy`)
+The SDK reads `ikon-*` query parameters from the page URL at startup. They are for diagnostics and
+testing, not for normal operation, and they override the matching constructor options. Both the hyphen form (`?ikon-proxy`) and the underscore form (`?ikon_proxy`)
 are accepted. All of them are stripped before the URL is handed to the app, so they never appear as
 app state.
 
@@ -723,7 +723,7 @@ app state.
 |---|---|---|
 | `ikon-transport` | `ws`, `wt`, `http`, `http-binary`, `http-sse`, `http-poll` | Pin one transport, and for the HTTP stream its downstream encoding. Long forms (`websocket`, `webtransport`, `httpstream`) also work |
 | `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`) |
-| `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific Ikon server, for shareable preview links. Carries a credential — treat the link like one |
+| `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific IKON server, for shareable preview links. Carries a credential — treat the link like one |
 | `ikon-session` | session identity hash | Join a specific live session instead of resolving one by identity |
 | `ikon-same-origin` | `true`, `false` | Route API and auth calls through the app's own origin. On by default for deployed apps. `true` cannot turn it on in local dev; in the cloud it only wins over a configured auth URL override |
 | `ikon-debug` | `true` | Verbose SDK logging, and the devtools extension |
@@ -733,14 +733,14 @@ app state.
 | `ikon-lang` | e.g. `en`, `fi` | Override language detection |
 | `ikon-audio`, `ikon-video`, `ikon-webrtc` | `true`, `false` | Force audio, video or WebRTC on or off |
 | `ikon-ice-transport` | `relay`, `all` | Force the WebRTC ICE policy. `relay` gathers TURN candidates only, which is how the relay path gets verified |
-| `ikon-retry` | `false` | Fail fast: one provisioning attempt, no channel reconnects, and no reconnect or reauth after a lost connection (the auth connect still retries) |
+| `ikon-retry` | `false` | Fail fast: one provisioning attempt, no channel reconnects, and no reconnect or reauth after a lost connection (the auth connect still retries, and a connect token the server refuses as stale still gets one fresh `/init`) |
 | `ikon-snapshot` | `true` | Connect as a build-time snapshot client |
 | `ikon-feedback` | present | Open the feedback sheet once the app is live, as a tap on the feedback button does. Only for a user who is offered the feedback overlay |
 
 An unrecognised value is ignored rather than guessed at, so a typo leaves the default behaviour in
 place instead of silently pinning something slow.
 
-Pinning is how a fallback path gets exercised before a customer's network exercises it for you:
+Pinning lets you test a fallback path before a customer's network forces the client onto it:
 
 ```text
 https://your-app.ikonai.app/?ikon-transport=http-poll&ikon-debug=true
@@ -748,8 +748,8 @@ https://your-app.ikonai.app/?ikon-transport=http-poll&ikon-debug=true
 
 If a pin names something the server did not offer — `?ikon-proxy=lb&ikon-transport=wt`, where the
 gateway advertises no WebTransport — the connect **fails** with `NoMatchingEndpointTypeError` rather
-than falling back. A pin exists to make one path measurable, so connecting over a different one and
-reporting success would defeat the point.
+than falling back. A pin is there to measure one path, and connecting over another one while
+reporting success would make that measurement wrong.
 
 ### Browser Functions
 
@@ -764,20 +764,20 @@ const client = new IkonClient({
 ```
 
 The sound-effect functions (`ikon.client.playSound` / `stopSound`) are part of that set. They play
-through one Web Audio context that needs a user gesture once; until then a passive capture-phase
-listener on the window waits for that gesture, and it is removed the moment the context runs. An
-app that plays its own audio, or that wants nothing of the SDK's touching the audio session, can
-keep the other browser functions and skip just these with `disableSoundFunctions: true`;
-`useIkonApp` forwards both options.
+through one Web Audio context, which needs one user gesture before it can run. Until then a passive
+capture-phase listener on the window waits for that gesture, and the listener is removed as soon as
+the context runs. An app that plays its own audio, or that does not want the SDK to touch the audio
+session, can keep the other browser functions and turn off only these with
+`disableSoundFunctions: true`; `useIkonApp` forwards both options.
 
 ### Internal Link Navigation
 
 A plain left-click on a same-origin `<a href>` is turned into an in-place route change: the SDK
-pushes the history entry and tells the server the URL moved — the same signal a back/forward gesture
-sends — so the app switches route without reloading the document, dropping the connection or minting
-a new client session. On the server this arrives as `app.Navigation.PathChangedAsync`, so one router
-serves link clicks and history gestures alike; a cold load or reload raises nothing, and its path is
-`app.Navigation.CurrentPath`.
+pushes the history entry and tells the server the URL changed, with the same signal a back/forward
+gesture sends. The app switches route without reloading the document, dropping the connection or
+creating a new client session. On the server this arrives as `app.Navigation.PathChangedAsync`, so
+one router handles both link clicks and history gestures. A cold load or reload raises no event; its
+path is in `app.Navigation.CurrentPath`.
 
 The `href` stays in the DOM, so new-tab, copy-link, the status-bar preview and crawlers are
 unaffected. These always navigate natively: modified and middle clicks, `target` links, `download`
@@ -839,7 +839,7 @@ unsubscribeLogs();
 
 ## Error Types
 
-The SDK provides typed errors for different failure scenarios:
+The SDK has a typed error for each kind of failure:
 
 | Error Type | Description |
 |------------|-------------|
@@ -861,6 +861,7 @@ The SDK provides typed errors for different failure scenarios:
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
 | `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal, exposes `spaceId` and `retryAfterMs`, the backend's suggested wait) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
+| `ServerChangedError` | The ikon server refused the connect token as not its own or expired, usually because the server was replaced. A cloud connect gets a fresh token from `/init` once before raising it; a local or connect-URL connect, which has no `/init` to ask, raises `AuthenticationError` instead. Not an `AuthenticationError`: the sign-in is still valid (exposes `status`) |
 
 In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` that keeps only the `name` and `message`, so identify transport-level errors by `error.name` rather than `instanceof`.
 
@@ -886,7 +887,7 @@ const client = new IkonClient({
 
 | Type | Description |
 |------|-------------|
-| `IkonClient` | Main client class for connecting to Ikon servers |
+| `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
 | `ConnectionState` | Union type. Live states: `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `idle`, `connectingSlow`, `offlineError` |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
@@ -961,6 +962,7 @@ const client = new IkonClient({
 | `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal) |
 | `ServerUnavailableError` | Backend HTTP 5xx (retried) |
+| `ServerChangedError` | Server refused a stale connect token (one fresh `/init` first; not an `AuthenticationError`) |
 | `FunctionCallError` | Remote function call failure with error type and stack trace |
 
 ### Utility Functions
@@ -985,4 +987,4 @@ This SDK is licensed under the Ikon AI SDK License.
 
 ## Support
 
-For issues and feature requests, contact Ikon support or open an issue on GitHub.
+For issues and feature requests, contact IKON support or open an issue on GitHub.

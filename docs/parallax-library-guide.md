@@ -1,10 +1,10 @@
-<!-- checked-against: 84026ca522f4f34bfdc88446 -->
+<!-- checked-against: 1651f5cca22dbcc23b8b1e3b -->
 
 # Ikon.Parallax Library Overview
 
 ## Introduction
 
-Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
+Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients only render, and the framework updates clients by diffing the UI tree.
 
 The name "Parallax" reflects the library's core capability: different clients can receive different views of the same underlying UI based on reactive scopes, similar to how parallax creates different viewpoints of the same scene.
 
@@ -72,7 +72,7 @@ public async Task Main()
 
 When `_counter.Value` changes, the Column whose content reads it re-renders (unchanged containers elsewhere are reused from cache), and only the diff — the Text's new text — is sent to clients.
 
-Committing to a brand happens in the `IkonTheme` initializer — an indexer-keyed object initializer where each entry sets one theme key, and a key such as `primary` or `foreground` expands to a cluster of tokens. Base overrides restyle the light scheme, so a brand-locked look sets `Mode = ThemeMode.Fixed` (or pairs a `DarkMode`), as this snippet does; left `Adaptive` with no `DarkMode` and a surface (`background`, `card`, `popover` or `foreground`) pinned, it logs a half-committed-theme warning:
+A brand's colours are set in the `IkonTheme` initializer, an indexer-keyed object initializer where each entry sets one theme key. A key such as `primary` or `foreground` expands to a group of tokens. Base overrides restyle the light scheme, so a brand-locked look sets `Mode = ThemeMode.Fixed` (or pairs a `DarkMode`), as this snippet does. A theme left `Adaptive` with no `DarkMode` and with a surface (`background`, `card`, `popover` or `foreground`) pinned logs a half-committed-theme warning:
 
 <!-- ikon-example: px-setting-up-a-ui-2 -->
 ```csharp
@@ -84,11 +84,11 @@ private UI UI { get; } = new(app, new IkonTheme
 });
 ```
 
-The full theme key vocabulary, dark-mode pairing (`IkonTheme.DarkMode`), and `ThemeMode.Fixed` for brand-locked looks are covered in the **Ikon Theming Guide** (`theming-guide.md`).
+The full theme key vocabulary, dark-mode pairing (`IkonTheme.DarkMode`), and `ThemeMode.Fixed` for brand-locked looks are covered in the **IKON Theming Guide** (`theming-guide.md`).
 
 ### Light/Dark Switching with UseTheme
 
-`UI.UseTheme()` wires per-client theme state in one call, replacing the hand-rolled ClientJoined + toggle plumbing apps used to repeat:
+`UI.UseTheme()` sets up per-client theme state in one call, so you do not write your own ClientJoined handler and toggle:
 
 <!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp
@@ -108,7 +108,17 @@ public async Task Main()
 }
 ```
 
-`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is an `IReadOnlyReactive<Theme>` holding the calling client's theme, bindable in views and read-only, since only `ToggleAsync` and `SetAsync` also tell the browser; `ToggleAsync` flips the calling client between dark and light and `SetAsync` sets it; both update `Current` at once and push the change to that client, holding the push until a client that has not yet registered its theme function does. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is an `IReadOnlyReactive<Theme>` holding the calling client's theme. You can bind it in views, but it is read-only, because only `ToggleAsync` and `SetAsync` also tell the browser. `ToggleAsync` flips the calling client between dark and light and `SetAsync` sets it. Both update `Current` at once and push the change to that client; for a client that has not yet registered its theme function, the push waits until it does. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+
+### The Order Action Handlers Run In
+
+Handlers run off the message loop, so a slow one never holds up the rest of the app. Calls of one
+handler from one client run one after another, in the order they arrived. A call of a different
+handler from the same client waits for that client's earlier calls to finish, but for at most
+300 ms after each of their handlers started, and never more than 2 s after each of them arrived.
+So a Send click sees the change the person made to the text field just before it, and a handler
+that runs for seconds, or one that waits for the same person's next click, does not hold up their
+other input.
 
 ### When an Action Handler Throws
 
@@ -137,7 +147,7 @@ public async Task Main()
 }
 ```
 
-`ActionFailedEventArgs` carries the `Exception`, the `ClientContext`, the `ActionId` and the handler's `CallSite`. An app whose own exception type carries text written for the person can render that message and fall back to the generic line for everything else. The failure is still reported to the client afterwards, and a subscriber that throws is logged without stopping that report. Pair it with handlers that clear their form only after the save succeeded, so a retry is press-again rather than type-it-again.
+`ActionFailedEventArgs` carries the `Exception`, the `ClientContext`, the `ActionId` and the handler's `CallSite`. An app whose own exception type carries text written for the person can render that message and fall back to the generic line for everything else. The failure is still reported to the client afterwards, and a subscriber that throws is logged without stopping that report. Pair it with handlers that clear their form only after the save succeeded, so the person can retry by pressing the button again instead of retyping.
 
 ## Reactive State
 
@@ -159,7 +169,7 @@ private readonly ClientReactive<string> _draft = new("");
 private readonly UserReactive<string> _language = new("en");
 ```
 
-In UI lambdas and action handlers you just read and write `.Value` — the active scope resolves the right per-client or per-user slot implicitly. This is the "parallax" effect: the same UI code produces different views for different clients.
+In UI lambdas and action handlers you read and write `.Value`, and the active scope picks the right per-client or per-user value. This is the "parallax" effect: the same UI code produces different views for different clients.
 
 To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory, and `UserReactive`, `UserReactiveList`, `ClientReactiveList` and `MountReactiveList` a seeding constructor (a fixed initial list shares its items by reference across scopes, so seed mutable items per scope):
 
@@ -218,7 +228,7 @@ _ = Task.Run(async () =>
 
 ### The Busy/Status Pattern
 
-Async handlers that flip a busy flag and surface failures in the UI use the helpers instead of hand-rolled try/catch/finally:
+Async handlers that flip a busy flag and show failures in the UI use the helpers instead of hand-rolled try/catch/finally:
 
 <!-- ikon-example: px-the-busy-status-pattern -->
 ```csharp
@@ -234,11 +244,11 @@ private async Task RefreshAsync()
 }
 ```
 
-`RunAsync` clears the status, holds the busy flag for the duration of the work (it always returns to false, even on failure), routes an exception's message into the status reactive, and returns whether the work completed. An `OperationCanceledException` is not routed: it is rethrown to the caller after the busy flag resets. For a busy flag alone, `using var _ = _busy.AsToken();` covers the flag-with-guaranteed-reset half of the pattern.
+`RunAsync` clears the status, holds the busy flag for the duration of the work (it always returns to false, even on failure), routes an exception's message into the status reactive, and returns whether the work completed. An `OperationCanceledException` is not routed: it is rethrown to the caller after the busy flag resets. For a busy flag alone, `using var busy = _busy.AsToken();` covers the flag-with-guaranteed-reset half of the pattern.
 
 ### Persistent State
 
-Durable variants — `PersistentSessionReactive<T>` (the default choice), `PersistentUserReactive<T>`, `PersistentReactive<T>`, and the matching `...ReactiveList` / `...ReactiveDictionary` families — persist across app restarts with the same reactive API. See the **Ikon Persistent State Guide** (`persistent-state-guide.md`).
+Durable variants — `PersistentSessionReactive<T>` (the default choice), `PersistentUserReactive<T>`, `PersistentReactive<T>`, and the matching `...ReactiveList` / `...ReactiveDictionary` families — persist across app restarts with the same reactive API. See the **IKON Persistent State Guide** (`persistent-state-guide.md`).
 
 ## Components
 
@@ -281,7 +291,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.DataTable()` - Paginated tables with typed cells, row actions, and column resize (per-slot styling via the `DataTableStyles` record on `styles:`)
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
 - `view.ChatLog()` - `ScrollColumn` with auto-scroll on and optional header/footer slots (pass your composer as the footer)
-- `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload, auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
+- `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload when `onAttachmentStart` or `onAttachmentAdded` is wired, auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
 - `view.ContentGrid()` - Column-defined grid taking `ContentGridColumn[]`, for card and media layouts a `DataTable` would over-structure
 - `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
 
@@ -366,11 +376,11 @@ _toasts.Error("Upload failed", ex.Message);
 ### AI Disclosure
 
 `AiDisclosure` is the one place an app tells a person they are dealing with AI. Use it instead of
-writing the line yourself: it is Ikon's uniform EU AI Act Article 50 disclosure, and the
+writing the line yourself: it is IKON's uniform EU AI Act Article 50 disclosure, and the
 human-readable counterpart of the machine-readable mark `Ikon.AI`'s generators write into every file
 they produce.
 
-`AiDisclosureKind` picks which duty the line discharges — `Interaction` for "you are talking to an
+`AiDisclosureKind` picks which disclosure duty the line fulfils — `Interaction` for "you are talking to an
 AI", `GeneratedContent` for "what you are looking at was made by one". `AiDisclosureVariant` picks
 where it sits: `Note` is one muted caption line for under a composer, `Banner` a bordered strip for
 the top of a conversation or a page of generated content, and `Pill` a compact badge with its own
@@ -455,7 +465,7 @@ view.TextField(["w-full"], bind: _name);            // an unstyled box that is f
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
-- **`default`** — put the literal `"default"` first and the component's themed base is merged **under** your classes: `["default", "h-14"]` is the themed input at your height. Only `display` and `position` classes are *replaced* rather than added to (a caller `flex` genuinely drops the base's `inline-flex`); everything else is layered.
+- **`default`** — put the literal `"default"` first and the component's themed base is merged **under** your classes: `["default", "h-14"]` is the themed input at your height. Only `display` and `position` classes are *replaced* rather than added to (a caller `flex` drops the base's `inline-flex`); everything else is layered.
 
 - **Theme token composites** (`Button.PrimaryMd`, `Input.Default`, `Card.Interactive`, `Badge.SuccessMd`, …) are already complete component styles, so they need no marker: `[Button.OutlineMd]` renders exactly the outline button, and `[Button.OutlineMd, "mt-2 w-full"]` layers on top of it. Fragments (`Button.Base`, `Layout.*`, `Text.*`) are partial and are meant to be combined.
 
@@ -473,7 +483,7 @@ The marker is what asks for the theme — with it the base merges *under* what y
 
 Cursor and the focus ring are *not* on that list: those come from the platform's button reset, so a hand-styled button still shows a pointer on hover and a visible ring on keyboard focus.
 
-The rule of thumb: **adding to a control → start the array with `"default"`; replacing its look → don't.**
+The rule of thumb: **to add to a control, start the array with `"default"`; to replace its look, leave it out.**
 
 **Slots follow the same rule as `style:`.** A component built from several parts exposes one array per part —
 `triggerStyle:`, `contentStyle:`, `dayStyle:`, `toolbarStyle:`, `gutterStyle:` and so on. Each carries its own
@@ -525,7 +535,7 @@ Controls that have a visible inner part also compose it automatically when no `c
 
 ### Icon Buttons
 
-An icon-only button is a square, and squares are where the padding arithmetic bites. A size token brings `px-5` and `min-h-10`, so `["default", "w-7 h-7"]` renders **40×40** — the height wins, the width is padded out, and the row it sits in gets taller than asked. Use a square token, **after** the variant:
+An icon-only button is a square, and padding is easy to get wrong on a square. A size token brings `px-5` and `min-h-10`, so `["default", "w-7 h-7"]` renders **40×40** — the height wins, the width is padded out, and the row it sits in gets taller than asked. Use a square token, **after** the variant:
 
 <!-- ikon-example: px-icon-buttons -->
 ```csharp
@@ -556,11 +566,11 @@ view.Button([Button.GhostMd, Button.Icon],
 
 Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` and `Select` are the odd ones: their role lives on an inner element (`role="slider"` on the thumb, `role="combobox"` on the trigger), so a `Slider`'s `label:` and either one's `ariaLabel:` are routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch` and `Slider` warn at dev time when they render with no name at all — `Toggle` does not, because its `content:` is usually a label of its own.
 
-The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **Ikon Theming Guide** (`theming-guide.md`).
+The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **IKON Theming Guide** (`theming-guide.md`).
 
 ## ScrollArea and Auto-Scroll
 
-ScrollArea provides a scrollable container with smart auto-scroll support, ideal for chat interfaces and live feeds:
+ScrollArea is a scrollable container that can scroll new content into view automatically, for chat interfaces and live feeds:
 
 <!-- ikon-example: px-scrollarea-and-auto-scroll -->
 ```csharp
@@ -596,11 +606,11 @@ anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
 
 ### Scrolling Inside a Flex Parent
 
-The canonical dialog / side-panel pattern is a `Column` with a fixed height, a header + footer, and a scrolling body. `ScrollArea` automatically applies `min-h-0 min-w-0` to its root so shrinking inside a flex parent Just Works — no ceremony required.
+The canonical dialog / side-panel pattern is a `Column` with a fixed height, a header + footer, and a scrolling body. `ScrollArea` automatically applies `min-h-0 min-w-0` to its root, so it shrinks correctly inside a flex parent with no extra classes.
 
 **Why this matters.** A flex child's `min-height` defaults to `auto` (equal to its intrinsic content size), so without `min-h-0` a `flex-1` scroll region would grow to fit all its content — pushing siblings off-screen and bypassing the inner overflow. The framework handles this for `ScrollArea`. You only need to think about it on your own `Column`/`Row` with a manual `overflow-y-auto`.
 
-**`max-h-` is not a height.** A ScrollArea needs a *definite* height to scroll against: `h-[400px]`, `h-full` inside a sized parent, or `flex-1` inside a flex column. `rootStyle: ["max-h-96"]` is the common near-miss — the root grows with its content until the cap, and the viewport inside it, having no resolved height of its own, never overflows. The symptom is a panel that grows past the cap or clips instead of scrolling. If a cap is genuinely what you want, give it a height too: `["h-full max-h-96"]`.
+**`max-h-` is not a height.** A ScrollArea needs a *definite* height to scroll against: `h-[400px]`, `h-full` inside a sized parent, or `flex-1` inside a flex column. `rootStyle: ["max-h-96"]` is a common mistake: the root grows with its content until the cap, and the viewport inside it, having no resolved height of its own, never overflows. The symptom is a panel that grows past the cap or clips instead of scrolling. If a cap is what you want, give it a height too: `["h-full max-h-96"]`.
 
 **Canonical recipe — `ScrollArea` inside a flex column:**
 
@@ -648,7 +658,7 @@ Dev warnings are on by default (`IKON_DEV_WARNINGS=0` opts out): a single `Log.I
 view.Row(["overflow-x-auto gap-2", Scrollbar.Thin], content: chips => { });
 ```
 
-It sizes both axes on purpose. Styling only the width leaves a *horizontal* bar at its default height, which is the usual way this lands half-applied — and a horizontally scrolling row is exactly where it is most often needed.
+It sizes both axes on purpose. Styling only the width leaves a *horizontal* bar at its default height, and a horizontally scrolling row is where a themed bar is most often needed.
 
 ## PanZoom: Viewing Something Larger Than the Screen
 
@@ -670,11 +680,11 @@ view.PanZoom(
 
 Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
 
-What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled, and the viewport captures every primary pointer press to pan — a drag that starts on the content, a `DndContext` item's included, pans the view too. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
+What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled, and the viewport captures every primary pointer press to pan — a drag that starts on the content, a `DndContext` item's included, pans the view too. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`).
 
-## The Ikon O
+## The IKON O
 
-`view.LivingO()` (`LivingOExtensions`) draws the Ikon O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
+`view.LivingO()` (`LivingOExtensions`) draws the IKON O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
 
 ## Example: Interactive Form
 
@@ -790,7 +800,7 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 
 ### Per-route snapshots and SEO
 
-Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML **to crawlers** for the route's URL, so search engines and link-preview fetchers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in). **Human visitors** always get the SPA index instead: the SDK seeds the route's snapshot JSON (the bundle bakes a route→snapshot map into the index) for an instant, pixel-faithful first paint, and the live app takes over seamlessly when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
+Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML **to crawlers** for the route's URL, so search engines and link-preview fetchers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in). **Human visitors** always get the SPA index instead: the SDK seeds the route's snapshot JSON (the bundle bakes a route→snapshot map into the index) for an instant, pixel-faithful first paint, and the live app takes over when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
 
 ```toml
 [BootSnapshot]
@@ -808,17 +818,17 @@ app.OnSnapshotRoutes(async () => (await store.GetListingsAsync()).Select(l => $"
 Two capture-quality tools:
 
 - **Settle signal** — capture treats a quiet UI stream as "settled" and additionally listens for an explicit ready signal; whichever arrives first wins, and everything is bounded by a per-route cap. A route whose content loads asynchronously after a silent gap could quiesce too early and bake its loading skeleton into the snapshot — call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded and capture snapshots at exactly that moment. Nothing to configure; the call is a harmless no-op for normal browser clients.
-- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
+- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a sign-in view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
 
 **A capture that falls short does not stop the deploy.** When the capture misses a declared route or variant — the app failed to start, a route redirected, it timed out — the bundle ships with no boot snapshots at all, the state of an app without `[BootSnapshot]`, and the deploy ends with a `BOOT_SNAPSHOT_SKIPPED` warning that leads with the app's own error and names the file holding the full capture output. Until a later deploy captures again the app has no prerendered first paint, and no `sitemap.xml` or `robots.txt` is generated for it.
 
-Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without login (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern, so for login-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without sign-in (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard sign-in wall is a cloaking pattern, so for sign-in-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
 
 #### How to use it
 
-Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind login), so enable it only on the public surface.
+Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind sign-in), so enable it only on the public surface.
 
-1. **Make the public routes openable without signing in.** In `ikon-config.toml`, either leave `[Auth] RequireSignIn = false` (the default), or set it with `guest` or `global` in `Methods` so a crawler can connect without a login wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
+1. **Make the public routes openable without signing in.** In `ikon-config.toml`, either leave `[Auth] RequireSignIn = false` (the default), or set it with `guest` or `global` in `Methods` so a crawler can connect without a sign-in wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
 
 2. **List the static routes.** Enumerate the fixed public paths (the scaffold starts you at `["/"]`):
 
@@ -853,10 +863,10 @@ app.OnSnapshotRoutes(async () =>
 
 Route snapshots cover concrete paths that exist at deploy time. Two situations need more:
 
-- **Identity-split pages** — the deferred-login pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots.
+- **Identity-split pages** — the deferred sign-in pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, someone who has just signed in would see a blank page until the instance boots.
 - **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
 
-Seed rules cover both. Each entry is `"pattern:variantId"`, listed per login state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
+Seed rules cover both. Each entry is `"pattern:variantId"`, listed per sign-in state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
 
 ```toml
 [BootSnapshot]
@@ -893,7 +903,7 @@ The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:sh
 
 ### Open-as-guest (the default)
 
-A login-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. Leaving `RequireSignIn` off inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
+A sign-in-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. Leaving `RequireSignIn` off inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
 
 ```toml
 [Auth]
@@ -903,7 +913,7 @@ Methods = ["google", "guest"]    # "guest" is what visitors connect as
 
 The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one app-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
 
-The frontend establishes the session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes not-signed-in visitors from signed-in users — the authoritative flag; a guest still carries a valid device-scoped `UserId`. `Context.IsGlobal` tells you which flavor you are serving. The typical shape is a branch at the top of the UI root:
+The frontend establishes the session on first visit (no sign-in wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes not-signed-in visitors from signed-in users — the authoritative flag; a guest still carries a valid device-scoped `UserId`. `Context.IsGlobal` tells you which flavor you are serving. The typical shape is a branch at the top of the UI root:
 
 <!-- ikon-example: px-open-as-guest-the-default -->
 ```csharp
@@ -918,7 +928,7 @@ UI.Root([Page.Default], content: view =>
 });
 ```
 
-Trigger sign-in from the server-drawn landing with the client login primitive:
+Trigger sign-in from the server-drawn landing with the client sign-in primitive:
 
 <!-- ikon-example: px-open-as-guest-the-default-2 -->
 ```csharp
@@ -926,7 +936,7 @@ view.Button([Button.PrimaryMd], text: "Sign in with Google",
     onClick: async () => await ClientFunctions.LoginAsync("google"));
 ```
 
-`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the anonymous session is simply abandoned. Guest, global, email and passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
+`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the anonymous session is abandoned. Guest, global, email and passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
 
 Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL. This matters more under `global`, where every visitor shares one `UserId`: never key per-user state on it.
 

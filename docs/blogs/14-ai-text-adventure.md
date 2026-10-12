@@ -65,7 +65,7 @@ When you propose a theory (or run out of actions), the AI judges your proposal a
 
 Building this as a standalone application would require several independent systems: an AI orchestration layer for managing multiple types of AI calls (generating accusations, narrating investigations, judging proposals), an image generation service that responds to game state, a state management system tracking phase, round, actions, proximity, transcript, and results across a multi-step session, real-time infrastructure for pushing updates to spectators, and a frontend application with components for the transcript, image display, proximity indicator, input field, and verdict screen.
 
-On the Ikon platform, all of these are methods on a single class. They run in the same process and share the same state and lifecycle. Going from "the player examined the broken clock" to "the scene image is generated again with amber light breaking through fog" takes one method call and one value update.
+On the IKON platform, all of these are methods on a single class. They run in the same process and share the same state and lifecycle. Going from "the player examined the broken clock" to "the scene image is generated again with amber light breaking through fog" takes one method call and one value update.
 
 ## Several kinds of AI in one file
 

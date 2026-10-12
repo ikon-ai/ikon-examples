@@ -1,4 +1,4 @@
-<!-- checked-against: 3cc87f9302fcf6d3e5248be0 -->
+<!-- checked-against: 288c87595f4a98efe5248be0 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -120,7 +120,7 @@ Patterns handle context in two ways:
 
 ### AskAsync — One-Shot Shortcut
 
-The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Reach for `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
+The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Use `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
 
 <!-- ikon-example: emergence-classification -->
 ```csharp
@@ -165,7 +165,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 });
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so on an `EmergeRun<T>`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result for a run that completes without one (a stopped run still throws `EmergenceStoppedException`, and so does a missing result for a non-nullable value-type `T` such as `int` or `bool`):
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns). Add `.FinalAsync()` when you need the updated context back for conversation continuity, or want a nullable result for a run that completes without one. A stopped run still throws `EmergenceStoppedException`, and so does a missing result for a non-nullable value-type `T` such as `int` or `bool`. Like `FinalWithTraceAsync`, `FinalAsync` is an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so it works on an `EmergeRun<T>`:
 
 <!-- ikon-example: emergence-final -->
 ```csharp
@@ -175,7 +175,7 @@ var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, cont
 }).FinalAsync();
 ```
 
-The `EmergePass<T>` configure callback is invoked before every iteration on the same pass — settings and `Tools` carry over, only a `Stop` and what was interjected are cleared, and adding a `Function` to `Tools` whose name is already there replaces it (`AddTool` instead skips it) — so tools added on the first iteration stay offered, but keep side effects idempotent, because they repeat once per iteration (the pattern entrypoints' configure, by contrast, runs once). It gives access to runtime state:
+The `EmergePass<T>` configure callback is invoked before every iteration, on the same pass. Settings and `Tools` carry over; only a `Stop` and anything interjected are cleared. Adding a `Function` to `Tools` under a name that is already there replaces it, while `AddTool` skips it. Tools added on the first iteration therefore stay offered, but keep side effects idempotent, because they repeat once per iteration. (The configure callback of a pattern entrypoint, by contrast, runs once.) The callback gives access to runtime state:
 
 - `pass.Iteration` — current iteration number
 - `pass.HasFunctionResults` / `pass.HasNewFunctionResults` — whether tool results exist in context
@@ -186,9 +186,9 @@ The `EmergePass<T>` configure callback is invoked before every iteration on the 
 - `SystemPrompt` - System instruction
 - `Command` - User command/prompt
 - `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters.
-  `ReasoningEffort` is the reasoning dial to set, and the only one code that runs a caller-chosen
-  model (a sweep, a `--model` flag) needs: on a model that reads a token budget instead, the
-  platform carries the effort over to one — Minimal 1024, Low 2048, Medium 8000, High 16000
+  `ReasoningEffort` is the reasoning dial to set. It is the only one needed by code that runs a
+  model the caller picks (a sweep, a `--model` flag): on a model that reads a token budget instead,
+  the platform converts the effort into a budget — Minimal 1024, Low 2048, Medium 8000, High 16000
   tokens, capped at half of `MaxOutputTokens` because thinking is spent out of the same ceiling as
   the answer, and never under 1024. `ReasoningTokenBudget` sets an exact budget for a model that reads
   one; an OpenAI model that reads an effort logs a warning and drops it, and ignores it silently
@@ -210,7 +210,7 @@ The `EmergePass<T>` configure callback is invoked before every iteration on the 
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — with `Count` above 1 and no scorer the run throws `ArgumentException` before the first candidate, since unscored candidates all tie. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which read every language differently.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — with `Count` above 1 and no scorer the run throws `ArgumentException` before the first candidate, since unscored candidates all tie. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which give different results in different languages.
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
@@ -444,7 +444,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 
 ## Tool Registration
 
-Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes document individual parameters. The scaffold's global usings already bring in Ikon's own `[Description]`, which tools read like the BCL one, so do not add `using System.ComponentModel;` (it makes the bare name ambiguous, CS0104). Tools are deduplicated by name.
+Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes document individual parameters. The scaffold's global usings already bring in IKON's own `[Description]`, which tools read like the BCL one, so do not add `using System.ComponentModel;` (it makes the bare name ambiguous, CS0104). Tools are deduplicated by name.
 
 <!-- ikon-example: emx-tool-registration -->
 ```csharp
@@ -476,7 +476,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 
 **Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes without a result: the `Completed<T>` event carries `HasResult` false, and awaiting the run throws `EmergenceStoppedException` saying so, for a value-type `T` as much as a reference type, rather than returning a `default(T)` that looks real.
 
-**Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
+**Many-parameter tools — request record.** `Tool.Of` takes at most 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 
 <!-- ikon-example: emergence-tool-request -->
 ```csharp
@@ -605,8 +605,8 @@ Every pattern method except `AskAsync` has an overload taking a `ModelStream` �
 the model's event stream — so a test can stand in for the provider. It carries no capabilities:
 those describe the model, which the same call already names.
 
-`Emerge.Scripted` builds one that replays fixed texts; anything more specific is a lambda of your
-own.
+`Emerge.Scripted` builds one that replays fixed texts; for anything more specific, write your own
+lambda.
 
 <!-- ikon-example: ems-testing-with-mock-llm -->
 ```csharp

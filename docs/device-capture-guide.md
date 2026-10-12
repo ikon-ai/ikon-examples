@@ -1,8 +1,8 @@
-<!-- checked-against: db02a6413c3606296dc83c02 -->
+<!-- checked-against: 2c7086d79c0dd7836dc83c02 -->
 
-# Ikon Device Capture Guide
+# IKON Device Capture Guide
 
-How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
+How an IKON app reads a phone's sensors, keeps a record when the network drops, shows a running activity on the lock screen, and receives files nothing on screen asked for. There are four services, all reached from `app` and all designed for when the phone is in a pocket rather than in someone's hand.
 
 | Service | Reached by | What it is for |
 |---|---|---|
@@ -20,7 +20,7 @@ its absence must never take an app down. Check the bool.
 
 ## Motion — what GPS cannot see
 
-Location answers *where*. Motion answers *how it is moving*, which is the thing a position trace cannot tell you: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride is in the accelerometer, rotation in the gyroscope — ask for both.
+Location tells you *where* the device is. Motion tells you *how it is moving*, which a position trace cannot: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride shows in the accelerometer and rotation in the gyroscope, so ask for both.
 
 <!-- ikon-example: device-motion -->
 ```csharp
@@ -72,7 +72,7 @@ ignore both.
 
 ## Recordings — the track that survives a tunnel
 
-A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`. Only the Flutter client records: a browser client has no recording function, so there `StartAsync` returns false and nothing is recorded — check the bool.
+A fix that fails to send in a tunnel or on a flat cell is gone. The server cannot recover it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`. Only the Flutter client records: a browser client has no recording function, so there `StartAsync` returns false and nothing is recorded — check the bool.
 
 <!-- ikon-example: device-recordings -->
 ```csharp
@@ -82,15 +82,15 @@ await app.Recordings.StartAsync(sessionId, outingId, new RecordingOptions(
     Fixes: true, Motion: true, MaxBytes: 128L * 1024 * 1024));
 ```
 
-`RecordingOptions` decides what goes in the file: `Fixes` (almost always yes — this is what survives an outage), `Motion` (at the full rate asked of `app.Motion`, independent of any `LiveHertz` decimation), and `MaxBytes`, which is a refusal rather than a target — a device out of space must fail the recording, not the phone. At the cap the device stops writing and seals what it has without uploading it, so a later `StopAsync` for that id answers false and the file comes home on the next `RequestPendingAsync`.
+`RecordingOptions` decides what goes in the file: `Fixes` (almost always yes — this is what survives an outage), `Motion` (at the full rate asked of `app.Motion`, independent of any `LiveHertz` decimation), and `MaxBytes`, which is a limit, not a target: a device that runs out of space should fail the recording, not the phone. At the cap the device stops writing and seals what it has without uploading it, so a later `StopAsync` for that id answers false and the file comes home on the next `RequestPendingAsync`.
 
-A `RecordingArchive` arrives with the activity id the app gave it (cut to ASCII letters, digits, `-` and `_`, at most 128 characters, so choose ids in that set), the uploading session and user, when the device opened the file, the recorded `Fixes` and `Motion` in device order, and an `Asset` pointing at the raw bytes. Each `RecordedFix` is raw on purpose — no smoothing, no auto-pause, no elevation fill — because the app's own recorder is the processor, and re-running it over a complete set beats a track assembled live from whatever the network delivered. `RecordingRecordKind` distinguishes the two record types inside the encoded file if you ever decode it directly.
+A `RecordingArchive` arrives with the activity id the app gave it (cut to ASCII letters, digits, `-` and `_`, at most 128 characters, so choose ids in that set), the uploading session and user, when the device opened the file, the recorded `Fixes` and `Motion` in device order, and an `Asset` pointing at the raw bytes. Each `RecordedFix` is raw on purpose — no smoothing, no auto-pause, no elevation fill — because the app's own recorder does that processing, and running it over the complete set gives a better track than one assembled live from whatever the network delivered. `RecordingRecordKind` distinguishes the two record types inside the encoded file if you ever decode it directly.
 
 Three rules make this work:
 
-1. **Pair it with the live stream; do not replace it.** The live stream drives the screen; the archive lands at the end and repairs the record. A failed upload or a client too old to record then degrades to the live track rather than to nothing.
-2. **The archive replaces, it does not append.** The live track was gappy by definition. Re-derive from the complete fix list rather than merging, or you keep exactly the holes this exists to remove.
-3. **Ask for pending uploads on every client join.** `RequestPendingAsync(sessionId)` is how a stranded recording gets home. The device keeps each file until the server acknowledges it, so an upload that failed days ago is still waiting.
+1. **Pair it with the live stream; do not replace it.** The live stream drives the screen; the archive arrives at the end and repairs the record. If the upload fails or the client is too old to record, you still have the live track.
+2. **The archive replaces, it does not append.** The live track has gaps. Rebuild the track from the complete fix list instead of merging the two, or the gaps stay.
+3. **Ask for pending uploads on every client join.** `RequestPendingAsync(sessionId)` is how a recording that never uploaded reaches the server. The device keeps each file until the server acknowledges it, so an upload that failed days ago is still waiting.
 
 Archives arrive through the upload transport under the fixed id `RecordingArchiveService.UploadActionId` — fixed rather than generated, because the session that finally uploads may be a different one from any that ever rendered.
 
@@ -136,7 +136,7 @@ app.Uploads.Register("my-app.telemetry",
     });
 ```
 
-- **Namespace the id.** The ids that rendered `view.FileUpload` components generate live in the same table.
+- **Namespace the id.** The ids that rendered `view.FileUpload` components generate are in the same table.
 - Registering the same id again replaces the previous handlers.
 - Returning an `AssetUri` from `onStart` streams the bytes straight into asset storage without ever holding them in the app — which is what a large file needs, since an app container has far less memory than the files people send it. Return a result that is not accepted to refuse the upload.
 - `onError` runs once, after the client has been told, for an upload that does not complete — unless `onStart` itself refused it. A device will generally try again on its next connection.
@@ -145,4 +145,4 @@ app.Uploads.Register("my-app.telemetry",
 
 A tracker uses all four: motion and location stream live to drive the screen, `LiveHertz` keeps that stream cheap while the recording archive keeps every sample on the device, a live activity shows distance and time on the lock screen while the phone is away, and the archive arrives through uploads at the end to repair the record.
 
-Start from the live path and add the archive second. An app that only streams still works — it just loses the tunnel.
+Start from the live path and add the archive second. An app that only streams still works, but it loses whatever it could not send while the network was down.

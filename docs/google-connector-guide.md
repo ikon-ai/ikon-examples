@@ -1,8 +1,8 @@
-<!-- checked-against: aea802fecd3eb64eea266d54 -->
+<!-- checked-against: f1fa2fc11b0a2ec8ea266d54 -->
 
 # Google Connector Guide
 
-This guide covers `Ikon.Connectors.Google` — Google Workspace's Drive, Gmail, Calendar, Docs, Sheets, Slides, Contacts, Tasks, Meet, Chat and Forms, over Google's REST APIs — for app developers wiring a person's Google account into an Ikon app.
+This guide covers `Ikon.Connectors.Google` — Google Workspace's Drive, Gmail, Calendar, Docs, Sheets, Slides, Contacts, Tasks, Meet, Chat and Forms, over Google's REST APIs — for app developers wiring a person's Google account into an IKON app.
 
 ## Google Workspace
 
@@ -552,4 +552,4 @@ Google meters each API per minute, per project and per user, in units that diffe
 
 ### What it does not reach
 
-This package covers Drive — files, sharing, comments, revisions, labels, activity and change notifications — and Gmail — reading, sending, threads, drafts, labels, filters, the vacation reply, signatures and Pub/Sub notifications — and Calendar — calendars, events, invitations, free time, sharing and change feeds — and the content of Docs, Sheets and Slides — and Contacts, Tasks, Meet's spaces and what its conferences leave behind, Chat as the person, Forms, and Workspace Events for Drive, Chat and Meet. It does not reach Calendar's appointment schedules, which have no API; Docs' suggestions; Sheets' formatting, charts and filters, or Slides' layout beyond whole slides, except through `BatchUpdateAsync`; Meet's live media; a Chat app (bot) of your own, which signs in as a service account; Chat's cards and message search; Workspace Events for Gmail and Calendar, which Google does not offer (their own push stands in); Drive approvals; Gmail's IMAP, POP, language, S/MIME and client-side encryption settings; or anything that needs a service account with domain-wide delegation, such as Gmail delegates, adding forwarding addresses, Keep, the Admin SDK or Vault. Everything it does goes through Google's REST APIs with the person's own consent.
+This package covers Drive (files, sharing, comments, revisions, labels, activity and change notifications); Gmail (reading, sending, threads, drafts, labels, filters, the vacation reply, signatures and Pub/Sub notifications); Calendar (calendars, events, invitations, free time, sharing and change feeds); the content of Docs, Sheets and Slides; Contacts; Tasks; Meet's spaces and what its conferences leave behind; Chat as the person; Forms; and Workspace Events for Drive, Chat and Meet. It does not reach Calendar's appointment schedules, which have no API; Docs' suggestions; Sheets' formatting, charts and filters, or Slides' layout beyond whole slides, except through `BatchUpdateAsync`; Meet's live media; a Chat app (bot) of your own, which signs in as a service account; Chat's cards and message search; Workspace Events for Gmail and Calendar, which Google does not offer (their own push stands in); Drive approvals; Gmail's IMAP, POP, language, S/MIME and client-side encryption settings; or anything that needs a service account with domain-wide delegation, such as Gmail delegates, adding forwarding addresses, Keep, the Admin SDK or Vault. Everything it does goes through Google's REST APIs with the person's own consent.

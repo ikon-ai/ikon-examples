@@ -1,4 +1,4 @@
-<!-- checked-against: d2c06815e3b0c442e3b0c442 -->
+<!-- checked-against: 7c177ae6e3b0c442e3b0c442 -->
 
 # Session issues
 
@@ -10,19 +10,18 @@ the current settings.
 
 ## What an issue is
 
-Every warning, error and critical line your app logs is grouped deterministically: values that vary
-between occurrences — ids, timestamps, addresses, quoted literals, numbers — are normalized away,
-stack traces group by their throw site rather than their message, and near-duplicates that differ
+Every warning, error and critical line your app logs is grouped deterministically. Values that vary
+between occurrences (ids, timestamps, addresses, quoted literals, numbers) are normalized away.
+Stack traces are grouped by their throw site rather than their message. Near-duplicates that differ
 in a single varying word (`tenant acme` / `tenant globex`) merge into one issue that lists the
 values it affects. One distinct problem becomes one issue, however many times it occurs.
 
 Each **new** issue is classified once by an AI model into a title, a category (`app-defect`,
 `platform-defect`, `configuration`, `integration`, `capacity`, or `noise`), a severity, who is
-affected, a likely cause, and a suggested action. Known issues are counted without any model call,
-except one still unnamed, which a later run with classification budget to spare offers to the model again
-if the issue recurred in that run's window — one that never recurs stays unnamed.
-An issue the model has not named yet shows its normalized template instead — unnamed, never
-invisible.
+affected, a likely cause, and a suggested action. Known issues are counted without any model call.
+The exception is an issue that is still unnamed: if it recurs in a later run's window and that run
+has classification budget to spare, the run sends it to the model again. An issue that never recurs
+stays unnamed. Until the model names an issue, the issue is listed under its normalized template.
 
 Samples are redacted before they are stored: emails, tokens, credentials and long digit runs never
 leave the analysis.
@@ -33,30 +32,29 @@ leave the analysis.
 open ──► acknowledged ──► resolved        plus muted, plus likely-fixed
 ```
 
-- **open** — the default list. The bare view answers "what is wrong right now".
+- **open** — the default list. Without filters it shows what is wrong right now.
 - **acknowledged** — someone owns it.
 - **resolved** — somebody fixed something. A resolved issue reopens automatically on any new
   occurrence, and the reopen count is itself a signal that a fix did not hold. After 30 days resolved
   an issue is deleted, and a new occurrence opens a fresh issue instead.
-- **muted** — counted but never surfaced again. Your own cost control.
-- **likely-fixed** — an observation the platform made, never a state you set: the issue has been
-  quiet while enough sessions ran to make the silence mean something, ideally on a release it has
-  never been seen in. The evidence is always shown with its numbers — *"Not seen for 9 days.
-  4,180 sessions since, none of them affected"* — so you can apply what you know and either
-  confirm it resolved or reopen it. Left alone long enough, it resolves itself.
+- **muted** — counted but never shown again. Your own cost control.
+- **likely-fixed** — a state the platform sets, never one you set. The issue has not occurred while
+  enough sessions ran for that to mean something, ideally on a release it has never been seen in.
+  The evidence is always shown with its numbers, such as *"Not seen for 9 days. 4,180 sessions
+  since, none of them affected"*, so you can use what you know to either confirm it resolved or
+  reopen it. If you leave it alone long enough, it resolves itself.
 
-An issue quiet in an app that has run no sessions stays open: silence without opportunity is not
-evidence.
+An issue stays open while the app runs no sessions, because the issue has had no chance to occur.
 
 ## Where issues appear
 
-- **CLI** — `ikon issue list` lists what is wrong right now; `--state likely-fixed` is the review
-  queue, `--deployment-version` answers "did my deploy break this". `ikon issue show <id>`
+- **CLI** — `ikon issue list` lists what is wrong right now; `--state likely-fixed` lists the
+  issues waiting for your review, and `--deployment-version` shows whether a deploy broke something. `ikon issue show <id>`
   has the full detail and sample; `ikon issue set <id> --state …` changes the state
   (muted and likely-fixed go only to open or resolved, and resolved goes nowhere — only a new
   occurrence reopens it);
-  `ikon issue merge <id> --into <id>` folds an issue into another that is the same problem.
-  `ikon autopilot history --job analysis` lists the analysis runs behind the issues — an empty issue list means
+  `ikon issue merge <id> --into <id>` merges an issue into another that is the same problem.
+  `ikon autopilot history --job analysis` lists the analysis runs behind the issues. An empty issue list means
   either nothing is wrong or nothing has run yet, and only the run history tells them apart.
 - **Platform events** — a `session_issue_opened` event accompanies every new issue, so you can
   drive your own alerting from `ikon events` or the events API.

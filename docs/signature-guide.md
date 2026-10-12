@@ -1,12 +1,12 @@
-<!-- checked-against: 86cd8d69ea59e6472ae0074e -->
+<!-- checked-against: 137248aa1f231ce52ae0074e -->
 
-# Ikon Signature Guide
+# IKON Signature Guide
 
-Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
+IKON apps can have documents signed with an eID, started from the app server. Your app server starts a signing ceremony, sends the recipient's browser through it, and receives the signed documents back with their hashes verified. You need no signing infrastructure of your own. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
 
-The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings do not carry — add `using Ikon.Common.Core.Signing;` to the file.
+The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings do not include — add `using Ikon.Common.Core.Signing;` to the file.
 
 <!-- ikon-example: signature-order -->
 ```csharp
@@ -47,8 +47,8 @@ All documents in a single signing session must share the same MIME type — a mi
 
 ```text
 ┌──────────────┐  1. POST /signatures/orders (app token)  
-│   Ikon app   │ ────────────────────────────────────────────────►  ┌──────────────────┐
-│    server    │                                                    │  Ikon backend    │
+│   IKON app   │ ────────────────────────────────────────────────►  ┌──────────────────┐
+│    server    │                                                    │  IKON backend    │
 │              │  2. { orderId, signatureUrl, expiresAt }            │  (NestJS)        │
 │              │ ◄────────────────────────────────────────────────  │                  │
 │              │                                                    │                  │
@@ -73,13 +73,13 @@ All documents in a single signing session must share the same MIME type — a mi
 
 ## Endpoint surface
 
-The signature flow is always **server-initiated**: only an Ikon app server holding the app's own platform token (a space token, in the API's words) can create, fetch, or cancel an order. Creating one requires the app's organisation to have the `document_signature` feature, which is off by default. The recipient's browser only ever lands on the public redirect/webhook endpoints.
+The signature flow is always **server-initiated**: only an IKON app server holding the app's own platform token (a space token, in the API's words) can create, fetch, or cancel an order. Creating one requires the app's organisation to have the `document_signature` feature, which is off by default. The recipient's browser only ever lands on the public redirect/webhook endpoints.
 
 | Endpoint | Auth | Caller |
 |---|---|---|
-| `POST /signatures/orders` | app token | Ikon app server |
-| `GET /signatures/orders/:orderId` | app token | Ikon app server |
-| `POST /signatures/orders/:orderId/cancel` | app token | Ikon app server |
+| `POST /signatures/orders` | app token | IKON app server |
+| `GET /signatures/orders/:orderId` | app token | IKON app server |
+| `POST /signatures/orders/:orderId/cancel` | app token | IKON app server |
 | `GET /signatures/redirect-landing` | public | recipient browser (post-ceremony) |
 | `POST /webhooks/<provider>` | HMAC-verified | the signing provider |
 
@@ -115,7 +115,7 @@ The helper polls every 10s for up to 1 hour; on `completed` it returns the `Sign
 
 ## Signed-document verification
 
-The backend ships each signed document as an item reference plus a SHA-256 hash (base64url, no padding). The .NET helper:
+The backend returns each signed document as an item reference plus a SHA-256 hash (base64url, no padding). The .NET helper:
 
 1. Resolves the item id to a signed download URL and downloads the bytes.
 2. Recomputes SHA-256 over the bytes.
@@ -134,7 +134,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and stamps the key, trimmed of surrounding whitespace, as that row's `TenantScope` id — so the cost lands in the same per-tenant bucket as the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further wiring. Nothing else reinterprets the value (a key that is all whitespace meters with no `TenantScope`): pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost simply belongs to the space rather than to anything inside it.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and records the key, trimmed of surrounding whitespace, as that row's `TenantScope` id. The cost is therefore counted per tenant together with the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further setup. Nothing else changes the value, and a key that is all whitespace meters with no `TenantScope`. Pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost belongs to the space rather than to anything inside it.
 
 An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
 
@@ -146,7 +146,7 @@ An abandoned, declined or expired order is never metered. See [Ikon.App Payments
 |---|---|---|
 | `Purpose` | yes | App-declared reason, e.g. `"contract.sign"`. Logged on the order. At most 100 characters (`Title` and `CostAttributionKey` 200, each filename 255); longer is refused with 400. |
 | `Documents` | yes | One or more `SignatureDocument(Filename, MimeType, Bytes)`. Backend caps at 10 documents / 25 MB each, and the whole request body at 100 MB; documents travel base64-encoded, so their combined size can be at most about 75 MB, and a larger order fails with an `HttpRequestException` (413) before validation runs. All documents in one order must share a MIME type — see "Supported document types" above. |
-| `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported in this iteration. |
+| `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony. Defaults to `Signature {Purpose}`. |
 | `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. Must be an allowed redirect target on the platform, or order creation is refused (400); the landing page re-checks it. When unset or no longer allowed, the landing page shows a plain "you may close this window" page instead. |
@@ -196,11 +196,17 @@ The hashes are keyed by a platform secret, so an app can compare two ceremonies 
 
 ## Webhook configuration
 
-Each signing provider calls its own platform-side webhook route when an order transitions, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`. Signicat is offered for new orders only when its webhook secret is configured on the platform; Idura generates a fresh webhook secret for each order.
+Each signing provider calls its own platform-side webhook route when an order changes status, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`. Signicat is offered for new orders only when its webhook secret is configured on the platform; Idura generates a fresh webhook secret for each order.
 
 ## Failure handling
 
-The helper throws on every terminal failure. Refusals before polling starts pass through the catches below: `ArgumentException` for a blank `Purpose` or no `Documents`, `FeatureNotEnabledException` when `document_signature` is off, `UserException` carrying the platform's message when it rejects the order with 400 (mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, an `IdentitySchemes` or `RequestedAttributes` entry outside the platform's vocabulary, or a disallowed `ClientReturnUrl`), `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign it, which includes a MIME type outside the supported ones, and an `InvalidOperationException` starting "Failed to navigate" that the case-sensitive `"failed"` filter does not match.
+The helper throws on every terminal failure. These refusals happen before polling starts, and the catches below do not handle them:
+
+- `ArgumentException` for a blank `Purpose` or no `Documents`.
+- `FeatureNotEnabledException` when `document_signature` is off.
+- `UserException` carrying the platform's message when it rejects the order with 400: mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, an `IdentitySchemes` or `RequestedAttributes` entry outside the platform's vocabulary, or a disallowed `ClientReturnUrl`.
+- `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign the order, which includes a MIME type outside the supported ones.
+- An `InvalidOperationException` starting "Failed to navigate", which the case-sensitive `"failed"` filter does not match.
 
 <!-- ikon-example: signature-failures -->
 ```csharp

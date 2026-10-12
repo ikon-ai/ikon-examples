@@ -1,19 +1,19 @@
-<!-- checked-against: 646110f44717c1746d04459b -->
+<!-- checked-against: 49079168a51566e96bb15d90 -->
 
-# Ikon Pipeline Guide
+# IKON Pipeline Guide
 
 ## Overview
 
-The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
+The IKON Pipeline is a reactive, asynchronous, parallel data processing framework. You define the structure of a processing graph once, and when the pipeline runs again, a caching system decides which steps need to run.
 
 Key capabilities:
 
 - **Reactive scheduling**: The pipeline run specifies the structure of the processing graph. When executed, the caching system determines what needs to be re-processed based on what has changed since the last run (a processor's id or version, the values an expression-based call captures, or input changes; an edit to a processor's body alone is not detected until its version is bumped).
 - **Fully asynchronous**: Every aspect of the pipeline operates asynchronously, from pipeline definition to runtime execution.
-- **Parallel processing**: Processors run in parallel where dependencies allow, fully utilizing the processing power of the host machine.
+- **Parallel processing**: Processors run in parallel where dependencies allow.
 - **Step-level caching**: Every processing step except a stream-to-stream `TransformStream` is cached with automatic invalidation based on processor identity, version, configuration, and input state; a `*Lambda` step's key carries no captured configuration, so a changed captured value replays the old output unless the step passes `skipCache: true`. This avoids unnecessary re-processing and significantly speeds up subsequent runs.
 - **Flexible execution**: Pipelines can be invoked directly from code or executed with the `ikon` CLI tool.
-- **Distributed execution**: Support for remote host/client modes enables distributing processor execution across multiple machines.
+- **Distributed execution**: Remote host and client modes distribute processor execution across multiple machines.
 
 ## Defining and Running a Simple Pipeline
 
@@ -118,7 +118,7 @@ var pipelineRunnerConfig = new PipelineRunner.Config
     ProcessFailureThreshold = 2,
     DisableMetadataOutput = true
     // Additional options available, such as cache paths and default retry configuration
-    // EnableRemoteHost and EnableRemoteClient make Initialize(Config) throw PipelineException: they run through PipelineRunner.RunRemote
+    // EnableRemoteHost and EnableRemoteClient make Initialize(Config) throw UserException: they run through PipelineRunner.RunRemote
 };
 
 await pipelineRunner.Initialize(pipelineRunnerConfig);
@@ -159,12 +159,16 @@ and outputs are not waited on. What succeeded is not lost with it:
 `PipelineException.FailedItems` lists the items a processor gave up on (the first 1000; the failure
 count stays exact), each a `PipelineItemFailure` carrying the item, the processor and its last error (input-read and output-write failures are counted, not listed). A pipeline that fails structurally — a malformed
 graph, a pipeline class or config that cannot be constructed — publishes a faulted status and then
-rethrows the original exception: `PipelineException` for the runner's own checks (no public
-constructor, a missing config file, no `Run` method, no terminal step, a branch that reaches no
-`Output()` or `ForEach()`, and under `KeepRunning` a `TransformGroup` or a `TransformBatch` without
-`maxBatchSize`), but a pipeline constructor
+rethrows the original exception: `PipelineException` for the runner's own checks (a missing config
+file, no terminal step, a branch that reaches no `Output()` or `ForEach()`, and under `KeepRunning` a
+`TransformGroup` or a `TransformBatch` without `maxBatchSize`), `UserException` for a pipeline class
+the runner cannot use as written (no public constructor, a constructor parameter that is not
+`IPipelineHost<TConfig>`, a config given to a class without that constructor or alongside a pipeline
+instance, no `Run` method or one that does not return `Task`), but a pipeline constructor
 that throws surfaces as `TargetInvocationException` and a config file that does not parse as
-`JsonException`.
+`JsonException`. Using the runner in a way it never supports — a second runner in the same async
+flow, running a runner twice, a negative `maxParallelism`, a step id containing `__` — also throws
+`UserException`.
 
 ### Cancellation Support
 
@@ -325,8 +329,8 @@ it as a `.meta.json` sidecar; an item without metadata gets none.
 items without binding to the concrete struct.
 
 Because `Item` is a struct, `FirstOrDefault` on a sequence of items yields a default `Item` that a
-null check cannot detect. `ItemExtensions.FirstOrNull` — with or without a predicate — returns a
-genuine `Item?` instead, and is what to reach for:
+null check cannot detect. Use `ItemExtensions.FirstOrNull`, with or without a predicate, which
+returns an `Item?` instead:
 
 <!-- ikon-example: pipeline-first-or-null -->
 ```csharp
@@ -368,7 +372,7 @@ using (var localFile = new LocalFile(MimeTypes.TextPlain))
 
 ## Advanced Pipeline Composition
 
-Pipelines can accept strongly typed configuration through dependency injection of `IPipelineHost<TConfig>` and provide rich branching primitives for filtering, batching, streaming, grouping, and observation.
+Pipelines can accept strongly typed configuration through dependency injection of `IPipelineHost<TConfig>` and provide branching primitives for filtering, batching, streaming, grouping, and observation.
 
 <!-- ikon-example: pipeline-advanced -->
 ```csharp
@@ -509,7 +513,7 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
 
 ### Running the Advanced Pipeline
 
-Supply a configuration instance, enable persistent caching, and provide rich input collections including tagged items and binary payloads.
+Supply a configuration instance, enable persistent caching, and provide input collections including tagged items and binary payloads.
 
 <!-- ikon-example: pipeline-run-advanced -->
 ```csharp
@@ -553,11 +557,11 @@ A pipeline that takes an `IPipelineHost<TConfig>` constructor parameter exposes 
 alongside `host.Config`:
 
 - `host.Secrets` — secrets (API keys, tokens, passwords) for the app the pipeline runs in. Manage values
-  with `ikon secret set/list/delete`. They are fetched only when the tool is logged in with an
+  with `ikon secret set/list/delete`. They are fetched only when the tool is signed in with an
   app; otherwise `host.Secrets` and `host.SpaceId` are empty, while `host.OrganisationId` is still
-  the logged-in token's organisation (empty only when not logged in). Only
-  `Initialize<TPipeline>` logs in; `Initialize(PipelineRunner.Config)` does not, so a pipeline
-  started that way gets empty secrets unless the caller logged in first.
+  the signed-in token's organisation (empty only when not signed in). Only
+  `Initialize<TPipeline>` signs in; `Initialize(PipelineRunner.Config)` does not, so a pipeline
+  started that way gets empty secrets unless the caller signed in first.
 - `host.OrganisationId` — id of the current organisation.
 - `host.SpaceId` — id of the app the pipeline runs in. The platform's own word for a cloud app is a space, and the API keeps it.
 
@@ -613,7 +617,7 @@ value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline` to execute a pipeline outside your application code. Inside an Ikon AI app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name; a short name finds only a public, non-nested class, so name an `internal` or nested one by its fully qualified type name.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an IKON app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name; a short name finds only a public, non-nested class, so name an `internal` or nested one by its fully qualified type name.
 
 ## Reading PDFs
 
@@ -631,7 +635,7 @@ one of your app's own — put it on the `[App]` class, or on an empty marker cla
 `name:` overrides the name in the endpoint URL, and `executionMode:` and `schedule:` override what
 the original `[Pipeline]` declared (the same five-minute minimum interval applies).
 
-### From an Ikon AI app project
+### From an IKON app project
 
 Run from the app project root:
 
@@ -648,7 +652,7 @@ ikon pipeline MyPipeline --target production
 
 `ikon pipeline` reads `Target.SpaceId` from `ikon-config.toml` unless `--app-id` is given (failing if it is empty, or if neither a pipeline name nor `--type-name` is given), exchanges it for the app's token, then builds the app, locates the output assembly and resolves the pipeline type. Passing `--dll-path` skips the app build and runs that DLL instead.
 
-Pipeline runs executed on the Ikon cloud are billed for the CPU time and network traffic their container uses, on the same meters as app sessions.
+Pipeline runs executed on the IKON cloud are billed for the CPU time and network traffic their container uses, on the same meters as app sessions.
 
 ### Common Options
 
@@ -658,7 +662,7 @@ Pipeline runs executed on the Ikon cloud are billed for the CPU time and network
 | `--dll-path` | Load the pipeline from an external assembly. Without it `ikon pipeline` builds the app in the current directory (unless `--no-build`) and runs its DLL. |
 | `--input` | One or more input files, directories (supports wildcards), or asset URIs. Separate multiple paths with commas. |
 | `--recursive` | Recursively enumerate input directories and wildcards. |
-| `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. A missing file, or a pipeline with no `IPipelineHost<TConfig>` constructor, fails the run with `PipelineException`; it never falls back to the defaults. |
+| `--config` | Path to a JSON configuration file whose contents are provided to the pipeline host configuration model. A missing file fails the run with `PipelineException`, and a pipeline with no `IPipelineHost<TConfig>` constructor with `UserException`; it never falls back to the defaults. |
 | `--output` | One or more output destinations (files, directories, or asset URIs) where generated items should be written. Separate multiple paths with commas. |
 
 ### Example Usage
@@ -675,7 +679,7 @@ Additional parameters cover cache directories, retry configuration, remote execu
 
 ## Remote Host and Client Modes
 
-The pipeline runner can operate in remote host and client modes to distribute processor execution across multiple machines. This enables scaling processor workloads horizontally using a message bus (RabbitMQ) for communication.
+The pipeline runner can operate in remote host and client modes to distribute processor execution across multiple machines. The processes communicate over a message bus (RabbitMQ).
 
 ### Prerequisites
 

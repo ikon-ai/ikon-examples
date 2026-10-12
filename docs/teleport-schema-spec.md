@@ -1,4 +1,4 @@
-<!-- checked-against: 0353fdcca223b623c55b39c2 -->
+<!-- checked-against: 30577e6a4bd17e3ac55b39c2 -->
 
 # Teleport message schema specification
 
@@ -7,7 +7,7 @@
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
 It is the schema used to generate code, not a runtime schema or reflection system.
 Every Teleport file represents a message definition that compiles into strongly typed, deterministic code for multiple languages - C#, TypeScript, C++, etc.
-Teleport schema aligns 1:1 with the Teleport binary format, ensuring that field ordering, identity, and layout produce identical bytes across languages and builds.
+Teleport schema maps 1:1 onto the Teleport binary format, so field ordering, identity, and layout produce identical bytes across languages and builds.
 
 ---
 
@@ -129,13 +129,13 @@ Every class also carries the `internal` scope-level pair the nested case uses �
 
 `ToTeleportBytes`/`FromTeleportBytes` wrap a standalone root object — no opcode, no `ProtocolMessage` attribute, no serializer registration, no version consts (nested object scopes inline the schema version), and no reset path: reads always populate a fresh instance. Field ids are the same xxHash32-of-name computation the wire generator uses, so the binary form of a config is an ordinary Teleport object.
 
-Because the TOML writer and the binary codecs hang off the same object, a `toml = true` schema whose type has a TOML reader gives a lossless TOML ↔ binary conversion path (the generator emits no `FromToml`; `AppProjectConfig` has a hand-written one): `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
+Because the TOML writer and the binary codecs are on the same object, a `toml = true` schema whose type has a TOML reader gives a lossless TOML ↔ binary conversion path (the generator emits no `FromToml`; `AppProjectConfig` has a hand-written one): `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
 
-Restrictions: external type references (`Foo:type`) are rejected in data schemas at generation time — their codecs and versions live in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
+Restrictions: external type references (`Foo:type`) are rejected in data schemas at generation time — their codecs and versions are defined in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
 
 ### Unreliable Transport Default
 
-A root message may declare `unreliable = true` at the top level to mark every wire message of that type as unreliable by default. The Ikon core server routes such messages through unreliable transports (UDP datagram channel or WebRTC SCTP data channel) when the recipient has one, falling back to the reliable channel otherwise. This removes the need for every call site to remember to set the flag manually when constructing the message.
+A root message may declare `unreliable = true` at the top level to mark every wire message of that type as unreliable by default. The IKON core server routes such messages through unreliable transports (UDP datagram channel or WebRTC SCTP data channel) when the recipient has one, falling back to the reliable channel otherwise. Call sites then do not need to set the flag when they construct the message.
 
 ```toml
 type = "AudioShapeFrame"
@@ -150,7 +150,7 @@ Caller-supplied flags OR-merge with this default — adding `SendBackToSender` a
 
 ### Sparse Payloads (`sparse = true`)
 
-A root message may declare `sparse = true` to have every generated **writer** skip a field that holds the zero value rather than emit an empty one. Framing a field costs a 4-byte id, a type byte and (for variable types) a length before any content, so a message that is mostly empty for a given caller pays for a great deal of nothing. It is worth turning on where the payload is size-sensitive — something carried in a URL, or sent per connection.
+A root message may declare `sparse = true` to have every generated **writer** skip a field that holds the zero value rather than emit an empty one. Framing a field costs a 4-byte id, a type byte and (for variable types) a length before any content, so a message whose fields are mostly empty for a given caller spends most of its bytes on framing. It is worth turning on where the payload is size-sensitive — something carried in a URL, or sent per connection.
 
 ```toml
 type = "ConnectToken"
@@ -159,9 +159,9 @@ opcode = "NONE"
 sparse = true
 ```
 
-Readers need no change and none was made: every generated reader starts from a defaulted instance and applies only the fields present, so an absent field simply keeps its starting value. This is what makes the key safe to turn on unilaterally — a sparse writer's output is decoded correctly by readers built before the flag existed, and a dense payload keeps decoding afterwards.
+Readers need no change: every generated reader starts from a defaulted instance and applies only the fields present, so an absent field keeps its starting value. That is why the key is safe to turn on without updating readers: readers built before the flag existed decode a sparse writer's output correctly, and dense payloads still decode afterwards.
 
-**Fields whose declared default is not the zero value are always written**, whatever they hold. This is not an optimization gap, it is the correctness boundary: the C++ reader value-initializes its struct and the Rust reader derives `Default`, so neither materializes a declared default. Omitting a `bool = true` would read back as `false` there — a silent wrong value rather than a decode failure. `Ikon.Teleport.CodeGen\TeleportSparse.cs` holds the rule, and it is deliberately conservative in the same direction: anything it cannot prove omittable is written, because being wrong that way costs bytes while being wrong the other way corrupts a value.
+**Fields whose declared default is not the zero value are always written**, whatever they hold, because omitting them would give a wrong value: the C++ reader value-initializes its struct and the Rust reader derives `Default`, so neither fills in a declared default. An omitted `bool = true` would read back as `false` there, with no decode error. The rule is in `Ikon.Teleport.CodeGen\TeleportSparse.cs`, and it errs in the same direction on purpose: a field it cannot prove safe to omit is written, because a wrong guess that way costs only bytes, while a wrong guess the other way corrupts a value.
 
 Optional fields are unaffected — they already write nothing when null. The key is only valid when `type` is present, and it is opt-in per type, so no existing message changes shape until its schema asks for it.
 
@@ -241,8 +241,8 @@ fieldId = xxHash32(fieldName.UTF8, seed = 0)
 This ensures reversible mapping between `.tp` and the binary form - identical to Teleport binary specification section 2.
 
 Because identity is the name hash, the order fields appear in `[fields]` does not affect the wire
-layout, and reordering is free to group a schema for readability. It is not free for the generated
-**APIs**: the C# positional constructor takes its parameters in schema order, and the C++ struct is
+layout, so you can reorder fields to group a schema for readability. The generated **APIs** do
+depend on the order: the C# positional constructor takes its parameters in schema order, and the C++ struct is
 a plain aggregate, so a reorder silently changes what a positional call means. Dart, TypeScript and
 Rust construct by name and are unaffected. Before reordering, confirm nothing constructs the type
 positionally.
@@ -252,8 +252,8 @@ positionally.
 ### Removed Fields: the `[obsolete]` Ledger
 
 `[obsolete]` is the ledger of fields that no longer exist. When a field is removed, its line moves
-from `[fields]` to `[obsolete]`, declared as it was — a default suffix is accepted and ignored. One
-rule, both wire and data schemas:
+from `[fields]` to `[obsolete]`, declared as it was; a default suffix is accepted and ignored. The
+same rule applies to wire and data schemas:
 
 ```toml
 [fields]
@@ -303,18 +303,19 @@ next.GetOrCreateRetiredFields().Nickname = captured?.Nickname;
 
 Every bag member is nullable — absent means the source carried no value. `GetRetiredFields` is a
 method rather than a property so TOML mapping and JSON serialization never treat the bag as data.
-That invisibility cuts both ways: a clone made by any route other than Teleport — a JSON round trip,
-a hand-written copy — silently arrives with an empty bag and stops emitting the retired fields, which
-is what `CopyRetiredFieldsFrom` is for. It replaces the whole bag (clearing it when the source has none), so populate after copying. Call it on the clone whenever an origin writer's outbound
-value is a copy rather than the instance it populated.
+As a result, a clone made any other way than through Teleport (a JSON round trip, a hand-written
+copy) has an empty bag, with no error, and stops emitting the retired fields. `CopyRetiredFieldsFrom`
+copies the bag across. It replaces the whole bag (clearing it when the source has none), so populate
+after copying. Call it on the clone whenever the value a writer sends is a copy rather than the
+instance whose bag was filled.
 Data schemas additionally get `public static RetiredFields ReadRetired(Func<string, object?>
 valueLookup)`, a dependency-free typed extractor a TOML loader uses to fill the bag from the raw
 parsed table (raw shapes are coerced; null or a wrong shape leaves the entry absent). Wire messages
 are pooled, so `ResetTeleportState` clears the bag between reads.
 
 The ledger is round-trippable. `WriteToTeleport` emits every populated bag member under its retired
-id — the same hash the field had when it was live, so readers that still resolve the old name see
-bytes identical to before the removal — and an absent bag (the normal case) emits nothing. This is
+id, which is the hash the field had when it was live, so readers that still resolve the old name see
+the same bytes as before the removal. An absent bag (the normal case) emits nothing. This is
 how a C# writer keeps sending a removed field during its sunset window
 (`message.GetOrCreateRetiredFields().OldField = value;`), and it means captured retired values
 survive a capture-modify-write cycle: what a read put in the bag goes back out on the next write.
@@ -337,7 +338,7 @@ emits nothing.
 Naming is per-language: TypeScript rejects a field literally named `retiredFields`; C++ nests the
 type as `RetiredFields` and names the member `Retired` (a member cannot share its nested type's
 name); Dart and Rust prefix with the message name because neither nests. The JSON mirror of wire
-messages does not carry retired keys in any target — the bag rides the binary side only, which is
+messages does not carry retired keys in any target. The bag exists only in the binary form, which is
 why the Rust member is `#[serde(skip)]`.
 
 ## 6. Nested Messages
@@ -429,7 +430,7 @@ remove = "ObsoleteFlag"
 
 These are intended to compile into version-aware deserializers that automatically migrate older Teleport data streams.
 
-> Status: `[[transforms]]` is reserved by the schema parser but the current code generators do not yet emit migration logic from it. Plan migrations manually in user code until this lands.
+> Status: `[[transforms]]` is reserved by the schema parser but the current code generators do not yet emit migration logic from it. Write migrations by hand in user code for now.
 
 ---
 
@@ -445,7 +446,7 @@ Channels.max   = 8
 
 Used for static validation during compilation or generated code, never serialized.
 
-> Status: `[constraints]` is reserved by the schema parser but the current code generators do not yet emit validation logic from it. Enforce bounds in user code until this lands.
+> Status: `[constraints]` is reserved by the schema parser but the current code generators do not yet emit validation logic from it. Enforce bounds in user code for now.
 
 ---
 
@@ -506,7 +507,7 @@ ikon teleport generate --input ./messages/a.tp --input ./messages/b.tp --type cs
 ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generated
 ```
 
-The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For Ikon AI apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
+The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For IKON apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
 
 ### Language Targets
 
@@ -618,11 +619,12 @@ The type must be `partial`: the generator writes the codec half of it, and a typ
 partial fails the build with TPSG001 rather than failing at its first serialization.
 
 `TeleportAttribute` serializes every instance property that has both a getter and a setter (`init`
-counts). A get-only property is skipped **silently** — a property meant to be on the wire simply
-will not be. A settable property of a type the generator cannot carry fails the build with TPSG002
-(support the type or mark it `[TeleportIgnore]`), and only properties declared on the type itself are
-collected, so a base class's properties are silently left off the wire. A field is matched on read by the hash of its property name, so a rename is a quiet
-wire break in both directions unless `TeleportFieldAttribute` pins the id, either to another name
+counts). A get-only property is skipped **silently**, so a property meant to be on the wire is left
+off with no error. A settable property of a type the generator cannot carry fails the build with
+TPSG002 (support the type or mark it `[TeleportIgnore]`). Only properties declared on the type itself
+are collected, so a base class's properties are silently left off the wire. A field is matched on
+read by the hash of its property name, so renaming a property breaks the wire format in both
+directions, without an error, unless `TeleportFieldAttribute` pins the id, either to another name
 (`[TeleportField("PanelName")]`) or to a literal id (`[TeleportField(0x1a2b3c4du)]`).
 `TeleportIgnoreAttribute` drops a property from the wire explicitly; on read it keeps whatever the
 constructor or initializer gave it. `TeleportAsStringAttribute` goes on an immutable value type with

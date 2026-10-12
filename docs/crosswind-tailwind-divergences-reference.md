@@ -1,4 +1,4 @@
-<!-- checked-against: 30433e20e3b0c442e3b0c442 -->
+<!-- checked-against: d552eccee3b0c442e3b0c442 -->
 
 # Crosswind ↔ Tailwind v4: deliberate divergences
 
@@ -64,7 +64,7 @@ standalone. Composition still works — stops utilities override the defaults.
 Crosswind's `container` centers and pads (the v3 ergonomic form); Tailwind v4
 emits width-only breakpoints and expects `mx-auto px-*` alongside. A dev
 following v4 docs and adding those classes gets the same result (the
-additions are idempotent), so the divergence rarely bites and the one-class
+additions are idempotent), so the divergence rarely causes problems and the one-class
 form is what app authors want.
 
 **8. `h-screen`, `min-h-screen`, `max-h-screen` → `100vh` plus a `100dvh` override** — 3

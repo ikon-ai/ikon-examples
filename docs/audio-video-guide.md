@@ -1,8 +1,8 @@
-<!-- checked-against: f8b5a2d6bc0e68e47ac8d498 -->
+<!-- checked-against: 49b268785d6af282c19c72b3 -->
 
-# Ikon Audio & Video Guide
+# IKON Audio & Video Guide
 
-How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, mixes group calls and shows live video. Read this if your app makes sound, listens, or handles video.
+How an IKON app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, mixes group calls and shows live video. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
 
@@ -16,11 +16,11 @@ private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
 ```
 
-Hold one `Audio` and one `Video` per app. Each `Audio` is its own mix with its own slots, so two of them reach a client as two streams that never replace or duck each other, and each decodes every incoming microphone stream again. Several are safe — they share track ids, a `CaptureButton`'s start and stop handlers run once however many there are, and every `Video` sees the same inputs — but a second one buys nothing. Construct them in field initializers: `Audio` subscribes to the app's incoming media when it is constructed, so one made later misses every microphone stream that began before it. Playback needs no start-up step: the service mixes and paces each client's audio from construction on.
+Hold one `Audio` and one `Video` per app. Each `Audio` is its own mix with its own slots, so two of them reach a client as two streams that never replace or duck each other, and each decodes every incoming microphone stream again. Several are safe (they share track ids, a `CaptureButton`'s start and stop handlers run once however many there are, and every `Video` sees the same inputs), but a second one adds nothing. Construct them in field initializers: `Audio` subscribes to the app's incoming media when it is constructed, so one made later misses every microphone stream that began before it. Playback needs no start-up step: the service mixes and paces each client's audio from construction on.
 
 Both are `IAsyncDisposable`. Disposing one stops its playbacks and ends its streams on the clients. App stop does the same for every `Video`, and for every `Audio` stops the mixing without sending the clients stream ends, so an app that holds one for its whole life never disposes it.
 
-The app scaffold's `GlobalUsings.cs` imports the Ikon namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using Ikon.Common.Core.Protocol;`.
+The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using Ikon.Common.Core.Protocol;`.
 
 ## Playing audio
 
@@ -131,13 +131,13 @@ With `Everyone` they act for every client, later joiners included: `Stop` ends t
 
 Capture starts client-side. In the UI, `view.PushToTalkButton()` (hold to talk), `view.MicToggleButton()` (tap to open/close), or a `CaptureButton` starts a microphone stream; the server can also start one programmatically with `ClientFunctions.StartAudioCaptureAsync()`. Captured media always routes to the app on the server — other clients never receive the raw capture; the app decides any fan-out.
 
-Pick one of the two mic buttons per microphone — offering both hold and toggle for the same mic is the ambiguity users report as "is it on?".
+Pick one of the two mic buttons per microphone. Offering both hold and toggle for the same mic leaves users unsure whether it is on.
 
 ### The microphone permission is a separate press
 
 Until the browser has granted a microphone, a capture button renders itself as an **"Enable mic"** pill, and pressing it *only* asks for the permission — it never also starts a capture. Do not build a permission flow of your own around it.
 
-The separation is what makes push-to-talk work at all. A permission dialog takes focus, and the page sees that as the button being released: a hold that doubles as the ask is cancelled behind the dialog, so the user grants access and finds that nothing was captured, on a button that now looks idle. After the grant the button flashes a green **ready** ring for two seconds, so "is it on now?" is answered before it is asked, and the next press is unambiguously a talk press.
+The separation is what makes push-to-talk work at all. A permission dialog takes focus, and the page sees that as the button being released: a hold that doubles as the ask is cancelled behind the dialog, so the user grants access and finds that nothing was captured, on a button that now looks idle. After the grant the button flashes a green **ready** ring for two seconds, so the user sees that the mic is ready, and the next press is clearly a talk press.
 
 A refusal (or a machine with no microphone) switches the button to a **"Mic blocked"** state that stays pressable: a press asks again, which succeeds once the site settings allow it, and fires `onPermissionChanged`. The event fires only when a press asks: a microphone already blocked or missing when the page loads shows the state silently, and the handler first runs on the first press:
 
@@ -153,7 +153,7 @@ view.PushToTalkButton(
 
 Handle it — offer typing instead, or point at the browser's site settings. And never gate a mic button behind `disabled:` for permission reasons: a disabled button cannot ask, so the user has no way out of the state. `disabled:` means "the app is busy".
 
-Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so the feedback lands in the frame of the press rather than a server round trip later — `pressed` fires before the microphone has even finished opening. `Theming.MicButton.Default` renders all of them; a custom style array replaces it, so include `MicButton.States` (or lead with `"default"`) to keep them. Mirroring capture state into a `ClientReactive<bool>` from `onCaptureStart` is the wrong way round and is visibly late.
+Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so the feedback appears in the same frame as the press instead of a server round trip later — `pressed` fires before the microphone has even finished opening. `Theming.MicButton.Default` renders all of them; a custom style array replaces it, so include `MicButton.States` (or lead with `"default"`) to keep them. Mirroring capture state into a `ClientReactive<bool>` from `onCaptureStart` is the wrong way round and is visibly late.
 
 Flutter frontends run the same state machine against the OS permission dialog, so a mic button means the same thing in a browser and on a phone.
 
@@ -176,11 +176,11 @@ Audio.AudioInputFrameAsync += async args =>
 Audio.AudioInputStreamEndAsync += async args => { /* cleanup */ };
 ```
 
-The event args carry `args.ClientSessionId` / `args.UserId` / `args.ClientContext` directly — never plumb client identity through a button's `onCaptureStart` into the frame handlers.
+The event args carry `args.ClientSessionId` / `args.UserId` / `args.ClientContext` directly — never pass client identity through a button's `onCaptureStart` into the frame handlers.
 
 ## Speech recognition
 
-One call during app setup wires capture → transcription → routing:
+One call during app setup connects capture, transcription and routing:
 
 <!-- ikon-example: av-speech-recognition -->
 ```csharp
@@ -246,7 +246,7 @@ Notable parameters: `speculative` (default true) starts transcription at the pro
 This turn detector hears the audio and nothing else. Some recognizers judge the turn themselves,
 from the words as well as the pause, and say so on `TranscriptEvent.IsEndOfTurn` when you drive
 `RecognizeContinuousSpeechAsync` directly — `SpeechRecognizer.GetCapabilities(model).TurnDetection`
-says which, and the Ikon.AI library overview covers the knobs. The two are separate mechanisms: this
+says which, and the Ikon.AI library overview covers the settings. The two are separate mechanisms: this
 one segments a stream for you, that one reports what the provider concluded.
 
 ## AudioChunk: construction rules
@@ -270,7 +270,7 @@ Audio.Play(MediaTargets.Everyone, chunk.Samples, chunk.SampleRate, chunk.Channel
 
 Two traps:
 
-- There is no public parameterless constructor, so `new AudioChunk { ... }` does not compile. `Audio.Play` and `LiveAudioPlayback.WriteAsync` take only mono or stereo and throw `ArgumentOutOfRangeException` for any other channel count — `Play` synchronously, `WriteAsync` when its task is awaited (`PlayLive` itself accepts the count) — downmix wider audio first — inside whatever handler called them, so an unguarded call takes the handler down.
+- There is no public parameterless constructor, so `new AudioChunk { ... }` does not compile. `Audio.Play` and `LiveAudioPlayback.WriteAsync` take only mono or stereo and throw `ArgumentOutOfRangeException` for any other channel count (`Play` synchronously, `WriteAsync` when its task is awaited; `PlayLive` itself accepts the count). The exception is thrown inside whatever handler called them, so an unguarded call takes the handler down. Downmix wider audio first.
 - The `Id` names one utterance: a streaming generator gives every chunk of an utterance the same id, bracketed by `isFirst`/`isLast`. Playing the chunks of one utterance means writing them, in order, into one `Audio.PlayLive` playback; a new utterance is a new playback, whose default `Replace` crossfades the previous one in its slot.
 
 ## Group audio: calls and huddles
@@ -324,7 +324,7 @@ _ = Task.Run(async () =>
 });
 ```
 
-Rules that bite:
+Rules that are easy to get wrong:
 
 - **Every stream has an owning participant** (`AddStream(streamId, participantId)`), and that participant never hears that stream back — that is how echo of your own voice is excluded.
 - **`WriteSamples` for an unregistered stream id is silently dropped** (with a throttled warning). Call `AddStream` from `AudioInputStreamBeginAsync` before any frame is written; forget it and that participant is inaudible with no error.
@@ -464,7 +464,7 @@ live.Complete();   // plays out what is queued, then ends Finished
 await live.Completion;
 ```
 
-The platform paces the frames by their timestamps, relative to the first; a frame more than half a second late, or a timestamp going back, restarts the timeline from now, so a replay that pauses simply stops writing. `WriteAsync` copies the frame and waits while more than `maxBufferAhead` (default 500 ms) is queued ahead of playout, so the write loop needs no delay of its own. With nobody watching, frames are paced and dropped, so an idle encoder never builds a backlog. It returns `false` once the playback has ended or `Complete()` was called. Disposing a `LiveVideoPlayback` stops it.
+The platform paces the frames by their timestamps, relative to the first; a frame more than half a second late, or a timestamp going back, restarts the timeline from now, so a replay that pauses only has to stop writing. `WriteAsync` copies the frame and waits while more than `maxBufferAhead` (default 500 ms) is queued ahead of playout, so the write loop needs no delay of its own. With nobody watching, frames are paced and dropped, so an idle encoder never builds a backlog. It returns `false` once the playback has ended or `Complete()` was called. Disposing a `LiveVideoPlayback` stops it.
 
 `KeyFrameRequestedAsync` fires — at most twice a second, off the app's message loop — when a viewer needs a keyframe: it joined, lost frames, or the playback just took its surface. `ViewerSessionId` is 0 when the platform asks on a viewer's behalf. Make the encoder's next frame a keyframe where it can; where it cannot (an ffmpeg process reading a file), keep its keyframe interval short so a viewer never waits long.
 

@@ -1,14 +1,14 @@
-<!-- checked-against: 1e6b01b1ed9b29869c53615f -->
+<!-- checked-against: 7fdc7159068d7bad9c53615f -->
 
 # Procountor Connector Guide
 
-This guide covers `Ikon.Connectors.Procountor` — reading customers, suppliers, sales and purchase invoices and their payments from Procountor (Finago) — for app developers wiring a company's accounting figures into an Ikon app.
+This guide covers `Ikon.Connectors.Procountor` — reading customers, suppliers, sales and purchase invoices and their payments from Procountor (Finago) — for app developers wiring a company's accounting figures into an IKON app.
 
 ## Procountor
 
 `Procountor` reads the business partner register, sales and purchase invoices and the payments recorded against them. It writes nothing. The types are in namespace `Ikon.Connectors`, not the package's name — `using Ikon.Connectors.Procountor;` names the `Procountor` class and fails with CS0138.
 
-Procountor issues credentials in two halves. The **client id, client secret and redirect URI** identify your integration and come from Procountor when you request API access. The **API key** is created in Procountor by a user of the company whose figures you read — *Basics → API client keys → New API key*, entering your client id — and binds the connector to that user's rights in that one company; a company administrator can create it for a technical user that may use the API and not the application. Keep all four in `app.Secrets`. The connector exchanges the key for an access token and renews it five minutes before the lifetime Procountor gives it expires.
+Procountor issues credentials in two halves. The **client id, client secret and redirect URI** identify your integration and come from Procountor when you request API access. The **API key** is created in Procountor by a user of the company whose figures you read — *Basics → API client keys → New API key*, entering your client id. The key gives the connector that user's rights in that one company. A company administrator can create it for a technical user that may use the API but not the application. Keep all four in `app.Secrets`. The connector exchanges the key for an access token and renews it five minutes before the lifetime Procountor gives it expires.
 
 <!-- ikon-example: connectors-procountor -->
 ```csharp
@@ -27,7 +27,7 @@ var payments = await procountor.ListPaymentEventsAsync(invoices[0].Id);
 
 The constructor reads production (`Procountor.ProductionBaseUrl`) unless given another `baseUrl`; `Procountor.TestBaseUrl` is Procountor's public testing server, which has its own credentials and its own data. An empty credential, or a base URL that is not `https`, throws `ArgumentException` at construction.
 
-A failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"procountor"`; a network failure passes through as `HttpRequestException`. `IsReconnectRequired` (`StatusCode` `401`/`403`) means the API key or the integration's credentials were refused — a revoked key, which Procountor answers with `400`, is reported as `401` too — or the user it belongs to lacks the rights: have a person of the company issue a new key rather than retry. `Reason` carries Procountor's own explanation, such as `INVALID_API_KEY`. `IsTransient` (`408`, `429`, `5xx`) marks a call that may succeed later. A `2xx` response the connector cannot read is one with no `StatusCode`.
+A failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"procountor"`; a network failure passes through as `HttpRequestException`. `IsReconnectRequired` (`StatusCode` `401`/`403`) means the API key or the integration's credentials were refused, or the user the key belongs to lacks the rights. A revoked key, which Procountor answers with `400`, is reported as `401` too. Have a person at the company issue a new key instead of retrying. `Reason` carries Procountor's own explanation, such as `INVALID_API_KEY`. `IsTransient` (`408`, `429`, `5xx`) marks a call that may succeed later. A `ConnectorException` with no `StatusCode` means a `2xx` response the connector could not read.
 
 ### Customers and suppliers
 
@@ -41,11 +41,11 @@ A failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"p
 - **`Total` is in the company's accounting currency**, also for an invoice issued in another currency, so totals add up. It is null where Procountor reported no such sum.
 - **There is no open amount.** A listing carries `Status` and nothing about how much has been paid. `ListPaymentEventsAsync(invoiceId)` returns the payments recorded against one invoice as `ProcountorPaymentEvent` records; what is still owed is the total less the events you count as paid, and which of them count is an accounting decision the connector does not make.
 
-Listings page by descending id, 200 rows a page, and a row created while a listing runs is never returned twice or made to hide another. The bound is `maxPages` (default 50, so 10,000 rows; 10 for `ListPaymentEventsAsync`; zero or less throws `ArgumentOutOfRangeException`): reaching it with a full last page throws `ConnectorPageCapException<T>` with the rows read as `Items` and the lowest id among them as `ResumeFrom` — parse it and pass it as `previousId` to read on.
+Listings page by descending id, 200 rows a page, and a row created while a listing runs is never returned twice or made to hide another. `maxPages` caps the number of pages read (default 50, so 10,000 rows; 10 for `ListPaymentEventsAsync`; zero or less throws `ArgumentOutOfRangeException`). Reaching the cap with a full last page throws `ConnectorPageCapException<T>`, with the rows read as `Items` and the lowest id among them as `ResumeFrom`. To read on, parse `ResumeFrom` and pass it as `previousId`.
 
 ### Rate limits
 
-Procountor documents its request limits (60 a second in production, 90 a minute on the testing server) and no throttling response. The connector waits and retries on a `429` if one comes, up to three times after the `Retry-After` it names, and retries its token request the same way; a `Retry-After` beyond two minutes surfaces at once as a `429`.
+Procountor documents its request limits (60 a second in production, 90 a minute on the testing server) and no throttling response. The connector waits and retries on a `429` if one comes, up to three times after the `Retry-After` it names, and retries its token request the same way; a `Retry-After` beyond two minutes fails at once with a `429`.
 
 ### What it does not reach
 

@@ -11,10 +11,10 @@ Several of the apps in this series were built this way. The workflow lets one pe
 Everything starts with one command:
 
 ```bash
-cd platform-dotnet && CI=true ikon new Ikon.App.MyProject
+cd platform-dotnet && CI=true ikon new Ikon.App.MyProject --minimal
 ```
 
-This creates a complete project: a C# application file, a frontend shell, configuration, and a solution file. The new app compiles and runs right away. It shows an almost empty page, and the full Ikon runtime is available to it. You can use reactive state, server-driven UI, AI orchestration, audio, video and multiplayer from the first line of code you write.
+This creates a complete project: a C# application file, a frontend shell, configuration, and a solution file. The new app compiles and runs right away. It shows an almost empty page, and the full IKON runtime is available to it. You can use reactive state, server-driven UI, AI orchestration, audio, video and multiplayer from the first line of code you write.
 
 The result is a directory structure like this:
 
@@ -65,13 +65,13 @@ cd platform-dotnet/Ikon.App.MyProject && ikon run
 
 This starts the .NET server and the Vite frontend dev server together. The app is accessible at `http://localhost:5000`. Both processes watch for file changes.
 
-Terminal two is Claude Code. You open it in the project directory and start describing what you want to build. Claude reads the app file, understands the Ikon APIs, and writes code directly into the source files. When it saves a change, the running server detects the modification and hot-reloads.
+Terminal two is Claude Code. You open it in the project directory and start describing what you want to build. Claude reads the app file, understands the IKON APIs, and writes code directly into the source files. When it saves a change, the running server detects the modification and hot-reloads.
 
 All `Reactive<T>` state survives the reload. If you had a list of items on screen and Claude adds a search filter, the items are still there after the reload. The app does not reset to a blank state every time the code changes. So you keep working on the same running app instead of starting over after each change.
 
 ## What hot reload preserves
 
-Ikon has four kinds of reactive state, and all of them survive hot reload:
+IKON has four kinds of reactive state, and all of them survive hot reload:
 
 - `Reactive<T>` -- shared across all connected clients
 - `ClientReactive<T>` -- scoped to a single browser session
@@ -110,13 +110,13 @@ The traditional version of this workflow involves an IDE, a terminal for the dev
 
 With Claude Code and `ikon run`, most of those steps go away. Claude writes directly to the files and the server reloads automatically. You stay in the terminal and look at the browser when you want to see the result. Claude edits the code, the platform reloads the app, and you decide what to build next.
 
-Ikon apps are also server-driven, and the UI is declared in the same C# file as the logic. You have no separate frontend to change, no API endpoints to connect and no client-side state to keep in sync. One change to the app file can change the interface, the logic, the AI orchestration and the data model, and one reload shows all of it.
+IKON apps are also server-driven, and the UI is declared in the same C# file as the logic. You have no separate frontend to change, no API endpoints to connect and no client-side state to keep in sync. One change to the app file can change the interface, the logic, the AI orchestration and the data model, and one reload shows all of it.
 
 ## What Claude Code brings to the loop
 
 Claude Code reads the existing code, works out the current state of the app and changes only what the request needs. When you say "add a dark mode toggle," it does not generate a new app. It reads the current theme, adds a `ClientReactive<bool>` for the preference (per-client, so each viewer gets their own setting), adds a toggle button, and modifies the theme instantiation to respect the preference.
 
-It also reads the Ikon platform documentation when it needs to understand an API, for example how to call an AI model with structured output, how to add speech recognition or how to use the Emergence patterns for multi-agent orchestration. Because the documentation is available as context, Claude can use APIs correctly on the first try instead of guessing and retrying.
+It also reads the IKON platform documentation when it needs to understand an API, for example how to call an AI model with structured output, how to add speech recognition or how to use the Emergence patterns for multi-agent orchestration. Because the documentation is available as context, Claude can use APIs correctly on the first try instead of guessing and retrying.
 
 When something goes wrong, such as a compilation error or a runtime exception, the error appears in the terminal where `ikon run` is running. Claude can read the server logs, find the cause and fix it.
 
@@ -129,7 +129,7 @@ ikon link    # connect to your cloud environment
 ikon deploy    # bundle and deploy
 ```
 
-The deployed app runs as a persistent process on Ikon's infrastructure. It handles multiplayer automatically. It scales. In production the normal server lifecycle replaces the state handling that hot reload uses, but the reactive state model is identical. What worked on localhost works in production.
+The deployed app runs as a persistent process on IKON's infrastructure. It handles multiplayer automatically. In production the normal server lifecycle replaces the state handling that hot reload uses, but the reactive state model is identical. What worked on localhost works in production.
 
 You do not rewrite the app properly afterwards. The code Claude wrote, including the reactive state and the AI calls, is the production code, because you develop and deploy on the same platform.
 

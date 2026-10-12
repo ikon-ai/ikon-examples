@@ -1,10 +1,10 @@
-<!-- checked-against: fd8ad941fb71dfe6073ba358 -->
+<!-- checked-against: 3a8a8845d91c95eb073ba358 -->
 
 # Asset System Developer Guide
 
 ## Overview
 
-The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.
+The IKON asset system stores and reads files, JSON documents and other binary or text data through one API, so application code does not depend on a specific storage backend. Each `Asset` instance sends every read, write, delete and list request to the storage driver for the asset class in the `AssetUri`, and passes on change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous throughout, takes cancellation tokens where appropriate, and returns metadata on every transfer for optimistic concurrency and lifecycle management.
 
 ## Asset URIs
 
@@ -33,9 +33,15 @@ Key rules:
 | `CloudFilePublic` | `cloud-file-public` | Same backing service as `CloudFile` but exposes public URLs for assets meant to be shared openly. |
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
 
-Each storage reports what metadata it has through `AssetMetadata` — MIME type, byte size, update timestamp and tags on the cloud classes, plus a download URL on `CloudFile`/`CloudFilePublic` and the backend-specific identifier on `CloudJson` only, just size, update timestamp and path on `LocalFile`, and just size and resource name on `EmbeddedFile` (a `ListAsync` entry carries only the resource name, so its `Size` is null) — so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
+Each storage reports the metadata it has through `AssetMetadata`:
 
-Public cloud files can additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. It is present when the app's asset storage is served through the platform's own origin, which is the default, and absent when an app keeps its assets in storage the platform does not front — so treat it as optional and fall back to the absolute URL: `metadata.SameOriginUrl ?? metadata.Url`. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already does this for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
+- The cloud classes: MIME type, byte size, update timestamp and tags, plus a download URL on `CloudFile`/`CloudFilePublic` and the backend-specific identifier on `CloudJson` only.
+- `LocalFile`: size, update timestamp and path only.
+- `EmbeddedFile`: size and resource name only (a `ListAsync` entry carries only the resource name, so its `Size` is null).
+
+A storage with its own native address scheme may also report it in `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files). A consumer that recognises the scheme can use it to read the object without a copy; others should ignore it.
+
+Public cloud files can additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. It is present when the app's asset storage is served through the platform's own origin, which is the default, and absent when an app keeps its assets in storage the platform does not serve, so treat it as optional and fall back to the absolute URL: `metadata.SameOriginUrl ?? metadata.Url`. Prefer it whenever the URL goes to a browser. Because it is same-origin, it needs no CORS and works on networks that allow only the origin the visitor is already on. `view.Image` already does this for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
 
 ## Asset metadata helpers
 
@@ -45,7 +51,7 @@ Most read and write operations accept or return an `AssetMetadata` instance. Pop
 
 ### `WriteAsync`
 
-`WriteAsync` is the safe way to stream into an asset. It hands your callback a writable stream and commits only when the callback returns: a callback that throws or is cancelled leaves the asset exactly as it was, and the exception propagates. A failure or cancellation during the commit itself, after the store has sent the request that stores the write, may have stored it anyway, and the exception does not say which, so a retried conditional write can see its own first attempt as a conflict. A conditional write (`AssetMetadata.LastModified`) that another writer beat throws `AssetUpdateConflictException`. On a store your app registered itself with `AddStorageAsync`, which cannot abandon a write, the bytes are staged in a temp file and copied in after the callback returns, so there the guarantee holds only until that copy starts.
+`WriteAsync` is the safe way to stream into an asset. It hands your callback a writable stream and commits only when the callback returns: a callback that throws or is cancelled leaves the asset exactly as it was, and the exception propagates. A failure or cancellation during the commit itself, after the store has sent the request that stores the write, may still have stored it. The exception does not say which, so a retried conditional write can see its own first attempt as a conflict. A conditional write (`AssetMetadata.LastModified`) that another writer beat throws `AssetUpdateConflictException`. On a store your app registered itself with `AddStorageAsync`, which cannot abandon a write, the bytes are staged in a temp file and copied in after the callback returns, so there the guarantee holds only until that copy starts.
 
 <!-- ikon-example: asset-guide-write-async -->
 ```csharp
@@ -92,7 +98,7 @@ await assets.SetTextAsync(
     new AssetMetadata(lastModified: cachedMetadata?.LastModified));
 ```
 
-`TrySetTextAsync` mirrors the behavior but returns an `AssetWriteResult` so you can branch without exceptions:
+`TrySetTextAsync` works the same way but returns an `AssetWriteResult` so you can branch without exceptions:
 
 <!-- ikon-example: asset-guide-try-set-text -->
 ```csharp
@@ -105,7 +111,7 @@ if (write.IsConflict)
 
 ### `SetBytesAsync` / `TrySetBytesAsync`
 
-`SetBytesAsync` uploads byte arrays that are already materialized in memory. `TrySetBytesAsync` exposes the same optimistic concurrency semantics as the text helper.
+`SetBytesAsync` uploads byte arrays that are already in memory. `TrySetBytesAsync` exposes the same optimistic concurrency semantics as the text helper.
 
 <!-- ikon-example: asset-guide-set-bytes -->
 ```csharp
@@ -163,7 +169,7 @@ var script = await assets.GetTextAsync(new AssetUri(AssetClass.EmbeddedFile, "Sc
 
 ### Structured objects
 
-`GetWithMetadataAsync<T>` deserializes JSON payloads into the requested type (with fast paths for `string` and `byte[]`) and surfaces metadata. `GetAsync<T>` and `TryGetAsync<T>` return just the content. For any other `T`, an asset that exists but holds empty or whitespace content throws `InvalidDataException` — `TryGetAsync<T>` included, which returns `null` only when the asset does not exist.
+`GetWithMetadataAsync<T>` deserializes JSON payloads into the requested type (with fast paths for `string` and `byte[]`) and returns the metadata with it. `GetAsync<T>` and `TryGetAsync<T>` return just the content. For any other `T`, an asset that exists but holds empty or whitespace content throws `InvalidDataException` — `TryGetAsync<T>` included, which returns `null` only when the asset does not exist.
 
 <!-- ikon-example: asset-guide-get-typed -->
 ```csharp
@@ -173,7 +179,7 @@ var layout = await assets.GetAsync<DashboardLayout>(
 
 ### Change subscriptions
 
-`GetOrUpdateWithMetadataAsync` wires a callback to an asset. The callback is invoked immediately with the current content and again whenever the underlying storage reports an add, change, or delete event. Only `LocalFile` reports changes (`EmbeddedFile` reports each resource as added at start); the cloud classes report none, so for them the callback fires again only when code in the same process calls `Asset.NotifyUpdateAsync`, and a write from another instance is never seen. Provide `onAssetNotFound` to seed defaults before subscribing; without it, or when it does not create the asset, the call throws `FileNotFoundException`. The returned `IAsyncDisposable` unsubscribes the callback when disposed.
+`GetOrUpdateWithMetadataAsync` attaches a callback to an asset. The callback is invoked immediately with the current content and again whenever the underlying storage reports an add, change, or delete event. Only `LocalFile` reports changes (`EmbeddedFile` reports each resource as added at start); the cloud classes report none, so for them the callback fires again only when code in the same process calls `Asset.NotifyUpdateAsync`, and a write from another instance is never seen. Provide `onAssetNotFound` to seed defaults before subscribing; without it, or when it does not create the asset, the call throws `FileNotFoundException`. The returned `IAsyncDisposable` unsubscribes the callback when disposed.
 
 <!-- ikon-example: asset-guide-subscribe -->
 ```csharp

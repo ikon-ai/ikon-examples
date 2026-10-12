@@ -1,4 +1,4 @@
-<!-- checked-against: f5ddae3828cc97181e03f5af -->
+<!-- checked-against: bfa5693c28cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -71,7 +71,7 @@ motion-[ <step>( , <step> )* ]
 ```
 
 * **Step:** `<time> : <step-utilities>`
-* **Time:** either **percent** (`0..100` as integer or decimal without `%`) **or** **duration** (`<number>ms|s`).
+* **Time:** either **percent** (`0..100` as integer or decimal without `%`) **or** **duration** (`<number>ms|s`). A step without a time is dropped; the build flags it as IKON022.
   **Rule:** all steps in one block MUST use the same time basis (percent **or** duration).
 * **Step utilities:** one or more **utility tokens**, separated by spaces.
   A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a registered utility with arbitrary value `name-[value]` (e.g., `translate-y-[8px]`). A name that is not a registered Crosswind utility, including the arbitrary-property form `[prop:value]`, is dropped from the step with an "Unknown utility" warning.
@@ -133,9 +133,9 @@ All may be prefixed by variants and/or a track.
 
 The per-item stagger is emitted as one `nth-child` rule per position (`nth-last-child` for the
 `-reverse` variants) for 256 positions. Items past that, counted from whichever end the stagger runs
-from, carry the index-0 delay and animate in unison rather than continuing the stagger. Nothing at
-compile time can see the item count, so a longer run gets no warning — split it, or stagger a
-wrapper instead. The web renderer's Text, Heading and Button split their own text and set each
+from, carry the index-0 delay and animate in unison rather than continuing the stagger. The compiler
+cannot see the item count, so a longer run gets no warning. Split the run, or stagger a wrapper
+instead. The web renderer's Text, Heading and Button split their own text and set each
 letter, word, line and paragraph index inline, counted across the whole text (backwards for a
 `-reverse` variant), so text they split has no such cap; text over 16,384 characters is left
 unsplit and gets no per-item stagger at all. They count backwards only for an
@@ -223,7 +223,7 @@ Binds a **virtual timeline progress** (0–100) to an input source.
   All `<a..d>` are 0–100 numbers (syntax).
 
 > **Relation to CSS scroll-driven animation primitives.**
-> Crosswind now emits CSS Animations Level 2 longhands (`animation-timeline`, `animation-range`,
+> Crosswind emits CSS Animations Level 2 longhands (`animation-timeline`, `animation-range`,
 > `animation-composition`, `animation-play-state`) when the matching utilities are present.
 > Use `scroll-timeline-[...]` on scrolling containers to declare timelines and pair them with
 > `motion-timeline-*` track assignments. Existing `motion-bind-*` directives remain available for
@@ -311,7 +311,7 @@ sfx:source-[<uri>] <variant>:sfx:play
 
 ### 2.6 Presets & Track Aliases
 
-> **No built-in presets.** tailwindcss-motion's `motion-preset-*` classes (`motion-preset-fade`, `motion-preset-slide-up`, …) are not supported: Crosswind drops them with a warning naming the class. Write the keyframes instead — a fade is `motion-[0:opacity-0,100:opacity-100]` with a `motion-duration-*` — or use a theme constant that wraps one.
+> **No built-in presets.** tailwindcss-motion's `motion-preset-*` classes (`motion-preset-fade`, `motion-preset-slide-up`, …) are not supported: Crosswind drops them with a warning naming the class, and the build flags them as IKON022. Write the keyframes instead — a fade is `motion-[0:opacity-0,100:opacity-100]` with a `motion-duration-*` — or use a theme constant that wraps one.
 
 * **Preset expansion**
 

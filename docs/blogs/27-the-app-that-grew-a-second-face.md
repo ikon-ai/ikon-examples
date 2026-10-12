@@ -12,7 +12,7 @@ None of it. The quiz game gets a second frontend, in Flutter, without a single c
 
 ## The server does not know which client renders the UI
 
-Ikon Parallax apps describe their UI in C# on the server. A button is described by its label, its style and its onClick handler. The server does not know whether that button becomes a `<button>` in HTML or a `TextButton` in Flutter. It builds a tree of components, compares it with the last version, and sends the changes to every connected client.
+IKON Parallax apps describe their UI in C# on the server. A button is described by its label, its style and its onClick handler. The server does not know whether that button becomes a `<button>` in HTML or a `TextButton` in Flutter. It builds a tree of components, compares it with the last version, and sends the changes to every connected client.
 
 ```csharp
 view.Button(
@@ -27,7 +27,7 @@ The developer does not have to handle any of this. They write `px-4`, and both p
 
 ## A folder and a pubspec
 
-Adding Flutter to an existing app means creating a `frontend-flutter/` directory next to the existing `frontend-node/`. It contains a `pubspec.yaml` that depends on the Ikon SDK and a `main.dart` that connects to the server and mounts a single widget.
+Adding Flutter to an existing app means creating a `frontend-flutter/` directory next to the existing `frontend-node/`. It contains a `pubspec.yaml` that depends on the IKON SDK and a `main.dart` that connects to the server and mounts a single widget.
 
 That widget, `IkonParallaxView`, subscribes to the server's UI stream, resolves styles against a built-in Tailwind color palette, and maps each component to its Flutter equivalent. A row becomes a `Row`, a column becomes a `Column`, and a scroll area becomes a `SingleChildScrollView`. Every component has a fixed Flutter counterpart, so the mapping needs no per-app code.
 

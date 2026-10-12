@@ -1,13 +1,13 @@
-<!-- checked-against: 6a42675467415e93e3b0c442 -->
+<!-- checked-against: cd9bf77367415e93e3b0c442 -->
 
-# Firewall requirements for Ikon AI apps
+# Firewall requirements for IKON apps
 
-For the network administrator opening access to an Ikon AI app. It lists everything that must be
+For the network administrator opening access to an IKON app. It lists everything that must be
 allowed, and nothing else is required. Nothing here needs a developer.
 
-## How an Ikon app connects
+## How an IKON app connects
 
-An Ikon app runs on our servers, not in the browser. A user's session therefore has three parts:
+An IKON app runs on our servers, not in the browser. A user's session therefore has three parts:
 
 1. The browser loads the app frontend from the app's own domain.
 2. It opens a streaming connection to the server running the app, which stays open for the whole

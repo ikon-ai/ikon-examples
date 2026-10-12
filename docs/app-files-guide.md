@@ -1,16 +1,16 @@
-<!-- checked-against: 9c3b5fea6c72e9f48135340b -->
+<!-- checked-against: 14f98759e81451038135340b -->
 
 # App Files Guide
 
-How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
+How an IKON app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
 
 ## The model
 
-One law and two folders cover everything:
+One rule and two folders cover everything:
 
-- **Git holds text; the Ikon Asset store holds bytes.** Any binary file in your repo is stored in
+- **Git holds text; the IKON Asset store holds bytes.** Any binary file in your repo is stored in
   the Asset store automatically — git tracks a small `.ikonasset` pointer instead, and the tooling
   restores real files wherever they are needed. You never manage this.
 - **`public/`** (at the app root) — files your app *shows*. Served by the frontend at their path:
@@ -49,8 +49,8 @@ throws `ArgumentException`.
 
 ## Binaries in git — nothing to run
 
-Binary files never weigh a repo down: the tooling offloads them to the Asset store and back at
-every natural boundary.
+Binary files never make a repo large: the tooling moves them to the Asset store and back when you
+run these commands.
 
 | You run | What happens to binaries |
 |---|---|
@@ -74,7 +74,7 @@ in the tree says which one it was. Zip an app folder with Finder's **Compress** 
 where every presence check passes and the first native call fails inside the bundler.
 
 `ikon run` detects this and reinstalls: the platform stamps the tree with the machine that
-installed it and compares that stamp on the way up. The repair is a deletion, not an install: npm treats
+installed it and compares that stamp at startup. It deletes the tree before installing, because npm treats
 a populated tree's optional dependencies as already resolved and never fetches the missing binary
 ([npm/cli#4828](https://github.com/npm/cli/issues/4828)).
 
@@ -92,18 +92,18 @@ leaves everything referenced the same way (`/hero.png` URLs don't change).
 shipped data files. It is read-only in the cloud — anything written at runtime goes through
 `app.Files`.
 
-**Never locate bundled files through `AppContext.BaseDirectory`.** In cloud the app bundle is loaded into a host process, and `AppContext.BaseDirectory` is the host's folder, so a path built from it finds nothing — it works locally, fails deployed. Read through `app.Files.Data`, `app.DataDirectory` or an embedded resource. Code with no app instance at hand (a static cache, a `Lazy<T>`) resolves the app's own folder the way the platform does: `Path.GetDirectoryName(typeof(MyApp).Assembly.Location)`, falling back to `AppContext.BaseDirectory` only when `Location` is empty (a hot-reloaded assembly).
+**Never locate bundled files through `AppContext.BaseDirectory`.** In cloud the app bundle is loaded into a host process, and `AppContext.BaseDirectory` is the host's folder, so a path built from it finds nothing: it works locally and fails when deployed. Read through `app.Files.Data`, `app.DataDirectory` or an embedded resource. Code with no app instance at hand (a static cache, a `Lazy<T>`) resolves the app's own folder the way the platform does: `Path.GetDirectoryName(typeof(MyApp).Assembly.Location)`, falling back to `AppContext.BaseDirectory` only when `Location` is empty (a hot-reloaded assembly).
 
 ## Uploads from users
 
 The `view.FileUpload` component streams a user's file wherever you point it — return a `FileUploadResult`
-with an `AssetUri` from `onUploadStart` to land it in asset storage (see the
+with an `AssetUri` from `onUploadStart` to store it in asset storage (see the
 [asset system guide](asset-system-guide.md)), then serve or process it from there. For
 files that should become part of the app's own tree, write them through `app.Files`.
 
 ## Under the hood
 
-`app.Files` and the `.ikonasset` scheme are built on the Ikon asset system — `Asset.Instance`,
+`app.Files` and the `.ikonasset` scheme are built on the IKON asset system — `Asset.Instance`,
 `AssetUri`, and the storage classes. The
 [Asset System Developer Guide](asset-system-guide.md) documents that layer for advanced
 use (optimistic concurrency, metadata, streams, custom storage paths).
@@ -111,17 +111,17 @@ use (optimistic concurrency, metadata, streams, custom storage paths).
 The pointer scheme itself is `AssetLinkManager`, which the tooling drives over a repository:
 `NormalizeAsync` converts raw binaries to pointers (upload the bytes, write the `.ikonasset`,
 git-ignore the real path) and `MaterializeAsync` puts the real files back, hash-checked and
-idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when some
-blob is simply gone. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
+idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when a
+blob is missing from the store. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
 platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private
 ones readable only by the app, everything content-addressed by SHA-256 plus file extension and keyed
 by space, so identical bytes of the same extension and class upload once per space and a pointer's
 URI is immutable.
 
-Reclaiming space is a two-step, plan-then-execute reachability GC. `PlanGcAsync(repoDir, scope)`
+Space is reclaimed by a reachability GC in two steps: plan, then execute. `PlanGcAsync(repoDir, scope)`
 returns an `AssetGcPlan` — the `RepoDir`, `Scope` and `WindowDays` it was made with, how many URIs
 were `EverReferenced`, how many are `Kept`, and the `Orphans` (each an `AssetGcOrphan` holding one
-URI) — without touching the store. `AssetGcScope` is the safety dial: `History` keeps everything any
+URI) — without touching the store. `AssetGcScope` sets how much is kept: `History` keeps everything any
 reachable commit references and so deletes nothing, `Window` keeps the working tree, the tip of every
 branch, tag and stash, plus a recent day window, and `Current` keeps only what the working tree and
 those tips reference, reclaiming every other historical version. `ExecuteGcAsync(plan)` then re-runs

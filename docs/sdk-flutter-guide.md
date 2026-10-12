@@ -1,63 +1,61 @@
-<!-- checked-against: 69e2f5f2ffabbd7ee3b0c442 -->
+<!-- checked-against: 3bedb9adae2ed9f2e3b0c442 -->
 
 # Flutter SDK Guide
 
 ## Overview
 
-The Ikon Flutter SDK enables Flutter apps to render Parallax UI from a C# server — the same server that drives web frontends. One codebase, two renderers. The app developer writes zero platform-specific code.
+The IKON Flutter SDK lets Flutter apps render Parallax UI from a C# server, the same server that drives web frontends. The app has one codebase and two renderers, and the app developer writes no platform-specific code.
 
 ## Why native Flutter rather than a WebView wrapper
 
-Wrapping the web frontend in a WebView would have been the cheaper-looking mobile story, and it
-was rejected deliberately:
+Wrapping the web frontend in a WebView looked like the cheaper way to reach mobile, and it was
+rejected for these reasons:
 
-- **The capabilities people expect from an app are compromised inside a WebView.** Background
-  audio, microphone capture, and camera access — all core Ikon features (server-streamed audio,
-  live capture) — are restricted, permission-fragmented, or outright broken across WebView
-  implementations, and behave differently per Android vendor and OS version. The platform's
-  later WebRTC work narrowed parts of this gap, but it postdates the decision and leaves the
-  background-audio and permission stories untouched.
-- **Whole use cases need the device itself.** Local camera pipelines, motion and environment
-  sensors, and whatever the next hardware capability is — apps that treat the phone as a sensor
-  package are first-class targets, and a WebView offers at best a lagging, permission-gated
-  subset of that surface. Going native keeps every device capability reachable the day a use
-  case needs it.
+- **The capabilities people expect from an app are limited inside a WebView.** Background audio,
+  microphone capture and camera access are all core IKON features (server-streamed audio, live
+  capture). Across WebView implementations they are restricted, split across separate
+  permissions, or broken, and they behave differently per Android vendor and OS version. The
+  platform's later WebRTC work closed part of this gap, but it came after the decision and does
+  not help with background audio or permissions.
+- **Some kinds of app need the device itself.** Apps that use the phone as a set of sensors (local
+  camera pipelines, motion and environment sensors, and future hardware capabilities) are fully
+  supported targets. A WebView offers at best a subset of those APIs, behind permissions and later
+  than native. A native app can use any device capability as soon as a use case needs it.
 - **App-store submission risk.** A repackaged website runs into minimum-functionality review
   (Apple guideline 4.2); a Flutter build is a real native app with native navigation, scroll
   physics, text input, and accessibility.
-- **WebView fragmentation cannot be fixed from the server.** These docs already record the kind
-  of failure an older engine brings (2022 smart televisions on Chromium 85 ignoring theme-colour
-  opacity modifiers — see the Crosswind/Tailwind divergences doc). A server-driven UI cannot control which WebView engine a
-  device ships.
-- **The architecture makes native cheap — and that is the point.** Parallax sends a component
-  tree, not HTML, so the second renderer maps the same tree to native widgets. The usual reason
-  to wrap a WebView — native being expensive — does not apply here. Platforms whose output is a
-  web app have no native path at all; real native performance and real native support for
-  background tasks, audio, microphone, sensors, and payments is a capability this architecture
-  uniquely affords, and a deliberate advantage.
+- **WebView fragmentation cannot be fixed from the server.** These docs already record one failure
+  an older engine causes: 2022 smart televisions on Chromium 85 ignore theme-colour opacity
+  modifiers (see the Crosswind/Tailwind divergences doc). A server-driven UI cannot control which
+  WebView engine a device ships.
+- **The architecture makes native cheap.** Parallax sends a component tree, not HTML, so the
+  second renderer maps the same tree to native widgets. The usual reason to wrap a WebView, that
+  native is expensive, does not apply here. Platforms whose output is a web app have no native
+  path at all. Native performance and native support for background tasks, audio, microphone,
+  sensors and payments are an advantage this architecture has over them, and a deliberate one.
 
 ### The middle option: a Capacitor-style hybrid shell
 
-A third rung sits between the two — a Capacitor/Cordova-style shell, WebView UI plus a native
-plugin bridge. It fixes *reachability* of device APIs, and it is not the primary mobile path
+A third option sits between the two: a Capacitor/Cordova-style shell, which is a WebView UI plus a
+native plugin bridge. It lets the app reach device APIs, but it is not the primary mobile path,
 for three reasons:
 
-- **The bridge only moves the boundary.** What a maintained plugin covers is easy — one-shot
-  camera capture, geolocation, share sheets, basic sensors. Anything deeper means writing the
-  per-OS native code yourself anyway, now split across a JS bridge: background audio behaviour,
+- **The bridge does not remove the native code.** What a maintained plugin covers is easy: one-shot
+  camera capture, geolocation, share sheets, basic sensors. Anything deeper still means writing
+  the per-OS native code yourself, now split across a JS bridge: background audio behaviour,
   streaming sensor data, live camera pipelines, Apple Wallet / PassKit beyond adding a simple
   pass, HealthKit, and whatever the next OS capability is.
-- **The UI still lives in the WebView**, so every fragmentation quirk and permission oddity of
-  the plain wrap remains. First-hand experience with WebView shells was that a large share of
-  the time went to testing, polishing, and working around strange engine bugs rather than
-  building the product.
-- **It buys back a cost this platform doesn't pay.** The hybrid pitch is avoiding a native UI
-  rewrite — but Parallax has no UI rewrite to avoid, since the server drives the UI either way.
-  The middle rung's main saving was worth nothing here while its WebView costs remained whole.
+- **The UI still runs in the WebView**, so every engine difference and permission problem of a
+  plain WebView wrap remains. In the team's experience with WebView shells, a large share of the
+  time went to testing, polishing and working around engine bugs instead of building the product.
+- **It saves a cost this platform does not have.** The main argument for a hybrid shell is that
+  it avoids rewriting the UI natively. Parallax has no UI to rewrite, because the server drives
+  the UI on both renderers. So the shell's main saving is worth nothing here, while all its
+  WebView costs remain.
 
-A wrapped-WebView frontend option may still be offered alongside `frontend-flutter` for less
-demanding apps that just need a quick store presence — the hybrid rung is a convenience tier,
-not the native story.
+A wrapped-WebView frontend may still be offered alongside `frontend-flutter`, for simpler apps
+that only need a quick presence in the app stores. It is a convenience option, not the native
+frontend.
 
 ## Architecture
 
@@ -126,7 +124,7 @@ Ikon.App.MyApp/
 
 ```yaml
 name: my_app_flutter
-description: Flutter frontend for My Ikon App
+description: Flutter frontend for My IKON App
 
 environment:
   sdk: ^3.3.0
@@ -159,7 +157,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'My Ikon App',
+      title: 'My IKON app',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true).copyWith(
         scaffoldBackgroundColor: const Color(0xFF0F172A),
@@ -319,7 +317,7 @@ dart-defines (a non-empty `IKON_SPACE_ID` is what makes the app treat itself as 
 
 ### Local Development
 
-`IkonClient.connectLocal()` handles everything — no config needed:
+`IkonClient.connectLocal()` needs no configuration:
 
 <!-- ikon-example: flutter-sdk-auth-local -->
 ```dart
@@ -341,14 +339,14 @@ final client = await IkonClient.connectGuest(
 
 `IkonNativeSignIn` answers the server's `ClientFunctions.LoginAsync`, `LoginShowAsync` and
 `LogoutAsync` calls on a phone, where a browser would leave for the provider and come back. OAuth
-providers open in a web view that returns to the app's own https origin — the auth service returns a
-token to no other kind of address, so a custom-scheme deep link never receives one — and email signs
-in with the code the auth service mails. The token is kept in secure storage, so the next launch
-connects straight in as that user; a token the server no longer accepts is dropped for a guest
-connect. `sso:` connections and passkeys are not offered on a phone yet.
+providers open in a web view that returns to the app's own https origin. The auth service returns a
+token to no other kind of address, so a custom-scheme deep link never receives one. Email sign-in
+uses the code the auth service mails. The token is kept in secure storage, so the next launch
+connects straight in as that user. If the server no longer accepts the token, it is dropped and the
+app connects as a guest. `sso:` connections and passkeys are not offered on a phone yet.
 
 `ikon bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
-`RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template wires it; the essentials are:
+`RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template already does this; the essential parts are:
 
 <!-- ikon-example: flutter-sdk-native-sign-in -->
 ```dart
@@ -402,12 +400,20 @@ client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 Every connect above starts the app's server when none is running, and the app's organisation pays
 for it while it runs. A client that should only join a session someone else opened — a companion
 device, a monitor — passes `joinOnly: true` to `IkonClient.connectWithToken`, `IkonClient.connectGuest`
-or the `IkonAuthenticator.authenticate*` call behind them. Nothing is started: when no session is
-live the connect throws `NoLiveSessionException`, whose `retryAfter` is how long the backend asks the
-client to wait before trying again, and a client whose session ends goes offline with that exception
-in `IkonClient.lastError` instead of reconnecting into a new server. Pass `userType: UserType.machine`
+or the `IkonAuthenticator.authenticate*` call behind them. Such a connect never starts a server.
+When no session is live, the connect throws `NoLiveSessionException`, whose `retryAfter` is how long
+the backend asks the client to wait before trying again. A client whose session ends goes offline
+with that exception in `IkonClient.lastError` instead of reconnecting into a new server. Pass `userType: UserType.machine`
 with it so the connection does not count as a person in the session and the session still ends when
 its people leave.
+
+### When the server is starting or has been replaced
+
+While the app's server is starting, a connect retries for about 15 seconds. When the server refuses
+the connect token because it was issued for a server that has since been replaced, or because it has
+expired, the connect stops retrying and asks `/init` for a new token once. If that one is refused
+too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
+connect again later.
 
 ## Custom Components
 
@@ -508,7 +514,7 @@ await webRtcMedia.start();
 await webRtcMedia.startCameraCapture();
 ```
 
-`IkonMediaManager` aggregates audio capture, playback, and WebRTC media (and routes
+`IkonMediaManager` combines audio capture, playback, and WebRTC media (and routes
 share/clipboard actions through `IkonShare`) and can be passed to
 `IkonParallaxView(mediaManager: ...)`.
 
@@ -542,7 +548,7 @@ The Flutter SDK renders 160+ registered component types including:
 
 ## CI/CD
 
-Flutter is wired into CI via `platform-dart/builder.py`, which provides `build`
+CI builds Flutter through `platform-dart/builder.py`, which provides `build`
 (`flutter pub get`), `analyze` (the SDK and the examples this guide quotes, in
 `platform-dart/ikon_sdk_doc_examples/`), `api_surface`, `test`, and `full_build` targets. The Dart protocol
 files under `platform-dart/ikon_sdk/lib/protocol/generated/` are regenerated by the

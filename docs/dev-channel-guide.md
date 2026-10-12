@@ -1,17 +1,17 @@
-<!-- checked-against: 02ebfd6d9d0cbed8e3b0c442 -->
+<!-- checked-against: a8c442249d0cbed8e3b0c442 -->
 
-# Ikon Dev Channel Guide
+# IKON Dev Channel Guide
 
 Get a platform library or ikon tool fix without waiting for a release.
 
-Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed
+IKON's libraries ship as one release train. Between releases, a fix that has already landed and passed
 CI is unreachable to an app that builds against published packages. The **dev channel** publishes those
 same libraries continuously so you can pick a fix up the day it merges — at the cost of running code
 that has not been through a release.
 
 > **The trade you are making.** Dev packages are unreleased, unsupported, carry no release notes, and
 > are **deleted a week after publication**. An app pinned to a deleted version cannot restore and cannot
-> be rebuilt. This is a channel for unblocking work in progress, not a place to leave an app parked.
+> be rebuilt. Use the channel to unblock work in progress, not as an app's long-term setting.
 
 ## Switching an app to the dev channel
 
@@ -21,9 +21,9 @@ ikon update              # stay on your current channel, take what is newest on 
 ikon update stable     # return to released packages
 ```
 
-The channel is not stored anywhere — it is read back from what your project is pinned to. A plain
-`ikon update` therefore keeps a dev app on dev and a stable app on stable, and the two can never
-disagree about which channel you are really on.
+The channel is not stored anywhere: the tool reads it from the versions your project is pinned to. A
+plain `ikon update` therefore keeps a dev app on dev and a stable app on stable, and no separate
+setting can disagree with your pins.
 
 `stable` **lowers** your pinned versions. That is expected: a dev build is a prerelease of the *next*
 release, so `3.2.40-dev.87` outranks the `3.2.39` you are going back to.
@@ -45,7 +45,7 @@ different scope (see below):
 
 Your imports do **not** change. npm installs an alias to `node_modules/@ikonai/sdk`, so
 `import { … } from '@ikonai/sdk'` keeps resolving exactly as before, and no tsconfig path or vite alias
-has to know the dev channel exists.
+needs to change.
 
 `ikon update dev` also adds one line to `frontend-node/.npmrc`:
 
@@ -66,7 +66,7 @@ own `~/.npmrc` and is written by `ikon login`.
 ```
 
 A dev build always sorts **above** the release before it and **below** the release it is heading
-towards, so `dev` always moves forward and `stable` always walks back. When `3.2.40` is finally
+towards, so `dev` always moves forward and `stable` always moves back. When `3.2.40` is finally
 released it outranks every `3.2.40-dev.*`, but a dev app's update takes the newest dev build, and
 the first push to main after the release publishes a `3.2.41-dev.*`. The .NET packages roll onto
 `3.2.40` only when an update runs before that; the app has then left the dev channel, and the next
@@ -76,9 +76,9 @@ plain `ikon update` brings its TypeScript SDK back to the release as well.
 
 A new dev build is published on **every push to main that touches it** — the .NET libraries when the
 push changed .NET sources, the TypeScript SDK when it changed TypeScript sources — so a fix is on the
-feed as soon as it lands, which is the whole point of the channel. The version counter counts every
-commit, including ones that touch neither half, so dev ordinals skip numbers; the newest version on the feed is
-always the newest state of that half, whatever its ordinal.
+feed as soon as it lands. The version counter counts every commit, including ones that change neither
+.NET nor TypeScript sources, so dev ordinals skip numbers. The newest .NET or TypeScript version on
+the feed is still the newest build of those sources, whatever its ordinal.
 
 A nightly retention job then deletes dev versions older than seven days, always keeping the newest few
 whatever their age, so the channel can never be emptied even if nothing is pushed for a while. There
@@ -89,7 +89,7 @@ What this means in practice:
 - **Re-run `ikon update` at least weekly** while you are on the channel, or move back with `ikon update stable`.
 - **A fix landed for you is one `ikon update` away** — you do not have to wait for a nightly or a
   release, only for the build that publishes it.
-- **Already-deployed apps keep running.** A deployed bundle carries its own copies of the Ikon
+- **Already-deployed apps keep running.** A deployed bundle carries its own copies of the IKON
   libraries and the built frontend, so deleting the package it was built from does not affect it. Only
   *rebuilding* breaks.
 - **An npm install failing with a 404 on an `@ikon-ai/*` package almost always means an expired dev pin.**
@@ -108,7 +108,7 @@ ikon self update            # stay on your current channel, take what is newest 
 ikon self update stable     # return to the released tool
 ```
 
-A dev build is the `ikon-dev` package on the Ikon package feed rather than `ikon` on nuget.org, which
+A dev build is the `ikon-dev` package on the IKON package feed rather than `ikon` on nuget.org, which
 is why moving onto it and updating it need you signed in (`ikon login`); going back to stable does not. It still installs as the `ikon` command, and the two
 packages cannot be installed side by side — switching replaces one with the other, and puts the old one
 back if the new one fails to install. Your tool packages, sign-in and settings carry over either way.
@@ -127,8 +127,8 @@ dotnet tool uninstall ikon-dev --global
 dotnet tool install ikon --global
 ```
 
-The installer scripts and Ikon Desktop always install the released tool. Re-running an installer
-replaces a dev build with it; Ikon Desktop leaves a dev build alone and does not update it.
+The installer scripts and IKON Desktop always install the released tool. Re-running an installer
+replaces a dev build with it; IKON Desktop leaves a dev build alone and does not update it.
 
 ## CI for a dev-channel app
 
@@ -147,4 +147,4 @@ release on their own schedule. A fix that needs a change on those still waits fo
 release, and a dev library that depends on such a change will not work against production until then.
 
 If you are unsure whether the fix you need is in a library or the platform, ask before switching an app
-over — the channel costs you the seven-day treadmill either way.
+over, because either way the channel commits you to updating at least every seven days.

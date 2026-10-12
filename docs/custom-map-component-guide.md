@@ -1,8 +1,8 @@
-<!-- checked-against: 5503772cb9e849531747dcbe -->
+<!-- checked-against: 229e7ffd22f633091747dcbe -->
 
 # Custom Map Component Guide
 
-This guide shows how to add an interactive map component to an Ikon AI App using Leaflet. The pattern covers creating a custom frontend React component, a C# extension method to drive it, and bidirectional communication between the two.
+This guide shows how to add an interactive map component to an IKON app using Leaflet. The pattern covers creating a custom frontend React component, a C# extension method to drive it, and bidirectional communication between the two.
 
 ## Architecture Overview
 
@@ -274,7 +274,7 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
   );
 });
 
-// --- Renderer: bridges Ikon UI node props to React component ---
+// --- Renderer: bridges IKON UI node props to React component ---
 
 const MyMapRenderer = memo(function MyMapRenderer({
   nodeId,
@@ -303,7 +303,7 @@ const MyMapRenderer = memo(function MyMapRenderer({
   );
 });
 
-// --- Resolver: tells the Ikon UI system which node type this handles ---
+// --- Resolver: tells the IKON UI system which node type this handles ---
 
 export function createMyMapResolver(): IkonUiComponentResolver {
   return (initialNode) => {
@@ -317,7 +317,7 @@ Key points:
 - `MyMapInner` is `memo`-ized with a custom comparator that leaves out `center`/`zoom`: they are only the starting view, read once when the map is created, so later changes from C# do not move the map and no re-render resets the user's pan/zoom
 - Each data layer (pins, areas) has its own `useRef<L.LayerGroup>` and `useEffect`
 - Events go back to C# via `props.dispatchAction(actionId, payload)`
-- The `MyMapRenderer` bridges the generic Ikon UI node system to the typed React component
+- The `MyMapRenderer` bridges the generic IKON UI node system to the typed React component
 
 ### Create the module registration
 

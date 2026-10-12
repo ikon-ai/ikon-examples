@@ -4,7 +4,7 @@
 
 Finding the right social media creators for a marketing campaign is usually slow manual work. Someone opens a search engine, types keywords, scrolls through profiles, copies URLs into a spreadsheet, visits each one to check follower counts and bio relevance, then emails the team a CSV. The automated version needs a scraping cluster, a job queue, a database, a separate AI service for scoring, a proxy rotation layer, and a dashboard to view results. That is a lot of infrastructure for a job with four steps: search, scrape, rank and export.
 
-This post looks at an influencer discovery tool built as a single Ikon AI App: about two thousand lines in one file, with no database, job queue or separate frontend. You describe your product in plain language, and the tool finds TikTok creators who match, scores each one with written reasoning, adds data from their other social platforms, and shows the results in a sortable, filterable interface with export to JSON and Mailchimp CSV. Multiple users can watch the crawl progress in real time.
+This post looks at an influencer discovery tool built as a single IKON app: about two thousand lines in one file, with no database, job queue or separate frontend. You describe your product in plain language, and the tool finds TikTok creators who match, scores each one with written reasoning, adds data from their other social platforms, and shows the results in a sortable, filterable interface with export to JSON and Mailchimp CSV. Multiple users can watch the crawl progress in real time.
 
 ## What you experience
 

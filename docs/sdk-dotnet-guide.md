@@ -1,12 +1,12 @@
-<!-- checked-against: 0050af4d880dee0037203434 -->
+<!-- checked-against: 96591bc868d5bc6c37203434 -->
 
-# Ikon AI C# SDK
+# IKON C# SDK
 
-The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
+The IKON C# SDK connects any .NET application to an IKON app. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
 
-- Six authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI login, for dev tooling), and ResumeAuthResponse (joining another connection's client session)
+- Six authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), and ResumeAuthResponse (joining another connection's client session)
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -69,13 +69,14 @@ against a local one — and, alongside it, an unreliable UDP side channel used f
 flags unreliable. The .NET Standard 2.1 build uses only a plain UDP entrypoint, which a hosted app does not
 offer, so against a hosted app it runs over the reliable connection alone.
 
-Set `EnableUdpChannel = false` to run over the reliable connection alone. Unreliable-flagged messages
-then fall back to it, so nothing is lost; they just stop being able to overtake a queued reliable
-message. Turn it off when the network between the client and the server drops or blocks UDP outright
-(a corporate egress filter is the usual case; the connect does not wait for UDP, but every connect
-would otherwise spend up to the 15-second DTLS handshake timeout on a background attempt that cannot succeed), or when you are connecting many clients from one process
-and want each to cost as little server memory as possible — the side channel is a second socket, a
-DTLS session and a second pair of send queues per client on both ends.
+Set `EnableUdpChannel = false` to run over the reliable connection alone. Messages flagged unreliable
+are then sent over it, so nothing is lost, but they can no longer overtake a queued reliable message.
+Turn it off in two cases. One is when the network between the client and the server drops or blocks
+UDP, usually because of a corporate egress filter. The connect does not wait for UDP, but every
+connect would otherwise spend up to the 15-second DTLS handshake timeout on a background attempt that
+cannot succeed. The other is when you connect many clients from one process and want each to cost as
+little server memory as possible: the side channel is a second socket, a DTLS session and a second
+pair of send queues per client on both ends.
 
 <!-- ikon-example: sdk-disable-udp -->
 ```csharp
@@ -90,14 +91,14 @@ var config = new IkonClientConfig
 
 The SDK supports six authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
 `ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
-developer logged in on this machine (the ikon CLI's stored login) and is intended for dev tooling and
+developer signed in on this machine (the ikon CLI's stored sign-in) and is intended for dev tooling and
 headless tests; production clients use `ApiKey` or `Backend`. The constructor also throws `ArgumentException`
 when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
 `SpaceId` and `ExternalUserId`, `UserLogin`'s `SpaceId`, or `Local`'s `Host` and a positive `HttpsPort`.
 
 ### API Key Authentication
 
-Use this for programmatic access to Ikon AI App. Get your API key from the Ikon portal.
+Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
 
 <!-- ikon-example: sdk-api-key-config -->
 ```csharp
@@ -118,7 +119,7 @@ var config = new IkonClientConfig
 
 ### Local Development
 
-Connect directly to a local Ikon server during development.
+Connect directly to a local IKON server during development.
 
 <!-- ikon-example: sdk-local-config -->
 ```csharp
@@ -137,7 +138,7 @@ A local connection is a machine user by default. A client acting for a signed-in
 
 ### Backend Authentication
 
-Use existing Ikon backend login credentials. This is for applications that have already authenticated to the backend.
+Use existing IKON backend sign-in credentials. This is for applications that have already authenticated to the backend.
 
 <!-- ikon-example: sdk-backend-config -->
 ```csharp
@@ -171,11 +172,12 @@ var config = new IkonClientConfig
 
 ### UserLogin
 
-Authenticate as the developer logged in on this machine (the ikon CLI's stored login), connecting
+Authenticate as the developer signed in on this machine (the ikon CLI's stored sign-in), connecting
 through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
 tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other five modes.
-`Environment` names the platform the app is on; a platform other than the process's own signs in
-with that platform's saved login, and otherwise (or left null) the process's own login is used.
+`Environment` names the platform the app is on. If it names a platform other than the process's own,
+the client signs in with that platform's saved sign-in. Otherwise, or when it is null, the process's
+own sign-in is used.
 
 <!-- ikon-example: sdk-user-login-config -->
 ```csharp
@@ -330,7 +332,7 @@ await client.SendMessageAsync(new MyCustomPayload { /* ... */ });
 
 ## Audio
 
-The SDK provides comprehensive audio support with automatic Opus encoding/decoding.
+The SDK encodes and decodes audio with Opus automatically.
 
 ### Sending Audio
 
@@ -444,7 +446,7 @@ client.AudioInputStreamBeginAsync += async e =>
 
 ## Functions
 
-The SDK provides a per-client function registry system that allows you to register callable functions that can be invoked locally or offered to the app through the server (never to other clients). Each `IkonClient` has its own isolated `FunctionRegistry` accessible via `client.FunctionRegistry`.
+Each `IkonClient` has its own isolated `FunctionRegistry`, accessible via `client.FunctionRegistry`. A function registered in it can be called locally or offered to the app through the server (never to other clients).
 
 ### Registering Functions
 
@@ -535,12 +537,12 @@ client.FunctionRegistry.AddFunction(
 
 Functions can be either local or external:
 
-- **Local** (default): Function is not advertised. In a standalone SDK client a remote caller that names it can still call it; only an Ikon AI App restricts it to its own process.
+- **Local** (default): Function is not advertised. In a standalone SDK client a remote caller that names it can still call it; only an IKON app restricts it to its own process.
 - **External**: Function is advertised over the protocol; the app can call it. The server offers a client's functions to the app only, not to other clients.
 
 <!-- ikon-example: sdk-function-visibility -->
 ```csharp
-// Local - not advertised (default); only an Ikon AI App keeps remote callers out
+// Local - not advertised (default); only an IKON app keeps remote callers out
 [Function(Visibility = FunctionVisibility.Local)]
 public string LocalOnly() => "local";
 
@@ -549,8 +551,8 @@ public string LocalOnly() => "local";
 public string SharedWithAll() => "shared";
 ```
 
-Registered inside an **Ikon AI App** rather than a standalone client, an `External` function is also
-expected to declare its auth posture — `[RequireLogin]`, `[RequireRole(...)]` or `[AllowAnonymous]`
+Registered inside an **IKON app** rather than a standalone client, an `External` function is also
+expected to declare who may call it: `[RequireLogin]`, `[RequireRole(...)]` or `[AllowAnonymous]`
 on the method, or a policy attached at registration time. The app's startup audit, run once before `Main()`
 over the functions registered by then (the app class's own `[Function]` methods), logs a warning for
 every `External` function with none of them, and throws instead when the app sets
@@ -716,7 +718,7 @@ var config = new IkonClientConfig
 
 | Type | Description |
 |------|-------------|
-| `IkonClient` | Main client class for connecting to Ikon servers |
+| `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
 | `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline` |
 
@@ -765,4 +767,4 @@ This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
 
 ## Support
 
-For issues and feature requests, contact Ikon support or open an issue on GitHub.
+For issues and feature requests, contact IKON support or open an issue on GitHub.

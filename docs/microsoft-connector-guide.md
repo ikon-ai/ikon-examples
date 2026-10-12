@@ -1,8 +1,8 @@
-<!-- checked-against: 5a1535fd79b82569dfd3a7eb -->
+<!-- checked-against: 1d69454447de93a5dfd3a7eb -->
 
 # Microsoft Connector Guide
 
-This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory and Outlook mail through Microsoft Graph — for app developers wiring Microsoft 365 into an Ikon app.
+This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory and Outlook mail through Microsoft Graph — for app developers wiring Microsoft 365 into an IKON app.
 
 ## Microsoft: SharePoint and OneDrive
 
@@ -14,7 +14,7 @@ An administrator of the customer's Microsoft 365 tenant does this once, in the M
 
 1. **Register the app** and note its tenant id and client id.
 2. **Give it a credential.** For app-only access, a certificate: upload its public part (`.cer`) to the registration and keep the `.pfx` for the app. A client secret serves delegated access, and app-only calls that stay on Graph.
-3. **Add API permissions and grant admin consent**, by whom the app acts as. The SharePoint permissions are listed under SharePoint, not Microsoft Graph, and only the calls whose remarks say they use SharePoint's own REST API need them:
+3. **Add API permissions and grant admin consent**, choosing them by who the app acts as. The SharePoint permissions are listed under SharePoint, not Microsoft Graph, and only the calls whose remarks say they use SharePoint's own REST API need them:
 
 | | App-only, on the sites granted to it | Delegated, as the person signed in |
 |---|---|---|
@@ -78,9 +78,9 @@ var tokens = new MicrosoftTokenProvider(credentials, onRefreshTokenRotated: Save
 var sharePoint = new SharePoint(tokens);
 ```
 
-`GetGrantedPermissionsAsync` returns a `TokenPermissions` read from the current token — the application permissions an admin consented, or the delegated scopes a person granted: an app-only token with no `ApplicationPermissions` is the usual cause of Graph answering every call with a bare `401`, and seeing that is quicker than guessing at consent.
+`GetGrantedPermissionsAsync` returns a `TokenPermissions` read from the current token: the application permissions an admin consented to, or the delegated scopes a person granted. An app-only token with no `ApplicationPermissions` is the usual reason Graph answers every call with a bare `401`, and this call shows that faster than guessing at consent.
 
-Every failure is a `ConnectorException` (from `Ikon.Connectors`) with the provider `"microsoft"`, sign-in, SharePoint and OneDrive alike, and its message names the operation that failed. A credential Entra rejects for good — a revoked or expired refresh token, a wrong or expired client secret or certificate, consent never given — throws it with `StatusCode` 401, so `IsReconnectRequired` is true: have the person sign in again, or the administrator fix the registration, rather than retry. A `403` from Graph means the token is valid but lacks the permission or the site grant. A `401` from Graph is retried once with a fresh token, so one that surfaces means the credential itself is refused. A download or upload host refusing its pre-authenticated URL throws with no `StatusCode`: the URL expired, and the credential is fine. So does a successful answer whose body is not the JSON the call expects — a proxy's sign-in page, say — rather than a parser's exception. A listing past its `maxPages` throws `ConnectorPageCapException<T>` with the items read, never a shortened list; only a change feed's cap carries `ResumeFrom`, the delta link to continue from, and for any other listing the answer is a larger `maxPages`.
+Every failure is a `ConnectorException` (from `Ikon.Connectors`) with the provider `"microsoft"`, sign-in, SharePoint and OneDrive alike, and its message names the operation that failed. A credential Entra rejects for good — a revoked or expired refresh token, a wrong or expired client secret or certificate, consent never given — throws it with `StatusCode` 401, so `IsReconnectRequired` is true: have the person sign in again, or the administrator fix the registration, rather than retry. A `403` from Graph means the token is valid but lacks the permission or the site grant. A `401` from Graph is retried once with a fresh token, so one that surfaces means the credential itself is refused. A download or upload host refusing its pre-authenticated URL throws with no `StatusCode`: the URL expired, and the credential is fine. A successful answer whose body is not the JSON the call expects, such as a proxy's sign-in page, also throws with no `StatusCode`, not with a parser's exception. A listing past its `maxPages` throws `ConnectorPageCapException<T>` with the items read, never a shortened list; only a change feed's cap carries `ResumeFrom`, the delta link to continue from, and for any other listing the answer is a larger `maxPages`.
 
 ### Sites, libraries and files
 

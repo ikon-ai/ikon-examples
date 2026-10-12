@@ -1,10 +1,10 @@
-<!-- checked-against: ae9bc2f4461e26f6afa0cac4 -->
+<!-- checked-against: 7f9d2b1d93ba848bafa0cac4 -->
 
-# Ikon Theming Guide
+# IKON Theming Guide
 
-How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
+How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's IKON CSS baseline.
 
-This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
+This is the canonical reference for the `IkonTheme` configurable surface. It is self-contained: a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can read only this doc and produce a consistently themed IKON app.
 
 ## TL;DR
 
@@ -34,35 +34,35 @@ private UI UI { get; } = new(app, new IkonTheme
 });
 ```
 
-That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, its alias `Dark` (the same property under a second name), and `Light`, which takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks. The nested `Light` theme carries tokens only — one that sets `Mode`, `DarkMode` or `Dark` throws `ArgumentException` (set those on the outer theme) — and a token set both in `Light` and through the outer indexer to different values throws `ArgumentException`, whichever comes first.
+There are no other entry points: no factory, no fluent builder and no named token properties. Every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, its alias `Dark` (the same property under a second name), and `Light`, which takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` does what it looks like. The nested `Light` theme carries tokens only: one that sets `Mode`, `DarkMode` or `Dark` throws `ArgumentException` (set those on the outer theme). A token set both in `Light` and through the outer indexer to different values also throws `ArgumentException`, in either order.
 
 ## Two-tier styling
 
-Ikon styling has exactly two tiers. Knowing which tier a decision belongs to answers most "should this be a token?" questions.
+IKON styling has exactly two tiers. Knowing which tier a decision belongs to answers most "should this be a token?" questions.
 
-**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or pins honestly with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, and native (Flutter) clients for colours, radius, density and fonts (the motion defaults are web-only).
+**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or stays pinned with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, and native (Flutter) clients for colours, radius, density and fonts (the motion defaults are web-only).
 
-**Tier 2 — the expressive layer.** Everything with personality — gradients, textures, glows, decorative colors, ornaments — is styled CONCRETELY at the use point with plain Crosswind classes and arbitrary values (`bg-gradient-to-r from-rose-400 to-amber-300`, `bg-[radial-gradient(...)]`, `[text-shadow:0_0_8px_#f0f]`). No token obligation, no naming ceremony. A pirate tavern's brass glow does not need a design system; it needs the right gradient on the right Box.
+**Tier 2 — the expressive layer.** Everything with personality — gradients, textures, glows, decorative colors, ornaments — is styled CONCRETELY at the use point with plain Crosswind classes and arbitrary values (`bg-gradient-to-r from-rose-400 to-amber-300`, `bg-[radial-gradient(...)]`, `[text-shadow:0_0_8px_#f0f]`). These values need no token and no name. For a pirate tavern's brass glow, put the right gradient on the right Box.
 
 Governing rules:
 
-1. **The structural core stays small.** Adding a role to the core is an API change, reviewed — not a drive-by. Tier creep is the death mode of two-tier systems.
-2. **Expression is concrete and unlimited.** Decorative styling lives at the use point with no token pressure. The app's DESIGN brief is its only contract.
-3. **Coherence is reviewed against the app's DESIGN brief, not enforced by token discipline.** Intentional variation the brief calls for is correct by definition.
-4. **Tokens are earned, not imposed.** Extract a custom variable only when repetition proves the role (the same concrete value used again and again) — never upfront.
-5. **Dark-mode honesty.** Expressive apps usually commit `Mode = ThemeMode.Fixed` — a pirate tavern has no light mode, and pretending otherwise ships broken contrast. Adaptive apps keep dark free via the structural core. Make the call explicitly.
+1. **The structural core stays small.** Adding a role to the core is an API change and needs a review. Two-tier systems fail when the core keeps growing.
+2. **Expression is concrete and unlimited.** Decorative styling goes at the use point, with no need for tokens. The app's DESIGN brief is its only contract.
+3. **Coherence is reviewed against the app's DESIGN brief, not enforced by token discipline.** Variation that the brief asks for is correct.
+4. **Add tokens only when they are needed.** Extract a custom variable only when the same concrete value is used again and again, never upfront.
+5. **Decide dark mode explicitly.** Expressive apps usually commit `Mode = ThemeMode.Fixed`: a pirate tavern has no light mode, and a light scheme it was not designed for ships broken contrast. Adaptive apps get dark mode from the structural core without extra work.
 
 ## How it works
 
-`IkonTheme` implements `ITheme`. You pass it as the second arg to `new UI(app, ...)`. Its `Css` getter composes the platform's Ikon CSS baseline with an override block built from your indexer entries.
+`IkonTheme` implements `ITheme`. You pass it as the second arg to `new UI(app, ...)`. Its `Css` getter composes the platform's IKON CSS baseline with an override block built from your indexer entries.
 
 Every entry commits one or more CSS variables. The renderer dispatches by **key shape**:
 
 | Key shape | Emits | Value resolver |
 |---|---|---|
 | Theme key from the reference table (`primary`, `card`, `border`, `radius`, `density`, ...) | its canonical variables (one key can commit a whole cluster) | per the key's value kind |
-| Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also Ikon scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
-| Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | smart sniff |
+| Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also IKON scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
+| IKON scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | smart sniff |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
 | `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
 | `font-{role}` | `--font-{role}` | family stack; a bare literal family name on one of the six font-role keys (`font-heading` ... `font-mono`) is bundled into the app, unless it is one of the four baseline families the frontend already ships |
@@ -72,7 +72,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | `--custom-name` (explicit `--` prefix) | `--custom-name` | smart sniff — a deliberately declared custom variable |
 | anything else | `--{key}` plus a one-time production warning (a dead variable nothing reads — almost always a typo) | smart sniff |
 
-The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref (`var(--color-amber-400)`), an Ikon scale step → its own variable (`brand-600` → `var(--brand-600)`), `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"`, `["primary"] = "brand-600"` and `["primary"] = "#F5A524"` all work. `neutral` is both a Tailwind family and an Ikon scale; as a value, `neutral-600` is the Tailwind step, which a `["neutral-600"]` override moves along with the Ikon one.
+The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref (`var(--color-amber-400)`), an IKON scale step → its own variable (`brand-600` → `var(--brand-600)`), `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"`, `["primary"] = "brand-600"` and `["primary"] = "#F5A524"` all work. `neutral` is both a Tailwind family and an IKON scale; as a value, `neutral-600` is the Tailwind step, which a `["neutral-600"]` override moves along with the IKON one.
 
 Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per process. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
 
@@ -92,7 +92,7 @@ There is ONE contract:
 
 1. **Apps theme dark exclusively through the theme object** — either `DarkMode = new IkonTheme { ... }` (adaptive: light block + dark block) or `Mode = ThemeMode.Fixed` (one committed palette, pinned in both schemes). Never hand-author dark styling per component.
 2. **Components that use semantic classes get dark for free.** `bg-background`, `bg-card`, `text-foreground`, `border-secondary`, `bg-brand-solid` and every `Ikon.Parallax.Theming` preset resolve through variables that flip with the active scheme.
-3. **`theme-dark:` is the variant for structural dark-only tweaks** (it follows the in-app theme toggle, i.e. `data-theme="dark"`). Rarely needed — reach for it only when a semantic token genuinely can't express the difference.
+3. **`theme-dark:` is the variant for structural dark-only tweaks** (it follows the in-app theme toggle, i.e. `data-theme="dark"`). It is rarely needed: use it only when a semantic token can't express the difference.
 4. **`dark:` follows the toggle too, plus an OS fallback.** Under the default dual strategy it emits both a rule scoped to the in-app theme (`[data-theme="dark"]` / `.dark`) and a `prefers-color-scheme: dark` fallback that applies only when no explicit theme is set.
 
 Adaptive app — author both palettes in one block:
@@ -131,13 +131,13 @@ var theme = new IkonTheme
 };
 ```
 
-`Fixed` pins the scheme the committed `background` belongs to. A dark background builds on the platform's dark baseline and a light one on the light baseline, in both schemes, and the committed values are emitted under the dark selectors too — so neither the OS preference nor the toggle changes anything, including every token the theme leaves unset (text tiers, hover surfaces, popovers). A background the renderer cannot measure (a gradient, a `var()`) keeps the light baseline. Native clients are pinned the same way. This is the honest choice for vivid/expressive single-scheme apps. `Mode = ThemeMode.Fixed` together with a `DarkMode` block throws — they contradict each other.
+`Fixed` pins the scheme the committed `background` belongs to. A dark background builds on the platform's dark baseline and a light one on the light baseline, in both schemes, and the committed values are emitted under the dark selectors too — so neither the OS preference nor the toggle changes anything, including every token the theme leaves unset (text tiers, hover surfaces, popovers). A background the renderer cannot measure (a gradient, a `var()`) keeps the light baseline. Native clients are pinned the same way. Use it for vivid, expressive apps that have one scheme. `Mode = ThemeMode.Fixed` together with a `DarkMode` block throws — they contradict each other.
 
 ## Theme key reference
 
 ### Theme keys (the structural core)
 
-Each key commits the listed canonical CSS variables. One value fans out to the whole set.
+Each key commits the listed canonical CSS variables. One value sets them all.
 
 | Key | Commits | Effect | Example |
 |---|---|---|---|
@@ -146,7 +146,7 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 | `background` | `--bg-background` | the page surface | `"zinc-950"` |
 | `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on the page, and on cards and popovers when the same scheme sets `card` / `popover` (a DarkMode block counts the light theme's surfaces). An unset card or popover keeps the baseline's own text, which reads on the baseline surface | `"amber-50"` |
 | `card` | `--bg-card` | elevated cards | `"zinc-900"` |
-| `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, Ikon scale steps, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`), ignoring alpha (a translucent card is measured as if opaque); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
+| `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, IKON scale steps, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`), ignoring alpha (a translucent card is measured as if opaque); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
 | `popover` | `--bg-popover` | popovers, menus, dialogs | `"zinc-900"` |
 | `popover-foreground` | `--text-popover-foreground` | text on popovers; the same rule as `card-foreground` | `"amber-50"` |
 | `muted` | `--bg-muted` | subtle fills | `"zinc-800"` |
@@ -170,21 +170,21 @@ Later entries win: to refine one variable inside a cluster, set the key first an
 
 | Kind | Accepted forms | Examples |
 |---|---|---|
-| Color | Tailwind palette step (`var(--color-…)`), Ikon scale step (its own `var(--brand-600)`), hex, `rgb()`/`rgba()`/`hsl()`/`oklch()`/`oklab()`, named color | `amber-400`, `#F5A524`, `oklch(0.72 0.15 60)`, `rgba(255,255,255,0.7)` |
+| Color | Tailwind palette step (`var(--color-…)`), IKON scale step (its own `var(--brand-600)`), hex, `rgb()`/`rgba()`/`hsl()`/`oklch()`/`oklab()`, named color | `amber-400`, `#F5A524`, `oklch(0.72 0.15 60)`, `rgba(255,255,255,0.7)` |
 | Font family | role token (`font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`) or a literal family name (bundled into the app when set on a font-role key) | `"Crimson Pro"`, `"font-mono"` |
 | Radius | `rounded-*` rung (`rounded-none` ... `rounded-4xl`, `rounded-full`) or a raw length | `"rounded-2xl"`, `"1.25rem"` |
 | Density | keyword `compact` (0.2rem), `default`/`comfortable` (0.25rem), `airy` (0.3rem), or a rem/px length clamped to 0.15-0.4rem | `"airy"`, `"0.28rem"` |
 | Duration | `duration-{n}` token or raw CSS time | `"duration-150"`, `"200ms"` |
 | Easing | `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, or raw `cubic-bezier(...)` | `"ease-out"` |
 
-Palette families: `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `slate`, `gray`, `zinc`, `neutral`, `stone`; steps `50`-`950`. Ikon scale families: `brand`, `neutral`, `error`, `success`, `warning`, `info`, `accent`.
+Palette families: `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `slate`, `gray`, `zinc`, `neutral`, `stone`; steps `50`-`950`. IKON scale families: `brand`, `neutral`, `error`, `success`, `warning`, `info`, `accent`.
 
 ### Collisions — read this before writing `primary` anywhere
 
 - **Theme KEY `primary` = brand.** `["primary"] = "amber-400"` paints CTAs, focus rings, and brand chrome amber.
-- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral hairline. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write the role the element plays instead: `bg-background` for the page canvas, `bg-card` for a card, panel, dialog or popover, plus `text-foreground` / `border-secondary`. Neither replacement is colour-identical to `bg-primary` — in the baseline `bg-primary` equals `bg-card` in light (white) but `bg-background` in dark (neutral-950), and an app theme may paint its page with yet another token — so pick by the surface the element is, and keep its text in the same family (card text on a card surface, page text on the page). The legacy names collide with the shadcn prior (where `primary` means brand) and reading them costs every future maintainer a double-take.
+- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral hairline. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write the role the element plays instead: `bg-background` for the page canvas, `bg-card` for a card, panel, dialog or popover, plus `text-foreground` / `border-secondary`. Neither replacement is colour-identical to `bg-primary` — in the baseline `bg-primary` equals `bg-card` in light (white) but `bg-background` in dark (neutral-950), and an app theme may paint its page with yet another token — so pick by the surface the element is, and keep its text in the same family (card text on a card surface, page text on the page). The legacy names clash with the shadcn convention, where `primary` means brand, so they confuse every later reader.
 - **The reverse trap:** `["primary"] = "zinc-950"` intending a dark page background paints every CTA near-black. The page surface key is `["background"]`.
-- **Bare `accent` and `secondary` are NOT theme keys** (they log a dev warning). Their shadcn and Ikon meanings genuinely conflict: shadcn `accent` is a hover surface (the `bg-accent` utility), while Ikon's `accent-*` scale drives text-selection tints. Set what you mean explicitly — `["bg-accent"]`, `["bg-secondary"]`, or the `accent-*` scale steps below.
+- **Bare `accent` and `secondary` are NOT theme keys** (they log a dev warning). Their shadcn and IKON meanings conflict: shadcn `accent` is a hover surface (the `bg-accent` utility), while IKON's `accent-*` scale drives text-selection tints. Set what you mean explicitly — `["bg-accent"]`, `["bg-secondary"]`, or the `accent-*` scale steps below.
 
 ### The accent scale (text selection)
 
@@ -201,7 +201,7 @@ var theme = new IkonTheme
 };
 ```
 
-Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-amber-400`, `text-amber-400`, `border-amber-400` in the app picks them up. Ikon scale steps work the same way — `["neutral-900"] = "#101014"` moves BOTH the raw `bg-neutral-900` utilities and every semantic token derived from the neutral ramp.
+Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-amber-400`, `text-amber-400`, `border-amber-400` in the app picks them up. IKON scale steps work the same way — `["neutral-900"] = "#101014"` moves BOTH the raw `bg-neutral-900` utilities and every semantic token derived from the neutral ramp.
 
 ### Per-rung radius overrides
 
@@ -237,9 +237,9 @@ Most existing sources are v3-era, where several utilities were renamed a step do
 `outline-none`→`outline-hidden`, `ring`→`ring-3`, and removed `*-opacity-*` utilities
 becoming slash syntax (`bg-black/50`).
 
-Apply that mapping **as you transcribe** — porting is a rewrite, so the translation
-happens in flight and there is nothing to run afterwards; the same goes for any files
-copied in verbatim. Verify the result by measurement: run the original next to the
+Apply that mapping **as you transcribe**. Porting is a rewrite, so you rename the classes
+while you write them, and there is no tool to run afterwards. Apply the same mapping to any
+files you copy in verbatim. Verify the result by measurement: run the original next to the
 port and diff computed styles on matched elements. Everything else ports verbatim.
 
 ### Custom variables (expressive-layer escape hatch)
@@ -252,7 +252,7 @@ var theme = new IkonTheme
 };
 ```
 
-An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Its value goes through the smart sniff, so a palette step becomes a colour reference and raw CSS stays as written. Reference it inline via `bg-[image:var(--hero-glow)]` — a gradient needs the `image:` hint, since a bare `bg-[var(...)]` emits `background-color`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
+An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Its value goes through the smart sniff, so a palette step becomes a colour reference and raw CSS stays as written. Reference it inline via `bg-[image:var(--hero-glow)]` — a gradient needs the `image:` hint, since a bare `bg-[var(...)]` emits `background-color`. Per the two-tier model, prefer writing decorative values concretely at the use point — add a variable only when the same value repeats often enough to need a name.
 
 ## Density
 
@@ -270,7 +270,7 @@ Brief language maps directly: "generous whitespace", "editorial margins", "breat
 Every value is one of:
 
 - **Color palette token** — `<palette>-<step>`, e.g. `amber-400`, `zinc-950`, `rose-600`.
-- **Ikon scale token** — `<family>-<step>` for `brand`/`neutral`/`error`/`success`/`warning`/`info`/`accent`, e.g. `brand-500`, `accent-300`.
+- **IKON scale token** — `<family>-<step>` for `brand`/`neutral`/`error`/`success`/`warning`/`info`/`accent`, e.g. `brand-500`, `accent-300`.
 - **Radius rung** — `rounded-none`, `rounded-xs`, `rounded-sm`, `rounded`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`, `rounded-4xl`, `rounded-full`.
 - **Font role** — `font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`.
 - **Density keyword** — `compact`, `default`, `comfortable`, `airy`.
@@ -347,7 +347,7 @@ var theme = new IkonTheme
 };
 ```
 
-Scanlines are expressive-layer — concrete at the use point, e.g. a full-bleed overlay Box with `absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent_0_2px,rgba(168,85,247,0.05)_2px_4px)] pointer-events-none`.
+Scanlines belong to the expressive layer, so write them concretely at the use point, e.g. a full-bleed overlay Box with `absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent_0_2px,rgba(168,85,247,0.05)_2px_4px)] pointer-events-none`.
 
 ### editorial-vintage — paper-and-ink, serif, generous margins
 
@@ -422,7 +422,7 @@ var theme = new IkonTheme
 };
 ```
 
-The blur is expressive-layer — put `backdrop-blur-md` (or `backdrop-blur-[12px]`) on the translucent surfaces at the use point.
+The blur belongs to the expressive layer: put `backdrop-blur-md` (or `backdrop-blur-[12px]`) on the translucent surfaces at the use point.
 
 ### pastel — soft, friendly, kids / wellness
 
@@ -564,7 +564,7 @@ view.Box(["absolute inset-0 -z-10 bg-[image:var(--hero-glow)] pointer-events-non
 
 The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fill-brand-primary`/`stroke-brand-primary` (icons, from `--fg-brand-primary`); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, `bg-error-primary`/`bg-error-secondary` (the `["destructive"]` key drives the solid and button members), and the full `bg-success-*`/`bg-warning-*` families.
 
-Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) by what the surface is — neither matches `bg-primary` in both schemes — plus `text-foreground` / `border-secondary`.
+Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again). They stay supported forever, but do not write them in new code. Use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) according to what the surface is, plus `text-foreground` / `border-secondary`. Neither replacement matches `bg-primary` in both schemes.
 
 Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
 
@@ -582,7 +582,7 @@ Expressive styling — the full color palette (`bg-amber-400`), gradients, arbit
 
 ## For code generators without StylingOracle access
 
-Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme an Ikon AI App from a user brief:
+Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme an IKON app from a user brief:
 
 1. **Read the user brief** — extract mood (warm / cyberpunk / editorial / brutalist / etc.) and any user-named colors / fonts.
 2. **Pick a mood from the cookbook** — match the brief to one of the 10 named moods above (warm-bedtime, cyberpunk-neon, editorial-vintage, brutalist, glassmorphism, pastel, noir-contrast, solarpunk, clean-saas, dark-pro). If none fit, build a fresh palette using the rules in *Mood rules* above.

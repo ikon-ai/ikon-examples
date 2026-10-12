@@ -1,14 +1,14 @@
-<!-- checked-against: 1a5ef762537a686098e26ea9 -->
+<!-- checked-against: c2afa5a97d7361b198e26ea9 -->
 
 # Teleport message binary specification
 
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
-encoding and a one-way JSON mirror for debugging. The runtime ships the binary→JSON direction only
-(there is no JSON→binary decoder), and without a schema the JSON form loses field names (they become
-8-hex-digit ids) and cannot be distinguished from strings for Binary/Guid values — see §5. Field
-order is writer-defined, so two encodings of the same message are not guaranteed byte-identical (§6).
+encoding and a one-way JSON mirror for debugging. The runtime converts binary to JSON only; there is
+no JSON→binary decoder. Without a schema, the JSON form loses field names (they become 8-hex-digit
+ids), and Binary and Guid values look the same as strings (see §5). Field order is chosen by the
+writer, so two encodings of the same message are not guaranteed to be byte-identical (§6).
 
 | Property    | Value                    |
 |-------------|--------------------------|
@@ -54,7 +54,7 @@ fieldId = xxHash32(fieldName.UTF8, seed = 0)
   - If a name mapping exists, emit the name.
   - Otherwise, emit the 8-digit lowercase hex of fieldId (e.g. "5f1c9a6e").
 
-Without a schema the emitted hex ids cannot be turned back into field names, so the JSON is a readable projection, not a lossless source the binary can be rebuilt from.
+Without a schema, the emitted hex ids cannot be turned back into field names, so the binary cannot be rebuilt from the JSON.
 
 ---
 
@@ -79,7 +79,7 @@ Without a schema the emitted hex ids cannot be turned back into field names, so 
 | 0x0D | Binary  | raw bytes      |
 | 0x0E | Guid    | 16 bytes       |
 
-0x00 and 0x0F reserved for future use. (The type code is stored in the descriptor's high nibble, so only values 0x00–0x0F can appear on the wire.)
+0x00 and 0x0F are reserved for future use. (The type code is stored in the descriptor's high nibble, so only values 0x00–0x0F can appear on the wire.)
 
 ---
 
@@ -189,9 +189,9 @@ Example: `00112233-4455-6677-8899-aabbccddeeff` encodes as
 
 ## 5. JSON Mirror
 
-Binary → JSON mapping is direct. The runtime implements the binary→JSON direction only, internally (the schema being the JSON IR
-from `ikon teleport generate --type json-ir`); it has no public entry point, and there is no
-JSON→binary direction.
+Binary → JSON mapping is direct. The runtime implements only the binary→JSON direction, and only
+internally: it has no public entry point, and the schema it reads is the JSON IR from
+`ikon teleport generate --type json-ir`. There is no JSON→binary direction.
 
 | Teleport type | JSON form                                              |
 |---------------|--------------------------------------------------------|
@@ -235,13 +235,13 @@ This enables forward/backward compatibility.
 Forward: new readers handle old data (missing → defaults).
 Backward: old readers skip unknown fields.
 
-"Missing → defaults" is a requirement on the reader, not merely a consequence of version skew: a
-writer may legitimately omit a field it has nothing to say about, and the schema key `sparse = true`
-makes that the norm for a type. A decoder must therefore start from a fully defaulted instance and
-apply only the fields present, never assume a field appears. Note that the default it lands on is the
-one that implementation materializes — a language whose struct is zero-initialized does not
-reconstruct a schema-declared non-zero default, which is why the schema spec restricts omission to
-fields whose default is the zero value.
+"Missing → defaults" is a rule every reader must follow, not only a result of version skew: a
+writer may omit a field it has no value for, and the schema key `sparse = true` makes omission the
+norm for a type. A decoder must therefore start from a fully defaulted instance and apply only the
+fields present; it must never assume a field appears. A missing field gets the default that each
+implementation fills in. A language whose structs are zero-initialized does not fill in a non-zero
+default declared in the schema, which is why the schema spec allows omission only for fields whose
+default is the zero value.
 
 Example — the reader takes its default from the object's version, overrides it only with a field that
 is present, and matches fields by id (computed as in §8.1). `TryReadField` steps past every field's

@@ -16,7 +16,7 @@ A café run this way needs a lot of extra staff. Someone has to carry messages b
 
 Now count the copies of one cup of coffee: a row in the cabinet, a form the runner carries, a sticky note, a photocopy on your table and a pencil mark on the photocopy. That is five copies of one fact, and most of the work in the café is keeping those five copies in agreement.
 
-In an Ikon app, the coffee is one line of code, a `Reactive<List<Order>>`. It is held in the memory of a small server that is yours alone, and that server keeps running while you use the app. When the order changes, the server sends the change and your screen updates without the app having to ask. Nobody carries messages, keeps sticky notes or tapes a photocopy to your table. The waiter remembers.
+In an IKON app, the coffee is one line of code, a `Reactive<List<Order>>`. It is held in the memory of a small server that is yours alone, and that server keeps running while you use the app. When the order changes, the server sends the change and your screen updates without the app having to ask. Nobody carries messages, keeps sticky notes or tapes a photocopy to your table. The waiter remembers.
 
 For twenty years, the forgetful café was only wasteful. Then the café hired a genius.
 
@@ -24,7 +24,7 @@ The new waiter is an AI, and it charges by the word. It is brilliant, but under 
 
 Then comes a task the stateless rule cannot handle at all. You ask the AI to plan a dinner party: call the guests, compare menus, book a room, and check back when the caterer replies. That is an hour of work with loose ends to keep track of, not a question with one answer. How do you give an hour of work to a worker who forgets everything every thirty seconds? The usual answer is to cut the hour into small pieces, save everything to storage between pieces, and hope each piece can carry on from the saved record alone. Whole frameworks exist to do exactly this. They exist because the job needs memory and the servers are not allowed to keep any.
 
-In Ikon, the dinner party is a loop in your app, and the loose ends are variables in the server's memory. The waiter keeps your evening in his head, because that is what heads are for.
+In IKON, the dinner party is a loop in your app, and the loose ends are variables in the server's memory. The waiter keeps your evening in his head, because that is what heads are for.
 
 That leaves one fair question: who pays a waiter to stand around all night in an empty café? Nobody. When the last guest leaves, he writes the evening into a small notebook and goes home. He costs nothing while he is away. When you walk back in, he is already coming out of the back room, notebook open, saying your name.
 

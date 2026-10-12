@@ -1,4 +1,4 @@
-<!-- checked-against: 345d5d7bcd155880136a1c8e -->
+<!-- checked-against: 708b29e2fce9711d136a1c8e -->
 
 # Ikon.AI Library Overview
 
@@ -61,7 +61,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global` — no restriction, the platform picks the serving region — unless the organisation's AI region policy is EU-only, where an omitted or `Global` region means the EU and a requested non-EU region throws `AIRegionPolicyViolationException`.
+Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`.
 
 Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
@@ -112,11 +112,11 @@ Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbe
 
 Key behaviors:
 
-- **Always in-process.** Calls to custom models execute locally with your API key and never go through the Ikon RPC mechanism — the platform never sees your endpoint or key.
+- **Always in-process.** Calls to custom models execute locally with your API key and never go through the IKON RPC mechanism — the platform never sees your endpoint or key.
 - **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
-- **In an agent.** An `Ikon.Agent` persona names no model: each pass resolves its `Reasoning` to a built-in one. Set `Orchestrator.ModelNameHook` to have a thread's passes think with a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to the built-in mapping. That is how an app lets a person think with a model they brought their own key for.
+- **In an agent.** An `Ikon.Agent` persona names no model: each pass resolves its `Reasoning` to a built-in one. Set `Orchestrator.ModelNameHook` to have a thread's passes use a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to the built-in mapping. That is how an app lets a person use a model they brought their own key for.
 - **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration
@@ -125,7 +125,7 @@ Key behaviors:
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never null (throws an `AIException` — `RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request — so catch `AIException` to continue without the image):
+One-shot — defaults to `Gemini25FlashImage` (cheap+fast). The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the image:
 
 Needs the `Ikon.AI.ImageGeneration` using directive.
 
@@ -135,7 +135,7 @@ var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
 await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 ```
 
-**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map, upscaled image) carry a `Kind` field. By default they arrive inline (`Kind == ResultKind.Data`, `Data` non-null). When a result is returned from a remotely hosted AI function and its payload exceeds a few MB, it is automatically uploaded and arrives as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) to stay within the protocol's message size limit; consumed locally in-process, large payloads stay inline. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
+**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map, upscaled image) carry a `Kind` field. By default they arrive inline (`Kind == ResultKind.Data`, `Data` non-null). When a remotely hosted AI function returns a result whose payload exceeds a few MB, the result is uploaded automatically to stay within the protocol's message size limit, and arrives as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null). A result consumed locally in-process stays inline however large it is. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
 
@@ -186,7 +186,7 @@ so app code normally only *reads* the marks.
 - `ImageProvenance.MeasureInvisibleMark(data)` scores the pixel watermark. Scores are
   normal-deviates: an unmarked image scores |z| ≲ 3, a marked one in the tens to hundreds depending
   on size and recompression. At or above `ImageProvenance.DetectionThreshold` (12.0) the image
-  carries Ikon's mark.
+  carries IKON's mark.
 - `ImageProvenance.Apply(data, model, invisibleWatermark, visibleWatermark)` marks an image yourself,
   for a path the platform generators did not produce.
 
@@ -209,7 +209,7 @@ interaction level instead, with Parallax's `AiDisclosure`.
 
 ## Image Utilities
 
-`Ikon.AI.Utils.ImageUtils` holds the pixel chores the AI calls keep needing. `GetImageDimensions` reads
+`Ikon.AI.Utils.ImageUtils` has the image helpers the AI calls use. `GetImageDimensions` reads
 width and height without decoding the whole image; `IsWebP` sniffs the format. `EncodeJpegCapped`
 caps both dimensions (aspect preserved, `maxDimension` 1568 px by default) and re-encodes as JPEG, returning the source bytes unchanged
 only when the image already fits the dimension cap *and* is at most `maxBytes` (200 KB by default) —
@@ -303,7 +303,7 @@ var result = await imageUpscaler.UpscaleImageAsync(new ImageUpscalerConfig
 await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
 ```
 
-`ScaleFactor` and `TargetResolution` are mutually exclusive, and a model rejects either one it does not support rather than silently ignoring it. On a model whose `SupportsOutputFormat` is true, output is PNG unless `OutputFormat` says otherwise, so a freshly recovered image is not immediately thrown away to JPEG; Recraft Crisp ignores `OutputFormat` and returns the provider's own encoding.
+`ScaleFactor` and `TargetResolution` are mutually exclusive, and a model rejects either one it does not support rather than silently ignoring it. On a model whose `SupportsOutputFormat` is true, output is PNG unless `OutputFormat` says otherwise, so the upscaled detail is not lost to JPEG compression; Recraft Crisp ignores `OutputFormat` and returns the provider's own encoding.
 
 ## DepthEstimation
 
@@ -343,6 +343,8 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Rodin does not rig or skin a mesh; its `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
 
+Rodin runs on your app's own Hyper3D API key, because the platform does not provide one. Store the key as an app secret with `ikon secret set HYPER3D_API_KEY`. Ikon.AI picks the secret up by itself, and a running app gets it within 5 minutes. Rodin calls run in the app's process and are billed to that key. Without the key, a Rodin call throws a `MissingApiKeyException` whose message says this.
+
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
 One-shot text-to-mesh — defaults to `Meshy6` (the current Meshy generation):
@@ -372,7 +374,7 @@ var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 ```
 
-A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. The same read off a `MeshGeneratorCapabilities` without constructing a generator.
+A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. A `MeshGeneratorCapabilities` has the same properties, read without constructing a generator.
 
 Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Not every Rodin tier takes all of them: Gen-2 throws on `GeometryMode`, `TextureQuality`, `SharpenTextures`, `RemoveTextureLighting` and `InputImageViews`, `Creative` geometry needs the Gen-2.5 Medium tier or higher, `MicroDetail` needs Gen-2.5 Extreme High, and every Rodin model throws on a `TexturePrompt` or `Remesh = false`. Set on a Meshy model, any of them throws rather than being dropped, except a `Material` of `Auto` or `Pbr` and an `OutputFormat` other than `Stl`, which Meshy takes:
 
@@ -516,11 +518,11 @@ Log.Instance.Info($"Enhanced video URL: {result.Url}");
 
 ## VideoSegmentation
 
-`Ikon.AI.VideoSegmentation.VideoSegmenter` segments and tracks objects through a whole video from text, point, or box prompts (SAM 3). The model follows each named concept across frames, so an object keeps its identity from one frame to the next — the difference from running `ImageSegmenter` frame by frame, which knows nothing about the frame before.
+`Ikon.AI.VideoSegmentation.VideoSegmenter` segments and tracks objects through a whole video from text, point, or box prompts (SAM 3). The model follows each named concept across frames, so an object keeps its identity from one frame to the next. Running `ImageSegmenter` frame by frame cannot do this, because it segments each frame on its own.
 
-The result is a `VideoSegmenterResult`: `Url` is the segmented video (the provider's own link, not re-hosted, so it dies when the provider purges the file — download what you keep rather than persisting the link; nothing is downloaded into the app), with `MimeType`, `SizeBytes` and an optional `BoundingBoxFramesZipUrl` holding per-frame bounding box overlays. `VideoSegmenter` implements `IVideoSegmenter`, so a method that only needs "something that segments video" can take the interface.
+The result is a `VideoSegmenterResult`: `Url` is the segmented video, with `MimeType`, `SizeBytes` and an optional `BoundingBoxFramesZipUrl` holding per-frame bounding box overlays. `Url` is the provider's own link: it is not re-hosted or downloaded into the app, so it stops working when the provider purges the file. Download what you want to keep rather than storing the link. `VideoSegmenter` implements `IVideoSegmenter`, so a method that only needs "something that segments video" can take the interface.
 
-Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL or an asset: `Data` is uploaded to a temporary asset first and a minutes-long clip is far too large to hold in memory. The endpoint is priced by the length of the input, so trimming or reducing the frame rate before the call is what makes a long video cheaper, not scaling it down.
+Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL or an asset: `Data` is uploaded to a temporary asset first and a minutes-long clip is far too large to hold in memory. The endpoint is priced by the length of the input, so to make a long video cheaper, trim it or reduce its frame rate before the call. Scaling it down does not lower the price.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -558,7 +560,7 @@ Log.Instance.Info($"Segmented video: {result.Url} ({result.SizeBytes} bytes)");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws an `AIException` — `RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request — so catch `AIException` to continue without the clip):
+One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk`. The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the clip:
 
 Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
@@ -675,8 +677,7 @@ for a granularity the model does not support throws** rather than returning an e
 `SpeechRecognizer.GetCapabilities(model)`, which reports `SupportsWordTimestamps`,
 `SupportsSegmentTimestamps` and `SupportsDiarization` alongside the existing flags.
 
-Two provider limits are worth knowing because they surface as exceptions rather than as quietly
-missing fields:
+Two provider limits throw exceptions rather than leaving fields empty:
 
 - The GPT-4o transcribe models have no timings at all; the diarizing variant reports speaker
   segments but never words.
@@ -719,14 +720,14 @@ says what that judgement can be made from:
 - `Silence` — a pause long enough to count, which cannot tell a held thought from a finished one.
 - `Semantic` — a model that weighs the words as well as the pause.
 
-Ask for one on `RecognizeContinuousSpeechConfig.TurnDetection`; leaving it at `None` takes whatever
-the model does by default — Azure then claims no `IsEndOfTurn`, while the other models still set it
-from their own endpointing. `Endpointing` says which of the tuning fields — `EndOfTurnSilence`,
-`MaxTurnSilence`, `EndOfTurnConfidenceThreshold`, `EndpointingSensitivity`, `VoiceActivityThreshold`,
-`MinSpeechDuration`, `MinSilenceDuration` and `SpeechStartPadding` — that model takes from you
-(Azure takes no silence bounds and no word timestamps under `Semantic`) —
-**setting one it does not take throws**, because a threshold the service never received leaves a
-stream that still transcribes and a conversation that feels wrong for reasons nothing reports.
+Ask for one on `RecognizeContinuousSpeechConfig.TurnDetection`. Leaving it at `None` takes whatever
+the model does by default: Azure then never sets `IsEndOfTurn`, while the other models still set it
+from their own endpointing. `Endpointing` says which of the tuning fields a model takes from you:
+`EndOfTurnSilence`, `MaxTurnSilence`, `EndOfTurnConfidenceThreshold`, `EndpointingSensitivity`,
+`VoiceActivityThreshold`, `MinSpeechDuration`, `MinSilenceDuration` and `SpeechStartPadding` (Azure
+takes no silence bounds and no word timestamps under `Semantic`).
+**Setting one it does not take throws.** Otherwise the service would never receive the threshold,
+and the stream would still transcribe while turn taking behaved wrongly with nothing reporting why.
 A value outside the model's range throws too (Azure's `EndOfTurnSilence` is 100–5000 ms, and its
 `MaxTurnSilence` is 20000–70000 ms and only accepted alongside `EndOfTurnSilence`); `RangeOf(control)`
 on the capabilities reports the range before the call.
@@ -735,7 +736,7 @@ which is not a confidence of zero.
 
 `Languages` lists the languages a model transcribes where that set is narrow and published, and is
 empty where it is not — empty means undeclared, never "none", so `SupportsLanguage` answers true
-there. It matters more than it looks: a streaming model given a language outside its set returns
+there. This matters because a streaming model given a language outside its set returns
 fluent-looking nonsense rather than an error.
 
 <!-- ikon-example: ai-turn-taking -->
@@ -841,7 +842,7 @@ The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it the speech models resolve through the Ikon AI service as usual, while the local browser models throw a `UserException` naming the package.
+**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it the speech models resolve through the IKON service as usual, while the local browser models throw a `UserException` naming the package.
 
 One-shot single page scrape — defaults to `Jina` (cheap+fast hosted reader) and returns the page as Markdown:
 
@@ -1080,7 +1081,7 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 ## Decisions
 
-`Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each `Choice` and `Score` answer carries calibrated probabilities and a confidence (a `Noul` answer carries its uncertainty in the probability itself), so routing, triage and gating inside a flow need no parsing step and cannot come back off-shape.
+`Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each `Choice` and `Score` answer carries calibrated probabilities and a confidence (a `Noul` answer carries its uncertainty in the probability itself), so routing, triage and gating inside a flow need no parsing step and always get an answer of the expected type.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -1156,7 +1157,7 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
 
 ### Attaching media from the asset system
 
-For large media that lives in the Ikon asset system, pass an `AssetUri` directly instead of reading the bytes yourself. `VideoAssetPart` lets you hand a video asset to a multimodal LLM without worrying about request-size limits:
+For large media that lives in the IKON asset system, pass an `AssetUri` directly instead of reading the bytes yourself. `VideoAssetPart` lets you hand a video asset to a multimodal LLM without worrying about request-size limits:
 
 Needs the `Ikon.AI.Kernel`, `Ikon.Common.Core.Assets` using directives.
 

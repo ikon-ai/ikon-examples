@@ -4,15 +4,15 @@
 
 Most AI applications are built first and secured later. A team connects a frontend to an API, gets it working and ships it. Then someone from security asks where the API keys are stored, and the answer is usually complicated: keys in environment variables that get bundled into the client, tokens in localStorage, or credentials proxied through a thin backend that was added after the prototype. Each question in the security review uncovers another part that was improvised.
 
-Ikon applications do not have this problem. Their architecture removes the conditions that create these vulnerabilities, so their security does not depend on someone working through a hardening checklist.
+IKON applications do not have this problem. Their architecture removes the conditions that create these vulnerabilities, so their security does not depend on someone working through a hardening checklist.
 
 ## What this makes possible
 
-**Ship AI applications into regulated environments without a security rewrite.** In financial services, healthcare and government procurement, AI deployments typically stall in security review for months. Ikon applications pass these reviews quickly because the architecture makes the answers simple.
+**Ship AI applications into regulated environments without a security rewrite.** In financial services, healthcare and government procurement, AI deployments typically stall in security review for months. IKON applications pass these reviews quickly because the architecture makes the answers simple.
 
 **Build AI workflows where the platform handles security.** Take a healthcare app where a doctor dictates notes, an AI generates a clinical summary, and the summary is shared with the patient. The doctor and the patient are in the same multiuser session and use the same interface in real time. The doctor sees the full clinical record, AI confidence scores and differential diagnoses. The patient sees only the approved summary and their care plan. Both use the same application and the same session, but the server decides what each connected client receives, so each of them sees a different view. Server-side code handles the doctor's dictation, the AI's reasoning and the patient's view, and it never exposes credentials, raw AI output or internal state to either client. The developer writes the medical workflow, and the platform handles the security.
 
-**Use multiple AI providers without multiplying your risk.** An app that combines language, speech, image generation and web scraping would traditionally need separate credential sets, managed on the client or proxied through separate backend services. On Ikon, adding a new AI provider is a code change and does not change the security architecture. The developer never handles credentials at all.
+**Use multiple AI providers without multiplying your risk.** An app that combines language, speech, image generation and web scraping would traditionally need separate credential sets, managed on the client or proxied through separate backend services. On IKON, adding a new AI provider is a code change and does not change the security architecture. The developer never handles credentials at all.
 
 **Stop thinking about client-side security entirely.** The client has no business logic to audit, no API keys to rotate, no token refresh logic to get wrong and no npm dependencies that could exfiltrate credentials. There is no client-side security work to do.
 
@@ -20,7 +20,7 @@ Ikon applications do not have this problem. Their architecture removes the condi
 
 In a traditional web application, the client does a lot, and that is where most security problems come from. It holds credentials, makes API calls, stores tokens, runs business logic and manages state. Each of these is an attack surface.
 
-In an Ikon application, the client only renders. It keeps a persistent encrypted connection to the server, displays the interface updates it receives, and sends user input back. It does nothing else.
+In an IKON application, the client only renders. It keeps a persistent encrypted connection to the server, displays the interface updates it receives, and sends user input back. It does nothing else.
 
 The client cannot call third-party APIs, access credentials, inject AI prompts or reach other applications. An attacker who fully compromises the client gets access to UI rendering code and nothing else. There are no credentials to steal, no APIs to call and no tokens to reuse.
 
@@ -44,17 +44,17 @@ The same is true for every AI provider and capability, including language, image
 
 ## Container isolation
 
-Each Ikon application runs in its own isolated container, with a separate process, filesystem and network namespace. A compromised application cannot reach other applications, their data or the platform infrastructure. All containers run as a non-root user with dedicated service accounts.
+Each IKON application runs in its own isolated container, with a separate process, filesystem and network namespace. A compromised application cannot reach other applications, their data or the platform infrastructure. All containers run as a non-root user with dedicated service accounts.
 
 The developer does not have to turn this on. Every application runs this way.
 
 ## The binary protocol
 
-Ikon applications communicate over Teleport, a binary protocol that carries all traffic, including UI updates, user input, audio and video, over a single encrypted connection. There are no REST endpoints to discover, no GraphQL schema to introspect and no separate WebSocket channels to probe. The protocol uses compact binary encoding with a 27-byte header. This is efficient, and it also gives an attacker less to work with than a text-based API layer.
+IKON applications communicate over Teleport, a binary protocol that carries all traffic, including UI updates, user input, audio and video, over a single encrypted connection. There are no REST endpoints to discover, no GraphQL schema to introspect and no separate WebSocket channels to probe. The protocol uses compact binary encoding with a 27-byte header. This is efficient, and it also gives an attacker less to work with than a text-based API layer.
 
 ## Function policies
 
-Ikon has a built-in policy system that controls what users can do inside an application. Policies are attached to functions and evaluated before every call. There are three kinds.
+IKON has a built-in policy system that controls what users can do inside an application. Policies are attached to functions and evaluated before every call. There are three kinds.
 
 **Rate limits** restrict how often a function can be called, either globally or per session. A patient-facing AI assistant can be limited to a fixed number of consultations per hour, while an internal tool can allow unlimited use. The platform enforces the limits, so they do not depend on application code that someone might forget to add.
 
@@ -73,17 +73,17 @@ Approval gates are part of the function execution pipeline itself, not a separat
 
 ## Security risks specific to AI
 
-AI applications have security concerns that traditional software does not. Ikon addresses them in its architecture.
+AI applications have security concerns that traditional software does not. IKON addresses them in its architecture.
 
-**Credential theft costs more with AI.** A stolen AI provider API key gives the thief direct access to expensive compute. On Ikon, AI provider credentials are managed by the platform and never exposed to application code or clients, so there is nothing to steal at either layer.
+**Credential theft costs more with AI.** A stolen AI provider API key gives the thief direct access to expensive compute. On IKON, AI provider credentials are managed by the platform and never exposed to application code or clients, so there is nothing to steal at either layer.
 
-**Prompt injection is harder when the client has no access to prompts.** In traditional setups, the client builds prompts from user input and sends them directly to a model. On Ikon, user input is sent to the server as data, and the server builds the prompt in code the user cannot see or change. Prompt injection still has to be handled on the server, but client-side manipulation, the easiest and most common way to attempt it, is no longer possible.
+**Prompt injection is harder when the client has no access to prompts.** In traditional setups, the client builds prompts from user input and sends them directly to a model. On IKON, user input is sent to the server as data, and the server builds the prompt in code the user cannot see or change. Prompt injection still has to be handled on the server, but client-side manipulation, the easiest and most common way to attempt it, is no longer possible.
 
-**Model abuse requires breaching the server, not opening developer tools.** If API keys are in the client, anyone with a browser can make unlimited calls against your account. On Ikon, every model call goes through the platform, which enforces rate limits and usage policies before the call is made.
+**Model abuse requires breaching the server, not opening developer tools.** If API keys are in the client, anyone with a browser can make unlimited calls against your account. On IKON, every model call goes through the platform, which enforces rate limits and usage policies before the call is made.
 
 ## The compliance picture
 
-Ikon applications get these compliance-related properties from the platform, without any work from the developer.
+IKON applications get these compliance-related properties from the platform, without any work from the developer.
 
 **Data residency.** The platform supports regional deployment across multiple EU and US regions. AI model calls can be pinned to specific regions. If you request `ModelRegion.Eu`, the call stays in Europe. Data residency is part of the architecture, not a configuration you hope someone remembered to set.
 
@@ -97,7 +97,7 @@ These properties align with GDPR, SOC 2 and ISO 27001 requirements because the a
 
 ## The security review
 
-When an enterprise security team evaluates an Ikon application, the conversation is different from what they are used to.
+When an enterprise security team evaluates an IKON application, the conversation is different from what they are used to.
 
 *Where are API keys stored?* In the platform's credential store. They are rotated every 300 seconds and never exposed to application code or clients.
 
@@ -111,4 +111,4 @@ When an enterprise security team evaluates an Ikon application, the conversation
 
 *Where does data reside?* That is configurable by region. AI calls can be pinned to EU or US regions.
 
-The answers are short because the architecture is simple. Most AI platforms start with a complex client and add security later. Ikon has no client-side complexity, keeps credentials out of application code, enforces policies at the platform level and isolates every app in its own container. There is nothing to secure because there is nothing to attack.
+The answers are short because the architecture is simple. Most AI platforms start with a complex client and add security later. IKON has no client-side complexity, keeps credentials out of application code, enforces policies at the platform level and isolates every app in its own container.

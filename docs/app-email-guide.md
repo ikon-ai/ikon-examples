@@ -1,4 +1,4 @@
-<!-- checked-against: 310ce0e34f26b43997b724c9 -->
+<!-- checked-against: f8bce209bfede7c397b724c9 -->
 
 # Ikon.App.Email Guide
 
@@ -53,7 +53,7 @@ not paused for fewer than 3 complaints or 10 hard bounces, whatever the rate. An
 line has its email paused, and its owners are told why. Sign-in codes do not count toward it.
 
 While paused, every `SendAsync` throws `EmailSendingRestrictedException` — nothing is queued, mail
-already queued is dropped, and retrying does not help — until Ikon support reviews the sending and restores it. Sign-in codes and
+already queued is dropped, and retrying does not help — until IKON support reviews the sending and restores it. Sign-in codes and
 other account mail keep working. Send only to people who asked for the mail, and never to a list
 bought or scraped from elsewhere.
 
@@ -103,7 +103,7 @@ domain when one exists and from the platform's default address otherwise.
 
 Out of the box an app with no verified sending domain sends from the platform's default address, so
 the examples above work with no DNS setup at all. Sending from a domain of your own — so the From address reads `reports@yourfirm.com` —
-is arranged with Ikon rather than configured in the app: ask your Ikon contact to add the domain to
+is arranged with IKON rather than configured in the app: ask your IKON contact to add the domain to
 your app, and you will be given the records to publish.
 
 They come in two rounds:

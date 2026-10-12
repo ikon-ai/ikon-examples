@@ -4,7 +4,7 @@
 
 A crackling fireplace fills the screen, its flames moving in slow cinematic motion while the embers glow, with soft pops and crackles playing underneath. The video loops endlessly, and you cannot see where it repeats. You described this scene in one sentence, and the app generated both the video and the sound.
 
-This is Ambient Cinema. You describe a scene in plain language, and the app generates a cinematic video that loops without a visible seam, with matching ambient sound. It was built on Ikon in under a thousand lines.
+This is Ambient Cinema. You describe a scene in plain language, and the app generates a cinematic video that loops without a visible seam, with matching ambient sound. It was built on IKON in under a thousand lines.
 
 ## What the platform handles
 
@@ -57,7 +57,7 @@ Audio is cached the same way. Each audio description gets its own fingerprint an
 
 Without this platform, the same application would need a video generation API wrapper with authentication and error handling, a video enhancement pipeline with job orchestration for two sequential stages, a media CDN for serving generated files, a job queue to handle tasks that run for up to 30 minutes each, a storage service for caching, a progress-tracking database, an audio generation service with its own caching layer, a frontend application with a custom video player and real-time progress updates, and a backend API connecting everything together.
 
-That is nine services at minimum, plus the code that connects them. The Ikon version is under a thousand lines in one file, plus a small custom video player component.
+That is nine services at minimum, plus the code that connects them. The IKON version is under a thousand lines in one file, plus a small custom video player component.
 
 ## What this shows
 

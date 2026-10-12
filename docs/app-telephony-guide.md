@@ -1,4 +1,4 @@
-<!-- checked-against: de80eba9f6e16a64ecb18f56 -->
+<!-- checked-against: 026a0991b5bc0cd0ecb18f56 -->
 
 # Ikon.App.Telephony Guide
 
@@ -26,10 +26,10 @@ ikon phone markets
 ikon phone buy --country se --provider 46elks --yes
 ```
 
-It picks a number in that market and wires it to your app. A number **rents monthly** for as long as
+It picks a number in that market and connects it to your app. A number **rents monthly** for as long as
 the app holds it, charged to the app's credits, so the command asks for confirmation before
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
-when an agent runs it). What it came to shows up in `ikon costs` like any other usage.
+when an agent runs it). The cost shows up in `ikon costs` like any other usage.
 
 You choose the market, the provider (`--provider 46elks` or `--provider twilio`) and what the number
 carries (`--capabilities sms,voice`, `sms` or `voice`); a script gets the platform default provider
@@ -46,7 +46,7 @@ Much of Europe will not sell a number until it knows which organisation holds it
 provider what the market wants and collects it — **your own details, never the platform's**, because
 this is what a regulator reads to learn who is behind the number.
 
-Interactively it simply prompts. For a script or an agent, pass the fields as flags:
+Run interactively, it prompts for them. For a script or an agent, pass the fields as flags:
 
 ```bash
 ikon phone buy --country fi --provider twilio --yes \
@@ -144,8 +144,8 @@ ikon phone buy --country fi
 ```
 
 When no default number is set, the platform picks the number local to each recipient automatically
-when the app holds more than one, so a second number is usually all it takes; a default number wins
-over a local one.
+when the app holds more than one, so a second number is usually enough. A default number takes
+priority over a local one.
 
 ## Choosing which number to send from
 
@@ -238,9 +238,9 @@ Because a message can arrive while the app is idle, the platform cold-starts an 
 one. You do not authenticate anything yourself: the platform registers a **signed URL** with the
 provider, so an unsigned request to the same path is rejected before it reaches your app.
 
-Replying is an ordinary `SendSmsAsync`, which is priced, metered and refusable like any other send —
-rather than a string returned from a handler, which one provider would have billed inside its own
-network where nothing could account for it.
+You reply with an ordinary `SendSmsAsync`, which is priced, metered and can be refused like any other
+send. A handler does not return a reply string, because one provider would bill that reply inside its own
+network, where the platform could not account for it.
 
 ### Choosing which instance receives inbound
 
@@ -269,9 +269,9 @@ instance. `ikon phone list` shows where each number currently points, and
 
 A running app can also claim inbound for itself with
 `app.Telephony.BindInboundToThisInstanceAsync()`, which points every number the app holds at it and
-is what a developer uses to receive on their own machine. A local run's binding is reverted when the
-process stops by sending every number back to the shared instance, so per-number `ikon phone bind`
-routes from before the run are lost; a binding made from a cloud instance outlives the process.
+is what a developer uses to receive on their own machine. When a local run stops, its binding is
+reverted by sending every number back to the shared instance, so per-number `ikon phone bind` routes
+made before the run are lost. A binding made from a cloud instance outlives the process.
 
 **Inbound messages are free.** An inbound call is charged like one you place, and counts against
 the same concurrent-call and duration limits.
@@ -301,8 +301,8 @@ gives up one number. To give up telephony entirely:
 ikon phone release --all
 ```
 
-releases every number the app holds and stops the billing. Both confirm first, and for a reason
-worth taking seriously: **the number goes back to the carrier and is never given back**. Anyone who
+releases every number the app holds and stops the billing. Both ask for confirmation first, because
+**the number goes back to the carrier and is never given back**. Anyone who
 saved it, printed it, or published it loses the ability to reach your app, permanently.
 
 Deleting the app from the cloud does the same thing automatically, at the end of the platform's
@@ -320,6 +320,6 @@ if (!status.Enabled)
 }
 ```
 
-`GetStatusAsync` is the supported way to find out whether the app has any number — better than
-discovering it from a failed send, and better than assuming. When it has none, sending or calling
+`GetStatusAsync` is the supported way to find out whether the app has any number, instead of
+discovering it from a failed send or assuming. When it has none, sending or calling
 throws `TelephonyNumberNotAvailableException`, whose message names the command that fixes it.

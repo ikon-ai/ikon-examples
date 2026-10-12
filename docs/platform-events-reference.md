@@ -1,6 +1,6 @@
-<!-- checked-against: 5ced93b336645cb4644cf1ec -->
+<!-- checked-against: a30b16a388c70649644cf1ec -->
 
-# Ikon Platform Events
+# IKON Platform Events
 
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
@@ -25,15 +25,15 @@ object. Every payload field named below is a key inside `parameters`.
 The app and session are taken from your auth token, never from the request body, so an event
 cannot claim to belong to an app that did not emit it.
 
-**Parameters that look like personal data are withheld.** Any top-level parameter whose key has a
-`.`/`_`/`-`-delimited segment naming an email, phone number (`phone`, `msisdn`), national id (`ssn`,
-`nationalid`, `personalid`), date of birth, password, secret, token, API key, card number
-(`cardnumber`, `creditcard`/`credit_card`), IBAN or postal/street address — the segment must be one
-of these spellings whole, so `card_number`, `national_id` or `bank_account` is not matched — or that you explicitly tag `{ sensitive: true, value }` — is stripped from the
-event you read back and retained separately under restricted access for a short period. Tagging a
-value can only add protection, never remove it: a key matching the pattern is withheld whether you
-tag it or not. Keep personal data out of event parameters regardless; this is a backstop, not a
-feature to rely on.
+**Parameters that look like personal data are withheld.** A top-level parameter is stripped from the
+event you read back, and kept separately under restricted access for a short period, when its key
+has a `.`/`_`/`-`-delimited segment naming an email, phone number (`phone`, `msisdn`), national id
+(`ssn`, `nationalid`, `personalid`), date of birth, password, secret, token, API key, card number
+(`cardnumber`, `creditcard`/`credit_card`), IBAN or postal/street address, or when you explicitly
+tag it `{ sensitive: true, value }`. The segment must be one of these spellings whole, so
+`card_number`, `national_id` or `bank_account` is not matched. Tagging a value can only add
+protection, never remove it: a key matching the pattern is withheld whether you tag it or not. Keep
+personal data out of event parameters anyway, and do not rely on this filter to catch it.
 
 No event records a client IP address. Where a client connected from is reported as a country, region
 and city by `client_geo` below, resolved at the network edge without the platform reading the
@@ -57,14 +57,13 @@ of an event tells you what happened; `class` tells you whose problem it is.
 **Count `defect`, `dependency` and `provider_credit`; ignore the rest.** A dashboard built on event
 *names* alone counts a missing `--yes` flag the same as a crash.
 
-A few failure events carry no `class` — `ikon_server_oom`, `client_rejected_limit`,
-`client_rejected_memory`, `client_authentication_failed`, `billing_checkout_failed` and
-`billing_invoice_payment_failed` — so count those by name.
+A few failure events carry no `class` — `client_rejected_limit`, `client_rejected_memory` and
+`client_authentication_failed` — so count those by name.
 
 `provider_credit` is separate from `dependency` because the two need different people: a dependency
 failure is watched until it clears on its own, and a credit failure clears only when somebody pays.
-It is about an account the platform holds with a model provider — your own Ikon credit limit is a
-limit enforced on purpose, and reports as `expected`.
+`provider_credit` is about an account the platform holds with a model provider. Your own IKON credit
+limit is a limit enforced on purpose, and reports as `expected`.
 
 A model-operation failure event also carries `failureKind`, which says the same thing one level finer
 (`Transient`, `Unavailable`, `AccessDenied`, `CreditExhausted`, `Quality`, `Unknown`) and matches
@@ -100,11 +99,11 @@ Log.Instance.Event("invoice_export_failed", new
 |---|---|---|
 | `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `pending`, `limit` |
 | `client_rejected_memory` | An external client connect was rejected (HTTP 429) because admitting it would exceed the memory budget for clients | `clientMb`, `clientBudgetMb`, `settlingClients`, `usedMb`, `baselineMb`, `limitMb`, `thresholdPercent` |
-| `client_authentication_failed` | The connect token was valid but the server's `OnAuthenticateAsync` refused the client (a rejected token gets a 401 and no event) | `user`, `clientSessionId` |
+| `client_authentication_failed` | The connect token was valid but the server's `OnAuthenticateAsync` refused the client (a rejected token gets a 401, or a 503 while the server is still starting, and no event) | `user`, `clientSessionId` |
 | `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `firstSessionOfUser` (no other live session of this user existed), `clientContext` (see below) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
 | `client_soft_disconnected` | A session is soft-disconnected on transport loss (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
-| `client_left` | A client/session departs definitively — every `client_joined` eventually pairs with exactly one `client_left` | `user`, `clientSessionId`, `lastSessionOfUser` (no other live or soft-disconnected session of this user remains), `reason` (`explicit` / `beacon` / `graceTimeout` / `serverStopped`) |
+| `client_left` | A client/session departs definitively — every `client_joined` eventually pairs with exactly one `client_left` | `user`, `clientSessionId`, `lastSessionOfUser` (no other live or soft-disconnected session of this user remains), `reason` (`explicit` / `beacon` / `graceTimeout` / `serverStopped` / `replaced`, when a local run replaces its app instance on a hot reload or a session-identity change) |
 
 `clientContext` is a PascalCase projection of the connecting client's `Context`: `AuthSessionId`,
 `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `Timezone`, `ContextType`,
@@ -127,7 +126,7 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 
 | Event | When | Payload |
 |---|---|---|
-| `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
+| `app_initialized` | The IKON app has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
 | `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, or the app's seed run threw) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
@@ -141,12 +140,12 @@ the CDN holds every other file. That makes this a count of everyone who arrived 
 visitors who gave up before your app started and so never emitted `client_joined` or anything else.
 The gap between `app_page_served` and `client_joined` is how many you are losing during the load.
 
-Aggregated over a window rather than emitted per page, so `served` is a count and not a row per
+The event is aggregated over a window rather than emitted per page, so `served` is a count and not a row per
 visitor. `rttMsecSum` and `rttSamples` are summed rather than averaged so they stay correct when you
 re-aggregate across countries or days: divide the two yourself, at whatever grouping you want. Not
 every request can be measured, which is why the sample count is separate from `served`.
 
-Crawlers are excluded — a large share of what reaches the router is vulnerability scanners, and
+Crawlers are excluded, because a large share of what reaches the router is vulnerability scanners, and
 counting them would inflate the denominator of any completion rate built on this.
 
 `country` is resolved at the network edge from the connection, never from an IP address, and is
@@ -173,8 +172,9 @@ network's location rather than the person's, and city is materially less reliabl
 describes where a client *appears* to be and must never be used to decide what anyone is allowed to
 do.
 
-One row per app-session open, keyed by `appSession` — that is what the session views join on, and
-why the placement follows a client who moves between sessions instead of being fixed at login.
+There is one row each time an app session is opened, keyed by `appSession`, which is what the
+session views join on. A client who moves between sessions therefore gets a placement for each
+session instead of one fixed at sign-in.
 
 ## Server session provisioning
 
@@ -197,9 +197,8 @@ different ids and both appear on the same row.
 **Reading rows written before the rename.** "Room" was the old word for an app session. Older rows
 carry the id under `room` instead of `appSession`, and `type` values of `room` and `hosted-room`
 rather than `app-session` and `app-session-hosted`. A row that has been written can never gain a new
-key, so those spellings stay in the raw events forever — the session views translate both, and
-nothing built on them shows the old vocabulary. Query the raw events directly and you have to handle
-both yourself.
+key, so those spellings stay in the raw events permanently. The session views translate both, so nothing built
+on them shows the old names. If you query the raw events directly, you have to handle both yourself.
 
 `pipeline-run` also still emits the superseded `toolkitRelease` / `toolkitReleaseVersion` spellings
 alongside the `ikonTool*` pair. Prefer the `ikonTool*` keys in anything new.
@@ -207,8 +206,8 @@ alongside the `ikonTool*` pair. Prefer the `ikonTool*` keys in anything new.
 ## Connect latency timeline
 
 `*_connect_timeline` events break a single client-triggered server provision/boot into per-tier
-timings, stitched together on `connectTraceId`. Each tier is emitted only when the client's connect
-supplied a trace id, so an event with no trace id produces no rows at all.
+timings, joined on `connectTraceId`. Each tier is emitted only when the client's connect supplied a
+trace id, so a connect without a trace id produces no rows at all.
 
 | Event | Source | Payload |
 |---|---|---|
@@ -235,14 +234,14 @@ as the browser experienced them:
 
 A non-zero `assetOpaqueCount` means an asset host did not send `Timing-Allow-Origin`, so those
 assets are missing from the byte and cache counts. It is reported separately rather than assumed to
-be cached, because a withheld timing and a cache hit look identical — both report zero bytes — and
-folding them together would show a perfect cache rate for assets being downloaded in full.
+be cached, because a withheld timing and a cache hit look identical (both report zero bytes), and
+counting them together would show a perfect cache rate for assets that were downloaded in full.
 
 This describes only visitors whose page load finished; someone who gave up part-way never runs the
 code that reports it. See `app_page_served` for the count that includes them.
 
 `server_connect_timeline` and `app_connect_timeline` exist only on the warm prestart-swap path, so a
-cold connect stitches at most three tiers.
+cold connect has at most three tiers.
 
 ## RPC / function calls
 
@@ -260,24 +259,25 @@ zero of them. Successful calls are not tracked individually.
 
 `errorKind` taxonomy (server side): `Timeout`, `Cancelled`, `NotFound`, `LocalVisibility`,
 `VersionMismatch`, `PolicyDenied`, `PolicyError`, `ArgumentBinding`, `Execution`, `InvalidArgument`.
-`class` follows from it: the four kinds that mean the caller asked wrongly are `user_error`,
-`PolicyDenied` (a limit enforced on purpose) and `Cancelled` (the caller cancelled its own call) are
-`expected`, and the rest are `dependency`.
+`class` follows from it. `NotFound`, `VersionMismatch`, `ArgumentBinding` and `InvalidArgument` mean
+the caller asked wrongly and are `user_error`. `PolicyDenied` (a limit enforced on purpose) and
+`Cancelled` (the caller cancelled its own call) are `expected`. The rest are `dependency`, except
+an `Execution` failure that an AI operation inside the function already recorded: it takes the class
+of that operation's `{eventName}_failed` row, so a request the model rejected stays `user_error`.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
-`RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`
-and for a call the caller cancelled itself, and for a spend limit or policy denial the far side
-enforced on purpose (one whose limit check itself failed stays `dependency`, as on the server). A call
-that `failed` otherwise is classed by the error the
-far side threw, by the same rule the AI operation's own `{eventName}_failed` row uses (below): a
-refused prompt is `expected`, a request the model rejects is `user_error`, an empty provider account
+`RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`,
+for a call the caller cancelled itself, and for a spend limit or policy denial the far side enforced
+on purpose. A denial whose limit check itself failed stays `dependency`, as on the server. Any other
+call that `failed` is classed by the error the far side threw, using the same rule as the AI
+operation's own `{eventName}_failed` row (below): a refused prompt is `expected`, a request the model rejects is `user_error`, an empty provider account
 is `provider_credit`, and everything else is `dependency`.
 
 ## Resource and health
 
 | Event | When | Payload |
 |---|---|---|
-| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
+| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`dependency` when the host ran short of memory, `expected` when the app outgrew its own limit), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
 | `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
@@ -299,18 +299,18 @@ LLM calls the completion details carry the token counts (`InputTokens`, `OutputT
 `InputCachedTokens`, `OutputReasoningTokens`, `FinishReason`, …).
 
 `failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
-`AccessDenied`, `CreditExhausted`, `Quality` or `Unknown`. It is finer than `class` and is what
-separates a provider that is down from one whose account has run dry: both stop the call, only one
-is fixed by waiting.
+`AccessDenied`, `CreditExhausted`, `Quality` or `Unknown`. It is finer than `class`, and it tells a
+provider that is down from one whose account has no credit left. Both stop the call, but only the
+first is fixed by waiting.
 
-**A persisting failure is logged once, not once per call.** The events keep coming — every failed
-call is one `_failed` row, so counts stay right — but the log line that accompanies them drops to
-debug after the first for that model and failure kind, and becomes a warning again an hour later.
-Count the events; do not count log lines.
+**A persisting failure is logged once, not once per call.** Every failed call is still one `_failed`
+row, so event counts stay correct. The log line that goes with them drops to debug after the first
+for that model and failure kind, and becomes a warning again an hour later. Count the events, not
+the log lines.
 
 **One failed operation is one `_failed` event, recorded where it happened.** When the operation runs
 in another process, the failure is recorded there, by the process that saw it, with the exception it
-actually threw — the calling side stays silent rather than adding a second row saying
+actually threw. The calling side records nothing, so there is no second row saying
 `FunctionCallException`. What the caller experienced is in `rpc_client_call_failed`, which reports
 once per call with `attemptsMade` and `finalOutcome`, so a call that succeeded on its second attempt
 is one `expected` row and not a failure at all.
@@ -334,19 +334,19 @@ Emitted by the backend, not by the server.
 |---|---|---|
 | `user_created` | A new user account was created | `user` |
 | `user_login` | A user authenticated | `authSession`, `user`, `provider` |
-| `user_logout` | A user logged out | `user` |
+| `user_logout` | A user signed out | `user` |
 | `user_removed` | A user account was removed | `user` |
 | `user_token_delegated` | A user token was delegated to another app | `authSession`, `user`, `role`, `sourceSpace` |
-| `login_email_request` | A magic-link login email was requested. No payload — the address would be personal data. | — |
+| `login_email_request` | A magic-link sign-in email was requested. No payload — the address would be personal data. | — |
 | `anonymous_user_created` | An anonymous user was created | `user` |
 | `anonymous_user_login` | An anonymous user authenticated | `authSession`, `user` |
 | `anonymous_user_removed` | An anonymous user was removed | `user` |
 
 `provider` on `user_login`: `username`, `google`, `apple`, `microsoft`, `facebook`, `signicat`,
-`sso`, `email`, `passkey`, `api-key`, `space-token`. OAuth and Signicat logins also carry `space` when
-one is known, and `sso` logins carry `space` and `ssoConnection`.
+`sso`, `email`, `passkey`, `api-key`, `space-token`. OAuth and Signicat sign-ins also carry `space` when
+one is known, and `sso` sign-ins carry `space` and `ssoConnection`.
 
-`authSession` is what ties a login to the sessions that follow it — it is also on `client_joined`'s
+`authSession` is what ties a sign-in to the sessions that follow it — it is also on `client_joined`'s
 `clientContext.AuthSessionId`.
 
 ## Profiles
@@ -364,7 +364,11 @@ App-scoped, emitted by the backend for apps with session analysis enabled.
 
 | Event | When | Payload |
 |---|---|---|
-| `session_issue_opened` | The analysis opened a new issue from this app's session logs | `issue`, `fingerprint`, `severity`, and `title` when the issue was classified |
+| `session_issue_opened` | The analysis opened a new issue from this app's session logs | `issue`, `fingerprint`, `severity`; `title` and `category` when the issue was classified |
+
+`category` is the classifier's guess at the cause: `app-defect`, `platform-defect`,
+`configuration`, `integration`, `capacity` or `noise`. The event carries no `class`, because a new
+issue is something the analysis found in the logs. It does not mean an operation failed.
 
 ## Billing
 
@@ -374,8 +378,8 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 |---|---|---|
 | `billing_checkout_created` | A checkout session was opened | `paymentProvider`, `session`, `customer`, `planType`, `mode` |
 | `billing_checkout_completed` | Checkout completed | `paymentProvider`, `session`, `customer`, `paymentIntent`, `amountPaid`, `currency`, `product`, `price`, `planType`, `tier`, `paymentStatus` |
-| `billing_checkout_failed` | Payment failed | `paymentProvider`, and the failure details |
-| `billing_invoice_payment_failed` | A subscription invoice payment failed | `paymentProvider`, `subscription`, `invoice`, `amountDue`, `currency` |
+| `billing_checkout_failed` | A checkout session expired, or its payment failed after the customer submitted it | `class`, `paymentProvider`, and the failure details |
+| `billing_invoice_payment_failed` | A subscription invoice payment failed | `class`, `paymentProvider`, `subscription`, `invoice`, `amountDue`, `currency` |
 | `billing_async_payment_completed` | A deferred payment method settled later | `paymentProvider`, and the settlement details |
 | `billing_invoice_paid` | An invoice was paid | the invoice and period details |
 | `billing_credits_added` | Credits were added to an organisation | `source`, `credits`, `subscriptionRemaining`, `purchasedRemaining` |
@@ -383,6 +387,11 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 | `billing_subscription_updated` | A subscription changed | `subscription`, and the change details |
 | `billing_subscription_cancelled` | A subscription was cancelled | `subscription`, and the cancellation details |
 | `billing_subscription_reconciled` | A subscription was reconciled against the payment provider | `subscription`, and the reconciliation details |
+
+On `billing_checkout_failed`, `class` is `expected` when the checkout session expired (the customer
+left without paying) and `user_error` when the payment method was declined after the customer
+submitted it. `billing_invoice_payment_failed` is always `user_error`, because the customer's payment
+method was declined.
 
 ## Tool errors
 
@@ -401,15 +410,14 @@ unhandled exception reached the entry point; `tool_failed` also uses `dependency
 
 ### The `ikon` CLI's own outcomes
 
-The CLI splits what used to be one event three ways, because a command that told you your input was
-wrong is not a command that broke:
+The CLI reports a command that rejected your input separately from one that broke:
 
 | Event | When | `class` |
 |---|---|---|
 | `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases |
 | `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
-| `app_run_stopped` | `ikon run`'s app was killed by a signal or by `ikon stop` (on Windows the stop is all that tells a kill from a crash) | `expected` |
+| `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 
 Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
 without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it
@@ -478,11 +486,11 @@ internal Task EraseAsync(UserDataErasureEventArgs args)
 Semantics:
 
 - **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
-- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: gated on the listener your deployment declares, once per app to its shared userless instance — the one `[Cron]` ticks in — cold-started if none is running, retried on a widening backoff until your handler returns.
-- **It is dispatched unlike one** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` stays 1. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
+- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above. It is delivered only when your deployment declares a listener, once per app, to the app's shared userless instance (the one `[Cron]` ticks in). That instance is cold-started if none is running, and delivery is retried with a growing backoff until your handler returns.
+- **But it is dispatched differently** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` stays 1. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
 - **Once per app, in one instance** — however many instances of your app are live, the handler runs once per erasure. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
 - **At-least-once delivery** — the event is stored per app on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
 - **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).
 - **Failure handling** — let exceptions propagate. A throwing handler leaves the event unanswered and it is redelivered after its backoff; swallowing the exception would report an incomplete erasure as done.
 - **However long it takes** — the session is held open for the whole run, so a handler slower than the idle limit is not stopped mid-erasure.
-- **No listener declared** — nothing is delivered, and the erasure report records the app as skipped for want of a listener. The platform erases the user's platform-managed state centrally whether or not your app ever runs; app-owned data is the app's documented responsibility either way.
+- **No listener declared** — nothing is delivered, and the erasure report records the app as skipped because it has no listener. The platform erases the user's platform-managed state centrally whether or not your app ever runs; app-owned data is the app's documented responsibility either way.

@@ -2,7 +2,7 @@
 
 *Published 2026-03-19*
 
-Close your browser and come back tomorrow morning. Your AI research assistant has worked through the night, analyzing documents, monitoring sources and building a digest of what happened while you were away. When you open the app, the results are there, the conversation continues from where you left off, and the analysis has moved on since you left. An Ikon app keeps running after you close the browser.
+Close your browser and come back tomorrow morning. Your AI research assistant has worked through the night, analyzing documents, monitoring sources and building a digest of what happened while you were away. When you open the app, the results are there, the conversation continues from where you left off, and the analysis has moved on since you left. An IKON app keeps running after you close the browser.
 
 ## What you can build
 
@@ -24,13 +24,13 @@ This model works well for traditional applications but poorly for AI application
 
 AI workflows carry state. A conversation has context that spans turns. An analysis pipeline has intermediate results. A multi-agent orchestration has tasks in various stages of completion. Saving all of this to a database and rebuilding it on every request adds latency, complexity and new ways to fail, and none of that helps with the problem you are trying to solve.
 
-## How Ikon applications work differently
+## How IKON applications work differently
 
-An Ikon application is a long-lived process that holds its state. It keeps running when no users are connected.
+An IKON application is a long-lived process that holds its state. It keeps running when no users are connected.
 
 **State is kept in the application.** The app holds its state in memory: conversations, analysis results, queued tasks and accumulated context. When a user disconnects and reconnects later, the application is still running and everything is where they left it. The app does not need to load state from a database, rebuild it, or start up cold.
 
-**Background work is built in.** In traditional architectures, running something in the background requires a job queue, a message broker, worker processes, and orchestration to tie them together. In Ikon, background work is a task that runs within the application process. It has direct access to the app's live state. When it updates something, every connected user sees the change immediately. If no users are connected, the task keeps running anyway.
+**Background work is built in.** In traditional architectures, running something in the background requires a job queue, a message broker, worker processes, and orchestration to tie them together. In IKON, background work is a task that runs within the application process. It has direct access to the app's live state. When it updates something, every connected user sees the change immediately. If no users are connected, the task keeps running anyway.
 
 This background AI task gathers sources, analyzes each one, and updates the interface as each result comes in:
 
@@ -61,7 +61,7 @@ When someone reconnects, they see how far the analysis has got.
 
 Keeping state across code changes helps most during development. In most frameworks, changing your code means restarting the server and losing all state. You are in the middle of testing a multi-turn AI conversation, you notice a UI issue, you fix it, and now you have to recreate the entire conversation from scratch.
 
-Ikon's hot reload keeps state. When you change your code, the platform saves the current state, compiles the new code, creates a new instance of the application, restores all state, and resumes. An AI conversation in progress continues, and background tasks continue from where they were.
+IKON's hot reload keeps state. When you change your code, the platform saves the current state, compiles the new code, creates a new instance of the application, restores all state, and resumes. An AI conversation in progress continues, and background tasks continue from where they were.
 
 This changes how you develop AI applications, because you can change behavior and presentation while a long workflow is running, without restarting the workflow.
 
@@ -81,4 +81,4 @@ Keeping applications running needs infrastructure underneath. Each application r
 
 ## A different kind of application
 
-Moving from stateless request handlers to long-lived processes that hold state changes what applications can do. An app no longer only responds to requests. An Ikon application can keep working on a problem after you close the tab.
+Moving from stateless request handlers to long-lived processes that hold state changes what applications can do. An app no longer only responds to requests. An IKON application can keep working on a problem after you close the tab.
