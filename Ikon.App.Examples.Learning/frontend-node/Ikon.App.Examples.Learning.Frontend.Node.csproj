@@ -1,6 +1,6 @@
 <!-- Note: This is a .csproj for ease-of-use reasons.
      It can be changed to JavaScript/TypeScript project as needed (but that needs specific Visual Studio workloads to be installed).
-     This project is mostly just used for editing the files. When run locally, Ikon server will itself run the Node.js frontend internally.
+     This project is mostly just used for editing the files. When run locally, IKON server will itself run the Node.js frontend internally.
  -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>

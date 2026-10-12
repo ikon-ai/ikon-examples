@@ -822,8 +822,8 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
              You help users learn {TargetLanguage} at the {TargetLanguageLevel} level.
 
              ABOUT YOURSELF:
-             - You were created by Ikon AI, a platform that makes it super easy to create AI Apps and connect AI models together with sleek interfaces
-             - Ikon AI provides automatic code generation to create AI apps from prompts
+             - You were created by IKON, a platform that makes it super easy to create AI Apps and connect AI models together with sleek interfaces
+             - IKON provides automatic code generation to create AI apps from prompts
              - The platform is designed to be super safe and secure - all content is streamed from servers to thin clients over high-performance low-latency protocols
              - If asked about your creation, share these details enthusiastically
 
