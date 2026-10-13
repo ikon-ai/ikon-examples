@@ -1,4 +1,4 @@
-<!-- checked-against: f8bce209bfede7c397b724c9 -->
+<!-- checked-against: 3f8fd4096c19108444b5a65a -->
 
 # Ikon.App.Email Guide
 
@@ -6,7 +6,9 @@ Send transactional email from your app and read the mail delivered to your app �
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point, available to every app. Each message sent is
 billed to the app's organisation. `EmailSendRequest`, `InboxQuery` and the other email types live in
-`Ikon.Common.Core.Email`, which the scaffold's global usings do not cover.
+`Ikon.Common.Core.Email`, which the scaffold's global usings import (an app scaffolded earlier gets
+them from `ikon update`, or from `ikon update --migrate-global-usings` when its global usings file
+predates the managed block).
 
 ## Send an email
 
@@ -23,14 +25,26 @@ await app.Email.SendAsync(new EmailSendRequest(
 ```
 
 The send is **accepted, not delivered**: a successful return means the platform queued the message,
-and transient delivery failures are retried server-side. A recipient that is undeliverable or
-suppressed (it bounced or complained before) is refused at send time with a request failure (an
-`HttpRequestException` carrying a 422); undeliverable includes the reserved domains `example.com`,
-`example.net`, `example.org` and the `.test`, `.example`, `.invalid` and `.localhost` TLDs, so replace
-the `To` above with a real address before running it. Missing
+and transient delivery failures are retried server-side. A recipient the platform will not send to is
+refused at send time with an `EmailRecipientUndeliverableException`. It carries the `Recipient` and
+a `Reason` (an `EmailUndeliverableReason`): `ReservedDomain` for the domains `example.com`,
+`example.net`, `example.org` and the `.test`, `.example`, `.invalid` and `.localhost` TLDs, and
+`Suppressed` for an address that bounced or complained before. Retrying the same recipient fails the
+same way. The exception is an `HttpRequestException` with status 422, so a handler for that still
+catches it. Replace the `To` above with a real address before running it. Missing
 fields and the limits below, except the metadata key count, throw `ArgumentException` locally, before
 anything is sent; a malformed `To` or `ReplyTo` address and too many metadata keys are rejected by the
 backend and surface as a `UserException`.
+
+A local `ikon run` sends real email from the app's cloud space, but in a local run `app.PublicUrl`
+and `app.JoinUrl` are the address of that run, so a link built from them works only while the run is
+up:
+
+- By default the address is `https://localhost:…`, which opens only on your own machine.
+- With `ikon run --host-lan` it is the LAN address, which opens on the same network.
+- With `ikon run --host-public` it is the IKON relay address, which opens anywhere.
+
+To test links that must keep working, send the email from a deployed app.
 
 Limits, enforced by the backend and, except the metadata key count, also checked in the client:
 
@@ -43,6 +57,11 @@ Limits, enforced by the backend and, except the metadata key count, also checked
 
 Attachments count at their base64-encoded size (~4/3 of the raw bytes), so the practical budget for
 raw attachment bytes is roughly 7.5 MB.
+
+The platform deliberately keeps no copy of the messages an app sends, including their subjects,
+bodies and attachments. An app that needs a log of
+sent mail, to show a history or to prove what went out, keeps its own, for example a database row
+written when `SendAsync` returns.
 
 ### Keep the list clean — sending can be paused
 
@@ -129,6 +148,11 @@ resolve against. A domain is verified for one environment at a time, so developm
 platform default sender.
 
 ## Read the inbox
+
+The app receives mail sent to any address on one of its hostnames that has the **Receive email**
+capability turned on. A new app has it off on every hostname, so no mail arrives until you turn it
+on from the hostname's page in the Portal. `ikon app show <app>` lists the receiving domains under
+Inbound email.
 
 Inbound email delivered to the app is available as pages or as a lazy stream:
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 3bedb9adae2ed9f2e3b0c442 -->
+<!-- checked-against: 7f4d8a8eae2ed9f2e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -83,7 +83,14 @@ resolves to concrete values. So the common case needs no Flutter-specific work.
 
 Some web-only styling has no Flutter equivalent and is dropped on Flutter today: focus
 rings, `hover:` / `focus:` / `data-[state]` variants, and arbitrary CSS. Light and dark
-theme token variants and responsive breakpoints are both resolved on Flutter.
+theme token variants and responsive breakpoints are both resolved on Flutter. A `Switch` or
+`Checkbox` still takes its checked colours from the `data-[state=checked]:` classes in its
+style, which the server sends to Flutter separately from the other styles.
+
+Theme fonts are the exception to "no Flutter-specific work": a family the theme names
+(`["font-heading"] = "Barlow Condensed"`) renders on Flutter only when the Flutter app bundles
+that font under the same family name in its `pubspec.yaml`. Otherwise Flutter falls back to its
+default font.
 
 When you need styling that differs by renderer, scope it with the **target variants** —
 `flutter:` applies only on Flutter, `web:` only on the web/CSS renderer, and unprefixed
@@ -256,6 +263,11 @@ skips opening the web frontend in a browser tab; the web frontend still serves.
 ```bash
 flutter run -d chrome --dart-define=IKON_PORT=8443
 ```
+
+A Flutter web build plays no audio from the server, because the PCM speaker output
+(`flutter_pcm_sound`) has no web implementation. `Audio.Speak` and every other audio stream is
+silent, and the client logs `Audio playback failed to initialise`. For the web, ship the React frontend (`frontend-node`), which
+plays audio, and keep the Flutter frontend for Android and iOS.
 
 ### macOS Desktop
 
@@ -464,7 +476,7 @@ Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and 
 - `ikon.client.getViewport` — viewport dimensions
 - `ikon.client.getVisibility` — app lifecycle state
 - `ikon.client.vibrate` — haptic feedback
-- `ikon.client.keepScreenAwake` — wakelock
+- `ikon.client.keepScreenAwake` — wakelock; returns false when the platform refuses it, as a browser does without a user gesture
 - `ikon.client.scrollTo` — a no-op that returns true
 - `ikon.client.getUrl` / `setUrl` — a URL stack that `setUrl` pushes or replaces; the back gesture pops it and reports the path underneath
 - `ikon.client.getLocation` — geolocation (via `geolocator`)

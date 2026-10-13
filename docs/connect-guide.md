@@ -1,6 +1,10 @@
-<!-- checked-against: 4e2e221f5d753426e3b0c442 -->
+<!-- checked-against: 48b8e4a35d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
+
+IKON Connect is an advanced feature. It lets IKON Studio and your apps use this computer: its coding
+agents, folders, browser and phones. You don't need it to build an app. To build one, see
+[Getting started](https://ikonai.com/getting-started).
 
 How to connect a computer of yours to an IKON app with IKON Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
@@ -47,7 +51,8 @@ ikon login
 ikon service install
 ```
 
-`install` checks which coding agents the machine has and sets up what they need — including tmux,
+`install` checks which coding agents the machine has and sets up what they need — it lets Claude
+Code, Codex and Gemini CLI use the ikon tool through the service's MCP server, and installs tmux,
 which lets a terminal and the board share one session (macOS and Linux; Windows can run and watch
 sessions but not share them). On macOS it also lets an app's **Connect this computer** link open
 here; elsewhere, paste a link after `ikon connect`. On macOS and Windows it starts IKON
@@ -65,9 +70,9 @@ ikon connect https://your-app.ikonai.app
 The argument is the app — its name, its URL, or its id — and can be left out only while an `ikon run`
 instance of the app project in the current directory is running, which it then connects. For a deployed app you confirm the app's id, organisation and what it may do
 on your computer, the first time and again whenever its grants widen or its repository changes; a local
-`ikon run` app is connected without a confirmation. `ikon connect` records the connection and returns: the IKON service (`ikon service run`, which
-`service install` starts at login, or at boot on Linux) serves every app you connect and picks up a new one within
-seconds. If the service is not running, `ikon connect` says so.
+`ikon run` app is connected without a confirmation. `ikon connect` records the connection and returns: IKON Connect, which
+runs as `ikon service run` (`service install` starts it at login, or at boot on Linux), serves every app you connect and
+picks up a new one within seconds. If IKON Connect is not running, `ikon connect` says so.
 
 The URL is the app's `ikonai.app` address, which also names the platform: `https://studio.ikonai.app`
 is Studio on production, `https://studio.dev.ikonai.app` on development. A custom domain the app is
@@ -87,8 +92,8 @@ connect it rather than retried in the background.
 ### The code the computer shows
 
 An app that pairs — Studio and O do — takes a computer only once a person has typed the code the
-computer shows into the app. Once the service has reached the app, `ikon connect` prints the
-six-digit code, the service shows it in a notification on macOS, and `ikon connect list` shows it as the
+computer shows into the app. Once IKON Connect has reached the app, `ikon connect` prints the
+six-digit code, IKON Connect shows it in a notification on macOS, and `ikon connect list` shows it as the
 connection's state until it is typed:
 
 ```text
@@ -96,7 +101,7 @@ Studio asks you to pair this computer: type 482 913 into the "Connect your compu
 ```
 
 The computer appears in that dialog with a box for the code; the right code pairs it, and the
-app remembers the computer, so it is asked once. Because of this, a service left running cannot
+app remembers the computer, so it is asked once. Because of this, IKON Connect left running cannot
 connect a computer on its own: nothing is connected until someone at the app types the code.
 
 What an app may do is a set of **grants**, checked on your computer:
@@ -140,7 +145,7 @@ After connecting, `ikon connect` says where the connection stands: working, wait
 be typed into the app, waiting for the app to be opened, or what stops it. `ikon connect list` shows
 the same for every connection, and `--format json` gives it as a `phase` — `ready`, `pairing`,
 `standby` (the app is not open; nothing is wrong), `connecting`, `retrying`, `blocked` (needs you),
-`idle` (stopped after a week unused) or `notRunning` (no IKON service). A connection counts as `ready`
+`idle` (stopped after a week unused) or `notRunning` (IKON Connect is not running). A connection counts as `ready`
 only once the app has said it took the computer.
 
 When a connection cannot start — most often because your sign-in expired — IKON Connect says so in

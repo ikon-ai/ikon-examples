@@ -1,8 +1,26 @@
-<!-- checked-against: 708b29e2fce9711d136a1c8e -->
+<!-- checked-against: 74d8d6f4170f93ae5741f411 -->
 
 # Ikon.AI Library Overview
 
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
+
+## Timeouts
+
+Every service's config has a `Timeout`, and a call that runs past it throws `AITimeoutException`. A static one-shot such as `DepthEstimator.EstimateAsync` uses the default; for another value, use the constructor and the config form. `AITimeoutException` is retryable, so a retry loop multiplies the wait. The defaults:
+
+| Service | Default `Timeout` |
+|---|---|
+| LLM calls (`KernelContext`) | 60 seconds |
+| Embeddings, reranking | 10 seconds per request, scaled up with the batch size |
+| Speech recognition | 1 minute |
+| Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds |
+| Single-page scrape | 60 seconds |
+| Depth estimation, image segmentation, image upscaling, page screenshot, file download | 2 minutes |
+| Image generation, OCR, music, sound effects | 5 minutes |
+| Video generation | 10 minutes |
+| Mesh generation | 20 minutes |
+| Video enhancement, video segmentation | 30 minutes |
+| Speech generation, file conversion, multi-page scrape | 1 hour |
 
 ## Emergence
 
@@ -168,7 +186,8 @@ size the model renders. `Width`
 and `Height` default to 1024; set both to `0` to take the provider's own default. The 1024 default is
 a square size request, so editing a non-square input image comes back square unless both are `0`, and
 setting only one of them to `0` throws `NonRetryableAIException`; `Flux1Fill` is the exception, ignoring
-both and keeping the input image's size. Either way the result reports the
+both and keeping the input image's aspect ratio, not its size: an input over about 1.6 megapixels
+comes back scaled down to that (2048x1362 in, 1550x1031 out). Either way the result reports the
 size that was actually delivered, measured from the returned bytes, since models snap to their own
 grids and tiers within what they accept.
 
@@ -204,8 +223,8 @@ The generators apply it themselves, and every result says what it carries so a c
 assume: `MusicGeneratorResult.Provenance` and `SoundEffectGeneratorResult.Provenance`. Video is not
 marked: its bytes never pass through the platform — the result is the provider's URL — and fetching a
 clip into the process to mark it is what the platform tells apps never to do. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
-speech) hand out raw PCM chunks with no container, so they are never marked; disclose those at the
-interaction level instead, with Parallax's `AiDisclosure`.
+speech) hand out raw PCM chunks with no container, so they are never marked; disclose those to the
+user instead, with Parallax's `view.AiDisclosure(AiDisclosureKind.GeneratedContent)`.
 
 ## Image Utilities
 
@@ -228,8 +247,6 @@ Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegme
 
 One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 
-Needs the `Ikon.AI.ImageSegmentation` using directive.
-
 <!-- ikon-example: ai-imagesegmentation -->
 ```csharp
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
@@ -241,8 +258,6 @@ if (result.Segments.Count > 0)
 ```
 
 Use the constructor + config form for URL input, point/box prompts, or multiple masks:
-
-Needs the `Ikon.AI.ImageSegmentation` using directive.
 
 <!-- ikon-example: ai-imagesegmentation-2 -->
 ```csharp
@@ -278,8 +293,6 @@ Some models cap how large an output they will produce, reported as `MaxOutputMeg
 
 One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scale factor:
 
-Needs the `Ikon.AI.ImageUpscaling` using directive.
-
 <!-- ikon-example: ai-imageupscaling -->
 ```csharp
 var result = await ImageUpscaler.UpscaleAsync(imageBytes, "image/png", scaleFactor: 4);
@@ -287,8 +300,6 @@ await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync())
 ```
 
 Use the constructor + config form for URL input, a target resolution, or creative upscaling:
-
-Needs the `Ikon.AI.ImageUpscaling` using directive.
 
 <!-- ikon-example: ai-imageupscaling-2 -->
 ```csharp
@@ -313,8 +324,6 @@ await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync())
 
 One-shot from image bytes — defaults to `DepthAnythingV2` (cheap+fast):
 
-Needs the `Ikon.AI.DepthEstimation` using directive.
-
 <!-- ikon-example: ai-depthestimation -->
 ```csharp
 var result = await DepthEstimator.EstimateAsync(imageBytes, "image/png");
@@ -322,8 +331,6 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input or the Marigold tuning fields:
-
-Needs the `Ikon.AI.DepthEstimation` using directive.
 
 <!-- ikon-example: ai-depthestimation-2 -->
 ```csharp
@@ -349,17 +356,13 @@ Rodin runs on your app's own Hyper3D API key, because the platform does not prov
 
 One-shot text-to-mesh — defaults to `Meshy6` (the current Meshy generation):
 
-Needs the `Ikon.AI.MeshGeneration` using directive.
-
 <!-- ikon-example: ai-meshgeneration -->
 ```csharp
 var mesh = await MeshGenerator.GenerateAsync("A small wooden treasure chest with brass fittings");
 Log.Instance.Info($"GLB URL: {mesh.GlbUrl}");
 ```
 
-Use the constructor + config form for image-to-mesh, PBR textures, or polycount/topology control. On a Meshy model, image-to-mesh takes no `Prompt`: setting one with `InputImages` throws `NonRetryableAIException`, so guide the texture with `TexturePrompt` instead:
-
-Needs the `Ikon.AI.MeshGeneration` using directive.
+Use the constructor + config form for image-to-mesh, PBR textures, or polycount/topology control. On a Meshy model, image-to-mesh takes no `Prompt`: setting one with `InputImages` throws `NonRetryableAIException`, so guide the texture with `TexturePrompt` instead. The result's URLs expire, so keep the file you need with `app.Files.Public.WriteFromUrlAsync`:
 
 <!-- ikon-example: ai-meshgeneration-2 -->
 ```csharp
@@ -367,18 +370,21 @@ using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Meshy6);
 
 var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 {
-    Prompt = "A small wooden treasure chest with brass fittings",
+    InputImages = [new InputImage { Data = chestPhotoPng, MimeType = "image/png" }],
+    TexturePrompt = "weathered oak with brass fittings",
     TargetPolycount = 20000
 });
 
-Log.Instance.Info($"GLB URL: {result.GlbUrl}");
+// The provider's URLs expire, so keep the file in the app's own storage.
+if (result.GlbUrl is { } glbUrl)
+{
+    await app.Files.Public.WriteFromUrlAsync("models/chest.glb", glbUrl);
+}
 ```
 
 A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. A `MeshGeneratorCapabilities` has the same properties, read without constructing a generator.
 
 Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Not every Rodin tier takes all of them: Gen-2 throws on `GeometryMode`, `TextureQuality`, `SharpenTextures`, `RemoveTextureLighting` and `InputImageViews`, `Creative` geometry needs the Gen-2.5 Medium tier or higher, `MicroDetail` needs Gen-2.5 Extreme High, and every Rodin model throws on a `TexturePrompt` or `Remesh = false`. Set on a Meshy model, any of them throws rather than being dropped, except a `Material` of `Auto` or `Pbr` and an `OutputFormat` other than `Stl`, which Meshy takes:
-
-Needs the `Ikon.AI.MeshGeneration` using directive.
 
 <!-- ikon-example: ai-meshgeneration-3 -->
 ```csharp
@@ -400,8 +406,6 @@ Log.Instance.Info($"FBX URL: {character.FbxUrl}");
 ```
 
 The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well, delivered as GLB (Rodin delivers only the `OutputFormat` asked for, so the FBX character above has no `GlbUrl`; generate it with `OutputFormat = MeshGeneratorFileFormat.Glb` to rig it this way):
-
-Needs the `Ikon.AI.MeshGeneration` using directive.
 
 <!-- ikon-example: ai-meshgeneration-5 -->
 ```csharp
@@ -425,8 +429,6 @@ Log.Instance.Info($"Animated character: {animated.GlbUrl}");
 ```
 
 `SplitMeshAsync` cuts a model into separate parts, delivered as one file, and `TextureMeshAsync` paints an existing mesh from a reference image. Both take the mesh as an `InputMesh` (data, URL or asset URI; the format comes from the file name):
-
-Needs the `Ikon.AI.MeshGeneration` using directive.
 
 <!-- ikon-example: ai-meshgeneration-4 -->
 ```csharp
@@ -528,8 +530,6 @@ Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL 
 
 One-shot from a video URL — defaults to `Sam3`:
 
-Needs the `Ikon.AI.VideoSegmentation` using directive.
-
 <!-- ikon-example: ai-videosegmentation -->
 ```csharp
 var result = await VideoSegmenter.SegmentAsync("https://example.com/race.mp4", "swimmer");
@@ -537,8 +537,6 @@ Log.Instance.Info($"Segmented video: {result.Url}");
 ```
 
 Use the constructor + config form for an asset input, several concepts at once, point/box prompts, or a different detection threshold (between 0 and 1); a config with no `Prompt`, `PointPrompts` or `BoxPrompts` throws. The segmented video is always an MP4:
-
-Needs the `Ikon.AI.VideoSegmentation` using directive.
 
 <!-- ikon-example: ai-videosegmentation-2 -->
 ```csharp

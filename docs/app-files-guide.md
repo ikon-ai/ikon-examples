@@ -1,4 +1,4 @@
-<!-- checked-against: 14f98759e81451038135340b -->
+<!-- checked-against: 3a083ddd9203590f6320a044 -->
 
 # App Files Guide
 
@@ -40,8 +40,18 @@ reachable only by their URL path.
 |---|---|
 | Shipped in `public/` | Its URL path: `public/textures/wall.png` → `"/textures/wall.png"` |
 | Shipped in `data/` | Its relative path via `app.Files.Data`: `"models/db.bin"` |
-| Written at runtime (public) | `await app.Files.Public.GetUrlAsync(path)` |
+| Written at runtime (public) | In the browser, `await app.Files.Public.GetUrlAsync(path)`: a root-relative path on the app's own origin (`/ikon/assets/…`). For a model (`ImageUrlPart`), an email or share text, `GetAbsoluteUrlAsync(path)`. On the server, `app.Files.Public.ReadBytesAsync(path)` |
 | Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
+
+A root-relative path has no host, so server code cannot fetch it: `new Uri(url)` throws, and
+`Audio.Play` takes only absolute URLs. To play a file the app wrote, read its bytes and play them
+as a stream:
+
+<!-- ikon-example: app-files-play-written -->
+```csharp
+var bytes = await app.Files.Public.ReadBytesAsync("music/theme.mp3");
+Audio.Play(MediaTargets.Everyone, new MemoryStream(bytes), "audio/mpeg");
+```
 
 Paths are plain relative file paths (`"thumbnails/42.png"`). A leading slash and backslashes are
 normalized away rather than rejected; an empty path, a trailing slash, or a `.`/`..`/empty segment
@@ -60,6 +70,10 @@ run these commands.
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that
 repository's files alone.
+
+The native project folders of a Flutter frontend (`frontend-flutter/android`, `ios`, `macos`,
+`windows`, `linux`) stay in git as they are, because the Android and iOS builds refuse files they do
+not know beside their icons.
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
 `ikon asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal

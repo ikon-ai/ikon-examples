@@ -1,4 +1,4 @@
-<!-- checked-against: 96591bc868d5bc6c37203434 -->
+<!-- checked-against: a4aaf0f1f0c3b2374f930583 -->
 
 # IKON C# SDK
 
@@ -6,7 +6,7 @@ The IKON C# SDK connects any .NET application to an IKON app. It supports .NET 1
 
 ## Features
 
-- Six authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), and ResumeAuthResponse (joining another connection's client session)
+- Seven authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), Guest (a user who has not signed in), and ResumeAuthResponse (joining another connection's client session)
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -89,12 +89,12 @@ var config = new IkonClientConfig
 
 ## Authentication Modes
 
-The SDK supports six authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
-`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
+The SDK supports seven authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
+`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, `Guest`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
 developer signed in on this machine (the ikon CLI's stored sign-in) and is intended for dev tooling and
 headless tests; production clients use `ApiKey` or `Backend`. The constructor also throws `ArgumentException`
 when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
-`SpaceId` and `ExternalUserId`, `UserLogin`'s `SpaceId`, or `Local`'s `Host` and a positive `HttpsPort`.
+`SpaceId` and `ExternalUserId`, `UserLogin`'s or `Guest`'s `SpaceId`, or `Local`'s `Host` and a positive `HttpsPort`.
 
 ### API Key Authentication
 
@@ -174,7 +174,7 @@ var config = new IkonClientConfig
 
 Authenticate as the developer signed in on this machine (the ikon CLI's stored sign-in), connecting
 through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
-tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other five modes.
+tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other six modes.
 `Environment` names the platform the app is on. If it names a platform other than the process's own,
 the client signs in with that platform's saved sign-in. Otherwise, or when it is null, the process's
 own sign-in is used.
@@ -191,6 +191,16 @@ var config = new IkonClientConfig
     }
 };
 ```
+
+### Guest
+
+`Guest = new GuestConfig { SpaceId = "..." }` connects to a deployed app as a guest, the same way the
+browser SDK connects a user who has not signed in. It needs no sign-in. The platform picks the guest
+user by `IkonClientConfig.DeviceId`: two clients with the same device id are the same guest, and a new
+device id is a new guest. If the app's guest entries include "global", the device id is ignored and
+all guests share one user. If the app lets no guests in, the connect fails with a 403. `Environment`
+names the platform, Development or Production; null uses the process's own. For a local server,
+`LocalConfig.IsAnonymous = true` connects as a guest in the same way, under the `UserId` you give it.
 
 ## Connection Lifecycle
 
@@ -721,6 +731,7 @@ var config = new IkonClientConfig
 | `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
 | `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline` |
+| `ReactiveRegistry` | Subscribes to an app's reactive values over one client, and subscribes again after every reconnect |
 
 ### Configuration Types
 

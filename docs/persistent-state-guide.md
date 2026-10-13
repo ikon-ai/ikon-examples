@@ -1,4 +1,4 @@
-<!-- checked-against: e0a36e2d38c84c9d8f508afe -->
+<!-- checked-against: 7878952138c84c9d8f508afe -->
 
 # IKON Persistent State Guide
 
@@ -189,8 +189,9 @@ Without `key:`, a field's stored value is found by its declaring source file's p
 
 ## Save semantics
 
-- **Load**: parallel for all persistent reactives that exist once the app instance is constructed, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
+- **Load**: parallel for all persistent reactives that exist once the app instance is constructed, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run, so the stored value is kept until you fix the code. Such a load fails when the code cannot read the stored payload: the type changed, or the error says `stored state was captured as …` and names the type the value was saved as. Make the type readable again, or give the reactive a new `key:` to start it fresh. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
 - **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown). Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.
+- **A local run shares the deployed app's state.** `ikon run` loads and saves persistent reactives in the space the app is linked to, through that space's databases or its asset storage, under the same keys as the deployed app in that space. Stopping a local run saves its values over the deployed app's, and the run logs this once at startup. The keys are the same wherever the app runs, because the platform's user-data erasure matches these keys. Once an app holds real data, test changes that write state with care.
 - **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.DatabaseAsync()`.
 
 ## Erasing a user's state

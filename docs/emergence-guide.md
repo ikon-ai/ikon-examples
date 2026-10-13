@@ -1,4 +1,4 @@
-<!-- checked-against: 288c87595f4a98efe5248be0 -->
+<!-- checked-against: 288c8759269a89ffa2ea16da -->
 
 # Ikon.AI.Emergence Guide
 

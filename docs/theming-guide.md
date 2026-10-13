@@ -1,4 +1,4 @@
-<!-- checked-against: 7f9d2b1d93ba848bafa0cac4 -->
+<!-- checked-against: 2b339e2993ba848bafa0cac4 -->
 
 # IKON Theming Guide
 
@@ -40,7 +40,7 @@ There are no other entry points: no factory, no fluent builder and no named toke
 
 IKON styling has exactly two tiers. Knowing which tier a decision belongs to answers most "should this be a token?" questions.
 
-**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or stays pinned with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, and native (Flutter) clients for colours, radius, density and fonts (the motion defaults are web-only).
+**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or stays pinned with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, and native (Flutter) clients for colours, radius, density and font family names (the font files and the motion defaults are web-only).
 
 **Tier 2 — the expressive layer.** Everything with personality — gradients, textures, glows, decorative colors, ornaments — is styled CONCRETELY at the use point with plain Crosswind classes and arbitrary values (`bg-gradient-to-r from-rose-400 to-amber-300`, `bg-[radial-gradient(...)]`, `[text-shadow:0_0_8px_#f0f]`). These values need no token and no name. For a pirate tavern's brass glow, put the right gradient on the right Box.
 
@@ -141,13 +141,13 @@ Each key commits the listed canonical CSS variables. One value sets them all.
 
 | Key | Commits | Effect | Example |
 |---|---|---|---|
-| `primary` (alias: `brand`) | `--bg-brand-solid`, `--bg-brand-solid-hover`, `--bg-brand-button`, `--bg-brand-button-hover`, `--border-brand`, `--border-focus-ring`, `--fg-brand-primary`, `--text-brand-secondary`, `--text-brand-tertiary` | ALL brand-tinted chrome: CTAs, checked Checkbox/Switch/Radio, focus rings, brand icons, brand-tinted text. Unless the theme sets `primary-foreground` (or `text-brand-button` / `text-primary-on-brand`) in either scheme, it also commits the label on those fills: white, or near-black when the fill is too light for white. A fill it cannot measure gets white | `"amber-400"` |
+| `primary` (alias: `brand`) | `--bg-brand-solid`, `--bg-brand-solid-hover`, `--bg-brand-button`, `--bg-brand-button-hover`, `--border-brand`, `--border-focus-ring`, `--fg-brand-primary`, `--text-brand-secondary`, `--text-brand-tertiary` | ALL brand-tinted chrome: CTAs, checked Checkbox/Switch/Radio, focus rings, brand icons, brand-tinted text. Unless the theme sets `primary-foreground` (or `text-brand-button` / `text-primary-on-brand`) in either scheme, it also commits the label on those fills: white, or near-black when the fill is too light for white. A fill it cannot measure gets white. It also rebuilds the brand scale (`--brand-25` … `--brand-950`), which brand badges, selected and active states and links read: a palette step (`"teal-700"`) takes that palette's steps, and a raw colour (`"#2563eb"`) gets a scale generated around it, with the colour itself on the step nearest its lightness. A `var()` or gradient leaves the scale as it is | `"amber-400"` |
 | `primary-foreground` | `--text-brand-button`, `--text-primary-on-brand` | text on brand fills (chosen by `primary` when unset — set it to decide yourself) | `"#0A0A0A"` |
 | `background` | `--bg-background` | the page surface | `"zinc-950"` |
-| `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on the page, and on cards and popovers when the same scheme sets `card` / `popover` (a DarkMode block counts the light theme's surfaces). An unset card or popover keeps the baseline's own text, which reads on the baseline surface | `"amber-50"` |
+| `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on the page, and on cards and popovers when the same scheme sets `card` / `popover` (a DarkMode block counts the light theme's surfaces; a popover that follows the card counts as set). An unset card or popover keeps the baseline's own text, which reads on the baseline surface | `"amber-50"` |
 | `card` | `--bg-card` | elevated cards | `"zinc-900"` |
 | `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, IKON scale steps, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`), ignoring alpha (a translucent card is measured as if opaque); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
-| `popover` | `--bg-popover` | popovers, menus, dialogs | `"zinc-900"` |
+| `popover` | `--bg-popover` | popovers, menus, selects, dialogs. Unset in a scheme that sets `card`, it takes the card's colour, and `card-foreground` when that is set | `"zinc-900"` |
 | `popover-foreground` | `--text-popover-foreground` | text on popovers; the same rule as `card-foreground` | `"amber-50"` |
 | `muted` | `--bg-muted` | subtle fills | `"zinc-800"` |
 | `muted-foreground` | `--text-muted-foreground` | secondary/caption text | `"zinc-500"` |
@@ -160,7 +160,7 @@ Each key commits the listed canonical CSS variables. One value sets them all.
 | `destructive-foreground` | `--text-error-button` | text on destructive fills | `"#ffffff"` |
 | `radius` (alias: `radius-base`) | `--radius-base` | the value is taken as a length and becomes the `rounded-md` rung, and every other rung keeps its stock ratio to it via `calc()` — so `["radius"] = "1rem"` (the length `rounded-2xl` names) makes `rounded-md` 16px, `rounded-lg` ≈21px and `rounded-3xl` 64px; reaches Flutter. The DEFAULT ramp is stock Tailwind (sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px, 3xl 24px, 4xl 32px at a 16px root), so Tailwind-authored designs render value-identical without any radius keys | `"rounded-2xl"` |
 | `density` (alias: `spacing`) | `--spacing` | the unit every numeric spacing utility multiplies — whole-app whitespace; reaches Flutter | `"airy"` |
-| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys is bundled into the app; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter, a role token (`"font-mono"`) as that role's family | `"Crimson Pro"` |
+| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys is bundled into the web frontend; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter as a family name only (a role token, `"font-mono"`, as that role's family), drawn in the system font unless `frontend-flutter/pubspec.yaml` declares the font files | `"Crimson Pro"` |
 | `motion-duration-base` | `--default-transition-duration` | default speed of every `transition-*` utility | `"200ms"` |
 | `ease-default` (alias: `motion-easing-default`) | `--default-transition-timing-function` | default easing of every `transition-*` utility | `"ease-out"` |
 

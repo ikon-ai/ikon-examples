@@ -1,4 +1,4 @@
-<!-- checked-against: bfa5693c28cc97181e03f5af -->
+<!-- checked-against: 3f98ddf428cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -15,12 +15,14 @@ A Tailwind-inspired, class-based DSL to describe visual motion timelines and aud
 * **Underscore separator:** inside `motion-[...]` step utilities, `_` outside of brackets and parentheses is treated as whitespace. This allows `opacity-0_translate-y-[12px]` as equivalent to `opacity-0 translate-y-[12px]`.
 * **Numbers:** decimal (`12`, `0.25`) with optional sign; no thousands separators.
 * **Durations:** `<number>ms` or `<number>s` (e.g., `150ms`, `0.2s`).
-* **Easings:** keywords (`linear`, `ease-in`, `ease-out`, `ease-in-out`) or `cubic-bezier(a,b,c,d)` with `a..d` numbers.
+* **Easings:** keywords (`linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `step-start`, `step-end`) or a bracketed function such as `cubic-bezier(a,b,c,d)` or `steps(n)`. On `motion-ease`, `in`, `out` and `in-out` are short for the `ease-` forms and any other keyword drops the class with a warning. `motion-bind-ease` passes its value through unchecked, and the runtime reads `in`, `out`, `in-out`, `step-start`, `step-end` and any unknown keyword as `linear`.
 * **Identifiers:** `[a-z][a-z0-9_-]*`.
 * **Negative utilities:** Tailwind-style minus prefix is allowed: `-translate-x-1`.
 * **Transform emission:** transform utilities inside `motion-[...]` steps compile to direct CSS in the emitted keyframes —
   the individual `translate`, `rotate`, or `scale` property when a track animates a single transform category, or a canonical
-  `transform` function-list (missing components filled with identity values) when categories are mixed. Tracks animating
+  `transform` function-list when categories are mixed. A step that leaves out a component another step sets gets the value
+  interpolated from the nearest steps that set it (the identity before the first and after the last), as CSS does with a
+  property a keyframe omits. Tracks animating
   different individual properties compose on the same element without colliding.
 
 ---

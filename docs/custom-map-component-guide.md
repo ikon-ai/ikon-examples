@@ -1,4 +1,4 @@
-<!-- checked-against: 229e7ffd22f633091747dcbe -->
+<!-- checked-against: 40351f41076229d52e7d1410 -->
 
 # Custom Map Component Guide
 
@@ -157,12 +157,11 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
     const map = L.map(containerRef.current, {
       center: initialCenterRef.current,
       zoom: props.zoom ?? 13,
-      attributionControl: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
     const pinsLayer = L.layerGroup().addTo(map);

@@ -1,4 +1,4 @@
-<!-- checked-against: f9193815fe919c77e3b0c442 -->
+<!-- checked-against: 119a8567b9e71c57e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -404,9 +404,11 @@ In API-key mode the `/init` request that waits up to `provisioningTimeoutSec` is
 
 <!-- ikon-example: cpp-sdk-protocol-options -->
 ```cpp
-// Filter which message types to receive/send
-config.opcodeGroupsFromServer = Opcode::GROUP_ALL;
-config.opcodeGroupsToServer = Opcode::GROUP_ALL;
+// Filter which message types to receive/send. These values are the default: every group,
+// plus GROUP_APP_LOCAL for the app's own schema messages. Without it those messages are dropped.
+const auto groups = static_cast<int32_t>(Opcode::GROUP_ALL) | static_cast<int32_t>(Opcode::GROUP_APP_LOCAL);
+config.opcodeGroupsFromServer = static_cast<Opcode>(groups);
+config.opcodeGroupsToServer = static_cast<Opcode>(groups);
 
 // Payload serialization format
 config.payloadType = PayloadType::Teleport;  // Default

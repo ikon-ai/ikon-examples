@@ -1,4 +1,4 @@
-<!-- checked-against: 1651f5cca22dbcc23b8b1e3b -->
+<!-- checked-against: 074855d57f03fe4fe4b39f09 -->
 
 # Ikon.Parallax Library Overview
 
@@ -252,7 +252,7 @@ Durable variants — `PersistentSessionReactive<T>` (the default choice), `Persi
 
 ## Components
 
-The `UIView` class provides extension methods for UI components. One shape for most calls: the leading `string[]` style array is the only positional argument, everything else is named. Components built around required data take that first and the style after it (`view.Badge(text, tone, …)`, `view.Alert(title, tone, …)`, `view.StatCard(label, value, …)`, `view.DataTable(columns, rows, …)`, `view.CommandPalette(groups, …)` and the like — check the signature). `view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first.
+The `UIView` class provides extension methods for UI components. One shape for most calls: the leading `string[]` style array is the only positional argument, everything else is named. Components built around required data take that first and the style after it (`view.DataTable(columns, rows, …)`, `view.CommandPalette(groups, …)` and the like — check the signature). `view.Badge`, `view.Alert`, `view.StatCard` and `view.EmptyState` take either: the data first (`view.Badge(text, tone, …)`) or the style first like the rest (`view.Badge([Badge.SuccessSm], text: "Live")`). `view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first.
 
 **Layout:**
 - `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers
@@ -400,7 +400,7 @@ view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
     style: ["default", "absolute bottom-2 end-2"]);
 ```
 
-The default wording follows the kind and the variant, in English (`Pill` gets the short "AI" / "AI-generated"); `note:` renders only on `Banner` and is dropped by the other variants; pass `text:` for a product whose own voice says it
+The default wording follows the kind and the variant, in English (`Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
 better or a market whose regulator words it differently. It renders themed from
 `Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
 rather than as the app's own output.
@@ -454,7 +454,7 @@ view.Text([Text.Caption], text: "Updated just now");
 
 ### Merge Semantics: the `default` Marker
 
-**The merge is opt-in.** A `style:` array is *exactly* what renders — the themed default is **not** added underneath it. Omit `style:` entirely and you get the full themed control; pass `["w-full"]` and you get an element whose only class is `w-full`.
+**The merge is opt-in.** A `style:` array is *exactly* what renders — the themed default is **not** added underneath it. Omit `style:` entirely and you get the full themed control; pass `["w-full"]` and you get an element whose only class is `w-full`. A field given `label:` is the exception. Its placement classes (`flex-1`, `grow`, `basis-*`, `self-*`, `w-*`, margins, grid spans, `order-*`) move to the column that holds the caption and the field. When the array holds only placement classes, the field gets an empty array and renders fully themed: `view.TextField(["w-full"], label: "Name")` is a themed input, but `["w-full", "h-14"]` leaves it unstyled again.
 
 <!-- ikon-example: px-merge-semantics-the-default-marker -->
 ```csharp
@@ -462,6 +462,8 @@ view.TextField(bind: _name);                        // fully themed input
 view.TextField(["default", "w-full"], bind: _name); // themed input, full width  ← what you usually want
 view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
 ```
+
+A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, and a dialog, sheet or drawer panel with no `fixed` or `absolute` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it.
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
@@ -505,7 +507,8 @@ Note that `style:` on a composite is the **outermost container**, not the contro
 
 **Some bases always apply.** A handful of components carry classes they cannot function without — the layout
 primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scrollbar/thumb, `Select`'s parts, `Slider`'s root,
-`ResizableSplit`, and size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`).
+`ResizableSplit`, size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`), and the
+display class of the table parts (`table-cell`, `table-row`, …) unless your array sets a display class of its own.
 There your array is *appended* to that base rather than replacing it, and later classes win:
 
 <!-- ikon-example: px-merge-semantics-the-default-marker-3 -->
@@ -796,7 +799,7 @@ Automatic skeletonization is a **one-off build-time render**, so it can afford t
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
-**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
+**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint. A coding agent does the same with `ikon browse --path "/?ikon-snapshot=true"` (or `"/fi?ikon-snapshot=true"` for a route): `observe` reads the snapshot's screen and `look` screenshots it.
 
 ### Per-route snapshots and SEO
 
@@ -805,6 +808,7 @@ Beyond the single boot view, an app can declare **public routes** to snapshot in
 ```toml
 [BootSnapshot]
 Routes = ["/", "/pricing", "/about"]     # static routes to snapshot
+MaxRoutes = 50                           # how many routes are captured (the default), 1 to 200
 SignedInSeeds = ["/**:shell"]            # optional seed rules; see below
 ```
 
@@ -822,7 +826,9 @@ Two capture-quality tools:
 
 **A capture that falls short does not stop the deploy.** When the capture misses a declared route or variant — the app failed to start, a route redirected, it timed out — the bundle ships with no boot snapshots at all, the state of an app without `[BootSnapshot]`, and the deploy ends with a `BOOT_SNAPSHOT_SKIPPED` warning that leads with the app's own error and names the file holding the full capture output. Until a later deploy captures again the app has no prerendered first paint, and no `sitemap.xml` or `robots.txt` is generated for it.
 
-Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without sign-in (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard sign-in wall is a cloaking pattern, so for sign-in-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
+**The capture runs the app against the target's real data.** `ikon bundle` and `ikon deploy` start the built app on the deploying machine, signed in as the deployer, against the databases and storage of the app being deployed (the one `--target` names, or the environment's default), and its `Main` and starting handlers run there. Persistent reactives are not saved when the capture stops, but anything else `Main` and the handlers do (send an email, charge a card, seed or migrate data) happens. Guard those with `SnapshotCapture.IsCaptureProcess`. `Context.IsSnapshot` marks only the capture's clients, so it does not cover `Main`.
+
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. A snapshot is matched by path alone, so `/?game=abc` first paints the `/` snapshot until the live page replaces it; an app whose page depends on the query string should keep that difference out of the snapshot (a skeleton, or `SnapshotHide`) or move it into the path. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without sign-in (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard sign-in wall is a cloaking pattern, so for sign-in-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
 
 #### How to use it
 
@@ -837,7 +843,7 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated; with more than 50 routes in all, the bundle ships without boot snapshots:
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first `[BootSnapshot] MaxRoutes` routes are captured, 50 unless set; the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names the rest, which get no prerendered page and no sitemap entry. `MaxRoutes` takes 1 to 200, and a value outside that fails the bundle. Each route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
 
 <!-- ikon-example: px-how-to-use-it -->
 ```csharp
@@ -853,9 +859,13 @@ app.OnSnapshotRoutes(async () =>
 
    If the app registers **custom UI modules** (`useIkonApp({ modules })`), the prerender needs them too or those elements render as skeletons in the static HTML: create `src/prerender-modules.ts` in the frontend exporting `prerenderModules: IkonUiModuleRegistration[]` with the same registrations, and the prerender build picks it up automatically.
 
-6. **Bundle and verify.** Run `ikon bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
+6. **Give each route its title and description.** Without them a route's page gets `index.html`'s title with the route appended (`Shop — p · toffee-mug`) and `index.html`'s description. Call `ClientFunctions.SetPageMetadataAsync(title, description, imageUrl, language)` where the app decides which route a client is on (the join handler, a path change). The capture records it, and the route's prerendered page carries that `<title>`, description, Open Graph and Twitter card tags and `<html lang>`. In a browser the same call sets the tab title and the tags as the user moves between routes. The image must be an absolute URL (`app.Files.Public.GetAbsoluteUrlAsync`), and a null value leaves that field as it is.
 
-7. **Deploy.** `ikon deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
+   When a page exists in several languages, pass `alternates:` as well: a dictionary from a language tag (`"fi"`, `"en-GB"`, or `"x-default"` for the version to show when none matches) to that version's route (`"/fi/hinnat"`) or an absolute http(s) URL. The deploy turns them into `<link rel="alternate" hreflang="…">` tags with absolute URLs in the route's prerendered page and into `xhtml:link` entries under the route in `sitemap.xml`. Give every version the same set: search engines ignore an alternate that the other page does not name back. When the set leaves out the route itself and `language` is set, the route is added under that language. Each call replaces the alternates the call before it set, and a call without them removes them, so a route with no other versions does not keep the links of the route the user came from. A tag that is not a language tag, or a value that is neither a route nor an absolute URL, throws `ArgumentException`.
+
+7. **Bundle and verify.** Run `ikon bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
+
+8. **Deploy.** `ikon deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins.
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
 
