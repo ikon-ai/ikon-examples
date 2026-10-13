@@ -2,8 +2,8 @@
 
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import process from 'node:process';
 import { defineConfig, loadEnv } from 'vite';
 
@@ -17,6 +17,18 @@ const ikonEmbedHeaders = {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       next();
     });
+  },
+};
+
+const ikonPreloadIcons = {
+  name: 'ikon-preload-icons',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler: (_html, { bundle }) =>
+      Object.values(bundle ?? {})
+        .filter((chunk) => chunk.type === 'chunk' && chunk.isDynamicEntry && /[\\/]lucide-react[\\/]/.test(chunk.facadeModuleId ?? ''))
+        .map((chunk) => ({ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: '', fetchpriority: 'low', href: `/${chunk.fileName}` }, injectTo: 'head' })),
   },
 };
 
@@ -34,6 +46,46 @@ const ikonThemeFonts = (publicDir) => ({
     }
   },
 });
+
+const appNameMarker = '__IKON_APP_NAME__';
+const webManifestFile = 'manifest.webmanifest';
+const htmlEscapes = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = (text) => text.replace(/[&<>"']/g, (character) => htmlEscapes[character]);
+const withAppName = (text, appName) => text.replaceAll(appNameMarker, JSON.stringify(appName).slice(1, -1));
+
+const ikonAppName = (publicDir, appName) => {
+  let outDir = resolve(__dirname, 'dist');
+
+  return {
+    name: 'ikon-app-name',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    transformIndexHtml(html) {
+      return html.replaceAll(appNameMarker, escapeHtml(appName));
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const manifestPath = resolve(publicDir, webManifestFile);
+
+        if (req.url?.split('?')[0] !== `/${webManifestFile}` || !existsSync(manifestPath)) {
+          next();
+          return;
+        }
+
+        res.setHeader('Content-Type', 'application/manifest+json');
+        res.end(withAppName(readFileSync(manifestPath, 'utf8'), appName));
+      });
+    },
+    writeBundle() {
+      const manifestPath = resolve(outDir, webManifestFile);
+
+      if (existsSync(manifestPath)) {
+        writeFileSync(manifestPath, withAppName(readFileSync(manifestPath, 'utf8'), appName));
+      }
+    },
+  };
+};
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -60,11 +112,12 @@ export default defineConfig(({ mode }) => {
   const hasCertificate = !isTunneled && certPath && keyPath && existsSync(certPath) && existsSync(keyPath);
   const isIkonInternal = (process.env.VITE_IS_IKON_INTERNAL || env.VITE_IS_IKON_INTERNAL) === 'true';
   const platformTypescriptPath = process.env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH || env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH;
+  const appName = process.env.VITE_IKON_APP_NAME || env.VITE_IKON_APP_NAME || basename(resolve(__dirname, '..'));
 
   // Fallback for apps not yet migrated to the root public/
   const publicDir = existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : resolve(__dirname, 'public');
 
-  const plugins = [ikonEmbedHeaders, ikonThemeFonts(publicDir), react()];
+  const plugins = [ikonEmbedHeaders, ikonThemeFonts(publicDir), ikonAppName(publicDir, appName), ikonPreloadIcons, react()];
 
   if (!hasCertificate && !isTunneled) {
     plugins.push(basicSsl());
