@@ -31,8 +31,9 @@ RequireSignIn = false
 
 # The platform's feedback sheet: report a problem or an idea by text, voice, files and screenshot.
 # Reports go to the app's space ('ikon issue list --source person', Studio). Who is offered it is the
-# space's setting, changed live in Studio (Settings > Sharing) or with 'ikon feedback set'. The platform
-# draws its own button; ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
+# space's setting, which is off for a new app: turn it on live with 'ikon feedback set --audience signed-in'
+# or in Studio (Settings > Sharing), and 'ikon feedback status' shows it. The platform draws its own
+# button; ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
 [Feedback]
 # "overlay": a floating feedback button the platform draws for everyone offered feedback, so the
 # app needs no control of its own; each person can hide it from the sheet. "none": no button.
@@ -54,8 +55,13 @@ UiActions = false
 # declare "/home", not "/", if "/" redirects there. When the app opens without signing in
 # (RequireSignIn = false, or "guest"/"global" in Auth.Methods) each route is also prerendered to
 # crawlable HTML with a generated sitemap.xml and robots.txt. Add content routes (one per article) in
-# code with app.OnSnapshotRoutes(...).
+# code with app.OnSnapshotRoutes(...). A snapshot is matched by path alone, so "/?game=abc" first
+# paints the "/" snapshot until the live page replaces it.
 Routes = ["/"]
+# How many routes are captured, Routes and app.OnSnapshotRoutes together, in that order; 1 to 200.
+# Routes past it get no snapshot, no prerendered page and no sitemap entry, and the deploy names them
+# in a warning. Each route adds capture time to every deploy, and all of them share a 10-minute budget.
+MaxRoutes = 50
 # Seed rules, only for apps that render different pages per identity or path shape: ordered
 # "pattern:variantId" entries, first match wins. A segment is a literal, "*" (one segment) or a final
 # "**" (the rest), so "/**:shell" matches every path. Each variant id is captured once as a skeleton
