@@ -42,10 +42,11 @@ internal sealed class AudioReactiveVisuals : IPatternDemo
             // The avatar/visualizer is a custom node: it reads the shape values from client.viseme,
             // which times them against the audio itself. Driving it from server-side Reactive state instead would
             // arrive a frame late and flood the channel. The prop tells it which slot's speaker to follow;
-            // Speak plays in "speech" unless PlayOptions.Slot names another.
+            // Speak plays in "speech" unless PlayOptions.Slot names another. The prop is not named "slot"
+            // because the parent overwrites that prop name with its own child slot.
             col.AddNode("app.lipSyncAvatar", props: new Dictionary<string, object>
             {
-                ["slot"] = "speech",
+                ["audioSlot"] = "speech",
             });
         });
     }

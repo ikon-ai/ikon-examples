@@ -74,7 +74,8 @@ internal sealed class SingleProcessorChannelQueue(IAppBase app) : IPatternDemo
                 }
                 catch (Exception ex)
                 {
-                    AddTranscript(TranscriptRole.System, "System", $"Error: {ex.Message}");
+                    Log.Instance.Warning($"Command '{commandText}' failed, continuing with the next command: {ex.Message}");
+                    AddTranscript(TranscriptRole.System, "System", "That command failed. Try it again.");
                 }
                 finally
                 {

@@ -48,7 +48,8 @@ internal sealed class WebResearch : IPatternDemo
         }
         catch (Exception ex)
         {
-            _error.Value = ex.Message;
+            Log.Instance.Warning($"Web research for '{q}' failed, user can ask again: {ex.Message}");
+            _error.Value = "Couldn't find an answer. Try again.";
         }
         finally
         {

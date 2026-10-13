@@ -145,6 +145,8 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.ScrollToAsync(x: 0, y: 0, smooth: true);
         await ClientFunctions.RequestFullscreenAsync();
         await ClientFunctions.ExitFullscreenAsync();
+        await ClientFunctions.LoginShowAsync("Sign in to save your event");   // the app's sign-in screen: email, passkey, providers
+        await ClientFunctions.LoginAsync("google");                            // straight to one OAuth provider (not email or passkey)
         await ClientFunctions.LogoutAsync();
 
         // The signed-in user's own right to erasure, made with their client's own sign-in. Each returns a

@@ -14,6 +14,7 @@ internal sealed class RawMicFrameStream : IPatternDemo
     #region example:pattern-raw-mic-frame-stream
     private readonly ClientReactive<double> _level = new(0);
     private readonly ClientReactive<int> _sampleRate = new(0);
+    private readonly ConcurrentDictionary<string, long> _meterUpdatedAt = new();
 
     /// <summary>
     /// The frame events are the layer BELOW speech recognition: decoded float PCM, live. Reach for
@@ -42,6 +43,18 @@ internal sealed class RawMicFrameStream : IPatternDemo
                 _level.SetFor(args.ClientSessionId, 0);
             }
 
+            // Every reactive write is a UI diff sent to the client, and frames arrive tens of times a
+            // second. A meter needs about ten updates a second; visuals that need every frame go over
+            // an unreliable .tp message to a custom canvas instead (multi-user-game).
+            var now = Environment.TickCount64;
+
+            if (!args.IsLast && now - _meterUpdatedAt.GetValueOrDefault(args.StreamId) < 100)
+            {
+                return;
+            }
+
+            _meterUpdatedAt[args.StreamId] = now;
+
             var sum = 0.0;
 
             foreach (var sample in args.Samples)
@@ -59,6 +72,7 @@ internal sealed class RawMicFrameStream : IPatternDemo
         Audio.AudioInputStreamEndAsync += async args =>
         {
             Log.Instance.Debug($"Stream ended for {args.ClientSessionId} ({args.CorrelationId ?? "ad-hoc"})");
+            _meterUpdatedAt.TryRemove(args.StreamId, out _);
         };
     }
 

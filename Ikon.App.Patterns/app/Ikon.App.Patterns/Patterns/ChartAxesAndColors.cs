@@ -36,7 +36,9 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             data: Series,
 
             // Margin is not decoration: axis legends and rotated tick labels render INSIDE the
-            // chart box, so a legend with no margin for it is simply clipped away.
+            // chart box, so a legend with no margin for it is simply clipped away. A side left unset
+            // keeps its default, and the default Left fits the widest value tick label. A side set
+            // here is used as given, so a Left narrower than labels like "12,000 kWh" cuts them off.
             margin: new ChartMargin { Top = 16, Right = 24, Bottom = 48, Left = 56 },
 
             axisBottom: new AxisConfig

@@ -121,6 +121,32 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private static async Task DocPronunciationAssessmentAsync(float[] samples, int sampleRate)
+    {
+        #region example:speech-pronunciation-assessment
+        using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.AzureSpeechService);
+
+        var result = await recognizer.AnalyzePronunciationAsync(new AnalyzePronunciationConfig
+        {
+            ReferenceText = "The green leaf fell from the tree",
+            Language = "en-US",
+            Samples = samples,
+            SampleRate = sampleRate,
+            ChannelCount = 1
+        });
+
+        var best = result.NBest.FirstOrDefault();   // null when nothing was recognized
+        Log.Instance.Info($"Overall {best?.PronunciationAssessment.PronScore:F0} of 100");
+
+        foreach (var word in best?.Words ?? [])
+        {
+            var start = TimeSpan.FromTicks(word.Offset);   // Offset and Duration count 100-ns ticks
+            var assessment = word.PronunciationAssessment;  // ErrorType "" means the word was not scored
+            Log.Instance.Info($"{word.Text} at {start.TotalSeconds:F2}s: {assessment.ErrorType} {assessment.AccuracyScore:F0}");
+        }
+        #endregion
+    }
+
     private static void DocMicToggleButton(UIView view)
     {
         #region example:mic-toggle-button
@@ -157,7 +183,7 @@ internal sealed partial class AgentGuideExamples
         {
             if (!_myStreamStates.TryGetValue(args.StreamId, out var state)) return;
             state.AddSamples(args.Samples);
-            if (args.IsLast) { /* process state.Samples */ }
+            if (args.IsLast) { /* hand state.Samples to a task: a slow handler holds up every client's messages */ }
         };
         #endregion
     }

@@ -102,8 +102,8 @@ internal sealed class CommandPaletteJump : IPatternDemo
                         placeholder: "Jump to camera, section, or action…",
                         value: _paletteQuery.Value,
                         onValueChange: async v => _paletteQuery.Value = v ?? "",
-                        // Enter carries the text as submitted: the bound reactive can lag a fast
-                        // type-and-Enter by one round-trip, and the render's matches with it.
+                        // Filter by the submitted text. The reactive already holds it, but when the user types
+                        // fast and presses Enter, this render's matches can be one round-trip out of date.
                         onSubmit: async submitted =>
                         {
                             var hits = Matches(items, submitted);

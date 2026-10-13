@@ -42,8 +42,10 @@ internal sealed class GeneratedImageWithResult : IPatternDemo
         catch (AIException ex)
         {
             // Generation throws rather than returning an empty result, so the app decides what a
-            // missing image means; here it degrades to a message and keeps the previous one.
-            _error.Value = ex.Message;
+            // missing image means; here it keeps the previous image and offers a retry. The
+            // exception text is for the log, never the screen.
+            Log.Instance.Warning($"Image generation for '{prompt}' failed, user can retry: {ex.Message}");
+            _error.Value = "Couldn't create the image. Try again.";
         }
     }
 

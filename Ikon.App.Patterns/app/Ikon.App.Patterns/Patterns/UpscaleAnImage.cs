@@ -1,7 +1,3 @@
-// Ikon.AI.ImageUpscaling is NOT in an app's GlobalUsings — like Ikon.AI.Emergence.Tree, a nested
-// namespace is not imported by its parent, so an app that upscales adds this line itself.
-using Ikon.AI.ImageUpscaling;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: upscale-an-image — see docs/patterns/upscale-an-image.md.

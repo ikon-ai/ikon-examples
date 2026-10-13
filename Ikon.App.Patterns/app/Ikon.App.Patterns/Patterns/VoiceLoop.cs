@@ -66,36 +66,10 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
 
             var (sampleRate, channelCount) = format;
 
-            _processing.Value = true;
-            try
-            {
-                using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
-                var heard = (await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
-                {
-                    Samples = samples.ToArray(),
-                    SampleRate = sampleRate,
-                    ChannelCount = channelCount,
-                })).Text;
-
-                if (string.IsNullOrWhiteSpace(heard))
-                {
-                    return;
-                }
-
-                _turns.Add(new VoiceTurn("You", heard));
-
-                var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
-                var replyRaw = await Emerge.Run<string>(LLMModel.Claude45Haiku,
-                    pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; });
-                var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
-                _turns.Add(new VoiceTurn("Tutor", reply));
-
-                Audio.Speak(MediaTargets.Everyone, reply);
-            }
-            finally
-            {
-                _processing.Value = false;
-            }
+            // The frame handler holds up every client's messages for as long as it runs, and the
+            // round trip below takes seconds, so start it and return. A task started here keeps
+            // the client's scope, so _processing still writes to this client.
+            _ = Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount));
         };
 
         UI.Root([Page.Default], content: view =>
@@ -109,7 +83,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
                         foreach (var t in _turns)
                         {
                             var isUser = t.Role == "You";
-                            vv.Box([isUser ? "self-end bg-primary text-primary-foreground" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"],
+                            vv.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"],
                                 content: c => c.Text(text: $"{t.Role}: {t.Text}"));
                         }
                     });
@@ -127,6 +101,45 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
             });
         });
         return Task.CompletedTask;
+    }
+
+    private async Task RespondAsync(float[] samples, int sampleRate, int channelCount)
+    {
+        _processing.Value = true;
+        try
+        {
+            using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
+            var heard = (await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+            {
+                Samples = samples,
+                SampleRate = sampleRate,
+                ChannelCount = channelCount,
+            })).Text;
+
+            if (string.IsNullOrWhiteSpace(heard))
+            {
+                return;
+            }
+
+            _turns.Add(new VoiceTurn("You", heard));
+
+            var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
+            var replyRaw = await Emerge.Run<string>(LLMModel.Claude45Haiku,
+                pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; });
+            var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
+            _turns.Add(new VoiceTurn("Tutor", reply));
+
+            Audio.Speak(MediaTargets.Everyone, reply);
+        }
+        catch (Exception ex)
+        {
+            Log.Instance.Warning($"Voice turn failed: {ex.Message}");
+            _turns.Add(new VoiceTurn("Tutor", "Sorry, I couldn't answer that. Try again."));
+        }
+        finally
+        {
+            _processing.Value = false;
+        }
     }
     #endregion
 }

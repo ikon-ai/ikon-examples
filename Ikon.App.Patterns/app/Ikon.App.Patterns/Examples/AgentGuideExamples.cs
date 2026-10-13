@@ -113,6 +113,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
                 RenderDocExampleButton(view, "Speech streamed", async () => { await DocSpeechGenerateStreamedAsync(); return "played"; }, needsLiveApp: true);
                 RenderDocExampleButton(view, "Speak", async () => { await DocSpeakAsync(ReactiveScope.ClientId); return "spoken"; }, needsLiveApp: true);
                 RenderDocExampleButton(view, "Speech recognition", async () => { await DocSpeechRecognizeBatchAsync(new float[16000]); return "recognized"; });
+                RenderDocExampleButton(view, "Pronunciation", async () => { await DocPronunciationAssessmentAsync(new float[16000], 16000); return "assessed"; });
                 RenderDocExampleButton(view, "Video", DocVideoGenerateOneShotAsync);
                 RenderDocExampleButton(view, "Video config", DocVideoGenerateConfigAsync);
                 RenderDocExampleButton(view, "Video enhance", () => DocVideoEnhanceOneShotAsync("https://example.com/clip.mp4"));

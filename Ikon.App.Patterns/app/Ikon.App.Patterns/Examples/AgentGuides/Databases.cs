@@ -67,6 +67,32 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private async Task DocRawSqlParametersAsync(string runId, long? finishedMs)
+    {
+        #region example:raw-sql-parameters
+        await using var connection = await app.DatabaseAsync("mydb");
+        await connection.OpenAsync();
+        await using var cmd = connection.CreateCommand();
+        // A null goes in as DBNull, which carries no type. Where nothing around a parameter gives it one
+        // (`@x IS NULL`, `COALESCE(@x, 0)`), Postgres fails with 42P08, so the SQL casts it.
+        cmd.CommandText = """
+            UPDATE runs SET finished_ms = CAST(@finishedMs AS bigint),
+                finished_at = CASE WHEN CAST(@finishedMs AS bigint) IS NULL THEN NULL ELSE now() END
+            WHERE id = @id
+            """;
+
+        foreach (var (name, value) in new (string, object?)[] { ("id", runId), ("finishedMs", finishedMs) })
+        {
+            var parameter = cmd.CreateParameter();
+            parameter.ParameterName = name;
+            parameter.Value = value ?? DBNull.Value;
+            cmd.Parameters.Add(parameter);
+        }
+
+        await cmd.ExecuteNonQueryAsync();
+        #endregion
+    }
+
     private void DocAppSeed()
     {
         #region example:app-seed

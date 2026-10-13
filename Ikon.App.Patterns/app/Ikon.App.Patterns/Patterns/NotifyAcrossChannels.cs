@@ -25,8 +25,10 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
     ];
 
     #region example:pattern-notify-across-channels
-    /// Register channels ONCE, in OnStarting. The platform does not hand apps its users' email
-    /// addresses or phone numbers, so each channel takes a resolver into the app's own profile state.
+    /// Register channels ONCE, in OnStarting. Each channel asks a resolver for the user's address. A
+    /// signed-in user's profile has Email and PhoneNumber when they gave them, but the resolver is
+    /// synchronous, so keep the addresses in app state and fill them from ClientProfiles.GetProfileAsync
+    /// when the user joins.
     private void Wire()
     {
         _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => AddressOf(userId)));

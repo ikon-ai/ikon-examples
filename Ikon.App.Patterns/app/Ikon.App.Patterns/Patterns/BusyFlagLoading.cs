@@ -32,7 +32,8 @@ internal sealed class BusyFlagLoading : IPatternDemo
         }
         catch (Exception ex)
         {
-            _error.Value = ex.Message;
+            Log.Instance.Warning($"Slow operation failed, user can retry: {ex.Message}");
+            _error.Value = "That didn't work. Try again.";
         }
     }
 

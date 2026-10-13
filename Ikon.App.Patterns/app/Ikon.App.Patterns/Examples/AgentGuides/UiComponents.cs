@@ -133,7 +133,7 @@ file sealed class InputsExamples
             content: v => v.Icon([Icon.Default], name: "settings"));
         view.TextField(bind: _text, placeholder: "Enter text",
             onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
-        view.TextArea(bind: _text, style: ["min-h-[100px]"], placeholder: "Type a message...",
+        view.TextArea(bind: _text, style: ["default", "min-h-[100px]"], placeholder: "Type a message...",
             onSubmit: async submitted => { await HandleSubmit(submitted); });  // Ctrl+Enter submits; input auto-clears after submit
         // onSubmit's parameter is the submitted value. With bind:, the bound reactive (`_text.Value`)
         // holds that same value while onSubmit runs; a clearing field (the default here) writes "" to

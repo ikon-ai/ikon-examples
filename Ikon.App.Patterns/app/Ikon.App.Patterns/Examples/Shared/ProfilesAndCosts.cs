@@ -13,12 +13,15 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
 
         if (profile is null)
         {
-            return "Welcome, guest";
+            return "Welcome";
         }
 
+        // VisibleName is empty until the person sets a preferred or first name
+        var name = profile.VisibleName is { Length: > 0 } visibleName ? visibleName : profile.Name ?? profile.Email ?? "there";
+
         return profile.HasRole(UserRole.Admin)
-            ? $"Welcome back, {profile.VisibleName} (admin)"
-            : $"Welcome back, {profile.VisibleName}";
+            ? $"Welcome back, {name} (admin)"
+            : $"Welcome back, {name}";
     }
     #endregion
 
@@ -86,6 +89,29 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
         }
 
         return summaries;
+    }
+    #endregion
+
+    #region example:costs-team-budget
+    public async Task<string> AskForTeamAsync(string teamId, double monthlyCredits, string question, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var firstOfMonth = new DateOnly(today.Year, today.Month, 1);
+
+        // What the team spent this month: the usage of every call made under its scope.
+        var spent = await app.Costs.GetCreditsForScopeAsync("team", teamId, firstOfMonth, today, ct);
+
+        // Checked here because a Budget denies a call only when the platform's spend mode is enforce.
+        if (spent >= monthlyCredits)
+        {
+            return "Your team has used this month's AI budget.";
+        }
+
+        // Everything below is attributed to the team, and this one operation is capped at what is left.
+        using var team = Log.Instance.UseScope(new CustomScope("team", teamId));
+        using var budget = app.Costs.Budget("team-question", monthlyCredits - spent);
+
+        return await Emerge.AskAsync(question, ct);
     }
     #endregion
 

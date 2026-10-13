@@ -9,6 +9,8 @@ namespace Ikon.App.Patterns.Examples;
 
 file sealed class AppFilesExamples(IApp<SessionIdentity, ClientParameters> app)
 {
+    private Audio Audio { get; } = new(app);
+
     public async Task RunAsync(string id, byte[] bytes)
     {
         #region example:app-files
@@ -21,5 +23,13 @@ file sealed class AppFilesExamples(IApp<SessionIdentity, ClientParameters> app)
         #endregion
 
         Log.Instance.Debug($"{rules} {url}");
+    }
+
+    public async Task PlayWrittenFileAsync()
+    {
+        #region example:app-files-play-written
+        var bytes = await app.Files.Public.ReadBytesAsync("music/theme.mp3");
+        Audio.Play(MediaTargets.Everyone, new MemoryStream(bytes), "audio/mpeg");
+        #endregion
     }
 }

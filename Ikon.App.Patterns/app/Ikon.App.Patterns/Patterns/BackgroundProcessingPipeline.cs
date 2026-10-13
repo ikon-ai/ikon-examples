@@ -66,9 +66,9 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
             }
             catch (Exception ex)
             {
-                Log.Instance.Error($"File upload/processing failed: {ex.Message}");
+                Log.Instance.Error($"Processing of file {caseFileId} ({fileName}) failed: {ex.Message}");
                 await UpdateCaseFileStatusAsync(caseFileId, ProcessingStatus.Error,
-                    errorMessage: $"Processing failed: {ex.Message}");
+                    errorMessage: "Couldn't process this file. Upload it again.");
                 await UpdateCaseDataForViewersAsync(caseId);
                 RemoveActiveUpload(uploadId);
             }

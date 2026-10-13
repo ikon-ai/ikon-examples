@@ -203,6 +203,72 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         #endregion
     }
 
+    #region example:av-broadcast
+    // A participant id that no client has, standing for everyone off stage. It has no microphone, so
+    // its mix is the whole stage, made and encoded once however large the audience is.
+    private const int Audience = -1;
+
+    private readonly GroupAudioMixer _stageMixer = new();
+    private readonly ConcurrentDictionary<int, bool> _onStage = new();
+    private readonly ConcurrentDictionary<string, (int SampleRate, int ChannelCount)> _stageFormats = new();
+
+    private void PutOnStage(int clientId)
+    {
+        _onStage[clientId] = true;
+        _stageMixer.AddParticipant(clientId);   // hears the rest of the stage, not themselves
+    }
+
+    private void TakeOffStage(int clientId)
+    {
+        _onStage.TryRemove(clientId, out _);
+        _stageMixer.RemoveParticipant(clientId);
+    }
+
+    public void Broadcast(CancellationToken ct)
+    {
+        _stageMixer.AddParticipant(Audience);
+
+        // Only the microphones of people on stage are mixed.
+        Audio.AudioInputStreamBeginAsync += async args =>
+        {
+            if (_onStage.ContainsKey(args.ClientSessionId))
+            {
+                _stageFormats[args.StreamId] = (args.SampleRate, args.ChannelCount);
+                _stageMixer.AddStream(args.StreamId, args.ClientSessionId);
+            }
+        };
+
+        Audio.AudioInputFrameAsync += async args =>
+        {
+            if (_stageFormats.TryGetValue(args.StreamId, out var format))
+            {
+                _stageMixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+            }
+        };
+
+        Audio.AudioInputStreamEndAsync += async args =>
+        {
+            if (_stageFormats.TryRemove(args.StreamId, out _))
+            {
+                _stageMixer.RemoveStream(args.StreamId);
+            }
+        };
+
+        _ = Task.Run(async () =>
+        {
+            await foreach (var (participantId, frame) in _stageMixer.StreamAsync(ct))
+            {
+                var targets = participantId == Audience
+                    ? MediaTargets.EveryoneExcept(_onStage.Keys.ToList())
+                    : MediaTargets.To([participantId]);
+
+                await Audio.Raw.SendFrameAsync(targets, frame.StreamId, frame.Samples, frame.SampleRate,
+                    frame.ChannelCount, frame.IsFirst, frame.IsLast);
+            }
+        });
+    }
+    #endregion
+
     #region example:av-video-tiles-field
     // One tile per camera: the surface its relay plays on, and the input its owner previews
     private readonly ReactiveList<CameraTile> _tiles = new();
