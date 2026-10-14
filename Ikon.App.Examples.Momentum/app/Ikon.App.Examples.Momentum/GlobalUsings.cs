@@ -16,9 +16,11 @@ global using Ikon.AI.LLM;
 global using Ikon.AI.MeshGeneration;
 global using Ikon.AI.MusicGeneration;
 global using Ikon.AI.OCR;
+global using Ikon.AI.Provenance;
 global using Ikon.AI.SoundEffectGeneration;
 global using Ikon.AI.SpeechGeneration;
 global using Ikon.AI.SpeechRecognition;
+global using Ikon.AI.Utils;
 global using Ikon.AI.VideoEnhancement;
 global using Ikon.AI.VideoGeneration;
 global using Ikon.AI.VideoSegmentation;
@@ -30,6 +32,7 @@ global using Ikon.App.Http;
 global using Ikon.App.Payments;
 global using Ikon.App.Reactive;
 global using Ikon.Common.Core.Assets;
+global using Ikon.Common.Core.Email;
 global using Ikon.Common.Core.Functions;
 global using Ikon.Common.Core.Functions.Policy;
 global using Ikon.Common.Core.Reactive;
@@ -61,4 +64,5 @@ global using System;
 
 // `IView` as a friendly alias for `UIView`
 global using IView = Ikon.Parallax.UIView;
+global using Context = Ikon.Common.Core.Protocol.Context;
 // </ikon-usings>
