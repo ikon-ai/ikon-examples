@@ -1,4 +1,4 @@
-<!-- checked-against: 074855d57f03fe4fe4b39f09 -->
+<!-- checked-against: 7ca99396bcb0f3a49a8532f6 -->
 
 # Ikon.Parallax Library Overview
 
@@ -258,12 +258,12 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers
 - `view.ScrollArea()` - Scrollable container with optional smart auto-scroll
 - `view.ScrollColumn()` - Header/body/footer column where the body scrolls
-- `view.VirtualList()` / `view.VirtualGrid()` - DOM-virtualized large collections
+- `view.VirtualList()` / `view.VirtualGrid()` - Long lists whose rows the browser mounts only near the viewport. The server still builds and sends every row, unless given a `scrollIndex` (a `ClientReactive<int>`), with which a VirtualList builds about 200 rows around the first visible one and a VirtualGrid about 480 items around the first visible item
 - `view.InfiniteScrollView()` - Scroll area with near-end callbacks for lazy loading
 - `view.PanZoom()` - Viewport the user pans and zooms by wheel, pinch and drag; the offset stays client-side
 
 **Display:**
-- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content
+- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content; `view.Heading(level: 2)` renders `<h2>` (1 to 6, default `<h1>`)
 - `view.Image()` - Images from URL or bytes
 - `view.Icon()` - Icon library glyphs
 - `view.Spinner()` / `view.Skeleton()` - Loading states
@@ -296,10 +296,10 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
 
 **Editors:**
-- `view.CodeEditor()` - Syntax-highlighted code with a language badge, line numbers and Ctrl+Enter `onSubmit`; a controlled `value` with no write-back handler renders read-only
-- `view.RichTextEditor()` - HTML-valued editor whose toolbar you can narrow with `RichTextTool` (`Bold`, `Italic`, …); same read-only rule as `CodeEditor`
-- `view.ImageEditorCanvas()` - Brush, shape and text annotation over an image, driven by `ImageEditorTool`; `onSave` yields `ImageEditorSaveArgs` and `onHistoryChange` an `ImageEditorHistoryArgs` for undo/redo affordances
-- `view.ShadertoyCanvas()` - A GLSL fragment shader as a live surface, with named `ShaderUniform` values and optional pointer input
+- `view.CodeEditor()` - A monospace text area with a line-number gutter, a `language` badge and Ctrl+Enter `onSubmit`, named by `label:` (shown above it) or `ariaLabel:`. It highlights no syntax. `readOnly: true` shows code without editing; a controlled `value` with no write-back handler also renders read-only, with a dev warning
+- `view.RichTextEditor()` - HTML-valued editor whose toolbar you can narrow with `RichTextTool` (`Bold`, `Italic`, …); same `readOnly` and read-only rule as `CodeEditor`
+- `view.ImageEditorCanvas()` - Brush, shape and text annotation over an image, or a blank pad the size of its container when there is no `src`, driven by `ImageEditorTool`; `onSave` yields `ImageEditorSaveArgs` (with `MaskData`, the changed area as a white-on-black mask, under `saveMask: true`) and `onHistoryChange` an `ImageEditorHistoryArgs` for undo/redo affordances
+- `view.ShadertoyCanvas()` - A GLSL fragment shader as a live surface, with named `ShaderUniform` values and optional pointer input. `onCompileError` gets the WebGL log, with line numbers counted in your source; `onCompile` fires when a new source is drawing
 
 **Command and menus:**
 - `view.CommandPalette()` - ⌘K palette over `SelectOptionGroup` groups, with its own search field and empty state. It binds no shortcut and narrows only by the `searchValue:` it is given: the app drives `open:`/`onOpenChange:` (wire ⌘K yourself, e.g. with a `KeyboardListener`) and feeds `searchValue:`/`onSearchChange:`; prefer it over hand-building a `Dialog` for jump-to menus
@@ -400,7 +400,7 @@ view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
     style: ["default", "absolute bottom-2 end-2"]);
 ```
 
-The default wording follows the kind and the variant, in English (`Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
+The default wording follows the kind and the variant, in the language of the client's `Context.Locale` (English, Finnish, Swedish, German, Spanish or French; `Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
 better or a market whose regulator words it differently. It renders themed from
 `Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
 rather than as the app's own output.
@@ -463,7 +463,7 @@ view.TextField(["default", "w-full"], bind: _name); // themed input, full width 
 view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
 ```
 
-A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, and a dialog, sheet or drawer panel with no `fixed` or `absolute` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it.
+A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, and a dialog, sheet or drawer panel with no `fixed` or `absolute` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill.
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
@@ -528,9 +528,9 @@ the base's `min-h-0` by coming later). The distinction is what the base *is*: a 
 
 <!-- ikon-example: px-default-styling-and-auto-composed-indicators -->
 ```csharp
-view.Checkbox(bind: _done);
-view.Switch(bind: _on);
-view.TextField(bind: _text);
+view.Checkbox(bind: _done, label: "Done");
+view.Switch(bind: _on, label: "Notifications");
+view.TextField(bind: _text, label: "Note");
 view.Button(text: "Submit", onClick: async () => { });
 ```
 
@@ -843,7 +843,7 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first `[BootSnapshot] MaxRoutes` routes are captured, 50 unless set; the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names the rest, which get no prerendered page and no sitemap entry. `MaxRoutes` takes 1 to 200, and a value outside that fails the bundle. Each route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first `[BootSnapshot] MaxRoutes` routes are captured, 50 unless set. The rest get no prerendered page, but they are still listed in `sitemap.xml` (up to 50,000 URLs in all), and the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names them, so an archive of thousands of pages returns all of them. `MaxRoutes` takes 1 to 200, and a value outside that fails the bundle. Each captured route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
 
 <!-- ikon-example: px-how-to-use-it -->
 ```csharp

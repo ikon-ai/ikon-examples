@@ -1,4 +1,4 @@
-<!-- checked-against: 1d69454452fc07ff72204f74 -->
+<!-- checked-against: 1d694544437ee4bc4ffa1fd2 -->
 
 # Microsoft Connector Guide
 

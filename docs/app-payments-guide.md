@@ -1,4 +1,4 @@
-<!-- checked-against: c6d413a9e1fb50e4047e601c -->
+<!-- checked-against: 4705dc5db88e1bfa094a8d94 -->
 
 # Ikon.App.Payments Guide
 
@@ -356,7 +356,7 @@ else if (receipt.Pdf is { Length: > 0 } pdf)
 {
     // The provider returned downloadable bytes — offer them with a DownloadFile action.
     view.ActionButton([Button.OutlineSm], action: ActionKind.DownloadFile,
-        options: new DownloadFileActionOptions { Filename = "receipt.pdf", Data = pdf },
+        options: new DownloadFileActionOptions { FileName = "receipt.pdf", Data = pdf },
         content: v => v.Text([Text.BodySm], "Download receipt"));
 }
 ```

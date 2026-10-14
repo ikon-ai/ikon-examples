@@ -1,4 +1,4 @@
-<!-- checked-against: 3f8fd4096c19108444b5a65a -->
+<!-- checked-against: 297f5c9e12909dc0024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -62,6 +62,29 @@ The platform deliberately keeps no copy of the messages an app sends, including 
 bodies and attachments. An app that needs a log of
 sent mail, to show a history or to prove what went out, keeps its own, for example a database row
 written when `SendAsync` returns.
+
+### One-click unsubscribe headers
+
+Mail sent in bulk, such as a newsletter, needs the `List-Unsubscribe` and `List-Unsubscribe-Post`
+headers, or the large mailbox providers send it to spam. Set them with `Headers`:
+
+<!-- ikon-example: email-unsubscribe-headers -->
+```csharp
+await app.Email.SendAsync(new EmailSendRequest(To: subscriber, Subject: "October news", HtmlBody: html)
+{
+    // unsubscribeUrl is a public [HttpPost] endpoint of the app; a mail provider posts the one-click body to it
+    Headers = new Dictionary<string, string>
+    {
+        ["List-Unsubscribe"] = $"<{unsubscribeUrl}>",
+        ["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click",
+    },
+});
+```
+
+`List-Unsubscribe` takes one or more `<https://...>` or `<mailto:...>` targets separated by commas, and
+`List-Unsubscribe-Post` must be exactly `List-Unsubscribe=One-Click` with an https target. These are the
+only headers an app can set; any other name throws `ArgumentException`, because the platform sets the
+From, routing and signing headers itself.
 
 ### Keep the list clean — sending can be paused
 
@@ -151,8 +174,10 @@ platform default sender.
 
 The app receives mail sent to any address on one of its hostnames that has the **Receive email**
 capability turned on. A new app has it off on every hostname, so no mail arrives until you turn it
-on from the hostname's page in the Portal. `ikon app show <app>` lists the receiving domains under
-Inbound email.
+on with `ikon inbox enable` (the app's own hostname) or `ikon inbox enable <hostname>`, or from the
+hostname's page in the Portal. `ikon app show <app>` lists the receiving domains under Inbound email,
+and `app.Email.GetInboundDomainsAsync()` returns them to the app once their DNS is verified, its own
+hostname first.
 
 Inbound email delivered to the app is available as pages or as a lazy stream:
 
@@ -169,7 +194,11 @@ await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
     foreach (var attachment in detail.Attachments)
     {
         await using var download = await app.Email.DownloadAttachmentAsync(detail.Id, attachment.Id);
-        // download.Content is the decrypted stream
+        using var buffer = new MemoryStream();
+        await download.Content.CopyToAsync(buffer);
+
+        // The filename is the sender's, so the stored path uses the attachment id
+        await app.Files.Data.WriteBytesAsync($"inbox/{detail.Id}/{attachment.Id}", buffer.ToArray(), download.MimeType);
     }
 
     await app.Email.DeleteAsync(summary.Id);
@@ -177,7 +206,8 @@ await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
 ```
 
 `InboxQuery` filters by recipient, sender, and time window. Deleting a message frees its attachment
-storage; deleting an unknown id throws rather than succeeding silently.
+storage, so save the attachments you want to keep first, as above. `attachment.Filename` is the
+name the sender gave the file; store it in your own record if you need it. Deleting an unknown id throws rather than succeeding silently.
 
 ## React when mail arrives
 
@@ -207,3 +237,8 @@ Delivery is at-least-once: a handler that throws sees the same event again after
 it idempotent, and `MaxParallelism` above 1 lets independent messages be handled concurrently.
 `TriggerContext` lives in `Ikon.App.Triggers` and `TriggerEventType` in `Ikon.Common.Core.Protocol`,
 neither of which the scaffold's global usings cover.
+
+The trigger fires only in a deployed app; a local `ikon run` can read the inbox but gets no events.
+A deployed app can send mail to its own inbox, so the whole path can be tested without an outside
+mail account: once `ikon inbox enable` has run, send to any address at a receiving domain, such as
+`$"test@{(await app.Email.GetInboundDomainsAsync())[0]}"`, with `app.Email.SendAsync`.

@@ -1,4 +1,4 @@
-<!-- checked-against: 74d8d6f4170f93ae5741f411 -->
+<!-- checked-against: 9eb1fa82e0b5ef67a4f6004a -->
 
 # Ikon.AI Library Overview
 
@@ -13,7 +13,7 @@ Every service's config has a `Timeout`, and a call that runs past it throws `AIT
 | LLM calls (`KernelContext`) | 60 seconds |
 | Embeddings, reranking | 10 seconds per request, scaled up with the batch size |
 | Speech recognition | 1 minute |
-| Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds |
+| Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds; the SerpApi models (Google, Bing, Amazon, YouTube) retry a timed-out request once, so up to 40 |
 | Single-page scrape | 60 seconds |
 | Depth estimation, image segmentation, image upscaling, page screenshot, file download | 2 minutes |
 | Image generation, OCR, music, sound effects | 5 minutes |
@@ -79,7 +79,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`.
+Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`. An organisation admin sets that policy in Studio's organisation settings, under "Where AI calls are served", or with `ikon org set --ai-region eu-only`. `ikon model list --eu` lists the models that have an EU region.
 
 Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
@@ -220,9 +220,11 @@ carry no slot this layer writes and come back `None`.
 - `MediaProvenance.ReadMetadataMark(data)` reads the packet back, container-agnostically.
 
 The generators apply it themselves, and every result says what it carries so a caller never has to
-assume: `MusicGeneratorResult.Provenance` and `SoundEffectGeneratorResult.Provenance`. Video is not
-marked: its bytes never pass through the platform — the result is the provider's URL — and fetching a
-clip into the process to mark it is what the platform tells apps never to do. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
+assume: `MusicGeneratorResult.Provenance` and `SoundEffectGeneratorResult.Provenance`. Generated video
+is not marked, because its bytes never pass through the platform: the result is the provider's URL.
+An app that must mark a clip it keeps reads the stored file back (`app.Files.Public.ReadBytesAsync`),
+passes it to `MediaProvenance.Apply` and writes the result over it. That holds the whole clip in
+memory, so do it once per clip, not per viewer. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
 speech) hand out raw PCM chunks with no container, so they are never marked; disclose those to the
 user instead, with Parallax's `view.AiDisclosure(AiDisclosureKind.GeneratedContent)`.
 
@@ -233,15 +235,20 @@ width and height without decoding the whole image; `IsWebP` sniffs the format. `
 caps both dimensions (aspect preserved, `maxDimension` 1568 px by default) and re-encodes as JPEG, returning the source bytes unchanged
 only when the image already fits the dimension cap *and* is at most `maxBytes` (200 KB by default) —
 this is how an image is brought under a model's input limit before it is sent. A WebP source it has
-to re-encode throws, since the decoder reads no WebP. The mask helpers convert between the two conventions models disagree on:
+to re-encode throws, since the decoder reads no WebP. `EncodeJpeg(source, maxDimension, quality)`
+always re-encodes, so it is the way to resize a photo or make a thumbnail without an image library:
+it returns a JPEG no larger than `maxDimension` on either side and never enlarges. The mask helpers convert between the two conventions models disagree on:
 `ConvertAlphaMaskToBlackWhiteMask`, `ConvertBlackWhiteMaskToAlphaMask` and `InvertMask`.
+`CompositeUnderMask(original, generated, mask)` keeps an inpainting result only inside the mask:
+it returns a PNG at the original's size with the generated pixels in the edit region and the
+original pixels everywhere else, because most mask models can change the whole picture.
 
 
 ## ImageSegmentation
 
 `Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes; a prompt that matches nothing returns an empty `Segments` list rather than throwing.
 
-Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
+Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. A `Mask` is a PNG cut-out rather than a black/white mask: it holds the object's own pixels with everything else transparent, and its alpha channel is the mask. `ImageUtils.ConvertAlphaMaskToBlackWhiteMask` turns it into a black/white mask that is white outside the object, and `ImageUtils.InvertMask` on that makes the object white. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -485,6 +492,12 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 
 Log.Instance.Info($"Video URL: {result.Url}");
 ```
+
+Each model takes only some aspect ratios, listed in `SupportedAspectRatios` on the generator and on
+`VideoGenerator.GetCapabilities(model)`. A ratio the model does not list throws
+`NonRetryableAIException` before anything is generated. With an input image, most models frame the
+clip like the image and throw if `AspectRatio` is set; `SupportsImageToVideoAspectRatio` is true for
+the ones that take a ratio there. For the others, crop the image to the ratio you want.
 
 ## VideoEnhancement
 
@@ -1147,7 +1160,7 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
 });
 ```
 
-`EmbeddingGeneratorConfig.OutputDimensions` asks for a shorter vector from a model that can produce one: `EmbeddingGenerator.GetCapabilities(model).MinOutputDimensions` is its shortest length, and 0 there means the length is fixed and any other value is refused. The Gemini embedding models take 128 to 3072; a shortened vector costs storage and search time in proportion, and is only comparable with vectors of the same length.
+`EmbeddingGeneratorConfig.OutputDimensions` asks for a vector of another length from a model that can produce one. `EmbeddingGenerator.GetCapabilities(model)` says which: `MinOutputDimensions` and `MaxOutputDimensions` bound the length (0 means it is fixed and any other value is refused), and a non-empty `OutputDimensionChoices` lists the only lengths allowed. The OpenAI 3, Jina and Google text models take any length up to their own; Gemini takes 128 to 3072; Cohere and Voyage take a few fixed lengths, and Voyage's go up to 2048, twice its default. A value the model cannot return throws a `NonRetryableAIException` before the call. A shorter vector costs storage and search time in proportion, and is only comparable with vectors of the same length.
 
 ## Kernel
 

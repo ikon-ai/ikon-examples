@@ -1,4 +1,4 @@
-<!-- checked-against: 3a083ddd9203590f6320a044 -->
+<!-- checked-against: 269d1441e00e44723555c5bc -->
 
 # App Files Guide
 
@@ -57,6 +57,12 @@ Paths are plain relative file paths (`"thumbnails/42.png"`). A leading slash and
 normalized away rather than rejected; an empty path, a trailing slash, or a `.`/`..`/empty segment
 throws `ArgumentException`.
 
+Every `app.Files` call is a network round trip to cloud storage, in a local run as well as deployed.
+A read through `app.Files.Data` makes one even for a file shipped in `data/`, because it looks for a
+runtime-written file at that path first. Start independent calls together and await them with
+`Task.WhenAll` rather than one after another. Do not call `ExistsAsync` before a read. Read the file
+and catch `FileNotFoundException`, which costs one round trip rather than two.
+
 ## Binaries in git — nothing to run
 
 Binary files never make a repo large: the tooling moves them to the Asset store and back when you
@@ -70,6 +76,10 @@ run these commands.
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that
 repository's files alone.
+
+`ikon save` and the save before a deploy commit every file in the app that git does not ignore, and
+offload the binaries among them, test fixtures included. List a folder of test files (`scripts/`,
+`testdata/`) in the app's `.gitignore` to keep it out of the repository and the Asset store.
 
 The native project folders of a Flutter frontend (`frontend-flutter/android`, `ios`, `macos`,
 `windows`, `linux`) stay in git as they are, because the Android and iOS builds refuse files they do

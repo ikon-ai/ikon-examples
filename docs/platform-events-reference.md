@@ -1,4 +1,4 @@
-<!-- checked-against: a30b16a388c70649644cf1ec -->
+<!-- checked-against: 1bb7b82418bbbe1d644cf1ec -->
 
 # IKON Platform Events
 
@@ -452,10 +452,10 @@ Only a process killed outright (closing the terminal, running out of memory) wri
 | `spaceId` | The app deployed to, once it is known |
 | `bundleId`, `sizeMb` | The deployment, once the backend registered it, and the package size |
 | `fromPackage`, `noActivate` | The deploy uploaded a package `ikon bundle` made (`--bundle`), or did not activate it (`--no-activate`) |
-| `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED`, `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment) and `NOT_SAVED` (saving to version control failed) |
+| `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED`, `APP_START_FAILED` (the app did not start in the boot snapshot capture and `--ignore-start-failure` deployed it anyway), `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment), `NOT_SAVED` (saving to version control failed) and `LOW_CREDITS` (the organisation had under 10 credits left once the deployment was active) |
 | `activationErrors` | The backend's codes when activation refused the deployment, such as `INSUFFICIENT_CREDITS` |
 | `snapshotSkipReason`, `snapshotAppError` | When the boot snapshot capture fell short: what it missed, and the first error the app logged during the capture |
-| `failureType`, `failureMessage`, `errorCodes` | On a failed deploy: the exception, its message (for a failed program only which program and its exit code), and the program's error codes |
+| `failureType`, `failureMessage`, `errorCodes` | On a failed deploy: the exception, its message (for a failed program only which program and its exit code), and the program's error codes. A deploy refused because the app did not start in the boot snapshot capture has `errorCodes` `["APP_START_FAILED"]` |
 | `toolVersion`, `isCi`, `isInteractive` | The run context. A deploy Studio ran is not interactive, and its row's own space column is Studio's app |
 
 ## Metered usage is not an event
@@ -487,7 +487,7 @@ Semantics:
 
 - **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
 - **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above. It is delivered only when your deployment declares a listener, once per app, to the app's shared userless instance (the one `[Cron]` ticks in). That instance is cold-started if none is running, and delivery is retried with a growing backoff until your handler returns.
-- **But it is dispatched differently** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` stays 1. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
+- **But it is dispatched differently** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` must stay 1: any other value fails registration at startup and fails bundling. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
 - **Once per app, in one instance** — however many instances of your app are live, the handler runs once per erasure. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
 - **At-least-once delivery** — the event is stored per app on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
 - **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).

@@ -1,4 +1,4 @@
-<!-- checked-against: 7878952138c84c9d8f508afe -->
+<!-- checked-against: 3a23371838c84c9d8f508afe -->
 
 # IKON Persistent State Guide
 
@@ -205,7 +205,7 @@ To erase everything the app has persisted about a user — a user-data-erasure (
 await app.EraseUserStateAsync(userId);
 ```
 
-It applies `ClearFor` semantics to every registered user-scoped persistent reactive and additionally deletes every stored row under the user's storage scope key — including rows left behind by fields that no longer exist in the code — and completes only when the stored state is gone. Global- and session-scoped values are untouched: they are shared state, not per-user data.
+It applies `ClearFor` semantics to every registered user-scoped persistent reactive and additionally deletes every stored row under the user's storage scope key — including rows left behind by fields that no longer exist in the code — and completes only when the stored state is gone. Global- and session-scoped values are untouched: they are shared state, not per-user data. Each stored value is its own round trip to storage, so when a button starts the erasure, update the UI first and let the erasure finish in the background instead of making the person wait on the click.
 
 ## Schema-versioned state (`.tp` types)
 

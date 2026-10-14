@@ -1,4 +1,4 @@
-<!-- checked-against: 2b339e2993ba848bafa0cac4 -->
+<!-- checked-against: ed4bd1d693ba848bafa0cac4 -->
 
 # IKON Theming Guide
 
@@ -226,8 +226,8 @@ dropped with a warning. A key that is not a rung (`shadow-sticker`) is a plain v
 
 ### Porting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
 
-Author **Tailwind v4** names in all new code — Crosswind tracks the v4 scale, and the
-baseline renders v4 classes at exactly their Tailwind values.
+Author **Tailwind v4** names in all new code — Crosswind's Tailwind utilities follow the v4
+names and scale, and the baseline renders them at exactly their Tailwind values.
 
 The baseline is value-identical to stock Tailwind for spacing, type, and every radius rung —
 classes copied from a Tailwind design render the same geometry here with no theme keys at all.

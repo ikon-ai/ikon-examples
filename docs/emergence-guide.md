@@ -1,4 +1,4 @@
-<!-- checked-against: 288c8759269a89ffa2ea16da -->
+<!-- checked-against: 9032d732397431fd81703555 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -239,6 +239,7 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 - `Critic(Action<EmergeScope<T>>)` - Configure the critic scope. Calling this also sets `EnableCritic = true`, so a configured critic always runs; set `EnableCritic = false` afterward only if you are pre-configuring a critic to toggle on later
 - `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. Its string replaces the critic's whole `Command`, so it must carry the winning candidate itself; only the default feedback appends it. The breakdown is non-null exactly when `ScoreDetailed` or `ScoreDetailedAsync` produced one
 - `CriticMustImprove` - Require critic to improve on the current best (default: true)
+- `ShouldContinue` - `Func<T, double, EmergenceTrace, Task<bool>>`, called with the best candidate so far and its score before every candidate after the first, and before the critic. Returning false makes no more model calls and completes the run with that candidate. Use it to stop when a spending budget runs out or the score is good enough
 
 Multi-axis scoring with a critic that is told which axis was weakest. Each metric callback returns a score in `[0, 1]` — anything outside is clamped, so a 0..10 or 0..100 rubric must be divided by its maximum or every candidate ties at 1.0:
 
@@ -471,12 +472,12 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
 - `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments
 - `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
-- `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool; since `AddTool` keeps the first registration of a name and the configure callback re-runs on the same pass, re-adding the copy with new values on a later iteration is silently dropped — remove the old one from `pass.Tools` first
+- `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool; since `AddTool` keeps the first registration of a name and the configure callback re-runs on the same pass, re-adding the copy with new values on a later iteration is silently dropped — remove the old one from `pass.Tools` first. On a tool whose request record's fields are its arguments (below), name a field (`title`); naming the record parameter throws `ArgumentException`
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
 **Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes without a result: the `Completed<T>` event carries `HasResult` false, and awaiting the run throws `EmergenceStoppedException` saying so, for a value-type `T` as much as a reference type, rather than returning a `default(T)` that looks real.
 
-**Many-parameter tools — request record.** `Tool.Of` takes at most 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
+**Many-parameter tools — request record.** `Tool.Of` takes at most 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field. The model sees the record's fields as the tool's own arguments (`title`, `start`, …) rather than nested under the lambda's parameter name. The record stays nested only when a field has a type the flat schema cannot describe as an argument, such as a collection other than an array or `Dictionary<string, string>` (a `List<T>`), a `DateTime`, `TimeSpan`, `decimal`, `Guid` or `Uri`, or a number other than `int`, `long`, `float` or `double`:
 
 <!-- ikon-example: emergence-tool-request -->
 ```csharp
