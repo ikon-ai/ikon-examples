@@ -172,7 +172,7 @@ public partial class Validation
                     view.ActionButton(
                         [Button.PrimaryMd],
                         action: ActionKind.DownloadFile,
-                        options: new DownloadFileActionOptions { Filename = document.Filename, Data = document.Bytes },
+                        options: new DownloadFileActionOptions { FileName = document.Filename, Data = document.Bytes },
                         content: v => v.Text([Text.BodySm], text: $"Download {document.Filename}"));
                     view.Text([Text.Caption, "break-all"], $"{document.MimeType} · {document.Bytes.Length:#,##0} bytes · sha256 {document.Hash}");
                 });

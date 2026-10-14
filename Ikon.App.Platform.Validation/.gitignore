@@ -30,3 +30,4 @@ data/audio.raw
 data/synthetic-video.h264
 data/synthetic-video.ivf
 # END ikon-assets
+/scripts/

@@ -105,7 +105,7 @@ public partial class Validation
                         options: new DownloadFileActionOptions
                         {
                             Url = "/test-images/square-a.svg",
-                            Filename = "sample.png"
+                            FileName = "sample.png"
                         },
                         onActionComplete: async e =>
                         {
@@ -538,7 +538,7 @@ public partial class Validation
                     action: ActionKind.DownloadFile,
                     options: new DownloadFileActionOptions
                     {
-                        Filename = "lazy-url.svg",
+                        FileName = "lazy-url.svg",
                         UrlProvider = () =>
                         {
                             _lazyDownloadResult.Value = "Download (UrlProvider): PASS provider ran on click";
@@ -556,7 +556,7 @@ public partial class Validation
                     action: ActionKind.DownloadFile,
                     options: new DownloadFileActionOptions
                     {
-                        Filename = "lazy-asset.txt",
+                        FileName = "lazy-asset.txt",
                         AssetProvider = StageLazyDownloadAssetAsync
                     },
                     props: TestId("download-asset-provider"),

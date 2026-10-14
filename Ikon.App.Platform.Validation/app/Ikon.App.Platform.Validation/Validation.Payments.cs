@@ -439,7 +439,7 @@ public partial class Validation
             if (_payReceipt.Value?.Pdf is { Length: > 0 } pdf)
             {
                 col.ActionButton([Button.PrimarySm], action: ActionKind.DownloadFile,
-                    options: new DownloadFileActionOptions { Filename = "receipt.pdf", Data = pdf },
+                    options: new DownloadFileActionOptions { FileName = "receipt.pdf", Data = pdf },
                     content: v => v.Text([Text.BodySm], text: "Download receipt PDF"));
             }
         });

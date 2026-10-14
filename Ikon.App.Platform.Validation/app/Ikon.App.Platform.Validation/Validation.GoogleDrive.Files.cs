@@ -448,7 +448,7 @@ public partial class Validation
                 {
                     view.ActionButton([Button.OutlineSm],
                         action: ActionKind.DownloadFile,
-                        options: new DownloadFileActionOptions { Data = preview.Bytes, MimeType = preview.MimeType, Filename = preview.FileName },
+                        options: new DownloadFileActionOptions { Data = preview.Bytes, MimeType = preview.MimeType, FileName = preview.FileName },
                         content: v => v.Text(text: "Download"));
                 }
 
