@@ -21,7 +21,9 @@ StopSessions = true
 # with [Sharded] on the SessionIdentity record; detect with Context.IsGlobal). List both to enter as
 # "global" and upgrade a visitor to "guest" on demand. Signing in upgrades either to the account.
 Methods = ["google", "microsoft", "email", "guest"]
-# If non-empty, only emails from these domains may sign in (e.g. ["mycompany.com"])
+# If non-empty, only emails from these domains may join the app (e.g. ["mycompany.com"]). It is checked
+# when a person joins, so anyone who already has a profile in the app, or who was invited at a verified
+# email address, still gets in from any domain
 DomainAllowlist = []
 # false: visitors enter anonymously and sign in on demand (branch on Context.IsAnonymous, prompt with
 # ClientFunctions.LoginAsync("google")). true: a sign-in wall before the app loads, with a "Continue
@@ -42,7 +44,8 @@ Button = "overlay"
 # Usage measurement. An event names the feature and the control, never what anyone typed, picked or sent.
 [Analytics]
 # Record an event per action a person runs: feature, control, success and duration. A report filed
-# from the app then carries the last few actions that led to it.
+# from the app then carries the last few actions that led to it. Records only users who granted
+# ConsentPurposes.UsageMeasurement.
 UiActions = false
 
 # Boot snapshot: the app's initial UI captured at bundle/deploy time so the first paint is instant.
