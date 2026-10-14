@@ -88,7 +88,7 @@ internal sealed class RecordListToolbar : IPatternDemo
             view.ActionButton([Button.OutlineMd], action: ActionKind.DownloadFile,
                 options: new DownloadFileActionOptions
                 {
-                    Filename = "contacts.csv",
+                    FileName = "contacts.csv",
                     Data = Encoding.UTF8.GetBytes(BuildCsv(visible)),
                 },
                 content: v => v.Row([Layout.Row.Xs], content: inner =>

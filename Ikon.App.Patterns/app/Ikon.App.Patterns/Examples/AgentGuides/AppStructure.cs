@@ -42,6 +42,23 @@ file sealed class ViewportExamples
     }
 }
 
+file sealed class LocalRoomExamples(IApp<LocalRoomExamples.SessionIdentity, LocalRoomExamples.ClientParameters> app)
+{
+    #region example:room-identity-local-fallback
+    // In the cloud the identity's Room gives each room its own instance. In a local run every identity
+    // field is null, so the client's own ?room= on ClientParameters says which room it asked for.
+    public record SessionIdentity(string? Room);
+
+    public record ClientParameters(string? Room = null);
+
+    private string? CurrentRoom()
+    {
+        var room = app.SessionIdentity.Room;
+        return string.IsNullOrEmpty(room) ? app.Clients[ReactiveScope.ClientId]?.Parameters.Room : room;
+    }
+    #endregion
+}
+
 internal sealed partial class AgentGuideExamples
 {
 
@@ -76,8 +93,8 @@ internal sealed partial class AgentGuideExamples
         #region example:navigation-initial-url
         app.OnClientJoined(async ctx =>
         {
-            // Empty for every non-browser client, and client-supplied like InitialPath — treat the host as
-            // a hint that selects what to show, and authorize the result server-side as usual.
+            // Empty when the client sends none. Like InitialPath, the client supplies it, so treat the host
+            // as a hint that selects what to show, and authorize the result server-side as usual.
             if (Uri.TryCreate(ctx.InitialUrl, UriKind.Absolute, out var url))
             {
                 _host.SetFor(ctx.ClientSessionId, url.Host);
@@ -138,9 +155,13 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.GetTimezoneAsync();
         await ClientFunctions.GetUrlAsync();
         await ClientFunctions.SetUrlAsync("/path");                // replace: false, preserveQueryParams: false
+        // Loads an absolute http(s) URL in this tab with a full page load. Use it to enter another instance (?room=)
+        await ClientFunctions.NavigateToAsync(app.JoinUrl(new { room = "AB12" }));
+        await ClientFunctions.OpenExternalUrlAsync("https://example.com"); // a new tab; false when the browser blocks it
         await ClientFunctions.GetVisibilityAsync();                // ClientVisibility.Visible/Hidden/Unknown
         await ClientFunctions.GetBatteryLevelAsync();              // 0-100
         await ClientFunctions.GetNetworkTypeAsync();               // connection type
+        // False without vibrating in a web client that has had no tap or click yet (browsers block it until then)
         await ClientFunctions.VibrateAsync(200);                   // or a pattern: VibrateAsync(new[] { 100, 50, 100 })
         await ClientFunctions.ScrollToAsync(x: 0, y: 0, smooth: true);
         await ClientFunctions.RequestFullscreenAsync();

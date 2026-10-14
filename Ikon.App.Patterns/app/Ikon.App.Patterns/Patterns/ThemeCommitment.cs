@@ -12,7 +12,7 @@ internal sealed class ThemeCommitment(IAppBase app) : IPatternDemo
         "Configuration pattern with no standalone UI: commits the whole brand cluster — palette, radius, density and fonts — in one IkonTheme at the UI declaration site. See the source and docs/patterns/theme-commitment.md.");
 
     #region example:pattern-theme-commitment
-    // Pasted at the top of your App class — the Coder's standard styling step.
+    // At the top of your App class.
     // ONE line commits the whole brand cluster: ["primary"] expands to the CTA and
     // solid fills (+ hovers), focus rings, brand borders, brand icons, and brand text tiers.
     private UI UI { get; } = new(app, new IkonTheme

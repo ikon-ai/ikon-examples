@@ -109,7 +109,7 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
 
             foreach (var section in _hits)
             {
-                col.Card(["p-3"], key: section.NodeId, content: card =>
+                col.Card([Card.Default], key: section.NodeId, contentStyle: ["p-3"], content: card =>
                 {
                     card.Column(["gap-1"], content: lines =>
                     {

@@ -34,6 +34,7 @@ internal sealed class ValueMutationExamples
         // List mutation — call the method on the ReactiveList itself; each call notifies once
         _items.Add(newItem);
         _items.RemoveAll(i => i.Done);
+        _items.ReplaceWhere(i => !i.Done, i => i with { Done = true });  // swap the matching items, one notification
         _items.Update(list => list.Select(i => i with { Done = true }));  // whole-list transform, one notification
         _items.Value = imported;  // assignment replaces the whole content (same as ReplaceAll)
 

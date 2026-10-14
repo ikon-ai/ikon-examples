@@ -1,8 +1,8 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: overlay-selection — see docs/patterns/overlay-selection.md.
-// The example region shows all four overlay shapes side by side so the choice between them is
-// legible in one screen; the stubs outside it stand in for the row model, the store, and the detail
+// The example region shows five overlay shapes side by side so they can be compared on
+// one screen; the stubs outside it stand in for the row model, the store, and the detail
 // and filter bodies each overlay hosts.
 internal sealed class OverlaySelection : IPatternDemo
 {
@@ -33,6 +33,7 @@ internal sealed class OverlaySelection : IPatternDemo
     private readonly Reactive<string?> _pendingDelete = new(null);
     private readonly ClientReactive<bool> _filterOpen = new(false);
     private readonly ClientReactive<bool> _saved = new(false);
+    private readonly ClientReactive<string?> _renameDraft = new(null);
 
     private void Render(IView view)
     {
@@ -53,6 +54,18 @@ internal sealed class OverlaySelection : IPatternDemo
                 if (_pendingDelete.Value is { } id) { DeleteRow(id); }
                 _pendingDelete.Value = null;
             });
+
+        // ONE SHORT FOCUSED TASK → Dialog. The leading array styles the panel (as on Sheet), and
+        // showClose adds the corner X, which Dialog leaves off unless asked.
+        view.Dialog([Dialog.Content, "sm:max-w-md"],
+            open: _renameDraft.Value is not null,
+            onOpenChange: async open => { if (!open) { _renameDraft.Value = null; } },
+            overlayStyle: [Dialog.Overlay],
+            showClose: true,
+            title: "Rename view",
+            content: v => v.TextField([Input.Default, "mt-4"], value: _renameDraft.Value ?? "",
+                onValueChange: async text => _renameDraft.Value = text),
+            footer: v => v.Button([Button.PrimaryMd], text: "Save", onClick: async () => _renameDraft.Value = null));
 
         // DETAIL BESIDE THE LIST → a panel, NOT a modal. The list stays on screen and keeps its
         // scroll position, so the user can move to the next record without re-finding it.

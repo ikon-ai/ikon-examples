@@ -12,7 +12,10 @@ file sealed class EndpointsExamples
     // ignored, but a body naming no member of the type ({} included), or an empty/null body for a
     // required parameter, returns 400. Bad input returns a 4xx (it never throws a 500).
     [HttpPost("/sum")]
-    public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
+    public HttpResult Sum(SumRequest req) => req.A < 0 || req.B < 0
+        // A 4xx with a JSON body; BadRequest(reason) sends its reason as text/plain
+        ? HttpResult.Json(new { error = "a and b must not be negative" }, 400)
+        : HttpResult.Ok(new { sum = req.A + req.B });
 
     // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
     [HttpGet("/health")]
@@ -30,6 +33,14 @@ file sealed class EndpointsExamples
         // ... process req.Body ...
         return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
     }
+
+    // A plain <form method="post"> on another site, answered with a page the person sees. ReadForm()
+    // is null unless the body is form-encoded. HTML-encode anything you echo back into the page.
+    [HttpPost("/subscribe", Auth = EndpointAuth.Public)]
+    public HttpResult Subscribe(Ikon.App.HttpRequest req) =>
+        req.ReadForm() is { } form && form.TryGetValue("email", out var email)
+            ? HttpResult.Html($"<p>Check {System.Net.WebUtility.HtmlEncode(email)} for a confirmation link.</p>")
+            : HttpResult.BadRequest("Expected a form with an email field");
 
     // An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
     [Mcp(Name = "add_numbers", Description = "Adds two integers")]

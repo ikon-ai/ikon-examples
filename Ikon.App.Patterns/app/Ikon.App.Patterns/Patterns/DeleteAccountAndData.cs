@@ -1,5 +1,7 @@
 using Dapper;
+#region example:pattern-delete-account-and-data-usings
 using Ikon.Common.Core.Protocol;
+#endregion
 
 namespace Ikon.App.Patterns.Patterns;
 

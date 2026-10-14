@@ -91,7 +91,7 @@ internal sealed class ShareableResultExport : IPatternDemo
             {
                 row.ActionButton(
                     action: ActionKind.DownloadFile,
-                    options: new DownloadFileActionOptions { Filename = "results.png", Data = png },
+                    options: new DownloadFileActionOptions { FileName = "results.png", Data = png },
                     content: v => v.Text(text: "PNG"));
             }
 
@@ -99,7 +99,7 @@ internal sealed class ShareableResultExport : IPatternDemo
             {
                 row.ActionButton(
                     action: ActionKind.DownloadFile,
-                    options: new DownloadFileActionOptions { Filename = "results.pdf", Data = pdf },
+                    options: new DownloadFileActionOptions { FileName = "results.pdf", Data = pdf },
                     content: v => v.Text(text: "PDF"));
             }
         });

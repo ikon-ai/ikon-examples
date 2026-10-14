@@ -32,4 +32,29 @@ internal sealed partial class AgentGuideExamples
         app.Consent.Require(userId, ConsentPurposes.AiProviderPersonalData);
         #endregion
     }
+
+    private void DocConsentPrompt(IView view)
+    {
+        #region example:consent-prompt
+        // Only a signed-in user can answer, so a visitor sees no prompt.
+        if (ReactiveScope.UserIdOrNull is not { Length: > 0 } userId)
+        {
+            return;
+        }
+
+        // StateOf is a tracked read: once the user answers, this render runs again and the card goes.
+        if (app.Consent.StateOf(userId, ConsentPurposes.AiProviderPersonalData).State != ConsentAnswer.NotAsked)
+        {
+            return;
+        }
+
+        view.Card([Card.Default], title: "Summaries use an AI provider",
+            description: "Your notes are sent to an AI model provider to write the summary. You can change this later in Settings.",
+            footer: footer =>
+            {
+                footer.Button([Button.PrimarySm], text: "Allow", onClick: () => app.Consent.Grant(userId, ConsentPurposes.AiProviderPersonalData));
+                footer.Button([Button.OutlineSm], text: "Don't allow", onClick: () => app.Consent.Revoke(userId, ConsentPurposes.AiProviderPersonalData));
+            });
+        #endregion
+    }
 }

@@ -19,6 +19,21 @@ file sealed class EmailGuideExamples(IApp<SessionIdentity, ClientParameters> app
         #endregion
     }
 
+    public async Task NewsletterAsync(string subscriber, string html, string unsubscribeUrl)
+    {
+        #region example:email-unsubscribe-headers
+        await app.Email.SendAsync(new EmailSendRequest(To: subscriber, Subject: "October news", HtmlBody: html)
+        {
+            // unsubscribeUrl is a public [HttpPost] endpoint of the app; a mail provider posts the one-click body to it
+            Headers = new Dictionary<string, string>
+            {
+                ["List-Unsubscribe"] = $"<{unsubscribeUrl}>",
+                ["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click",
+            },
+        });
+        #endregion
+    }
+
     public async Task FallbackAsync(EmailSendRequest request)
     {
         #region example:email-sender-fallback
@@ -48,7 +63,11 @@ file sealed class EmailGuideExamples(IApp<SessionIdentity, ClientParameters> app
             foreach (var attachment in detail.Attachments)
             {
                 await using var download = await app.Email.DownloadAttachmentAsync(detail.Id, attachment.Id);
-                // download.Content is the decrypted stream
+                using var buffer = new MemoryStream();
+                await download.Content.CopyToAsync(buffer);
+
+                // The filename is the sender's, so the stored path uses the attachment id
+                await app.Files.Data.WriteBytesAsync($"inbox/{detail.Id}/{attachment.Id}", buffer.ToArray(), download.MimeType);
             }
 
             await app.Email.DeleteAsync(summary.Id);

@@ -44,6 +44,33 @@ internal sealed partial class AgentGuideExamples
         _ = (page, moderation, ocr, pdf, ranked);
     }
 
+    private static async Task<string> DocModerationByLabelAsync(string message)
+    {
+        #region example:moderation-by-label
+        ClassificationLabel[] severe =
+            [ClassificationLabel.SafetyHateSpeech, ClassificationLabel.SafetySelfHarm, ClassificationLabel.SafetySexualContent, ClassificationLabel.SafetyViolence];
+
+        var moderation = await Classifier.ClassifyAsync(message);
+
+        if (moderation.Details.Any(detail => detail.IsFlagged && severe.Contains(detail.Label)))
+        {
+            return "held for a moderator";
+        }
+
+        var harassment = moderation.Details.FirstOrDefault(detail => detail.Label == ClassificationLabel.SafetyHarassment);
+
+        // A NaN score compares false, so an unscored label is judged by IsFlagged alone.
+        if (harassment is not null && (harassment.IsFlagged || harassment.Score > 0.3))
+        {
+            var tone = await Emerge.AskAsync<ToneCheck>($"Is this message a personal attack, or only blunt? Message: {message}");
+
+            return tone.IsPersonalAttack ? "held for a moderator" : "posted";
+        }
+
+        return "posted";
+        #endregion
+    }
+
     private static async Task DocWebSearchConfigAsync()
     {
         #region example:web-search-config
@@ -54,3 +81,5 @@ internal sealed partial class AgentGuideExamples
         _ = results;
     }
 }
+
+public sealed record ToneCheck(bool IsPersonalAttack);

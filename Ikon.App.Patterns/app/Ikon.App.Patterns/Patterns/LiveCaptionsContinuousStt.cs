@@ -71,6 +71,9 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
             // Deepgram ends a turn after 10 ms of silence unless told otherwise, so a turn ends at
             // every comma. Ask for a pause as long as the end of a sentence.
             EndOfTurnSilence = TimeSpan.FromMilliseconds(800),
+            // Someone who keeps talking can go minutes without a pause that long. This ends the turn after
+            // 1.5 s without new words, whatever the words suggest (Deepgram takes 1 to 10 s).
+            MaxTurnSilence = TimeSpan.FromMilliseconds(1500),
         };
 
         var sentence = new StringBuilder();
@@ -87,7 +90,11 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
 
                 sentence.Append(' ').Append(transcriptEvent.Text);
 
-                if (transcriptEvent.IsEndOfTurn && sentence.ToString().Trim() is { Length: > 0 } caption)
+                // The end of a turn can still take a long time, so a finished sentence is also a caption.
+                var caption = sentence.ToString().Trim();
+                bool endsSentence = caption.Length > 0 && ".?!".Contains(caption[^1]);
+
+                if (caption.Length > 0 && (transcriptEvent.IsEndOfTurn || endsSentence))
                 {
                     _captions.Add(caption);
                     sentence.Clear();

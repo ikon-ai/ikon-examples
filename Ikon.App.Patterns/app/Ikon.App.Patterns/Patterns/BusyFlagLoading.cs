@@ -47,8 +47,7 @@ internal sealed class BusyFlagLoading : IPatternDemo
 
         if (_error.Value is string err)
         {
-            view.Box(["bg-destructive/10 text-destructive border border-destructive/30 rounded-lg p-3"], content: v =>
-                v.Text(text: $"Failed: {err}"));
+            view.Alert(err, tone: SemanticTone.Error);
         }
     }
     #endregion

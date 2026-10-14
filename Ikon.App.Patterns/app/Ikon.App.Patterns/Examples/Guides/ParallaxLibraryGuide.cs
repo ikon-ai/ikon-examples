@@ -377,9 +377,9 @@ file sealed class PxDefaultStylingAndAutoComposedIndicatorsExamples(IApp<Session
     public async Task PxDefaultStylingAndAutoComposedIndicators(UIView view)
     {
         #region example:px-default-styling-and-auto-composed-indicators
-        view.Checkbox(bind: _done);
-        view.Switch(bind: _on);
-        view.TextField(bind: _text);
+        view.Checkbox(bind: _done, label: "Done");
+        view.Switch(bind: _on, label: "Notifications");
+        view.TextField(bind: _text, label: "Note");
         view.Button(text: "Submit", onClick: async () => { });
         #endregion
     }

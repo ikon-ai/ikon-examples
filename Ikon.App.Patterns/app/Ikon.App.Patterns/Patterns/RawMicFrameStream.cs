@@ -45,7 +45,7 @@ internal sealed class RawMicFrameStream : IPatternDemo
 
             // Every reactive write is a UI diff sent to the client, and frames arrive tens of times a
             // second. A meter needs about ten updates a second; visuals that need every frame go over
-            // an unreliable .tp message to a custom canvas instead (multi-user-game).
+            // an unreliable .tp message to a custom canvas instead (realtime-game-loop).
             var now = Environment.TickCount64;
 
             if (!args.IsLast && now - _meterUpdatedAt.GetValueOrDefault(args.StreamId) < 100)

@@ -62,6 +62,10 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             // overrides the theme palette; only an explicit colors list or a series' own Color,
             // for when a series has a meaning attached to its colour, outranks it.
             colorScheme: ChartColorScheme.Category10,
+
+            // A legend names each series. Anchor and Direction are enums. At a side anchor with no
+            // translate the legend sits outside the plot, and the chart widens that margin to fit it.
+            legends: [new LegendConfig { Anchor = LegendAnchor.Right, Direction = LegendDirection.Column }],
             enableGridY: true,
             enablePoints: true);
     }

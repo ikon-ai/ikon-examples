@@ -1,7 +1,8 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: generated-sound-library — see docs/patterns/generated-sound-library.md.
-// The example region below is the canonical body the doc extracts.
+// The example region below is the canonical body the doc extracts. The demo starts with an empty
+// library: LoadAsync reads app files, which only a running app has.
 internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
 {
     public string Slug => "generated-sound-library";
@@ -12,10 +13,41 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
     private Audio Audio { get; } = new(app);
 
     #region example:pattern-generated-sound-library
-    private sealed record Clip(string Id, string Label, AudioSound Sound);
+    // What survives a restart is the stored file and its label. The AudioSound is rebuilt from the
+    // file when the app starts, so a restart pays for no generation.
+    private sealed record SavedClip(string Id, string Label, string Path, string MimeType);
+    private sealed record Clip(SavedClip Saved, AudioSound Sound);
+
+    // App files cannot be listed, so the library keeps its own index of what it stored
+    private const string IndexPath = "sounds/index.json";
 
     private readonly ReactiveList<Clip> _clips = new();
     private readonly Reactive<bool> _busy = new(false);
+
+    /// <summary>Call from app.OnStarting.</summary>
+    private async Task LoadAsync()
+    {
+        List<SavedClip> saved;
+
+        try
+        {
+            saved = JsonSerializer.Deserialize<List<SavedClip>>(await app.Files.Data.ReadTextAsync(IndexPath)) ?? [];
+        }
+        catch (FileNotFoundException)
+        {
+            // Nothing has been stored yet
+            return;
+        }
+
+        var clips = await Task.WhenAll(saved.Select(async clip =>
+            new Clip(clip, await Audio.CreateSoundAsync(await app.Files.Data.ReadBytesAsync(clip.Path), clip.MimeType))));
+        _clips.ReplaceAll(clips);
+
+        foreach (var clip in clips)
+        {
+            await clip.Sound.PreloadAsync(MediaTargets.Everyone);
+        }
+    }
 
     private async Task AddGeneratedAsync(string prompt)
     {
@@ -29,20 +61,27 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
         try
         {
             // The one-shot hands back an ENCODED file: Data plus MimeType, or a Url instead when
-            // ResultDelivery says so. Either becomes a cached sound once, decoded on the server.
+            // ResultDelivery says so. It is stored before anything else, so it is paid for once;
+            // a Url is copied into the app's files, so the library does not depend on it lasting.
             var result = await SoundEffectGenerator.GenerateAsync(prompt);
+            var id = Guid.NewGuid().ToString("N");
+            var path = $"sounds/{id}";
 
-            AudioSound? sound = result switch
+            if (result.Data is { } data)
             {
-                { Data: { } data } => await Audio.CreateSoundAsync(data, result.MimeType),
-                { Url: { } url } => await Audio.CreateSoundAsync(new Uri(url)),
-                _ => null
-            };
-
-            if (sound != null)
-            {
-                await AddAsync(prompt, sound);
+                await app.Files.Data.WriteBytesAsync(path, data, result.MimeType);
             }
+            else if (result.Url is { } url)
+            {
+                await app.Files.Data.WriteFromUrlAsync(path, url, result.MimeType);
+            }
+            else
+            {
+                return;
+            }
+
+            var encoded = result.Data ?? await app.Files.Data.ReadBytesAsync(path);
+            await AddAsync(new SavedClip(id, prompt, path, result.MimeType), encoded);
         }
         catch (AIException)
         {
@@ -56,12 +95,19 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
     }
 
     /// <summary>
-    /// PCM needs no file: an AudioClip of the samples is the sound. CreateSound throws
+    /// PCM is not a file, so it is written into a WAV to be stored. CreateSoundAsync throws
     /// ArgumentException for a clip longer than 30 s -- play that with Audio.Play(targets, clip).
     /// </summary>
-    private Task AddPcmAsync(string label, float[] samples, int sampleRate, int channelCount)
+    private async Task AddPcmAsync(string label, float[] samples, int sampleRate, int channelCount)
     {
-        return AddAsync(label, Audio.CreateSound(new AudioClip(samples, sampleRate, channelCount)));
+        using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
+        wav.AddSamples(samples);
+        var encoded = wav.AsArray();
+
+        var id = Guid.NewGuid().ToString("N");
+        var saved = new SavedClip(id, label, $"sounds/{id}.wav", "audio/wav");
+        await app.Files.Data.WriteBytesAsync(saved.Path, encoded, saved.MimeType);
+        await AddAsync(saved, encoded);
     }
 
     /// <summary>
@@ -74,9 +120,11 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
         await AddPcmAsync(text, speech.Samples, speech.SampleRate, speech.ChannelCount);
     }
 
-    private async Task AddAsync(string label, AudioSound sound)
+    private async Task AddAsync(SavedClip saved, byte[] encoded)
     {
-        _clips.Add(new Clip(Guid.NewGuid().ToString("N"), label, sound));
+        var sound = await Audio.CreateSoundAsync(encoded, saved.MimeType);
+        _clips.Add(new Clip(saved, sound));
+        await app.Files.Data.WriteTextAsync(IndexPath, JsonSerializer.Serialize(_clips.Select(clip => clip.Saved).ToList()));
 
         // Sends the bytes to every client now, and to clients that join later, so even the first
         // press plays at once.
@@ -99,9 +147,9 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
                 foreach (var clip in _clips)
                 {
                     grid.Button(
-                        key: clip.Id,
+                        key: clip.Saved.Id,
                         onClick: () => Audio.Play(MediaTargets.To(ReactiveScope.ClientId), clip.Sound),
-                        content: v => v.Text(text: clip.Label));
+                        content: v => v.Text(text: clip.Saved.Label));
                 }
             });
         });

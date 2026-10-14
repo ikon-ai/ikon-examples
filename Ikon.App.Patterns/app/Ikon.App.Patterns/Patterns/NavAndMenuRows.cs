@@ -60,6 +60,20 @@ internal sealed class NavAndMenuRows : IPatternDemo
             }
         });
 
+        // The same rows as a horizontal top nav. The size token sets w-full for a vertical list,
+        // so in a row each item adds w-auto after the token, where it overrides w-full.
+        view.Row([Layout.Row.Xs, "border-b border-secondary px-2 py-1"], content: view =>
+        {
+            foreach (var s in Sections)
+            {
+                bool active = _section.Value == s.Key;
+
+                view.Button([NavItem.Md, active ? NavItem.Active : NavItem.Default, "w-auto"],
+                    text: s.Label,
+                    onClick: async () => _section.Value = s.Key);
+            }
+        });
+
         // A menu row is a Button wearing Menu.Item — a full-width transparent row that highlights
         // on hover. DropdownMenu paints Menu.Content itself; a custom contentStyle: without it (or
         // "default") renders the panel transparent.

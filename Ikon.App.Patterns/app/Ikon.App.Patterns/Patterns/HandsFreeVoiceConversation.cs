@@ -136,7 +136,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
     // Recordings go to the app's private storage as WAV files.
     private async Task SaveRecordingAsync(float[] samples, int sampleRate, int channelCount)
     {
-        using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Short);
+        using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
         wav.AddSamples(samples);
         await app.Files.Data.WriteBytesAsync($"recordings/{Guid.NewGuid():N}.wav", wav.AsArray(), "audio/wav");
     }

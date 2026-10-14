@@ -115,14 +115,17 @@ file sealed class ChatLayoutExamples
 file sealed class InputsExamples
 {
     private readonly Reactive<string> _text = new("");
+    private readonly Reactive<string> _query = new("");
     private readonly Reactive<bool> _checked = new(false);
     private readonly Reactive<bool> _enabled = new(false);
     private readonly Reactive<double> _slider = new(0);
     private readonly Reactive<string> _selected = new("");
     private readonly Reactive<string> _radio = new("");
     private readonly Reactive<bool> _isDragging = new(false);
+    private readonly Reactive<string> _layout = new("list");
 
     private static Task HandleSubmit(string submitted) => Task.CompletedTask;
+    private static Task RunSearchAsync(string query) => Task.CompletedTask;
 
     public void Render(UIView view, bool isLoading)
     {
@@ -140,6 +143,10 @@ file sealed class InputsExamples
         // it once onSubmit returns, unless the user typed again meanwhile.
         // Note: both TextField and TextArea clear on submit only when an onSubmit handler is set; a bound field
         // with no onSubmit keeps its value. Pass clearOnSubmit: true/false to override either way.
+        // A search box keeps the query on screen after Enter, so it opts out:
+        view.TextField(bind: _query, placeholder: "Search", clearOnSubmit: false,
+            onSubmit: async query => { await RunSearchAsync(query); });
+        view.TextArea(bind: _text, maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
         // Checkbox / Switch / Slider auto-render their inner part (the check mark, the switch
         // thumb, the slider track+thumb) AND, like RadioGroup / Toggle, their default styling —
         // the bare call below is all you need (a RadioGroupItem's checked fill is the whole dot, so
@@ -169,6 +176,14 @@ file sealed class InputsExamples
                     view.Text(text: "Option 2");
                 });
             });
+        // A toggle group has no theme styling of its own. Its tokens are ToggleGroup.Root (the group) and ToggleGroup.Item
+        view.ToggleGroupSingle([ToggleGroup.Root, "w-full"], value: _layout.Value, ariaLabel: "Layout",
+            onValueChange: async v => { _layout.Value = v; },
+            content: group =>
+            {
+                group.ToggleGroupItem([ToggleGroup.Item, "flex-1"], value: "list", content: v => v.Text(text: "List"));
+                group.ToggleGroupItem([ToggleGroup.Item, "flex-1"], value: "grid", content: v => v.Text(text: "Grid"));
+            });
         view.FileUpload(
             onUploadComplete: async args => { /* args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
             onUploadProgress: async args => { /* args.ProgressPercentage (0-100), args.BytesUploaded, args.Size */ },
@@ -194,13 +209,15 @@ file sealed class OverlaysExamples
     private readonly Reactive<bool> _alertOpen = new(false);
     private readonly Reactive<bool> _popOpen = new(false);
     private readonly Reactive<bool> _toastOpen = new(false);
+    private readonly Reactive<bool> _menuOpen = new(false);
+    private readonly Reactive<string> _sort = new("Newest");
 
     public void Render(UIView view)
     {
         #region example:overlay-components
         // Dialog
-        view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o,
-            overlayStyle: [Dialog.Overlay], contentStyle: [Dialog.Content],
+        view.Dialog([Dialog.Content, "sm:max-w-xl"], open: _open.Value, onOpenChange: async o => _open.Value = o,
+            overlayStyle: [Dialog.Overlay], showClose: true,
             trigger: view => view.Button([Button.OutlineMd], text: "Open"),
             contentSlot: view =>
             {
@@ -237,6 +254,22 @@ file sealed class OverlaysExamples
         view.HoverCard(contentStyle: [HoverCard.Content],
             trigger: view => view.Text([Text.Link], "@user"),
             contentSlot: view => { /* ... */ });
+
+        // DropdownMenu: each row is a Button styled with Menu.Item
+        view.DropdownMenu(open: _menuOpen.Value, onOpenChange: async o => _menuOpen.Value = o,
+            contentStyle: [Menu.Content],
+            trigger: view => view.Button([Button.OutlineMd], text: $"Sort: {_sort.Value}"),
+            content: view =>
+            {
+                foreach (var option in new[] { "Newest", "Oldest", "Name" })
+                {
+                    view.Button([Menu.Item], text: option, onClick: async () =>
+                    {
+                        _sort.Value = option;
+                        _menuOpen.Value = false;
+                    });
+                }
+            });
 
         // Toast
         view.Toast(open: _toastOpen.Value, onOpenChange: async o => _toastOpen.Value = o,
@@ -314,6 +347,99 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
     }
 }
 
+file sealed class EditorsExamples
+{
+    private const string StarterShader = """
+        void mainImage(out vec4 color, in vec2 fragCoord)
+        {
+            vec2 uv = fragCoord / iResolution.xy;
+            color = vec4(uv, 0.5 + 0.5 * sin(iTime), 1.0);
+        }
+        """;
+
+    private readonly UserReactive<string> _pageHtml = new("<h2>Onboarding</h2><p>Start with the team handbook.</p>");
+    private readonly UserReactive<string> _shaderSource = new(StarterShader);
+    private readonly ClientReactive<string?> _compileError = new(null);
+    private readonly ClientReactive<double> _strength = new(0.8);
+    private readonly ClientReactive<int> _clearPad = new(0);
+    private readonly ClientReactive<int> _savePad = new(0);
+    private readonly ClientReactive<string?> _drawing = new(null);
+    private readonly ClientReactive<string?> _drawingMask = new(null);
+
+    public void RenderRichText(UIView view)
+    {
+        #region example:rich-text-editor
+        // The value is an HTML string; tools: picks the toolbar buttons (null shows the default set)
+        view.RichTextEditor(value: _pageHtml.Value, placeholder: "Write the page…",
+            tools: [RichTextTool.Bold, RichTextTool.Italic, RichTextTool.Heading2, RichTextTool.BulletList, RichTextTool.Link, RichTextTool.Undo, RichTextTool.Redo],
+            onValueChange: async html => _pageHtml.Value = html);
+        #endregion
+    }
+
+    public void RenderCodeWithPreview(UIView view)
+    {
+        #region example:code-editor-live-preview
+        // CodeEditor is a monospace textarea with line numbers; language: only labels it, nothing is highlighted
+        view.Row(["gap-4 h-80"], content: view =>
+        {
+            view.CodeEditor(["default", "flex-1 min-w-0"], value: _shaderSource.Value, language: "glsl",
+                onValueChange: async source => { _shaderSource.Value = source; _compileError.Value = null; });
+
+            view.Column(["flex-1 min-w-0 gap-2"], content: view =>
+            {
+                // An empty shaderSource throws, so the canvas renders only once there is code to compile.
+                // A source that fails to compile reports its log and leaves the last good shader running
+                if (!string.IsNullOrWhiteSpace(_shaderSource.Value))
+                {
+                    view.ShadertoyCanvas(["w-full flex-1 min-h-0 rounded-lg"], shaderSource: _shaderSource.Value,
+                        onCompileError: async log => _compileError.Value = log);
+                }
+
+                if (_compileError.Value is { } error)
+                {
+                    view.Text([Text.Caption, "font-mono whitespace-pre-wrap text-error-600"], error);
+                }
+            });
+        });
+        #endregion
+    }
+
+    public void RenderShaderUniforms(UIView view)
+    {
+        #region example:shadertoy-uniforms
+        // Each uniforms: entry is declared for the shader (uniform float uStrength;), so the GLSL only reads it.
+        // A new value reaches the running shader without a recompile
+        view.ShadertoyCanvas(["w-full h-64 rounded-lg"], shaderSource: """
+            void mainImage(out vec4 color, in vec2 fragCoord)
+            {
+                vec2 uv = fragCoord / iResolution.xy;
+                color = vec4(uv * uStrength, 0.5 + 0.5 * sin(iTime), 1.0);
+            }
+            """,
+            uniforms: new Dictionary<string, ShaderUniform> { ["uStrength"] = ShaderUniform.Float((float)_strength.Value) });
+        view.Slider(min: 0, max: 1, step: 0.05, bind: _strength, ariaLabel: "Strength");
+        #endregion
+    }
+
+    public void RenderDrawingPad(UIView view)
+    {
+        #region example:image-editor-drawing-pad
+        // No src: a blank pad the size of its container. background: makes it opaque, as a vision model expects.
+        // saveMask: adds MaskData (white where the strokes are) to onSave
+        view.ImageEditorCanvas(["w-full aspect-[2/1] rounded-lg border"], background: "#ffffff",
+            brushColor: "#111827", brushWidth: 6, saveMask: true,
+            triggerClear: _clearPad.Value, triggerSave: _savePad.Value,
+            onSave: async args => { _drawing.Value = args.ImageData; _drawingMask.Value = args.MaskData; });
+
+        view.Row(["gap-2"], content: row =>
+        {
+            row.Button([Button.OutlineSm], text: "Clear", onClick: async () => _clearPad.Value++);
+            row.Button([Button.PrimarySm], text: "Check", onClick: async () => _savePad.Value++);
+        });
+        #endregion
+    }
+}
+
 internal sealed partial class AgentGuideExamples
 {
 
@@ -355,6 +481,8 @@ internal sealed partial class AgentGuideExamples
         view.Icon([Icon.Xs, "animate-spin"], name: "loader-2");  // Spinning Lucide icon (Icon.Spinner would also draw its bordered ring)
         view.Image(["max-w-full h-auto"], src: imageUrl);   // From URL
         view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From bytes
+        view.Skeleton(["w-2/3"], size: SkeletonSize.Lg);   // Loading placeholder; style is added to the pulse
+        view.Box([Skeleton.Title]);                        // Or a token: Skeleton.Title, Text, TextSm, Avatar, Card, Button, Input
         #endregion
     }
 

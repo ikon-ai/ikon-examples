@@ -13,7 +13,8 @@ internal sealed class SearchableSelect : IPatternDemo
     private static readonly string[] Countries =
         ["Finland", "France", "Germany", "Greece", "Iceland", "Ireland", "Italy"];
 
-    private readonly UserReactive<string> _country = new("");
+    // Nothing chosen is null. "" is a value that matches no option, and warns.
+    private readonly UserReactive<string?> _country = new((string?)null);
     private readonly ClientReactive<string> _search = new("");
 
     private void Render(IView view)

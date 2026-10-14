@@ -16,17 +16,17 @@ internal sealed class TypicalAppStructure : IPatternDemo
     #region example:pattern-typical-app-structure
     // Program entry, the top-level first line of the app class's own file (one per app, no Program.cs):  return await App.Run(args);
 
-    public sealed record SessionIdentity(string? UserId);
-    public sealed record ClientParameters(string ClientName);
+    public record SessionIdentity(string? UserId);
+    public record ClientParameters(string Name);
 
     // The app class carries the attribute:  [App]
-    public class MyApp(IApp<SessionIdentity, ClientParameters> app)
+    public partial class MyApp(IApp<SessionIdentity, ClientParameters> app)
     {
         private UI UI { get; } = new(app, new IkonTheme());
 
         private readonly Reactive<int> _count = new(0);
 
-        public Task Main()
+        public async Task Main()
         {
             UI.Root(["h-screen flex flex-col"], content: view =>
             {
@@ -47,7 +47,6 @@ internal sealed class TypicalAppStructure : IPatternDemo
                         content: v => v.Text(text: "Increment"));
                 });
             });
-            return Task.CompletedTask;
         }
     }
     #endregion

@@ -51,7 +51,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
     {
         view.Row(["gap-2 p-4"], content: v =>
         {
-            v.TextField(["flex-1"], value: _draft.Value, placeholder: "What needs doing?",
+            v.TextField(["default", "flex-1"], value: _draft.Value, placeholder: "What needs doing?",
                 onValueChange: async x => _draft.Value = x, onSubmit: async _ => Add());
             v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
                 onClick: () => Add(), content: c => c.Text(text: "Add"));
@@ -71,7 +71,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
             {
                 foreach (var item in _items)
                 {
-                    view.Row(["items-center gap-2 p-3 rounded-md hover:bg-surface transition-colors duration-150"], content: v =>
+                    view.Row(["items-center gap-2 p-3 rounded-md hover:bg-accent transition-colors duration-150"], content: v =>
                     {
                         v.Text(["flex-1"], text: item.Text);
                         v.Button(style: [Button.GhostMd], onClick: () => Remove(item.Id),

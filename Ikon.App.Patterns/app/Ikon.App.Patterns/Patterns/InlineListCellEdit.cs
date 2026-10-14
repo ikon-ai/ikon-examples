@@ -147,7 +147,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
                             multiple: false,
                             maxFileSize: 20_000_000,
                             onUploadComplete: async args => await HandleImageUpload(stateId, args),
-                            content: v => v.Text(["text-xs cursor-pointer text-primary underline"], "Replace"));
+                            content: v => v.Text(["text-xs cursor-pointer text-brand-secondary underline"], "Replace"));
                     });
                 }
 

@@ -83,7 +83,7 @@ internal sealed class DestructiveConfirmDialog : IPatternDemo
         var bot = deleteId != null ? _bots.Value.FirstOrDefault(b => b.Id == deleteId) : null;
         var isOpen = bot != null;
 
-        view.Dialog(
+        view.Dialog([Dialog.Content, "max-w-md w-full rounded-2xl p-6 gap-3 flex flex-col bg-slate-950 border border-rose-300/30"],
             open: isOpen,
             modal: true,
             onOpenChange: async open =>
@@ -91,7 +91,6 @@ internal sealed class DestructiveConfirmDialog : IPatternDemo
                 if (open != true) _deleteBotId.Value = null;
             },
             overlayStyle: [Dialog.Overlay],
-            contentStyle: [Dialog.Content, "max-w-md w-full rounded-2xl p-6 gap-3 flex flex-col bg-slate-950 border border-rose-300/30"],
             content: dlg =>
             {
                 if (bot == null) return;

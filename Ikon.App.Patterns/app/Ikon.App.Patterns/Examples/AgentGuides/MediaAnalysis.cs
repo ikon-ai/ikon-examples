@@ -19,7 +19,7 @@ file sealed class MediaUploadExamples(IApp<SessionIdentity, ClientParameters> ap
             onUploadStart: async args =>
             {
                 var assetUri = new AssetUri(AssetClass.CloudFile, $"uploads/{args.Hash}/{args.FileName}", spaceId: app.GlobalState.SpaceId);
-                return new FileUploadResult { Accepted = true, AssetUri = assetUri };
+                return new FileUploadResult { AssetUri = assetUri };
             },
             onUploadComplete: async args =>
             {

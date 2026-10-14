@@ -126,6 +126,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
                     await DocOtherDataServicesAsync("Hello there", SamplePng, SampleDocx, ["Cats purr when content", "Dogs bark at strangers"], "dogs bark");
                     return "scraped, classified, read, converted and ranked";
                 });
+                RenderDocExampleButton(view, "Moderation by label", () => DocModerationByLabelAsync("You never listen in meetings"));
                 RenderDocExampleButton(view, "Typed decisions", async () => { await DocTypedDecisionsAsync("I was charged twice for one order", new DocOrder("A-1001")); return "decided"; });
                 RenderDocExampleButton(view, "Emerge basic", async () => { await DocEmergeBasicAsync("tide pools"); return "analyzed"; });
                 RenderDocExampleButton(view, "Emerge typed run", async () => (await Research("tide pools")).Summary);

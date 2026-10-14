@@ -135,7 +135,7 @@ file sealed class PaymentsGuideExamples(IApp<SessionIdentity, ClientParameters> 
         {
             // The provider returned downloadable bytes — offer them with a DownloadFile action.
             view.ActionButton([Button.OutlineSm], action: ActionKind.DownloadFile,
-                options: new DownloadFileActionOptions { Filename = "receipt.pdf", Data = pdf },
+                options: new DownloadFileActionOptions { FileName = "receipt.pdf", Data = pdf },
                 content: v => v.Text([Text.BodySm], "Download receipt"));
         }
         #endregion

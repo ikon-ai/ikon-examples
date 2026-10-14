@@ -1,98 +1,84 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: toast-notifications — see docs/patterns/toast-notifications.md.
-// Fully self-contained: the toast state, the imperative ShowToast, the auto-fading RenderToast,
-// and the top-level mount are the whole pattern.
 internal sealed class ToastNotifications : IPatternDemo
 {
     public string Slug => "toast-notifications";
     public string Title => "Toast notifications";
     public string Category => "Feedback";
 
-    public void RenderDemo(IView view)
-    {
-        view.Row(["gap-2 flex-wrap"], content: row =>
-        {
-            row.Button(["px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm"], "Save draft",
-                onClick: async () => ShowToast("Draft saved"));
-            row.Button(["px-3 py-1.5 rounded-md bg-zinc-700 text-white text-sm"], "Share link",
-                onClick: async () => ShowToast("Link copied to clipboard", "info"));
-            row.Button(["px-3 py-1.5 rounded-md bg-amber-600 text-white text-sm"], "Go offline",
-                onClick: async () => ShowToast("Connection lost, retrying in 5 s", "warn"));
-            row.Button(["px-3 py-1.5 rounded-md bg-rose-600 text-white text-sm"], "Upload oversized file",
-                onClick: async () => ShowToast("Upload failed: file is over 25 MB", "error"));
-        });
-
-        Render(view);
-    }
+    public void RenderDemo(IView view) => Render(view);
 
     #region example:pattern-toast-notifications
-    private const int ToastLifetimeMs = 3000;
+    // One queue for the app. Each client sees only the toasts its own handlers raise
+    private readonly Toasts _toasts = new();
 
-    private readonly ClientReactive<(string Text, string Tone, DateTime At)?> _toast =
-        new(initialValue: ((string, string, DateTime)?)null);
+    private readonly ReactiveList<string> _tasks = new(["Draft the brief", "Book the venue", "Send the invites"]);
 
-    /// <summary>
-    /// Called from a handler, where the client scope is active. The delayed clear is background
-    /// work off that handler's stack, so it names the session captured here instead of relying on
-    /// an ambient scope; matching on the timestamp keeps it from wiping a newer toast shown inside
-    /// the window.
-    /// </summary>
-    private void ShowToast(string text, string tone = "success")
+    // What this client removed last, kept until its Undo toast closes
+    private readonly ClientReactive<(int Index, string Task)?> _removed = new(((int, string)?)null);
+
+    private async Task SaveAsync()
     {
-        var shownAt = DateTime.UtcNow;
-        _toast.Value = (text, tone, shownAt);
-        _ = ClearLaterAsync(ReactiveScope.ClientId, shownAt);
+        // ... the awaited save ...
+        _toasts.Success("Draft saved");
     }
 
-    private async Task ClearLaterAsync(int clientSessionId, DateTime shownAt)
+    private void Remove(int index)
     {
-        await Task.Delay(ToastLifetimeMs);
-        _toast.UpdateFor(clientSessionId, current => current is { At: var at } && at == shownAt ? null : current);
+        var task = _tasks[index];
+        _tasks.RemoveAt(index);
+        _removed.Value = (index, task);
     }
 
-    private void RenderToast(UIView view)
+    private void Undo((int Index, string Task) removed)
     {
-        if (_toast.Value is not { } t)
-        {
-            return;
-        }
-
-        var ageMs = (DateTime.UtcNow - t.At).TotalMilliseconds;
-
-        if (ageMs > ToastLifetimeMs)
-        {
-            return;
-        }
-
-        var (bg, ring, accent, icon) = t.Tone switch
-        {
-            "error" => ("bg-rose-500/15", "ring-rose-500/40", "text-rose-200", "alert-circle"),
-            "warn"  => ("bg-amber-500/15", "ring-amber-500/40", "text-amber-200", "alert-triangle"),
-            "info"  => ("bg-zinc-800",     "ring-zinc-700",     "text-zinc-200",  "info"),
-            _       => ("bg-emerald-500/15","ring-emerald-500/40","text-emerald-200","check-circle")
-        };
-
-        view.Box(["fixed bottom-6 right-6 z-[60] motion-[0:opacity-0+translate-y-2,30:opacity-100+translate-y-0] motion-duration-300ms"], content: outer =>
-        {
-            outer.Row([$"items-center gap-2 px-3 py-2 rounded-md backdrop-blur-md ring-1 shadow-xl shadow-black/40 {bg} {ring}"], content: pill =>
-            {
-                pill.Icon([$"w-4 h-4 {accent}"], name: icon);
-                pill.Text([$"text-sm font-medium {accent}"], t.Text);
-                pill.Button([$"ml-2 px-1 py-0.5 rounded {accent} hover:bg-black/30"],
-                    "✕",
-                    onClick: async () => _toast.Value = null);
-            });
-        });
+        _tasks.Insert(Math.Min(removed.Index, _tasks.Count), removed.Task);
+        _removed.Value = null;
     }
 
-    // Mount once at the top level:
     private void Render(IView view)
     {
-        view.Column(["h-screen w-full"], content: view =>
+        view.Column(["w-full gap-3"], content: view =>
         {
-            // ... main UI ...
-            RenderToast(view);
+            view.Row(["gap-2 flex-wrap"], content: row =>
+            {
+                row.Button([Button.PrimaryMd], "Save draft", onClick: SaveAsync);
+                row.Button([Button.OutlineMd], "Send a test alert", onClick: () => _toasts.Info("Test alert sent"));
+                row.Button([Button.OutlineMd], "Upload a large file",
+                    onClick: () => _toasts.Error("Couldn't upload the file", "Files can be up to 25 MB."));
+            });
+
+            for (var i = 0; i < _tasks.Count; i++)
+            {
+                var index = i;
+                view.Row(["items-center justify-between gap-2"], content: row =>
+                {
+                    row.Text([Text.Body], _tasks[index]);
+                    row.Button([Button.GhostSm], "Remove", onClick: () => Remove(index));
+                });
+            }
+
+            // Mount the queue once, at the root of the UI
+            view.ToastHost(_toasts);
+
+            // A toast with an action is a view.Toast you control. It closes on Undo or when its time runs out
+            if (_removed.Value is { } removed)
+            {
+                view.Toast(open: true, durationMs: 8000, key: $"undo-{removed.Index}-{removed.Task}",
+                    onOpenChange: async open =>
+                    {
+                        if (!open)
+                        {
+                            _removed.Value = null;
+                        }
+                    },
+                    content: toast => toast.Row(["items-center gap-3"], content: row =>
+                    {
+                        row.Text([Text.Body], $"Removed \"{removed.Task}\"");
+                        row.Button([Button.OutlineSm], "Undo", onClick: () => Undo(removed));
+                    }));
+            }
         });
     }
     #endregion

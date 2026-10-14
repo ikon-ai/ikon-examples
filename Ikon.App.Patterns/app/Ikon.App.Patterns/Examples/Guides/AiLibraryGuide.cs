@@ -228,18 +228,23 @@ file static class AiOverviewExamples
         #endregion
     }
 
-    public static async Task AiMeshgeneration2()
+    public static async Task AiMeshgeneration2(IApp<SessionIdentity, ClientParameters> app, byte[] chestPhotoPng)
     {
         #region example:ai-meshgeneration-2
         using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Meshy6);
 
         var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
         {
-            Prompt = "A small wooden treasure chest with brass fittings",
+            InputImages = [new InputImage { Data = chestPhotoPng, MimeType = "image/png" }],
+            TexturePrompt = "weathered oak with brass fittings",
             TargetPolycount = 20000
         });
 
-        Log.Instance.Info($"GLB URL: {result.GlbUrl}");
+        // The provider's URLs expire, so keep the file in the app's own storage.
+        if (result.GlbUrl is { } glbUrl)
+        {
+            await app.Files.Public.WriteFromUrlAsync("models/chest.glb", glbUrl);
+        }
         #endregion
     }
 

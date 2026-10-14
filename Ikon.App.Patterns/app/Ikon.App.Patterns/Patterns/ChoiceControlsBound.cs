@@ -56,7 +56,7 @@ internal sealed class ChoiceControlsBound : IPatternDemo
 
             // The scalar convenience overload is value-FIRST, like the text-first overloads
             // of Button and Text.
-            col.Slider(_volume.Value, style: [Slider.Default], min: 0, max: 1, step: 0.05,
+            col.Slider(_volume.Value, style: [Slider.Default], ariaLabel: "Volume", min: 0, max: 1, step: 0.05,
                 onValueChange: async v => _volume.Value = v);
 
             // Date and time are ISO strings, not DateTime, and carry no bind: -- pair value: with

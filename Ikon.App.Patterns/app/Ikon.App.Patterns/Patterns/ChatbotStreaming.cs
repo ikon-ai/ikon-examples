@@ -104,7 +104,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
                     var isUser = msg.Role == "You";
                     // bg-brand-solid, not bg-primary: in the IKON semantic set bg-primary is the
                     // PAGE surface, so a bubble painted with it disappears into the page.
-                    view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
+                    view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-card", "rounded-lg p-3 max-w-[80%]"], content: v =>
                         v.Text(text: msg.Text));
                 }
 
@@ -113,7 +113,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 // event. Empties when Completed fires above.
                 if (!string.IsNullOrEmpty(_streaming.Value))
                 {
-                    view.Box(["self-start bg-surface rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
+                    view.Box(["self-start bg-card rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
                         v.Text(text: _streaming.Value));
                 }
             });

@@ -6,6 +6,30 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
 {
     private ClientProfiles Profiles { get; } = new(app);
 
+    #region example:profiles-custom-role
+    private readonly ClientReactive<bool> _isReferee = new(false);
+
+    public void ShowRefereeControls()
+    {
+        app.OnClientJoined(async ctx =>
+        {
+            // The join handler runs in the joining client's scope, so this sets the flag for that client alone
+            var profile = await Profiles.GetProfileAsync(ctx);
+            _isReferee.Value = profile?.HasRole("referee") == true;
+        });
+    }
+    #endregion
+
+    #region example:profiles-grant-by-email
+    public async Task<string> MakeRefereeAsync(string email)
+    {
+        // Works before the person has ever opened the app: they get the role when they first sign in
+        bool holdsItNow = await Profiles.AddRoleByEmailAsync(email, "referee");
+
+        return holdsItNow ? $"{email} is a referee" : $"{email} becomes a referee on first sign-in";
+    }
+    #endregion
+
     #region example:profiles-read
     public async Task<string> GreetAsync(Context clientContext)
     {
