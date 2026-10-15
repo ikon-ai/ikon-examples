@@ -44,9 +44,11 @@ public partial class DynamicUI
     {
         var contextAdditions = new List<string>();
 
-        if (!string.IsNullOrEmpty(_lastError.Value))
+        var recentError = _lastError.Value ?? _lastExecutionError;
+
+        if (!string.IsNullOrEmpty(recentError))
         {
-            contextAdditions.Add($"## Recent Error\nThe last UI generation had an error: {_lastError.Value}\nYou should acknowledge this and offer to help fix it.");
+            contextAdditions.Add($"## Recent Error\nThe last UI generation had an error: {recentError}\nYou should acknowledge this and offer to help fix it.");
         }
 
         if (!string.IsNullOrEmpty(_lastGeneratedCode.Value))
@@ -116,9 +118,9 @@ public partial class DynamicUI
         }
     }
 
-    private async Task RetryWithFixAsync()
+    private async Task RetryWithFixAsync(string error)
     {
-        if (string.IsNullOrEmpty(_lastGeneratedCode.Value) || string.IsNullOrEmpty(_lastError.Value))
+        if (string.IsNullOrEmpty(_lastGeneratedCode.Value) || string.IsNullOrEmpty(error))
         {
             return;
         }
@@ -130,7 +132,7 @@ public partial class DynamicUI
             var (response, validationError) = await GenerateUIWithRefinementAsync(
                 "Fix the error in the previous code",
                 _lastGeneratedCode.Value,
-                _lastError.Value);
+                error);
 
             _lastGeneratedCode.Value = response.Code;
 

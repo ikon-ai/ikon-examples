@@ -22,6 +22,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
     // Dynamic UI state
     private readonly Reactive<string> _lastGeneratedCode = new("");
     private readonly Reactive<string?> _lastError = new(null);
+    private volatile string? _lastExecutionError;
     private readonly Reactive<bool> _isGenerating = new(false);
     private readonly Reactive<int> _executionVersion = new(0);
     private readonly Reactive<bool> _showCode = new(false);
@@ -159,7 +160,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                             [Button.NeutralMd],
                             "Retry Fix",
                             disabled: _isGenerating.Value,
-                            onClick: async () => { await RetryWithFixAsync(); }
+                            onClick: async () => { await RetryWithFixAsync(_lastError.Value!); }
                         );
                     }
 
@@ -241,19 +242,39 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
         _ = _executionVersion.Value;
 
         // Execute the code synchronously during render - this is required for action callbacks to work
+        string? error;
+
         try
         {
-            var (success, error) = ExecuteCodeSync(_lastGeneratedCode.Value, uiView);
-
-            if (!success && error != null)
-            {
-                _lastError.Value = error;
-            }
+            (_, error) = ExecuteCodeSync(_lastGeneratedCode.Value, uiView);
         }
         catch (Exception ex)
         {
-            _lastError.Value = $"Execution error: {ex.Message}";
+            error = $"Execution error: {ex.Message}";
         }
+
+        // A render cannot write reactive state, so the error is drawn in the generated UI's area and kept in a plain field that the chat reads
+        _lastExecutionError = error;
+
+        if (error != null)
+        {
+            RenderExecutionError(uiView, error);
+        }
+    }
+
+    private void RenderExecutionError(UIView view, string error)
+    {
+        view.Box([Alert.Error, "mt-4"], content: view =>
+        {
+            view.Text([Alert.Title], "Error");
+            view.Text([Alert.Description, "text-xs font-mono whitespace-pre-wrap"], error);
+            view.Button(
+                [Button.NeutralMd, "mt-2"],
+                "Retry Fix",
+                disabled: _isGenerating.Value,
+                onClick: async () => { await RetryWithFixAsync(error); }
+            );
+        });
     }
 
     private void RenderWelcomeMessage(UIView view)
