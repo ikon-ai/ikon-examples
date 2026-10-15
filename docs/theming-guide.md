@@ -1,4 +1,4 @@
-<!-- checked-against: ed4bd1d693ba848bafa0cac4 -->
+<!-- checked-against: e41cf40893ba848bafa0cac4 -->
 
 # IKON Theming Guide
 
@@ -118,7 +118,7 @@ var theme = new IkonTheme
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
 
-Fixed app — one palette, no flip:
+Fixed app — one palette, no flip. An always-dark (or always-light) app is a Fixed one: there is no `ThemeMode.Dark` (CS0117), and `Fixed` with a dark `["background"]` stays dark whatever the viewer's device prefers:
 
 <!-- ikon-example: theming-how-dark-mode-works-2 -->
 ```csharp
@@ -224,7 +224,7 @@ value may carry at most two layers (Tailwind's own scale never has more); extra 
 dropped with a warning. A key that is not a rung (`shadow-sticker`) is a plain variable for
 `shadow-[var(--shadow-sticker)]`.
 
-### Porting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
+### Converting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
 
 Author **Tailwind v4** names in all new code — Crosswind's Tailwind utilities follow the v4
 names and scale, and the baseline renders them at exactly their Tailwind values.
@@ -237,10 +237,10 @@ Most existing sources are v3-era, where several utilities were renamed a step do
 `outline-none`→`outline-hidden`, `ring`→`ring-3`, and removed `*-opacity-*` utilities
 becoming slash syntax (`bg-black/50`).
 
-Apply that mapping **as you transcribe**. Porting is a rewrite, so you rename the classes
+Apply that mapping **as you transcribe**. Converting is a rewrite, so you rename the classes
 while you write them, and there is no tool to run afterwards. Apply the same mapping to any
 files you copy in verbatim. Verify the result by measurement: run the original next to the
-port and diff computed styles on matched elements. Everything else ports verbatim.
+conversion and diff computed styles on matched elements. Everything else converts verbatim.
 
 ### Custom variables (expressive-layer escape hatch)
 
@@ -285,7 +285,7 @@ For coherent themes, follow these rules (the StylingOracle's internal taxonomy):
 - **Pick one palette family.** Warm-bedtime → amber/rose/stone. Fintech minimal → emerald/zinc. Cyberpunk neon → violet/cyan/zinc. Don't mix amber + cyan + lime in one app — the eye reads it as random.
 - **Contrast the page.** Dark background (`zinc-950`, `slate-900`) → light foreground (`zinc-50`, `amber-50`). Light background (`zinc-50`, `stone-100`) → dark foreground (`zinc-950`, `stone-950`).
 - **Step conventions.** Dark palettes use 900s/950 for `background`, 50s for `foreground`. Light palettes reverse: 50s/100s for `background`, 950s for `foreground`.
-- **Brand contrast:** `["primary"]` picks white or near-black text for its fills by contrast. Light brand step (≤ 500) → state `["primary-foreground"] = "#0A0A0A"` anyway, so the label is the one you chose. Dark brand step (≥ 600) → the label it picks reads (white from 700 up; near-black on some 600s, such as `emerald-600`).
+- **Brand contrast:** `["primary"]` labels its fills white wherever white reaches 3:1 contrast (`rose-500`, `violet-500`, `emerald-600`, every 600 step but `yellow-600`, every 700 step), and near-black on a lighter fill (`amber-400`, `emerald-500`, `sky-500`). Set `["primary-foreground"]` only to choose otherwise.
 - **Match radius to mood.** Sharp / brutalist → `rounded-none`. Modest / SaaS → `rounded-md`. Friendly / bedtime → `rounded-2xl` or higher.
 - **Match density to mood.** Editorial / calm / luxury → `airy`. Terminal / data-dense → `compact`.
 - **Decide the dark story.** One committed scheme → `Mode = ThemeMode.Fixed`. Adaptive → a `DarkMode` block restating the surface/text/brand keys.
@@ -572,7 +572,7 @@ Expressive styling — the full color palette (`bg-amber-400`), gradients, arbit
 
 - **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — neutral light and dark schemes with the stock violet brand, following the OS preference. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` in the app source — `Ikon.Parallax` provides it.
 - **Don't try `Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)`.** Those factories were retired. The only configurable surface is `new IkonTheme { ... }`.
-- **Name the label on a light brand step.** `["primary"] = "amber-400"` gets near-black text from the contrast pick, but a fill it cannot measure (a `var()`, a gradient) gets white; `["primary-foreground"] = "#0A0A0A"` makes the choice explicit. Dark brand steps (≥ 600) need nothing.
+- **Name the label on a brand fill the theme cannot measure.** A `["primary"]` that is a `var()` or a gradient gets a white label; on a light one, set `["primary-foreground"] = "#0A0A0A"`. A palette step or hex colour needs nothing: `"amber-400"` gets near-black from the contrast pick.
 - **Don't strand text on the wrong background.** `["background"] = "zinc-950"` does not auto-set `["foreground"]`. In `ThemeMode.Adaptive`, if you skip it, the light scheme's default text renders dark on your dark background — invisible. (`Fixed` pins the dark baseline, whose text reads.)
 - **Don't repeat brand colors in component class arrays.** Hand-rolling `bg-amber-400` per button instead of `bg-brand-solid` defeats the theme commitment AND breaks dark mode. Semantic classes for structure; concrete values only for expressive decoration.
 - **Don't write `bg-primary` / `text-primary` / `border-primary` in new code.** Legacy neutral tiers whose names collide with the shadcn brand reading — write `bg-background` for the page or `bg-card` for a card surface (not a like-for-like swap: see the legacy note above), `text-foreground`, `border-secondary`.

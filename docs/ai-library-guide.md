@@ -1,4 +1,4 @@
-<!-- checked-against: 9eb1fa82e0b5ef67a4f6004a -->
+<!-- checked-against: 05d3ca4adfb4074c1b38c03b -->
 
 # Ikon.AI Library Overview
 
@@ -79,7 +79,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`. An organisation admin sets that policy in Studio's organisation settings, under "Where AI calls are served", or with `ikon org set --ai-region eu-only`. `ikon model list --eu` lists the models that have an EU region.
+Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`. An organisation admin sets that policy in Studio's organisation settings, under "Where AI calls are served", or with `ikon org set --ai-region eu-only`. `ikon model list --eu` lists the models that have an EU region, and `Emerge.FindModels(c => c.SupportsInputAudio, [ModelRegion.Eu])` lists the LLMs with a capability on an EU route. The policy applies the same way in `ikon run` as in the deployed app, and a call that names no speech model gets one with an EU route.
 
 Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
@@ -571,7 +571,7 @@ Log.Instance.Info($"Segmented video: {result.Url} ({result.SizeBytes} bytes)");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk`. The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the clip:
+One-shot — defaults to `SpeechGeneratorModel.Default` (`ElevenFlash25`, cheap and fast, or a model with an EU route under an EU-only policy) and returns the full clip as a single PCM `AudioChunk`. The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the clip:
 
 Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
@@ -626,7 +626,7 @@ like — name the language in `Instructions` there instead.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot batch transcription — defaults to `WhisperLarge3Turbo` (cheap+fast):
+One-shot batch transcription — defaults to `SpeechRecognizerModel.Default` (`WhisperLarge3Turbo`, cheap and fast, or a model with an EU route under an EU-only policy):
 
 Needs the `Ikon.AI.SpeechRecognition` using directive.
 
@@ -865,7 +865,16 @@ var page = await WebScraper.ScrapeAsync("https://example.com");
 Log.Instance.Info($"{page.Title}: {page.Content}...");
 ```
 
-Use the constructor + config form for output formats, cookies, custom JavaScript, multi-page crawling, screenshots, and file downloads. Jina, used below, does neither crawling nor downloads (they throw `NotImplementedException`); pick a model whose `WebScraper.GetCapabilities(model)` reports them, such as Spider:
+Use the constructor + config form for output formats, cookies, custom JavaScript, multi-page crawling, screenshots, and file downloads. Every model returns a single page as Markdown, HTML or text. `WebScraper.GetCapabilities(model)` reports the rest, and a call the model cannot do throws `NotImplementedException`:
+
+| Model | Screenshot | Crawl (`ScrapeMultiplePagesAsync`) | File download | Runs in a deployed app |
+| --- | --- | --- | --- | --- |
+| `Jina` (default) | yes | no | no | yes |
+| `Spider` | yes | yes, follows links | yes | yes |
+| `LocalPlaywright`, `LocalPuppeteer` | yes | given URLs only | no | no: needs the `Ikon.AI.Scrape` package and a local browser |
+| `LocalNodriver` | yes | no | no | no: needs Python, nodriver and Chrome |
+
+The example below uses Jina for a page and a screenshot. For a crawl or a file download, use Spider:
 
 Needs the `Ikon.AI.WebScraping` using directive.
 
@@ -1145,7 +1154,9 @@ foreach (var embedding in embeddings)
 }
 ```
 
-Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom timeout, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
+Each provider request may take 10 seconds plus one second per 5,000 characters it carries before the call throws `AITimeoutException`. For a large batch of long texts, pass a longer `timeout:` to `EmbedAsync`; it replaces the 10 seconds.
+
+Use the constructor + `GenerateEmbeddingsAsync` for batching control or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
 
 Needs the `Ikon.AI.Embeddings` using directive.
 

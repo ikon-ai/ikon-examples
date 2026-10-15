@@ -1,4 +1,4 @@
-<!-- checked-against: 269d1441e00e44723555c5bc -->
+<!-- checked-against: 2adbb4f1fe959f6dfb86c4fa -->
 
 # App Files Guide
 
@@ -43,6 +43,10 @@ reachable only by their URL path.
 | Written at runtime (public) | In the browser, `await app.Files.Public.GetUrlAsync(path)`: a root-relative path on the app's own origin (`/ikon/assets/…`). For a model (`ImageUrlPart`), an email or share text, `GetAbsoluteUrlAsync(path)`. On the server, `app.Files.Public.ReadBytesAsync(path)` |
 | Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
 
+A runtime-written file's URL is not built from its path, and it changes on every write: the file
+is stored under a new URL and the old one stops working. Ask `GetUrlAsync` for it after the write,
+and give each version of a file you hand out (a feed entry, a link in an email) a path of its own.
+
 A root-relative path has no host, so server code cannot fetch it: `new Uri(url)` throws, and
 `Audio.Play` takes only absolute URLs. To play a file the app wrote, read its bytes and play them
 as a stream:
@@ -83,7 +87,14 @@ offload the binaries among them, test fixtures included. List a folder of test f
 
 The native project folders of a Flutter frontend (`frontend-flutter/android`, `ios`, `macos`,
 `windows`, `linux`) stay in git as they are, because the Android and iOS builds refuse files they do
-not know beside their icons.
+not know beside their icons. So does the root `reference/` folder, where Studio and the `convert`
+playbook put the material a person handed over (an export, a design, a recording), so that an agent
+reading it in a task's working copy or a fresh clone gets the image, not a pointer.
+
+A repository is checked out on Windows too, so the tooling renames any file whose name Windows
+cannot store (`< > : " | ? * \`, a trailing dot or space, names like `CON`). `ikon save` renames it on
+disk, and `clone`, `pull` and `restore` rename it in the version they check out. `|` becomes `_`,
+for example. Each rename is listed, and code that loads the file by its old name has to be updated.
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
 `ikon asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal

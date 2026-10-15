@@ -1,4 +1,4 @@
-<!-- checked-against: 8914849e1ffc3b66a7090300 -->
+<!-- checked-against: 0483b0231ffc3b66a7090300 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -112,7 +112,7 @@ Needs the `Ikon.Parallax.Theming` using directive.
 <!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array-2 -->
 ```csharp
 view.Button(style: [Button.PrimaryMd], text: "Submit");
-view.TextField(style: [Input.Default], defaultValue: "");
+view.TextField(style: [Input.Default], defaultValue: "", placeholder: "Name");
 view.Box(style: [Card.Default], content: view => { });
 ```
 

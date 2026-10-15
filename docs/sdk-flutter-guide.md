@@ -1,4 +1,4 @@
-<!-- checked-against: 7f4d8a8eae2ed9f2e3b0c442 -->
+<!-- checked-against: a0179e7fe776842ae3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -497,6 +497,10 @@ final result = await uploader.upload(
   onProgress: (sent, total) => print('$sent / $total'),
 );
 ```
+
+The file-upload and file-picker nodes the server sends open the phone's own picker. To offer other
+sources, such as recording with an in-app camera, implement `IkonFilePicker` and pass it as
+`IkonParallaxView(filePicker: ...)`. The view reads it once, when it first appears.
 
 ## Media
 

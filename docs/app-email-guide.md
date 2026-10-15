@@ -1,4 +1,4 @@
-<!-- checked-against: 297f5c9e12909dc0024025a6 -->
+<!-- checked-against: 758f497b12909dc0024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -174,8 +174,8 @@ platform default sender.
 
 The app receives mail sent to any address on one of its hostnames that has the **Receive email**
 capability turned on. A new app has it off on every hostname, so no mail arrives until you turn it
-on with `ikon inbox enable` (the app's own hostname) or `ikon inbox enable <hostname>`, or from the
-hostname's page in the Portal. `ikon app show <app>` lists the receiving domains under Inbound email,
+on with `ikon inbox enable` (the app's own hostname) or `ikon inbox enable <hostname>`, and check it
+with `ikon inbox status`. `ikon app show <app>` lists the receiving domains under Inbound email,
 and `app.Email.GetInboundDomainsAsync()` returns them to the app once their DNS is verified, its own
 hostname first.
 
@@ -213,7 +213,11 @@ name the sender gave the file; store it in your own record if you need it. Delet
 
 Instead of sweeping the inbox on a schedule, listen for the platform's `EmailReceived` event: the
 backend delivers every stored message to the app's userless instance — starting one when none is
-running — and keeps the event until the handler returns. The wake-up itself is best-effort: if the
+running — and keeps the event until the handler returns. That is the instance whose session identity
+has no values. In an app whose `SessionIdentity` record has no fields, it is the instance every
+visitor is in (the first shard of a `[Sharded]` app), so what the handler changes shows on their
+screens at once. In an app keyed by user or by room, only a visitor with no user or no `?room=` is
+in it: keep what the handler records in a database and read it from there. The wake-up itself is best-effort: if the
 backend fails to create the event, the message is still stored and readable through `app.Email` but
 the trigger never fires for it, so an app that must not miss mail still reads its inbox now and then.
 
@@ -241,4 +245,8 @@ neither of which the scaffold's global usings cover.
 The trigger fires only in a deployed app; a local `ikon run` can read the inbox but gets no events.
 A deployed app can send mail to its own inbox, so the whole path can be tested without an outside
 mail account: once `ikon inbox enable` has run, send to any address at a receiving domain, such as
-`$"test@{(await app.Email.GetInboundDomainsAsync())[0]}"`, with `app.Email.SendAsync`.
+`$"test@{(await app.Email.GetInboundDomainsAsync())[0]}"`, with `app.Email.SendAsync`. A handler
+that skips mail from the app's own address, as one that answers mail should, skips this test too.
+Start the test message's subject with a marker of your own, such as `[self-test]`, and let mail from
+the app's own address through only when its subject starts with that marker. An automatic reply's
+subject starts with `Re:`, so the handler still skips it.

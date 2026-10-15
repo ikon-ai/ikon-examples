@@ -1,4 +1,4 @@
-<!-- checked-against: 7ca99396bcb0f3a49a8532f6 -->
+<!-- checked-against: 1cc27ab7e91b969dd16c36fd -->
 
 # Ikon.Parallax Library Overview
 
@@ -192,18 +192,21 @@ private readonly ReactiveList<TodoItem> _todos = new();
 private readonly ReactiveDictionary<string, int> _scores = new();
 ```
 
-Every mutation notifies once, from anywhere in the app:
+Every mutation notifies once. Make the changes in a handler or in background work, because a change made while the UI renders does not re-render it:
 
 <!-- ikon-example: px-reactive-collections-reactivelist-and-reactivedictionary-2 -->
 ```csharp
-_todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
-_todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
-_todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
+view.Button(text: "Tidy up", onClick: () =>
+{
+    _todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
+    _todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
+    _todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
 
-_scores["anna"] = 10;                // add-or-replace, one notification
-_scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
+    _scores["anna"] = 10;                // add-or-replace, one notification
+    _scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
+});
 
-foreach (var todo in _todos) { Render(todo); } // enumerate the reactive directly
+foreach (var todo in _todos) { Render(todo); } // the render enumerates the reactive directly
 ```
 
 Both come in the same scoped variants as the scalars: `ClientReactiveList<T>` / `UserReactiveList<T>` / `MountReactiveList<T>` and `ClientReactiveDictionary<TKey, TValue>` / `UserReactiveDictionary<TKey, TValue>` / `MountReactiveDictionary<TKey, TValue>`.
@@ -342,7 +345,7 @@ view.TextField(["flex-1"], label: "Name", bind: _name);
 view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
 ```
 
-Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written.
+Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written. A `value:` with no `bind:` and no handler that writes a change back (`onValueChange:`, or `onSubmit:` on a text field) renders the control read-only and logs a dev warning; `readOnly: true` on a TextField or TextArea renders the value read-only without the warning. When the value is certainly set and no `disabled:` (or, on TextField, TextArea, `CodeEditor` and `RichTextEditor`, `readOnly: true`) is passed, the build reports it too, as warning IKON027. An overlay's or picker's `open:` (Dialog, AlertDialog, Popover, Select, DatePicker and the rest) is controlled the same way: with no `onOpenChange:` its trigger, Esc and its own buttons cannot open or close it, which logs a dev warning and, when `open:` is certainly set, is warning IKON032 at build time.
 
 ### App Chrome and SemanticTone
 
@@ -400,7 +403,7 @@ view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
     style: ["default", "absolute bottom-2 end-2"]);
 ```
 
-The default wording follows the kind and the variant, in the language of the client's `Context.Locale` (English, Finnish, Swedish, German, Spanish or French; `Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
+The default wording follows the kind and the variant, in the language of the client's `Context.Locale` (English, Finnish, Swedish, German, Spanish, French, Italian, Portuguese, Dutch, Polish, Estonian, Russian, Ukrainian, Arabic and Somali, English for any other; `Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
 better or a market whose regulator words it differently. It renders themed from
 `Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
 rather than as the app's own output.
@@ -463,7 +466,7 @@ view.TextField(["default", "w-full"], bind: _name); // themed input, full width 
 view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
 ```
 
-A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, and a dialog, sheet or drawer panel with no `fixed` or `absolute` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill.
+A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, a dialog, sheet or drawer panel with no `fixed` or `absolute` class, a stat card with no padding, and a disabled button with no `disabled:` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill. An array of string literals that holds only layout classes is also reported at build time, as warning IKON025, and the other warnings in this paragraph are warning IKON029 when every entry of the array is a constant (a literal, or a token such as `Card.Elevated`) and none is `"default"`. Both build warnings check the array written at the call, each branch of a conditional there, and the arrays a one-expression helper in the same file returns (`static string[] Tone(int side) => side == 0 ? [...] : [...]`). `view.Card` pads its `content:` (and its header) itself, so a padding class in the card's own array (`[Card.Default, "py-2"]`) doubles the padding: that warns at run time, and at build time as IKON026. Drop the padding, or pass `contentStyle: ["p-0"]`. The other way round, a `Card.*` token on a `Column`, `Row` or `Box` draws the card's border and background but adds no padding, so a `Text` drawn straight into it touches the border; when the array has no padding class, that is warning IKON034.
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
@@ -562,12 +565,13 @@ view.Button([Button.GhostMd, Button.Icon],
     onClick: DeleteAsync);
 ```
 
+- **`ariaLabel:` replaces the visible text as the name** that screen readers, voice control and `ikon browse` use. Set it only where there is no visible text, or start it with that text (`$"Remove {item.Name}"` on a Remove button). A constant `ariaLabel:` on a Button, ActionButton or Link that does not contain its constant visible text is warning IKON028, and so is one on a capture or mic button whose constant `text:` has words and that has no `content:`, since that button ignores it. With `content:` it is an icon button, and `ariaLabel:` names it.
 - **Never use a `title` prop for a hover name.** That is the browser's own tooltip: unstyleable, unpositionable, ~1s late, and invisible to touch. `Dialog(title:)` is a different thing — an accessible title, not a tooltip.
 - `tooltip:` on `Button` is sugar for wrapping it in `Tooltip`. Reach for the `Tooltip` component directly when the trigger is not a Button, or when you need `open:` (which needs `onOpenChange:` too, or hover and focus can neither show nor hide it) or `delayDuration:` control.
 - **The tooltip wrapper becomes the flex child.** `Tooltip` renders a `span` around its trigger, so layout, responsive and absolute classes belong on the wrapper, not on the button inside it — `hidden lg:inline-flex`, `shrink-0`, `absolute top-2 right-2` left on the button are all pinned inside a static span and do nothing. Pass them as `tooltipRootStyle:` (or `rootStyle:` on `Tooltip`).
 - **Nesting inside another overlay:** a tooltipped menu button goes *inside* the Popover's `trigger:` slot, not around the Popover.
 
-Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` and `Select` are the odd ones: their role lives on an inner element (`role="slider"` on the thumb, `role="combobox"` on the trigger), so a `Slider`'s `label:` and either one's `ariaLabel:` are routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch` and `Slider` warn at dev time when they render with no name at all — `Toggle` does not, because its `content:` is usually a label of its own.
+Form controls name themselves the same way. `Checkbox`, `Switch` and `Toggle` take `label:`, which wraps control and text in a `<label>` — that association is what makes the text clickable *and* the control's accessible name. A `Text` placed next to a bare control looks identical and associates nothing. `Slider` and `Select` are the odd ones: their role lives on an inner element (`role="slider"` on the thumb, `role="combobox"` on the trigger), so a `Slider`'s `label:` and either one's `ariaLabel:` are routed there; a name left on the root names nothing. `Checkbox`, `TriStateCheckbox`, `Switch`, `Slider` and `Select`, and a `TextField` or `TextArea` with no `placeholder:` either, warn at dev time when they render with no name at all, unless they are drawn inside a `Label`, `FormField` or `FormControl`. `Toggle` does not warn, because its `content:` is usually a label of its own. When none of `label:`, `ariaLabel:`, `placeholder:` (on a text field) or `props:` is passed and the control is not inside one of those, the build reports it too, as warning IKON033.
 
 The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **IKON Theming Guide** (`theming-guide.md`).
 

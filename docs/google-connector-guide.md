@@ -1,4 +1,4 @@
-<!-- checked-against: f1fa2fc14a7744a6ac8cafae -->
+<!-- checked-against: 82c8a3a64b27cd274e36ab1d -->
 
 # Google Connector Guide
 
@@ -37,6 +37,8 @@ if (!(await tokens.GetGrantedScopesAsync()).Contains("https://www.googleapis.com
     Log.Instance.Info("Mail access was not granted; ask again or carry on without it");
 }
 ```
+
+With the `openid` and `email` scopes too, `GoogleAuth.GetSignedInAccountAsync(tokens)` says whose account signed in, as a `GoogleAccount`: its `Subject` (Google's id, stable when the address changes), its `Email`, and the Google Workspace `HostedDomain` it belongs to, null for a personal account. To accept only one organisation's accounts, pass `hostedDomain` to `AuthorizeUrl`, which narrows the accounts the page offers, and check `HostedDomain` afterwards, since the page's narrowing is only a hint.
 
 `GoogleAuth.RevokeAsync(token)` withdraws the grant when the person disconnects; it takes the refresh token or an access token of the grant, and a token Google no longer knows counts as revoked.
 
@@ -167,7 +169,7 @@ if (GoogleNotifications.ParseChannel(headers, channelToken) is { ResourceState: 
 
 ### Gmail
 
-`ListMessagesAsync(query)` returns every message matching a Gmail search — the syntax of Gmail's search box, `is:unread` or `from:ada@example.com after:2026/01/01` — newest first, as `GmailMessageSummary` records with `From`, `Subject`, `Snippet`, `ReceivedAt` and `LabelIds`. It fetches the summaries 50 to a batch, and any message that cannot be read fails the whole call rather than leaving a hole. `ListMessagesPageAsync(query, limit, cursor)` reads one page into a `GmailMessagePage`. `GetMessageAsync` reads a whole message into a `GmailMessage`: `To`, `Cc`, `Date`, `Text` (the `text/plain` part) and `Html` (the `text/html` part as sent, not converted), its `Attachments` as `GmailAttachment` records with their name, type and size, and the `RfcMessageId` a reply names. It reads the bodies but not the attachments' bytes: `DownloadAttachmentAsync(messageId, attachmentId)` fetches one, `DownloadAttachmentAsync(messageId, attachmentId, maxBytes)` refuses rather than truncates one larger than `maxBytes`, and `GetRawMessageAsync` streams the whole MIME source. `GetProfileAsync` returns a `GmailProfile`: the address the credential reads and the mailbox's totals.
+`ListMessagesAsync(query)` returns every message matching a Gmail search — the syntax of Gmail's search box, `is:unread` or `from:ada@example.com after:2026/01/01` — newest first, as `GmailMessageSummary` records with `From`, `Subject`, `Snippet`, `ReceivedAt` and `LabelIds`. It fetches the summaries 50 to a batch, and any message that cannot be read fails the whole call rather than leaving a hole. `ListMessagesPageAsync(query, limit, cursor)` reads one page into a `GmailMessagePage`, and `ListMessageIdsPageAsync(query, labelIds, limit, cursor)` one page of ids alone, as a `GmailMessageIdPage`, for reading them yourself with `GetMessagesAsync(ids, headersOnly)`. That batch read leaves out a message that failed on its own, such as one deleted meanwhile, and throws only for a failure of the whole mailbox. `GetMessageAsync` reads a whole message into a `GmailMessage`: `To`, `Cc`, `Date`, `Text` (the `text/plain` part) and `Html` (the `text/html` part as sent, not converted), its `Attachments` as `GmailAttachment` records with their name, type and size, and the `RfcMessageId` a reply names. It reads the bodies but not the attachments' bytes: `DownloadAttachmentAsync(messageId, attachmentId)` fetches one, `DownloadAttachmentAsync(messageId, attachmentId, maxBytes)` refuses rather than truncates one larger than `maxBytes`, and `GetRawMessageAsync` streams the whole MIME source. `GetProfileAsync` returns a `GmailProfile`: the address the credential reads and the mailbox's totals.
 
 <!-- ikon-example: connectors-gmail-read -->
 ```csharp
@@ -186,7 +188,7 @@ var sentId = await gmail.SendAsync("someone@example.com", "Weekly summary", body
 
 ### Sending, replying and drafts
 
-For more than plain text, `SendAsync` takes a `NewGmailMessage`: `To`, `Cc` and `Bcc`, a `ReplyTo`, a send-as `From` address (`ListSendAsAsync` lists them as `GmailSendAs` records), a `Text` and an `Html` body — both go, as alternatives — and `NewGmailAttachment` files, an inline image given a `ContentId` its HTML names as `cid:`. `ReplyAsync` answers a message in its thread, to its Reply-To or sender, with the threading headers mail programs rely on; `replyAll: true` copies everyone else it went to. `ForwardAsync` sends a message on, attached whole. An empty `Subject` on a reply or forward takes the original's.
+For more than plain text, `SendAsync` takes a `NewGmailMessage`: `To`, `Cc` and `Bcc`, a `ReplyTo`, a send-as `From` address (`ListSendAsAsync` lists them as `GmailSendAs` records), a `Text` and an `Html` body — both go, as alternatives — and `NewGmailAttachment` files, an inline image given a `ContentId` its HTML names as `cid:`. `ReplyAsync` answers a message in its thread, to its Reply-To or sender, quoting it below the reply's own text and with the threading headers mail programs rely on; `replyAll: true` copies everyone else it went to. `ForwardAsync` sends a message on with its text quoted and its attachments carried. An empty `Subject` on a reply or forward takes the original's.
 
 <!-- ikon-example: connectors-gmail-send -->
 ```csharp
