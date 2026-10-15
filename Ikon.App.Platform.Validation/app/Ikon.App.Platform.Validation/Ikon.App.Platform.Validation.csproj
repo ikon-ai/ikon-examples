@@ -98,11 +98,11 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
     <!-- Design-time only (dotnet ef migrations); ExcludeAssets keeps its Roslyn/MSBuildWorkspace
          dependency tree (incl. the BuildHost folders) out of the app output and the bundle. The two
          CodeAnalysis pins below resolve EF Design's internally mismatched Roslyn versions (NU1107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>

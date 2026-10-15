@@ -33,24 +33,28 @@ Animations are keyframe steps, each `time:utilities` joined by `_`: `"motion-[0:
 ## Running and checking the app
 
 From the app root, `ikon run --detach` starts the app and returns once it is ready; a plain
-`ikon run` does not return while the app runs. `--log-debug` adds the server's own detail, and
-`build/app/artifacts/bin/<App>/debug/ikon-server-info.json` has the URLs. `ikon status --wait` waits
-for a run started some other way; `ikon stop` ends the run after the app saves its persistent state.
-When the run says browsers mark it not secure, run `ikon install certificate` or ask the person to,
-and tell them to approve its dialog. Check the app as text before reaching for a browser:
+`ikon run` does not return while the app runs. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+has the URLs. `ikon stop` ends the run after the app saves its persistent state. A `.cs` edit under `app/<App>/` hot-reloads
+the run, detached too (a compile error keeps the previous build, and `browse` prints the error;
+`ikon status --wait` returns once the reload has applied or failed); a `.csproj`
+or `ikon-config.toml` change needs `ikon stop` and a new run. Check the app as text before reaching for a browser:
 
 ```bash
 ikon browse --steps "observe"                                   # screen text + [id] action handles
-ikon browse --steps "fill Message hello; tap Send; expect Sent; look after.png"
+ikon browse --steps "fill Message hello; tap Send; wait-absent 60s Thinking; wait 5s --new Sent"
+ikon browse --steps "as alice: tap Join; as bob: observe"      # two test users (local run)
 ikon browse --text-only --format json < steps.txt               # one step per line, one JSON object per step
 ```
 
 `ikon browse --help` lists every step and option. Acting steps print only what changed; `click`,
 `eval` and `console` reach custom React components. An observation costs a few hundred tokens and a
-screenshot thousands, so use `look` only when the question is about pixels. Each run is a new client
-session with new ids, so a saved script names controls by label. Where the shell strips quotes
-(PowerShell), use `--steps-file steps.txt`. `hold`, `audio` and fake media files test a voice or
-camera app.
+screenshot thousands, so use `look` only when the question is about pixels. `wait 15s Sent` returns
+once the text shows, or at once if it is already there; `--new` waits for a new one, and `wait 15s`
+alone waits for the next update. `sleep 2s` always pauses. A bare number is milliseconds. Each run is a new client session with new ids, so a saved script names controls by
+label. Where the shell strips quotes (PowerShell), use `--steps-file scripts/steps.txt`. `hold`, `audio`,
+`mic` and `--fake-media-file` (a .wav loops into the microphone once the page opens it, a .y4m plays as the camera) test a voice or camera app.
+`look`, `upload`, `mic`, `audio`, downloads, fake media and `--grant` need the browser, not
+`--text-only`; an `as <name>:` user has no page (`--as-user <name>` has one).
 
 A script worth keeping is a **check gate**, `.ikon/gates/<name>.toml`: `ikon test` runs it against
 the local run or the deployed app (`ikon help test --json` lists the file's keys), and
@@ -59,27 +63,30 @@ the local run or the deployed app (`ikon help test --json` lists the file's keys
 `--app-id <space>` or `--target <name>` makes `browse` and `test` drive the **deployed** app;
 without them they drive the local run, else the linked deployed app. The page signs in as you when
 the app offers the method you used for `ikon login`; `--as-guest` opens it as a new guest, and on a
-local run `--as-user <name>` or `as <name>: <step>` act as named test users. When
+local run `--as-user <name>` or `as <name>: <step>` act as named test users. To test several
+clients of a deployed app, run one `ikon browse --text-only --guest-name <name> --steps-file …` per
+client in parallel, each script ending in a `sleep` to stay connected while the others act. When
 `[Auth] Methods` lists "global", every guest is one shared user, which a deployed app's page cannot
 join, so use `--text-only` there or list "guest" instead. `click <name>` is a real mouse click;
 audio in the page plays without one.
 
-A local run uses the deployed app's `app.Files`; `ikon file list|delete` shows and clears them.
+A local run uses the deployed app's `app.Files`; `ikon file list|download|delete` shows, fetches and clears them (`--cloud-file`: every `AssetClass.CloudFile` asset, uploads too).
 
 ## The ikon tool's commands
 
 This part comes from the ikon tool, whose help is the authority on its commands:
-`ikon help <section> --json` (Develop, Source, Ship, Services, Operate, Autopilot, Account,
-Machine), `ikon help <command> --json`, and `ikon help --json` for all of them, how the app and
+`ikon help <section> --json`, `ikon help <command> --json`, and `ikon help --json` for all of them, how the app and
 environment are chosen, and the shape of `--format json` output. If a doc names a command the tool
-does not know, the command was renamed; look it up in the help. Settings are in `ikon-config.toml`
-(`ikon-config.<name>.toml` for `--target <name>`, `ikon-config.development.toml` on the development
-platform), each explained by the comment above it.
+does not know, the command was renamed; look it up in the help. Settings are in `ikon-config.toml`,
+each explained by the comment above it: `ikon-config.development.toml` for an app on the development
+platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
+On Windows, edit files (steps files too) with your file-edit tool: PowerShell 5.1's `Get-Content` and `Set-Content`
+default to the system code page and garble non-ASCII text.
 
 The tool uses these top-level folders: `app/`, `frontend-node/`, `frontend-flutter/`, `data/`,
 `public/`, `branding/`, `emails/`, `tools/<runtime>/` (programs the app runs), `container/` (the
-app's image), and the generated `build/` and `docs/`. Keep your own scripts elsewhere, such as
-`scripts/`, which `.gitignore` keeps out of the app's repository.
+app's image), and the generated `build/` and `docs/`. Keep your own scripts and steps files in the
+app's `scripts/`, never a shared `/tmp`; `.gitignore` keeps it out of the app's repository.
 
 ## What the app must contain
 
