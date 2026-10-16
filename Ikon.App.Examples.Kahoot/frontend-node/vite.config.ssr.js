@@ -72,6 +72,8 @@ export default defineConfig(({ mode }) => {
     // Fallback for apps not yet migrated to the root public/
     publicDir: existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : 'public',
     plugins: [react()],
+    // Inline, so PostCSS never loads a config file from a folder above the app
+    css: { postcss: {} },
     resolve: {
       alias,
       dedupe: ['react', 'react-dom'],
