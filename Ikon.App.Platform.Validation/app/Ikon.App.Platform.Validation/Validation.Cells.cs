@@ -3,7 +3,6 @@ using System.Text.Json;
 using Ikon.App.Cells;
 // Ikon.Common.DescriptionAttribute is Property|Field only; the BCL one allows AttributeTargets.All,
 // which parameters need.
-using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 
 public partial class Validation
 {

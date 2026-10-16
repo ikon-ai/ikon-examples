@@ -138,6 +138,7 @@ export function fromProtocolMessageProbePing(raw: ProtocolMessage | ArrayBuffer 
     return decodeProbePing(payload, destination);
 }
 
+// Returns a Promise, which AppMessaging.send refuses. An AppMessageType takes toProtocolMessageProbePing above
 export async function toProtocolMessageProbePingAsync(value: ProbePing, senderId: number, overrides?: ProtocolMessageOverrides): Promise<ProtocolMessage>
 {
     const payload = encodeProbePing(value);

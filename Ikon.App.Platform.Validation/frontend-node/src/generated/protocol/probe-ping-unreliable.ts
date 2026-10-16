@@ -139,6 +139,7 @@ export function fromProtocolMessageProbePingUnreliable(raw: ProtocolMessage | Ar
     return decodeProbePingUnreliable(payload, destination);
 }
 
+// Returns a Promise, which AppMessaging.send refuses. An AppMessageType takes toProtocolMessageProbePingUnreliable above
 export async function toProtocolMessageProbePingUnreliableAsync(value: ProbePingUnreliable, senderId: number, overrides?: ProtocolMessageOverrides): Promise<ProtocolMessage>
 {
     const payload = encodeProbePingUnreliable(value);

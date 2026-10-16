@@ -601,7 +601,7 @@ public partial class Validation
             }
             else
             {
-                _notificationInbox.SetQuietHoursFor(userId, quietBefore.StartUtc, quietBefore.EndUtc);
+                _notificationInbox.SetQuietHoursFor(userId, quietBefore.StartUtc, quietBefore.EndUtc, quietBefore.TimeZoneId);
             }
 
             _notificationInbox.MuteFor(userId, NotificationInbox.PushChannel, pushMutedBefore);

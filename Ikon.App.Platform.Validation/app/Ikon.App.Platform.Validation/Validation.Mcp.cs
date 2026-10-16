@@ -7,7 +7,6 @@ using System.Text.Json;
 // which the compiler rejects on positional record parameters and method parameters.
 // The BCL one allows AttributeTargets.All and is what JsonSchemaBuilder + JsonSchemaGenerator
 // pick up across both surfaces. Alias it so bare [Description] just works here.
-using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 
 public partial class Validation
 {
