@@ -163,6 +163,8 @@ export default defineConfig(({ mode }) => {
     cacheDir: 'node_modules/.ikon-vite-cache',
     publicDir,
     plugins,
+    // Inline, so PostCSS never loads a config file from a folder above the app
+    css: { postcss: {} },
     resolve: resolveConfig,
     worker: {
       format: 'es',
