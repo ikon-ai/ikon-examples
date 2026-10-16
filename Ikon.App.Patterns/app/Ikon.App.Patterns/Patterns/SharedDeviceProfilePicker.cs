@@ -26,6 +26,7 @@ internal sealed class SharedDeviceProfilePicker : IPatternDemo
     // Who is holding the tablet is per device, never per account
     private readonly ClientReactive<string?> _activeChildId = new((string?)null);
     private readonly ClientReactive<DateTime> _parentUnlockedUntil = new(DateTime.MinValue);
+    // Per client, so digits typed on the tablet never show on another device of the same account
     private readonly ClientReactive<string> _pinEntry = new("");
 
     private bool ParentUnlocked => _parentUnlockedUntil.Value > DateTime.UtcNow;
@@ -129,7 +130,7 @@ internal sealed class SharedDeviceProfilePicker : IPatternDemo
 
     private void RenderParentArea(UIView view)
     {
-        view.Column([Card.Default, "gap-3 w-72 self-center"], content: col =>
+        view.Column([Card.Default, "gap-3 p-4 w-72 self-center"], content: col =>
         {
             col.Text([Text.H3], "Parents");
 

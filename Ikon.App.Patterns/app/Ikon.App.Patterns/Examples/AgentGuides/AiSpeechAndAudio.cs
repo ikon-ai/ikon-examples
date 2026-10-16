@@ -48,12 +48,15 @@ internal sealed partial class AgentGuideExamples
         // crossfades out the speech still playing (the interrupt behavior a voice app wants).
         // The ElevenLabs default voice is "Sarah", soft and modern. Name another when the product
         // wants it: Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
+        // Under an EU-only AI region policy the default model is AzureSpeechService instead, which
+        // takes Azure voice names (en-US-AvaMultilingualNeural) and fails the playback on "George".
         Audio.Speak(MediaTargets.Everyone, "Hello world");
         Audio.Speak(MediaTargets.Everyone, "Hello world", new SpeechOptions { Voice = "George" });
 
         // Pick a model, shape the delivery, or target specific clients; await Completion to wait
-        // for playout. Among ElevenLabs models only Eleven3 takes Instructions; the others (the
-        // default ElevenFlash25 included) fail the playback, as does any Speed but null or 1.0.
+        // for playout. Among ElevenLabs models only Eleven3 takes Instructions; with the others
+        // (ElevenFlash25 included), or any Speed but null or 1.0, Speak throws ArgumentException.
+        // AzureSpeechService ignores Instructions.
         var line = Audio.Speak(MediaTargets.To([clientSessionId]), "Hello world", new SpeechOptions
         {
             Model = SpeechGeneratorModel.Eleven3,
@@ -71,7 +74,7 @@ internal sealed partial class AgentGuideExamples
     private static async Task<int> DocSpeechGenerateOneShotAsync()
     {
         #region example:speech-generate-one-shot
-        var audio = await SpeechGenerator.GenerateAsync("Hello world");  // ElevenFlash25 (cheap+fast) by default
+        var audio = await SpeechGenerator.GenerateAsync("Hello world");  // SpeechGeneratorModel.Default when no model is named
         // audio.Samples (float[]), audio.SampleRate, audio.ChannelCount
         #endregion
 

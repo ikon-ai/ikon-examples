@@ -14,13 +14,13 @@ internal sealed class ChatbotStreaming : IPatternDemo
     public sealed record ChatMessage(string Role, string Text);
 
     private readonly ReactiveList<ChatMessage> _transcript = new();
-    private readonly ClientReactive<string> _draft = new("");
+    // User scope: a reload starts a new client session, and a half-typed message should survive it.
+    private readonly UserReactive<string> _draft = new("");
     private readonly Reactive<bool> _busy = new(false);
     private readonly Reactive<string> _streaming = new("");
     private KernelContext _ctx = new();
 
-    // The text arrives as an argument so the Send button and Enter share one path; the button
-    // passes _draft.Value, and Enter passes the submitted text.
+    // The composer's onSubmit passes the field's text, on Enter and on a Send click alike.
     private async Task SendAsync(string input)
     {
         var text = input.Trim();
@@ -95,17 +95,29 @@ internal sealed class ChatbotStreaming : IPatternDemo
 
     private void Render(IView view)
     {
-        view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: view =>
-        {
-            view.Column(["gap-3"], content: view =>
+        // ChatLog scrolls the messages and keeps the composer pinned under them; the key makes it
+        // follow the newest message and the streaming reply as they grow.
+        view.ChatLog(["h-[32rem] gap-3"],
+            autoScrollKey: $"{_transcript.Count}:{_streaming.Value.Length}",
+            content: view => view.Column(["gap-3 p-4"], content: view =>
             {
                 foreach (var msg in _transcript)
                 {
                     var isUser = msg.Role == "You";
                     // bg-brand-solid, not bg-primary: in the IKON semantic set bg-primary is the
                     // PAGE surface, so a bubble painted with it disappears into the page.
+                    // A model writes markdown (lists, **bold**), which Text would show as raw marks.
                     view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-card", "rounded-lg p-3 max-w-[80%]"], content: v =>
-                        v.Text(text: msg.Text));
+                    {
+                        if (isUser)
+                        {
+                            v.Text(text: msg.Text);
+                        }
+                        else
+                        {
+                            v.Markdown(msg.Text);
+                        }
+                    });
                 }
 
                 // In-flight streaming bubble: reading _streaming.Value here
@@ -114,19 +126,17 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 if (!string.IsNullOrEmpty(_streaming.Value))
                 {
                     view.Box(["self-start bg-card rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
-                        v.Text(text: _streaming.Value));
+                        v.Markdown(_streaming.Value));
                 }
-            });
-        });
-        view.Row(["p-4 gap-2 border-t"], content: view =>
-        {
-            view.TextField([Input.Default, "flex-1"], value: _draft.Value, placeholder: "Type a message…",
+            }),
+            // Composer is the whole input bar: a text field that grows with its text, Enter to send,
+            // and a Send button that is disabled while busy: is true.
+            footer: view => view.Composer(
+                value: _draft.Value,
+                placeholder: "Type a message…",
+                busy: _busy.Value,
                 onValueChange: async v => _draft.Value = v,
-                onSubmit: SendAsync);
-            view.Button(style: [Button.Default, _busy.Value ? "opacity-50" : ""],
-                disabled: _busy.Value, onClick: () => SendAsync(_draft.Value),
-                content: v => v.Text(text: _busy.Value ? "Thinking…" : "Send"));
-        });
+                onSubmit: SendAsync));
     }
     #endregion
 }

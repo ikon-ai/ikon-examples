@@ -10,7 +10,7 @@ file sealed class AudioExamples(IApp<SessionIdentity, ClientParameters> app)
     private Audio Audio { get; } = new(app);
     #endregion
 
-    public async Task RunAsync(string text, AudioChunk audioChunk, float[] samples, int sampleRate,
+    public async Task RunAsync(string text, AudioChunk audioChunk, float[] samples, AudioClip clip, int sampleRate,
         int channelCount, string streamId, bool isFirst, bool isLast, CancellationToken ct)
     {
         #region example:audio-usage
@@ -18,14 +18,24 @@ file sealed class AudioExamples(IApp<SessionIdentity, ClientParameters> app)
         // it, mixed. Await playback.Completion to wait for playout (it never throws).
 
         // 1. Speech: TTS in one call. A new line crossfades out the speech still playing (slot "speech").
+        //    Completion waits for generation and then the whole line to play out in real time, so
+        //    await it only where the next step must follow the speech. Clear a busy flag before it.
+        //    A generation failure is the outcome Failed with the cause in Error, never an exception.
         var line = Audio.Speak(MediaTargets.Everyone, text);
-        await line.Completion;
+
+        if (await line.Completion == AudioPlaybackOutcome.Failed)
+        {
+            Log.Instance.Warning($"Speech failed: {line.Error?.Message}");
+        }
 
         // 2. A clip (decoded file, synthesized sound): mixed with everything else, so clips overlap.
         //    A slot with Replace cuts the previous clip in that slot instead.
         Audio.Play(MediaTargets.Everyone, samples, sampleRate, channelCount);
         Audio.Play(MediaTargets.Everyone, samples, sampleRate, channelCount,
             new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music", Loop = true });
+
+        //    An AudioClip (a decoded file, AudioSound.Clip) plays as it is; clip.Samples is memory, not a span.
+        Audio.Play(MediaTargets.Everyone, clip);
 
         // 2a. Music or a long recording from a URL: decoded as it plays, looped by decoding it again.
         Audio.Play(MediaTargets.Everyone, new Uri("https://cdn.example.com/theme.mp3"),

@@ -15,7 +15,8 @@ internal sealed class WebResearch : IPatternDemo
     public sealed record Source(string Title, string Url, string Snippet);
 
     private readonly ReactiveList<Answer> _answers = new();
-    private readonly ClientReactive<string> _question = new("");
+    // Per user, so a reload keeps a half-typed question
+    private readonly UserReactive<string> _question = new("");
     private readonly Reactive<string?> _phase = new(null); // null | "Searching" | "Synthesizing"
     private readonly Reactive<string?> _error = new(null);
 
@@ -64,7 +65,7 @@ internal sealed class WebResearch : IPatternDemo
             v.TextField(["default", "flex-1"], value: _question.Value, placeholder: "What do you want to know?",
                 onValueChange: async x => _question.Value = x,
                 onSubmit: async _ => await ResearchAsync());
-            v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _phase.Value != null ? "opacity-50" : ""],
+            v.Button([Button.Default, "transition-colors duration-150 hover:opacity-90", _phase.Value != null ? "opacity-50" : ""],
                 disabled: _phase.Value != null, onClick: ResearchAsync,
                 content: c => c.Text(text: _phase.Value ?? "Research"));
         });

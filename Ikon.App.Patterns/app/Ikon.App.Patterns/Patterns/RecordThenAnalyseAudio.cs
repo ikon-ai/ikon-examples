@@ -126,7 +126,7 @@ internal sealed class RecordThenAnalyseAudio(IAppBase app) : IPatternDemo
 
             foreach (var take in _takes)
             {
-                col.Column([Card.Default, "gap-1"], key: take.Id, content: card =>
+                col.Column([Card.Default, "gap-1 p-4"], key: take.Id, content: card =>
                 {
                     card.Text([Text.Body], take.Feedback);
                     card.Text([Text.Caption], take.Transcript);

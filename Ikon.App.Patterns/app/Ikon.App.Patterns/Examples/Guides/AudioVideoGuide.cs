@@ -26,8 +26,13 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         // Each client hears everything aimed at it, mixed.
 
         // 1. Speech — TTS in one call. A new line crossfades out the speech still playing.
+        //    A generation failure is the outcome Failed with the cause in Error, never an exception.
         var line = Audio.Speak(MediaTargets.Everyone, "Hello world");
-        await line.Completion;
+
+        if (await line.Completion == AudioPlaybackOutcome.Failed)
+        {
+            Log.Instance.Warning($"Speech failed: {line.Error?.Message}");
+        }
 
         // 2. A clip (decoded file, generated music) — mixed with everything else, any length.
         //    Replace in a named slot cuts the previous clip there instead of overlapping it.
@@ -161,11 +166,11 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     private readonly GroupAudioMixer _mixer = new();
 
     // The frame event carries no SampleRate/ChannelCount — the format lives on the
-    // BEGIN event, so stash it per stream:
-    private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
+    // BEGIN event, so stash it per stream. The handlers run concurrently, so a concurrent map:
+    private readonly ConcurrentDictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
     #endregion
 
-    public void GroupMixer(CancellationToken ct)
+    public void GroupMixer()
     {
         #region example:av-group-mixer
         // Wire participants and streams:
@@ -180,13 +185,16 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
 
         Audio.AudioInputFrameAsync += async args =>
         {
-            var format = _streamFormats[args.StreamId];
-            _mixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+            // A frame can arrive after its stream ended; there is nothing to mix it into then
+            if (_streamFormats.TryGetValue(args.StreamId, out var format))
+            {
+                _mixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+            }
         };
 
         Audio.AudioInputStreamEndAsync += async args =>
         {
-            _streamFormats.Remove(args.StreamId);
+            _streamFormats.TryRemove(args.StreamId, out _);
             _mixer.RemoveStream(args.StreamId);
         };
 
@@ -194,7 +202,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         // are already mixed and real-time paced, so the raw lane is correct here:
         _ = Task.Run(async () =>
         {
-            await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
+            await foreach (var (participantId, frame) in _mixer.StreamAsync(app.StoppingToken))
             {
                 await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
                     frame.ChannelCount, frame.IsFirst, frame.IsLast);

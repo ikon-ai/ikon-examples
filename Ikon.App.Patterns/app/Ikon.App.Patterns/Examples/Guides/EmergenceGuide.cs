@@ -221,13 +221,17 @@ file static class EmergenceGuideExamples
     public static async Task EnsembleAsync(KernelContext ctx)
     {
         #region example:emergence-ensemble
+        // Without s.Model every solver runs on the model passed here; the merger always does
+        LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
+
         var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
         {
-            opt.SolverCount = 4;
-            opt.MaxParallel = 4;
+            opt.SolverCount = models.Length;
+            opt.MaxParallel = models.Length;
 
             opt.Solver(s =>
             {
+                s.Model = models[s.Index];               // Each solver on its own model
                 s.Temperature = 0.6 + 0.15 * s.Index;  // Varying temperatures
                 s.Command = "Analyze this data from your unique perspective.";
             });
@@ -428,8 +432,11 @@ file static class EmergenceExtraExamples
             Skills: [Built.Messaging, skill],
             Reasoning: new Reasoning());
 
-        // Or directly on a pass (requires an AgentRunner scope):
-        pass.AddTools(skill.Tools().ToArray());
+        // Or on any pass, allow-listed:
+        foreach (var tool in mcpClient.ToFunctions(new[] { "search_docs" }))
+        {
+            pass.Tools.Add(tool);
+        }
         #endregion
     }
 

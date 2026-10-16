@@ -73,9 +73,10 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
     private static void RenderArticle(IView view, Article article)
     {
         // Revealed: what a crawler indexes. Everything else ships as a skeleton in the snapshot.
+        // view.Heading renders an <h1>; view.Text with Text.H1 only looks like one.
         view.SnapshotReveal(content: view =>
         {
-            view.Text([Text.H1], article.Title);
+            view.Heading(article.Title, style: [Text.H1]);
             view.Text([Text.BodyLg, "mt-2"], article.Summary);
             view.Markdown(article.Body);
         });

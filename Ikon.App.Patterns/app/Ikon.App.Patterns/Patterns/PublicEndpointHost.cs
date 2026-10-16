@@ -21,8 +21,8 @@ internal sealed class PublicEndpointHost : IPatternDemo
 
     private async Task StartEndpointAsync()
     {
-        // stablePortName gives the relay a deterministic port for this name, so PublicUrl survives
-        // reconnects and restarts -- which is what a webhook registered with a third party needs.
+        // stablePortName keeps the port while this instance's relay connection drops and comes back.
+        // A new instance gets a new URL, so a webhook that a third party registers once needs an [HttpPost].
         _host = new AppEndpointHost(App, secure: true, stablePortName: "payments-webhook");
 
         _host.MapPost("/hooks/payment", async context =>

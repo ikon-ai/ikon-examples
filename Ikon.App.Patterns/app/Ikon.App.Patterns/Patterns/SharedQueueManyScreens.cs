@@ -52,6 +52,7 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
 
     private readonly ClientReactive<bool> _isStaff = new(false);
     private readonly ClientReactive<bool> _displayStarted = new(false);
+    // Per client, not per user: one kiosk serves person after person under the same account
     private readonly ClientReactive<string> _name = new("");
     private readonly ClientReactive<int?> _myNumber = new((int?)null);
 
@@ -136,7 +137,7 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
 
     private void RenderKiosk(UIView view)
     {
-        view.Column([Card.Default, "gap-3 w-72"], content: col =>
+        view.Column([Card.Default, "gap-3 p-4 w-72"], content: col =>
         {
             if (_myNumber.Value is { } number)
             {
@@ -154,7 +155,7 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
     {
         var waiting = _queue.Where(ticket => !ticket.Called).ToList();
 
-        view.Column([Card.Default, "gap-3 w-72"], content: col =>
+        view.Column([Card.Default, "gap-3 p-4 w-72"], content: col =>
         {
             col.Text([Text.H3], $"{waiting.Count} waiting");
 
@@ -172,7 +173,7 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
         // Numbers only: the waiting room never sees a name
         var serving = _queue.FirstOrDefault(ticket => ticket.Called);
 
-        view.Column([Card.Default, "items-center gap-2 w-72"], content: col =>
+        view.Column([Card.Default, "items-center gap-2 p-4 w-72"], content: col =>
         {
             col.Text([Text.Caption], "Now serving");
             col.Text([Text.Display], serving?.Number.ToString() ?? "–");

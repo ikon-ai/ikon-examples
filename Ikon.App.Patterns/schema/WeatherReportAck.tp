@@ -1,0 +1,12 @@
+type = "WeatherReportAck"
+version = 1
+doc = "The device-typed-messages pattern's answer to one WeatherReport, sent by the app to the device that sent it."
+
+[namespaces]
+csharp = "Ikon.App.Patterns.Protocol"
+typescript = ""
+
+[fields]
+Sequence = "int32"
+Accepted = "bool"
+Reason = "string"

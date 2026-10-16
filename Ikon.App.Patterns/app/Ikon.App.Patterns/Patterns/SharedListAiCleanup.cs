@@ -14,7 +14,8 @@ internal sealed class SharedListAiCleanup : IPatternDemo
     public sealed record TodoItem(string Id, string Text);
 
     private readonly ReactiveList<TodoItem> _items = new();
-    private readonly ClientReactive<string> _draft = new("");
+    // Per user, so a reload keeps a half-typed item
+    private readonly UserReactive<string> _draft = new("");
     private readonly Reactive<bool> _busy = new(false);
 
     private void Add()
@@ -53,7 +54,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
         {
             v.TextField(["default", "flex-1"], value: _draft.Value, placeholder: "What needs doing?",
                 onValueChange: async x => _draft.Value = x, onSubmit: async _ => Add());
-            v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
+            v.Button([Button.Default, "transition-colors duration-150 hover:opacity-90"],
                 onClick: () => Add(), content: c => c.Text(text: "Add"));
             v.Button(style: [Button.SecondaryMd, _busy.Value ? "opacity-50" : ""],
                 disabled: _busy.Value || _items.Count == 0, onClick: AiCleanupAsync,

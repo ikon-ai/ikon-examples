@@ -1,3 +1,4 @@
+using Dapper;
 using Ikon.App.Cells;
 
 // No namespace: inside Ikon.App.*, `Cells` would name the Ikon.App.Cells namespace, not the class an
@@ -47,6 +48,58 @@ public sealed class ScoreboardCell(ICell<ScoreboardCell.SessionIdentity> cell) :
 }
 #endregion
 
+#region example:scaling-cell-loop
+// A cell that updates a value on a timer: one wave position for every screen in the stadium.
+public interface IWaveCell
+{
+    Reactive<int> Stand { get; }
+}
+
+[RegisterAll]
+[Cell]
+public sealed class WaveCell : IWaveCell, IAsyncDisposable
+{
+    public record SessionIdentity();
+
+    private readonly CancellationTokenSource _stopping = new();
+    private readonly Task _loop;
+
+    public WaveCell(ICell<SessionIdentity> cell)
+    {
+        _loop = RunAsync(_stopping.Token);
+    }
+
+    public Reactive<int> Stand { get; } = new(0);
+
+    // The platform calls this when the cell goes away: a hot reload, or its process stopping.
+    public async ValueTask DisposeAsync()
+    {
+        await _stopping.CancelAsync();
+
+        try
+        {
+            await _loop;
+        }
+        catch (OperationCanceledException)
+        {
+            // The cancellation above is how the loop ends
+        }
+
+        _stopping.Dispose();
+    }
+
+    private async Task RunAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            Stand.Update(stand => (stand + 1) % 12);
+        }
+    }
+}
+#endregion
+
 internal sealed class ScalingCellClientExamples
 {
     #region example:scaling-cell-connect
@@ -69,6 +122,113 @@ internal sealed class ScalingCellClientExamples
         }
 
         view.Text([Text.H2], $"{total.Value} points");
+    }
+    #endregion
+}
+
+#region example:scaling-leaderboard-cell
+public sealed record LeaderboardEntry(string Name, int Score);
+
+// The top ten, read after Version was taken. A publish with a higher version replaces one with a lower one,
+// never the reverse.
+public sealed record Leaderboard(long Version, IReadOnlyList<LeaderboardEntry> Entries);
+
+public interface ILeaderboardCell
+{
+    Reactive<Leaderboard> Top { get; }
+
+    Task PublishAsync(Leaderboard top);
+}
+
+[RegisterAll]
+[Cell]
+public sealed class LeaderboardCell : ILeaderboardCell
+{
+    public record SessionIdentity();
+
+    public LeaderboardCell(ICell<SessionIdentity> cell)
+    {
+    }
+
+    // Empty until an app instance publishes, because a cell has no database of its own.
+    public Reactive<Leaderboard> Top { get; } = new(new Leaderboard(0, []));
+
+    // Two instances can publish at once. The one that read the table later wins.
+    public Task PublishAsync(Leaderboard top)
+    {
+        Top.Update(current => top.Version > current.Version ? top : current);
+        return Task.CompletedTask;
+    }
+}
+#endregion
+
+internal sealed class ScalingLeaderboardExamples(IAppBase app)
+{
+    #region example:scaling-leaderboard-instance
+    private static ILeaderboardCell Board() =>
+        Cells.Instance.Connect<ILeaderboardCell>(new LeaderboardCell.SessionIdentity());
+
+    // Run once from app.OnStarting. Publishing here also refills the cell after its host stopped,
+    // because the next instance to start connects to a new, empty cell.
+    private async Task CreateScoresTableAsync()
+    {
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await db.ExecuteAsync("""
+            CREATE TABLE IF NOT EXISTS scores (
+                id bigserial PRIMARY KEY,
+                name text NOT NULL,
+                score int NOT NULL,
+                created_at timestamptz NOT NULL DEFAULT now());
+            CREATE SEQUENCE IF NOT EXISTS leaderboard_version;
+            """);
+        await PublishTopAsync();
+    }
+
+    // The database row is the record. The cell only sends the current top ten to every instance.
+    private async Task AddScoreAsync(string name, int score)
+    {
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await db.ExecuteAsync("INSERT INTO scores (name, score) VALUES (@name, @score)", new { name, score });
+        await PublishTopAsync();
+    }
+
+    private async Task PublishTopAsync()
+    {
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+
+        // Take the version first, so a higher version always comes from a later read of the table.
+        // A sequence, not max(id): an edited, voided or deleted score adds no row, but every publish
+        // after it takes a new number.
+        var version = await db.ExecuteScalarAsync<long>("SELECT nextval('leaderboard_version')");
+        var entries = await db.QueryAsync<LeaderboardEntry>("""
+            SELECT name AS Name, max(score) AS Score FROM scores
+            GROUP BY name ORDER BY max(score) DESC LIMIT 10
+            """);
+        await Board().PublishAsync(new Leaderboard(version, entries.ToList()));
+    }
+
+    // Called as RenderLeaderboard(view, Board()) from the screen that shows it.
+    private static void RenderLeaderboard(UIView view, ILeaderboardCell board)
+    {
+        var top = board.Top;
+
+        if (top is MirrorReactive<Leaderboard> { Status: not MirrorStatus.Live } mirror)
+        {
+            view.Text(mirror.Status == MirrorStatus.Failed ? "The leaderboard is unavailable right now" : "Loading the leaderboard…");
+            return;
+        }
+
+        foreach (var (entry, rank) in top.Value.Entries.Select((entry, index) => (entry, index + 1)))
+        {
+            view.Row(["justify-between gap-3"], key: entry.Name, content: row =>
+            {
+                row.Text([Text.Body], $"{rank}. {entry.Name}");
+                row.Text([Text.Body, "tabular-nums"], $"{entry.Score}");
+            });
+        }
     }
     #endregion
 }

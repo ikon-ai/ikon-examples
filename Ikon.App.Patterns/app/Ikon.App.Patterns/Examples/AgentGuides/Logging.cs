@@ -78,11 +78,11 @@ public static class LoggingExamples
 internal sealed partial class AgentGuideExamples
 {
 
-    private static void DocLogLevels()
+    private static void DocLogLevels(string swapId, int shiftCount)
     {
         #region example:log-levels
         Log.Instance.Info("Processing started");
-        Log.Instance.Debug("Detail info");
+        Log.Instance.Debug($"Swap {swapId} covers {shiftCount} shifts");
         #endregion
     }
 

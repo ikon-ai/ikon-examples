@@ -1,9 +1,8 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tree-with-expand-collapse — see docs/patterns/tree-with-expand-collapse.md.
-// The record, status enum, per-client selection and SelectThread stand in for the app's real thread
-// model; the example region is the canonical recursive renderer the doc extracts. The demo hands it
-// the root threads and the whole list, as an app would.
+// The record and status enum stand in for the app's real thread model; the demo hands the region
+// the whole list, as an app would.
 internal sealed class TreeWithExpandCollapse : IPatternDemo
 {
     public string Slug => "tree-with-expand-collapse";
@@ -14,11 +13,10 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
     {
         view.Column(["gap-2 max-w-sm"], content: col =>
         {
-            col.Column(["rounded-xl border border-secondary py-1.5"], content: tree =>
-                RenderThreadTree(tree, _sampleThreads.Where(t => t.ParentId is null).ToList(), _sampleThreads, depth: 0));
+            col.Box(["rounded-xl border border-secondary p-1.5"], content: tree => RenderThreadTree(tree, _sampleThreads));
             col.Row(["gap-2 items-center"], content: row =>
             {
-                row.Button([Button.GhostSm], text: "Collapse all", onClick: async () => _expandedChildrenIds.Clear());
+                row.Button([Button.GhostSm], text: "Collapse all", onClick: async () => _expanded.Clear());
                 row.Text(["text-xs text-muted-foreground"],
                     _selectedThreadId.Value is { } id ? $"Selected: {_sampleThreads.First(t => t.Id == id).Title}" : "Nothing selected");
             });
@@ -43,80 +41,36 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
 
     private sealed record ThreadInfo(string Id, string Title, string? ParentId, ThreadStatus Status);
 
+    #region example:pattern-tree-with-expand-collapse
+    // Which branches are open, per client: one tab expanding a branch leaves another tab's tree alone.
+    private readonly ExpandedSet _expanded = new(["market"]);
     private readonly ClientReactive<string?> _selectedThreadId = new(null);
 
-    private Task SelectThread(string threadId)
+    private void RenderThreadTree(UIView view, IReadOnlyList<ThreadInfo> allThreads)
     {
-        _selectedThreadId.Value = threadId;
-        return Task.CompletedTask;
+        var childrenOf = allThreads.ToLookup(t => t.ParentId ?? "");
+
+        view.TreeView(
+            roots: childrenOf[""].ToList(),
+            id: t => t.Id,
+            label: t => LabelFor(t, childrenOf[t.Id].ToList()),
+            children: t => childrenOf[t.Id].ToList(),
+            expanded: _expanded,
+            selectedId: _selectedThreadId.Value,
+            icon: t => t.Status == ThreadStatus.Done ? "circle-check" : "circle-dashed",
+            onSelect: async t => _selectedThreadId.Value = t.Id);
     }
 
-    #region example:pattern-tree-with-expand-collapse
-    private readonly ClientReactiveList<string> _expandedChildrenIds = new();
-
-    private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<ThreadInfo> allThreads, int depth)
+    // A collapsed branch says what is inside it, so the user can tell whether it is worth opening.
+    private string LabelFor(ThreadInfo thread, List<ThreadInfo> children)
     {
-        foreach (var thread in threads)
+        if (children.Count == 0 || _expanded.IsExpanded(thread.Id))
         {
-            var isSelected = thread.Id == _selectedThreadId.Value;
-            var capturedThread = thread;
-            var indent = depth * 12;
-
-            view.Box([$"py-2 rounded-lg mx-1.5 mb-px {(isSelected ? "bg-accent" : "hover:bg-accent/40")}"], content: view =>
-            {
-                view.Box([$"pl-[{indent + 12}px] pr-3"], content: view =>
-                {
-                    view.Row(["items-center gap-2"], content: view =>
-                    {
-                        view.Box(["flex-1 cursor-pointer"],
-                            onClick: async () => await SelectThread(capturedThread.Id),
-                            content: view =>
-                            {
-                                view.Text(["text-xs font-medium truncate"], capturedThread.Title);
-                            });
-                    });
-                });
-            });
-
-            var children = allThreads.Where(t => t.ParentId == capturedThread.Id).ToList();
-
-            if (children.Count == 0)
-            {
-                continue;
-            }
-
-            var childrenExpanded = _expandedChildrenIds.Contains(capturedThread.Id);
-
-            if (childrenExpanded)
-            {
-                RenderThreadTree(view, children, allThreads, depth + 1);
-            }
-            else
-            {
-                var childIndent = (depth + 1) * 12;
-                var doneCount = children.Count(c => c.Status == ThreadStatus.Done);
-                var activeCount = children.Count(c => c.Status is ThreadStatus.Active or ThreadStatus.Pending);
-                var summary = doneCount == children.Count
-                    ? $"{children.Count} children — all done"
-                    : activeCount > 0
-                        ? $"{children.Count} children — {activeCount} active"
-                        : $"{children.Count} children";
-
-                view.Box(["py-0.5 cursor-pointer hover:bg-accent/40 rounded-md mx-1.5"],
-                    onClick: async () => _expandedChildrenIds.Add(capturedThread.Id),
-                    content: view =>
-                    {
-                        view.Box([$"pl-[{childIndent + 12}px] pr-3"], content: view =>
-                        {
-                            view.Row(["items-center gap-1"], content: view =>
-                            {
-                                view.Icon(["w-2.5 h-2.5 text-muted-foreground/50"], name: "chevron-right");
-                                view.Text(["text-[10px] text-muted-foreground/50"], summary);
-                            });
-                        });
-                    });
-            }
+            return thread.Title;
         }
+
+        var open = children.Count(c => c.Status != ThreadStatus.Done);
+        return open == 0 ? $"{thread.Title} · all {children.Count} done" : $"{thread.Title} · {open} of {children.Count} open";
     }
     #endregion
 }

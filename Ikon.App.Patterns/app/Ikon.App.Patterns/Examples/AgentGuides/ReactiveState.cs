@@ -9,9 +9,16 @@ internal sealed class ValueMutationExamples
     private sealed record Item(bool Done);
     private sealed record Config(string Theme);
 
+    private sealed class Profile
+    {
+        public string Theme { get; set; } = "light";
+    }
+
     private readonly Reactive<int> _count = new(0);
     private readonly ReactiveList<Item> _items = new();
     private readonly Reactive<Config> _config = new(new Config("light"));
+    private readonly Reactive<int> _lastOrderNumber = new(0);
+    private readonly Reactive<Profile> _profile = new(new Profile());
 
     // Reactive writes during a render are discarded, so the example runs from a button and reports
     // the values it left behind — proof it executed, not only that it compiled.
@@ -40,6 +47,15 @@ internal sealed class ValueMutationExamples
 
         // Record mutation
         _config.Value = _config.Value with { Theme = "dark" };
+
+        // Read-modify-write in one step: the lambda runs under the reactive's lock. Update returns
+        // nothing, so keep the new value from inside the lambda
+        int orderNumber = 0;
+        _lastOrderNumber.Update(n => orderNumber = n + 1);
+
+        // A mutable object (a generated .tp class has no with): assigning the same instance back
+        // is skipped as unchanged, so change it inside Update, which always notifies
+        _profile.Update(p => { p.Theme = "dark"; return p; });
         #endregion
     }
 }
@@ -76,7 +92,7 @@ file sealed class ChatExamples(IApp<SessionIdentity, ClientParameters> app)
                 // Each client has their own input
                 view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
                 {
-                    view.TextField(bind: _input, style: ["flex-1"],
+                    view.TextField(bind: _input, style: ["default", "flex-1"], placeholder: "Message",
                         onSubmit: async submitted =>
                         {
                             _messages.Add(submitted); // Mutation methods notify on their own
@@ -125,6 +141,103 @@ file sealed class ScopeRightExamples(IApp<SessionIdentity, ClientParameters> app
             if (_hasJoined.Value) { RenderTavern(view); }  // OK — inside UI.Root()
             else { RenderEntry(view); }
         });
+    }
+    #endregion
+}
+
+file sealed class ScreenLoadExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private sealed record Quiz(string Id, string Title);
+
+    private static Task<IReadOnlyList<Quiz>> LoadQuizzesAsync(string userId) =>
+        Task.FromResult<IReadOnlyList<Quiz>>([new Quiz("q1", $"Fractions for {userId}")]);
+
+    #region example:load-screen-data
+    private readonly ClientReactive<string> _screen = new("home");
+    private readonly ClientReactiveList<Quiz> _quizzes = new();
+    private readonly ClientReactive<bool> _loadingQuizzes = new(false);
+
+    public void WireUp()
+    {
+        // The screen a client lands on loads when it joins: the handler runs in that client's scope.
+        app.OnClientJoined(async ctx => await OpenQuizzesAsync());
+    }
+
+    // Every other screen loads in the handler that opens it.
+    private async Task OpenQuizzesAsync()
+    {
+        _screen.Value = "quizzes";
+        _loadingQuizzes.Value = true;
+
+        try
+        {
+            _quizzes.ReplaceAll(await LoadQuizzesAsync(ReactiveScope.UserId));
+        }
+        finally
+        {
+            _loadingQuizzes.Value = false;
+        }
+    }
+
+    // The render only reads what the handler loaded.
+    private void RenderQuizzes(UIView view)
+    {
+        view.Button([Button.GhostMd], text: "Reload", onClick: async () => await OpenQuizzesAsync());
+
+        if (_loadingQuizzes.Value)
+        {
+            view.Box([Skeleton.Card]);
+            return;
+        }
+
+        foreach (var quiz in _quizzes)
+        {
+            view.Text([Text.Body], quiz.Title);
+        }
+    }
+    #endregion
+}
+
+file sealed class ClockExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private sealed record Instrument(string Name, DateTime LastSeenUtc);
+
+    private readonly ReactiveList<Instrument> _instruments = new([new("Rain gauge", DateTime.UtcNow), new("Wind vane", DateTime.UtcNow.AddMinutes(-7))]);
+
+    #region example:time-driven-render
+    // One clock for the app. Every render that reads it runs again on each tick.
+    private readonly Reactive<DateTime> _now = new(DateTime.UtcNow);
+
+    // Call it once from Main.
+    public void StartClock() => _ = TickAsync();
+
+    private async Task TickAsync()
+    {
+        // Tick only as often as the screen needs: each tick re-renders every client that reads _now.
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(app.StoppingToken))
+            {
+                _now.Value = DateTime.UtcNow;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The app instance is stopping, which is how the clock is meant to end
+        }
+    }
+
+    private void RenderInstruments(UIView view)
+    {
+        var now = _now.Value;
+
+        foreach (var instrument in _instruments)
+        {
+            var silent = now - instrument.LastSeenUtc;
+            view.Text([Text.Body], silent > TimeSpan.FromMinutes(1) ? $"{instrument.Name}: silent for {silent.TotalMinutes:0} min" : $"{instrument.Name}: live");
+        }
     }
     #endregion
 }

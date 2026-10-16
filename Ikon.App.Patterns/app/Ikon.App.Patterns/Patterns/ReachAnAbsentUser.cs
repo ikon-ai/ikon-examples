@@ -37,7 +37,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
             if (result.Channel == NotificationSendChannel.OfflinePush)
             {
                 // The push row has no client to ask, so its Permission is always Default and says
-                // nothing. Delivered is whether the push hub took it, and Error is why not.
+                // nothing. Delivered is whether the push hub queued it for a registered device, and Error is why not.
                 if (!result.Delivered)
                 {
                     await EmailFallbackAsync(email, title, body);

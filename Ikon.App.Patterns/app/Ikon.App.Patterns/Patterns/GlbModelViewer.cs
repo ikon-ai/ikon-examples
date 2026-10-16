@@ -1,16 +1,19 @@
+using System.Runtime.CompilerServices;
+
 namespace Ikon.App.Patterns.Patterns;
 
 #region example:pattern-glb-model-viewer-extension
 public static class ModelViewerExtensions
 {
-    public static void ModelViewer(this UIView view, string src, string? alt = null, bool autoRotate = true, string[]? style = null, string? key = null)
+    public static void ModelViewer(this UIView view, string src, string? alt = null, bool autoRotate = true, string[]? style = null, string? key = null,
+        [System.Runtime.CompilerServices.CallerFilePath] string file = "", [System.Runtime.CompilerServices.CallerLineNumber] int line = 0)
     {
         view.AddNode("model-viewer", new Dictionary<string, object?>
         {
             ["src"] = src,
             ["alt"] = alt,
             ["autoRotate"] = autoRotate,
-        }, style: style, key: key);
+        }, style: style, key: key, file: file, line: line);
     }
 }
 #endregion

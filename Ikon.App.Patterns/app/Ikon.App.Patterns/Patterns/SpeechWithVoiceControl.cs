@@ -25,8 +25,9 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
     {
         _error.Value = null;
 
-        // Instructions need ElevenLabs v3; the default ElevenFlash25 fails the playback. No Speed:
-        // ElevenLabs fails any but 1.0. Pass one only with an OpenAI, Google or Azure model, e.g.
+        // Instructions need ElevenLabs v3; with the default ElevenFlash25 Speak throws, and Azure,
+        // the default under an EU-only policy, ignores them. No Speed: ElevenLabs refuses any but 1.0.
+        // Pass one only with an OpenAI, Google or Azure model, e.g.
         // Model = SpeechGeneratorModel.Gpt4OmniMiniTts, Speed = 0.95.
         var line = Audio.Speak(MediaTargets.Everyone, text, new SpeechOptions
         {
@@ -92,9 +93,13 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
     /// </summary>
     private async Task OverlapAsync(string lineA, string lineB)
     {
-        var a = Audio.Speak(MediaTargets.Everyone, lineA, new SpeechOptions { Voice = "Sarah" },
+        // Sarah and George are ElevenLabs voices: name the model, since the default follows the
+        // region policy and another model reads the name as its own voice
+        var a = Audio.Speak(MediaTargets.Everyone, lineA,
+            new SpeechOptions { Model = SpeechGeneratorModel.ElevenFlash25, Voice = "Sarah" },
             new PlayOptions { Slot = "voice-a", Pan = -0.5f });
-        var b = Audio.Speak(MediaTargets.Everyone, lineB, new SpeechOptions { Voice = "George" },
+        var b = Audio.Speak(MediaTargets.Everyone, lineB,
+            new SpeechOptions { Model = SpeechGeneratorModel.ElevenFlash25, Voice = "George" },
             new PlayOptions { Slot = "voice-b", Pan = 0.5f });
 
         await Task.WhenAll(a.Completion, b.Completion);

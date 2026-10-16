@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: mcp-tools-from-server — see docs/patterns/mcp-tools-from-server.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class McpToolsFromServer : IPatternDemo
+internal sealed class McpToolsFromServer(IApp<SessionIdentity, ClientParameters> app) : IPatternDemo
 {
     public string Slug => "mcp-tools-from-server";
     public string Title => "Calling tools on an MCP server";
@@ -59,9 +59,17 @@ internal sealed class McpToolsFromServer : IPatternDemo
     {
         view.Column(["gap-2"], content: col =>
         {
+            // The server's address and token are app secrets, set once with
+            // `ikon secret set KB_MCP_URL` and `ikon secret set KB_MCP_TOKEN`, never in source.
             col.Button(text: "Connect", onClick: async () =>
             {
-                var client = await ConnectAsync("https://mcp.example.com", "token");
+                if (!app.Secrets.TryGet("KB_MCP_URL", out var endpoint) || !app.Secrets.TryGet("KB_MCP_TOKEN", out var token))
+                {
+                    _output.Value = "Set the KB_MCP_URL and KB_MCP_TOKEN secrets, then restart the app.";
+                    return;
+                }
+
+                var client = await ConnectAsync(endpoint, token);
                 _client?.Dispose();
                 _client = client;
             });
@@ -77,6 +85,28 @@ internal sealed class McpToolsFromServer : IPatternDemo
                 col.Markdown(output);
             }
         });
+    }
+    #endregion
+
+    #region example:pattern-mcp-tools-in-emerge-run
+    /// <summary>
+    /// The model calls the server's tools itself. Only the tools named here are offered, because a server
+    /// can add tools at any time. A tool that writes or deletes reaches the model only if the app names it.
+    /// </summary>
+    private static async Task<string> AnswerWithServerToolsAsync(McpClient client, string question, CancellationToken ct)
+    {
+        var serverTools = client.ToFunctions(["search", "get_document"], ct);
+
+        return await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>
+        {
+            pass.Command = question;
+            pass.MaxToolCalls = 6;
+
+            foreach (var tool in serverTools)
+            {
+                pass.Tools.Add(tool);
+            }
+        }, ct);
     }
     #endregion
 }

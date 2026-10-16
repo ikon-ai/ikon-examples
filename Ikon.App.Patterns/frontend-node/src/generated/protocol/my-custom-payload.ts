@@ -99,6 +99,7 @@ export function fromProtocolMessageMyCustomPayload(raw: ProtocolMessage | ArrayB
     return decodeMyCustomPayload(payload, destination);
 }
 
+// Returns a Promise, which AppMessaging.send refuses. An AppMessageType takes toProtocolMessageMyCustomPayload above
 export async function toProtocolMessageMyCustomPayloadAsync(value: MyCustomPayload, senderId: number, overrides?: ProtocolMessageOverrides): Promise<ProtocolMessage>
 {
     const payload = encodeMyCustomPayload(value);

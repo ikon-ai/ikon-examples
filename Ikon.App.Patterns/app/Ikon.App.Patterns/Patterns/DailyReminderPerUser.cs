@@ -10,7 +10,7 @@ internal sealed class DailyReminderPerUser : IPatternDemo
     public string Title => "Daily reminder per user";
     public string Category => "Notifications";
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Backend pattern: an hourly [Cron] job reads every user's time zone and last activity from the database and sends one push notification to each user whose local reminder hour it is and who has not been active today — see docs/patterns/daily-reminder-per-user.md.");
+        "Backend pattern: an hourly [Cron] job reads every user's time zone and last activity from the database. It sends one notification to each user whose local reminder hour it is and who has not been active today. The notification is kept in the in-app inbox and pushed to every device. See docs/patterns/daily-reminder-per-user.md.");
 }
 
 // Abstract so neither the bundle scan nor the Patterns app registers its [Cron] job: the gallery has
@@ -19,6 +19,10 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
 {
     #region example:pattern-daily-reminder-per-user
     private const int ReminderHour = 19;
+
+    // The inbox keeps every reminder in the app's bell as well as pushing it, and sends it on the
+    // channels a route names, such as an EmailNotificationChannel registered in OnStarting.
+    private readonly NotificationInbox _inbox = new(app);
 
     // Npgsql reads a Postgres date column as DateOnly; a DateTime property here fails at runtime.
     private sealed record ReminderRow(string UserId, string TimeZone, DateOnly? LastActive, DateOnly? LastReminded);
@@ -38,16 +42,17 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
     }
 
     // Call from app.OnClientJoined: the client's time zone is known only while it is connected, and
-    // the cron job below runs with no client connected.
+    // the cron job below runs with no client connected. A deploy's boot-snapshot capture joins as a
+    // client too (ctx.IsSnapshot, user id "snapshot-0"), and it is not a user to remind.
     private async Task RememberUserAsync(Context ctx)
     {
-        if (string.IsNullOrEmpty(ctx.UserId))
+        if (string.IsNullOrEmpty(ctx.UserId) || ctx.IsSnapshot)
         {
             return;
         }
 
         var timeZone = string.IsNullOrEmpty(ctx.Timezone) ? "UTC" : ctx.Timezone;
-        var today = LocalToday(timeZone);
+        var today = LocalToday(timeZone, DateTime.UtcNow);
 
         await using var connection = await app.DatabaseAsync();
         await connection.OpenAsync();
@@ -58,9 +63,10 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
     }
 
     // Every hour on the hour, UTC. Whoever's local reminder hour it now is, and who has not been active
-    // or reminded today, gets one notification.
+    // or reminded today, gets one notification. The hour comes from cron.FireTimeUtc, so
+    // 'ikon cron run --at <UTC time>' tests any hour.
     [Cron("0 * * * *")]
-    public async Task SendDailyRemindersAsync(CancellationToken ct)
+    public async Task SendDailyRemindersAsync(CronContext cron, CancellationToken ct)
     {
         await using var connection = await app.DatabaseAsync();
         await connection.OpenAsync(ct);
@@ -72,7 +78,7 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
 
         foreach (var row in rows)
         {
-            var now = LocalNow(row.TimeZone);
+            var now = LocalNow(row.TimeZone, cron.FireTimeUtc);
             var today = DateOnly.FromDateTime(now);
 
             if (now.Hour != ReminderHour || row.LastActive == today || row.LastReminded == today)
@@ -90,17 +96,19 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
                 continue;
             }
 
-            await app.Notifications.SendToUserAsync(row.UserId,
+            // AllDevices pushes to every device the user registered; NotificationRoute.Everywhere("email")
+            // would also email it.
+            await _inbox.NotifyAsync(row.UserId,
                 new NotificationContent("Time for today's practice", "Ten minutes keeps your streak going", Tag: "daily-reminder", LaunchUrl: "/"),
-                NotificationReach.AllDevices, ct);
+                kind: "reminder", route: NotificationRoute.AllDevices, ct: ct);
         }
     }
 
     // An unknown zone id falls back to UTC rather than failing the whole job.
-    private static DateTime LocalNow(string timeZone) =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+    private static DateTime LocalNow(string timeZone, DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(utc,
             TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var zone) ? zone : TimeZoneInfo.Utc);
 
-    private static DateOnly LocalToday(string timeZone) => DateOnly.FromDateTime(LocalNow(timeZone));
+    private static DateOnly LocalToday(string timeZone, DateTime utc) => DateOnly.FromDateTime(LocalNow(timeZone, utc));
     #endregion
 }

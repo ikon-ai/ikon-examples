@@ -27,7 +27,9 @@ global using Ikon.AI.VideoSegmentation;
 global using Ikon.AI.WebSearching;
 global using Ikon.AI.WebScraping;
 global using Ikon.Agent;
+global using Ikon.Agent.Skills;
 global using Ikon.App;
+global using Ikon.App.Cron;
 global using Ikon.App.Http;
 global using Ikon.App.Payments;
 global using Ikon.App.Reactive;
@@ -65,6 +67,11 @@ global using System;
 // `IView` as a friendly alias for `UIView`
 global using IView = Ikon.Parallax.UIView;
 global using Context = Ikon.Common.Core.Protocol.Context;
+global using DescriptionAttribute = Ikon.Common.DescriptionAttribute;
+global using CultureInfo = System.Globalization.CultureInfo;
+global using DateTimeStyles = System.Globalization.DateTimeStyles;
+global using NumberStyles = System.Globalization.NumberStyles;
+global using WebUtility = System.Net.WebUtility;
 // </ikon-usings>
 
 // The examples use these nested namespaces as the guides do, without a using of their own.

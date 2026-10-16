@@ -16,7 +16,8 @@ internal sealed class FirstUserBecomesAdmin(IAppBase app) : IPatternDemo
     private ClientProfiles Profiles { get; } = new(app);
 
     private readonly ClientReactive<bool> _isAdmin = new(false);
-    private readonly ClientReactive<string> _newAdminEmail = new("");
+    // Per user, so a reload keeps the typed address
+    private readonly UserReactive<string> _newAdminEmail = new("");
     private readonly ClientReactive<string?> _adminMessage = new((string?)null);
 
     // Once the app has an owner nobody can claim it again, so later joins skip the database
@@ -76,7 +77,7 @@ internal sealed class FirstUserBecomesAdmin(IAppBase app) : IPatternDemo
 
     private void RenderAdminPage(UIView view)
     {
-        view.Column([Card.Default, "gap-3 max-w-md"], content: col =>
+        view.Column([Card.Default, "gap-3 p-4 max-w-md"], content: col =>
         {
             col.Text([Text.H3], "Admins");
 

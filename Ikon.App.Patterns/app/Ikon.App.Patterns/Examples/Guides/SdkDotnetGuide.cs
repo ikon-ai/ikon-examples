@@ -1,6 +1,9 @@
 using Ikon.App.Patterns.Protocol;
 using Ikon.Common.Core.Protocol;
+#region example:sdk-console-usings
+using Ikon.Common.Core;
 using Ikon.Sdk;
+#endregion
 
 namespace Ikon.App.Patterns.Examples;
 
@@ -64,7 +67,8 @@ file static class SdkReadmeExamples
             {
                 ApiKey = Environment.GetEnvironmentVariable("IKON_API_KEY")!,
                 SpaceId = "your-space-id",
-                ExternalUserId = "user-123"
+                ExternalUserId = "user-123",
+                BackendType = BackendType.Production // Development for an app on *.dev.ikonai.app
             },
             Description = "My App"
         };
@@ -107,11 +111,11 @@ file static class SdkReadmeExamples
         {
             ApiKey = new ApiKeyConfig
             {
-                ApiKey = "ikon-xxxxx",           // API key from portal
-                SpaceId = "...",                  // Space ID
+                ApiKey = "ikon-xxxxx",           // From `ikon api-key create` in the app's folder
+                SpaceId = "...",                  // The app's id
                 ExternalUserId = "user-123",      // Your user identifier
                 SessionIdentityHash = "...",      // Optional: attach to a specific live session (connect fails if none owns this hash)
-                BackendType = BackendType.Production,
+                BackendType = BackendType.Production, // Development for an app on *.dev.ikonai.app
                 UserType = UserType.Human,
                 ClientType = ClientType.DesktopApp
             }
@@ -487,6 +491,20 @@ file static class SdkExtraExamples
         #endregion
     }
 
+    public static void ReceiveTypedMessages(IkonClient client)
+    {
+        #region example:sdk-receive-typed
+        // The handler gets only messages of this type, decoded, with the sender's session id
+        var subscription = client.OnMessage<MyCustomPayload>(async (message, senderId) =>
+        {
+            Console.WriteLine($"{senderId}: {message.Text}");
+        });
+
+        // Later, to stop receiving them
+        subscription.Dispose();
+        #endregion
+    }
+
     public static async Task SdkxFunctionVisibility(IkonClient client, MyFunctions myFuncs)
     {
         #region example:sdkx-function-visibility
@@ -583,4 +601,92 @@ file static class SdkExtraExamples
         };
         #endregion
     }
+}
+
+file static class SdkConsoleClientExamples
+{
+    public static async Task JoinAppAsync(string[] args)
+    {
+        #region example:sdk-console-client
+        // The app id: [Target] SpaceId in the app's ikon-config.<environment>.toml
+        const string appId = "your-app-id";
+
+        // For a local `ikon run`, use Local with the port of the Server URL that the run prints; with SpaceId
+        // set, a port that serves another app makes the connect throw. For the deployed app, join as a guest,
+        // which needs no key; Environment is required.
+        var local = args.Contains("--local");
+        var config = local
+            ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = 8443, UserId = "door-kiosk", SpaceId = appId } }
+            : new IkonClientConfig
+            {
+                Guest = new GuestConfig { SpaceId = appId, Environment = IkonBackend.EnvironmentType.Development },
+                DeviceId = "door-kiosk",
+            };
+
+        await using var client = new IkonClient(config);
+        client.ReadyAsync += async e => await client.SignalReadyAsync();
+        await client.ConnectAsync();
+
+        // The app looks up a reactive's stable id by the member's name in its [App] class
+        var stableId = await client.FunctionRegistry.CallAsync<string>("Ikon.Reactive.GetStableIdByName", args: ["_visitorCount"]);
+
+        // The callback runs once with the current value, then on every change
+        var reactives = new ReactiveRegistry(client);
+        await using var visitors = await reactives.SubscribeAsync<int>(stableId, count => Console.WriteLine($"Visitors today: {count}"));
+
+        // Call an External [Function] of the app, passing the key it checks
+        var answer = await client.FunctionRegistry.CallAsync<string>("RecordVisit",
+            args: [Environment.GetEnvironmentVariable("KIOSK_KEY"), "Front door"]);
+        #endregion
+
+        Log.Instance.Debug($"{answer}");
+    }
+
+    public static async Task StayConnectedAsync(IkonClient client)
+    {
+        #region example:sdk-console-stay-connected
+        // Connecting again joins the app's next server, and the ReactiveRegistry subscribes again by itself
+        while (true)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15));
+
+            if (client.State != ConnectionState.Offline)
+            {
+                continue;
+            }
+
+            try
+            {
+                await client.ConnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Not connected: {ex.Message}");
+            }
+        }
+        #endregion
+    }
+}
+
+file sealed class SdkConsoleAppSide(IAppBase app)
+{
+    #region example:sdk-console-app-side
+    // On the [App] class: a shared reactive the program reads by its name
+    private readonly Reactive<int> _visitorCount = new(0);
+
+    // Any program can join as a guest, so a call that changes data sends a key the app checks
+    [Function(Name = "RecordVisit", Visibility = FunctionVisibility.External)]
+    [AllowAnonymous]
+    public string RecordVisit(string key, string door)
+    {
+        if (!app.Secrets.TryGet("KIOSK_KEY", out var expected)
+            || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(expected)))
+        {
+            return "denied";
+        }
+
+        _visitorCount.Value++;
+        return $"ok, {door}";
+    }
+    #endregion
 }

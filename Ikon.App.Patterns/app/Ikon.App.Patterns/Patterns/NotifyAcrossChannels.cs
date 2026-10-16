@@ -61,24 +61,22 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
 
         NotificationOutcome outcome = await _inbox.NotifyAsync(userId, content, kind: "approval", route: route);
 
-        // Skipped is not failure: no address on file, channel unconfigured, or the user muted it.
-        // Failed is. The item still stands in the inbox either way.
-        if (outcome.Failed.Count > 0) { LogFailures(outcome.Failed); }
+        // Skipped is not failure: SkipReasons says why (Muted, QuietHours, FrequencyCap, NoDevice,
+        // NotSent when no address is on file, ...). Failed is. The item stays in the inbox either way.
+        if (outcome.Failed.Count > 0) { LogFailures(outcome.FailureReasons); }
+
+        if (outcome.SkipReasons.TryGetValue("push", out var why) && why == NotificationSkipReason.NoDevice)
+        {
+            Log.Instance.Info($"User {userId} has no device for push; the app can offer to turn notifications on");
+        }
     }
 
     /// Preferences are per user and belong to the user, not the app. Mutes win at every priority;
     /// quiet hours hold for Normal and Low and High bypasses them, which is why urgent must stay rare.
-    private void SetPreferences(string userId, TimeZoneInfo userZone, bool wantsEmail)
+    private void SetPreferences(string userId, string userTimeZoneId, bool wantsEmail)
     {
-        // The window is stored as UTC times of day; the user picked local ones.
-        _inbox.SetQuietHoursFor(userId, ToUtc(new TimeOnly(22, 0), userZone), ToUtc(new TimeOnly(7, 0), userZone));
+        _inbox.SetQuietHoursFor(userId, new TimeOnly(22, 0), new TimeOnly(7, 0), userTimeZoneId);
         _inbox.MuteFor(userId, "email", muted: !wantsEmail);
-    }
-
-    private static TimeOnly ToUtc(TimeOnly local, TimeZoneInfo zone)
-    {
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
-        return TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeToUtc(today.ToDateTime(local, DateTimeKind.Unspecified), zone));
     }
 
     /// The bell. Unread count with sensible overflow, newest first, and every row a way into the
@@ -118,6 +116,6 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
 
     private static string? AddressOf(string userId) => null;
     private static string? PhoneOf(string userId) => null;
-    private static void LogFailures(IReadOnlyList<string> failed) { }
+    private static void LogFailures(IReadOnlyDictionary<string, string> reasons) { }
     private static Task OpenAsync(string? launchUrl) => Task.CompletedTask;
 }

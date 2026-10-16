@@ -36,8 +36,9 @@ internal sealed partial class AgentGuideExamples
     private void DocConsentPrompt(IView view)
     {
         #region example:consent-prompt
-        // Only a signed-in user can answer, so a visitor sees no prompt.
-        if (ReactiveScope.UserIdOrNull is not { Length: > 0 } userId)
+        // A guest has a user id of its own and can answer. A client with no user id, or a visitor on the
+        // space's one global guest id, sees no prompt, because there is no one to record the answer for.
+        if (ReactiveScope.UserIdOrNull is not { Length: > 0 } userId || app.CurrentClientContext is { IsGlobal: true })
         {
             return;
         }

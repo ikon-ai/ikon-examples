@@ -134,6 +134,8 @@ file sealed class InputsExamples
         view.Button([Button.OutlineMd], text: "Secondary", disabled: isLoading, onClick: async () => { /* ... */ });
         view.Button([Button.GhostMd, Button.Icon], onClick: async () => { /* ... */ },
             content: v => v.Icon([Icon.Default], name: "settings"));
+        // icon: draws an icon next to the text: label. A content: lambda is drawn in place of the text, and text: then only names the button.
+        view.Button([Button.OutlineMd], text: "Listen", icon: "headphones", onClick: async () => { /* ... */ });
         view.TextField(bind: _text, placeholder: "Enter text",
             onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
         view.TextArea(bind: _text, style: ["default", "min-h-[100px]"], placeholder: "Type a message...",
@@ -143,10 +145,11 @@ file sealed class InputsExamples
         // it once onSubmit returns, unless the user typed again meanwhile.
         // Note: both TextField and TextArea clear on submit only when an onSubmit handler is set; a bound field
         // with no onSubmit keeps its value. Pass clearOnSubmit: true/false to override either way.
-        // A search box keeps the query on screen after Enter, so it opts out:
-        view.TextField(bind: _query, placeholder: "Search", clearOnSubmit: false,
+        // A search box keeps the query on screen after Enter, so it opts out. Beside a button in a row it
+        // takes flex-1, placed after "default" so the field keeps its theme (["flex-1"] alone is a bare input, IKON025):
+        view.TextField(["default", "flex-1"], bind: _query, placeholder: "Search", clearOnSubmit: false,
             onSubmit: async query => { await RunSearchAsync(query); });
-        view.TextArea(bind: _text, maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
+        view.TextArea(bind: _text, placeholder: "Notes", maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
         // Checkbox / Switch / Slider auto-render their inner part (the check mark, the switch
         // thumb, the slider track+thumb) AND, like RadioGroup / Toggle, their default styling —
         // the bare call below is all you need (a RadioGroupItem's checked fill is the whole dot, so
@@ -156,9 +159,9 @@ file sealed class InputsExamples
         // style: array only to override the default look. To render a checkbox with no check mark
         // at all, opt out explicitly with content: _ => { }.
         view.Checkbox(bind: _checked, label: "Enable feature");  // label: renders a clickable trailing label
-        view.Switch(bind: _enabled);
-        view.Slider(bind: _slider, min: 0, max: 100, step: 1);   // scalar single-thumb; pass value: [a, b] lists for multi-thumb
-        view.Select(bind: _selected, placeholder: "Choose...",
+        view.Switch(bind: _enabled, label: "Notifications");
+        view.Slider(bind: _slider, min: 0, max: 100, step: 1, label: "Volume");  // scalar single-thumb; pass value: [a, b] lists for multi-thumb
+        view.Select(bind: _selected, ariaLabel: "Plan", placeholder: "Choose...",
             options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
         view.RadioGroup(bind: _radio,
             content: view =>
@@ -188,7 +191,8 @@ file sealed class InputsExamples
             onUploadComplete: async args => { /* args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
             onUploadProgress: async args => { /* args.ProgressPercentage (0-100), args.BytesUploaded, args.Size */ },
             accept: [".jpg", ".png", ".pdf"],  // optional file type filter
-            maxFileSize: 10 * 1024 * 1024);    // optional max size in bytes
+            multiple: true,                     // without it, one file per pick; each file is a separate upload with its own onUploadComplete
+            maxFileSize: 10 * 1024 * 1024);    // optional max size in bytes, per file
 
         // FileUploadZone wraps any content with drag-drop + paste upload capability
         view.FileUploadZone(
@@ -279,6 +283,19 @@ file sealed class OverlaysExamples
             durationMs: 3000, showClose: true, closeStyle: [Toast.Close]);
         #endregion
     }
+
+    public void RenderHoverOrTap(UIView view, string explanation)
+    {
+        #region example:hover-or-tap
+        // The Tooltip shows on hover and keyboard focus; the Popover inside its trigger opens on a tap
+        // (and on a click), so the same text reaches a phone.
+        view.Tooltip(contentStyle: [Tooltip.Content],
+            trigger: tip => tip.Popover(contentStyle: [Popover.Content, "w-72"],
+                trigger: tap => tap.Button([Button.GhostSm], text: "Stroke rate"),
+                contentSlot: panel => panel.Text([Text.BodySm], explanation)),
+            contentSlot: tip => tip.Text(text: explanation));
+        #endregion
+    }
 }
 
 file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app)
@@ -347,6 +364,69 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
     }
 }
 
+file sealed class MenubarToolbarExamples
+{
+    private readonly ClientReactive<bool> _showGrid = new(true);
+    private readonly ClientReactive<string> _align = new("left");
+    private readonly ClientReactive<string> _status = new("Ready");
+
+    private Task RunAsync(string command)
+    {
+        _status.Value = $"Ran {command}";
+        return Task.CompletedTask;
+    }
+
+    public void Render(UIView view)
+    {
+        #region example:menubar-and-toolbar
+        // Neither draws a themed look of its own: give each part its Menubar.*, Toolbar.* or DropdownMenu.* token
+        view.Menubar([Menubar.Root], content: bar =>
+        {
+            bar.MenubarMenu(value: "file", content: menu =>
+            {
+                menu.MenubarTrigger([Menubar.Trigger], content: t => t.Text(text: "File"));
+                menu.MenubarContent([Menubar.Content, "p-1"], content: items =>
+                {
+                    items.MenubarItem([Menubar.Item], onSelect: async () => await RunAsync("New report"), content: i => i.Text(text: "New report"));
+                    items.MenubarSeparator([Menubar.Separator, "my-1"]);
+                    items.MenubarItem([Menubar.Item], disabled: true, content: i => i.Text(text: "Export (no reports yet)"));
+                });
+            });
+
+            bar.MenubarMenu(value: "view", content: menu =>
+            {
+                menu.MenubarTrigger([Menubar.Trigger], content: t => t.Text(text: "View"));
+                menu.MenubarContent([Menubar.Content, "p-1"], content: items =>
+                {
+                    items.MenubarCheckboxItem([DropdownMenu.CheckboxItem],
+                        isChecked: _showGrid.Value ? CheckedState.Checked : CheckedState.Unchecked,
+                        onValueChange: async state => _showGrid.Value = state == CheckedState.Checked,
+                        content: item =>
+                        {
+                            item.MenubarItemIndicator(["absolute left-2"], content: mark => mark.Icon([Icon.Xs], name: "check"));
+                            item.Text(text: "Show grid");
+                        });
+                });
+            });
+        });
+
+        // ToolbarButton takes onClick: and no ariaLabel:, so its content names it
+        view.Toolbar([Toolbar.Root, "mt-2 items-center"], content: bar =>
+        {
+            bar.ToolbarButton([Toolbar.Button], onClick: async () => await RunAsync("Undo"), content: b => b.Text(text: "Undo"));
+            bar.ToolbarSeparator([Toolbar.Separator, "h-5"]);
+            bar.ToolbarToggleGroupSingle([Toolbar.ToggleGroup], value: _align.Value, onValueChange: async v => _align.Value = v, content: group =>
+            {
+                group.ToolbarToggleItem([Toolbar.ToggleItem], value: "left", content: i => i.Text(text: "Left"));
+                group.ToolbarToggleItem([Toolbar.ToggleItem], value: "center", content: i => i.Text(text: "Center"));
+            });
+        });
+
+        view.Text([Text.Caption], _status.Value);
+        #endregion
+    }
+}
+
 file sealed class EditorsExamples
 {
     private const string StarterShader = """
@@ -373,6 +453,15 @@ file sealed class EditorsExamples
         view.RichTextEditor(value: _pageHtml.Value, placeholder: "Write the page…",
             tools: [RichTextTool.Bold, RichTextTool.Italic, RichTextTool.Heading2, RichTextTool.BulletList, RichTextTool.Link, RichTextTool.Undo, RichTextTool.Redo],
             onValueChange: async html => _pageHtml.Value = html);
+        #endregion
+    }
+
+    public void RenderSavedRichText(UIView view)
+    {
+        #region example:rich-text-display
+        // Saved editor HTML shown to readers: the same component, read-only and without its toolbar.
+        // view.Markdown would show the tags as text.
+        view.RichTextEditor(value: _pageHtml.Value, readOnly: true, showToolbar: false, ariaLabel: "Onboarding page");
         #endregion
     }
 
@@ -483,6 +572,9 @@ internal sealed partial class AgentGuideExamples
         view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From bytes
         view.Skeleton(["w-2/3"], size: SkeletonSize.Lg);   // Loading placeholder; style is added to the pulse
         view.Box([Skeleton.Title]);                        // Or a token: Skeleton.Title, Text, TextSm, Avatar, Card, Button, Input
+        view.Badge("Ready", tone: SemanticTone.Success, size: BadgeSize.Sm);  // Size is a parameter: there is no Badge.Sm
+        view.Badge([Badge.BrandSm], "New");                // Or a token that names tone and size
+        view.Alert("Card declined", tone: SemanticTone.Error, description: "Try another card.");  // The first argument is the title
         #endregion
     }
 
@@ -496,6 +588,37 @@ internal sealed partial class AgentGuideExamples
         view.ScrollArea(rootStyle: ["h-[400px]"], content: view => { /* ... */ });
         view.Separator(["default", "my-4"]);
         view.AspectRatio(["w-full"], ratio: 16.0 / 9.0, content: view => { /* ... */ });
+        #endregion
+    }
+
+    private sealed record PlanRow(string Name, int Seats, decimal Price);
+
+    private static Task OpenPlan(PlanRow plan) => Task.CompletedTask;
+
+    private static void DocContentGrid(UIView view, IReadOnlyList<PlanRow> plans)
+    {
+        #region example:content-grid
+        // Width is a CSS track size; a column without one takes Flex shares of the space left
+        view.ContentGrid(
+            [
+                new ContentGridColumn("Plan", Flex: 1),
+                new ContentGridColumn("Seats", Width: "6rem", Align: ColumnAlign.Right),
+                new ContentGridColumn("Price", Width: "8rem", Align: ColumnAlign.Right),
+                new ContentGridColumn(null, Width: "7rem"),
+            ],
+            style: [ContentGrid.Bordered],
+            content: grid =>
+            {
+                // One child per cell, row after row; Align right-aligns the cells' text as well
+                foreach (var plan in plans)
+                {
+                    grid.Text([ContentGrid.Cell], plan.Name);
+                    grid.Text([ContentGrid.Cell, "tabular-nums"], plan.Seats.ToString());
+                    grid.Text([ContentGrid.Cell, "tabular-nums"], $"{plan.Price:N0} €");
+                    grid.Box([ContentGrid.Cell], content: cell =>
+                        cell.Button([Button.OutlineSm], text: "Open", onClick: async () => await OpenPlan(plan)));
+                }
+            });
         #endregion
     }
 

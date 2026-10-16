@@ -44,4 +44,40 @@ internal sealed class RegionPinnedAi : IPatternDemo
         return await generator.GenerateAsync(prompt);
     }
     #endregion
+
+    #region example:pattern-region-pinned-llm
+    // An LLM call takes its regions on the pass. Leaving Global out of the list is what keeps it in the EU.
+    private static async Task<string> AnswerInEuAsync(string question, CancellationToken ct)
+    {
+        const LLMModel Model = LLMModel.Claude55Sonnet;
+
+        var servedInEu = Emerge.GetSupportedRegions(Model).Any(region =>
+            region is ModelRegion.Eu or ModelRegion.EuNorth or ModelRegion.EuWest or ModelRegion.EuCentral or ModelRegion.EuSouth);
+
+        if (!servedInEu)
+        {
+            throw new InvalidOperationException($"{Model} is not served in the EU");
+        }
+
+        return await Emerge.Run<string>(Model, pass =>
+        {
+            pass.Command = question;
+            pass.Regions = [ModelRegion.Eu];
+        }, ct);
+    }
+    #endregion
+
+    #region example:pattern-region-pinned-outside-eu
+    // The United States first, then anywhere: Global matches every region, so a model with no US
+    // route still answers, from wherever it is served. Without Global such a call throws
+    // RegionNotSupportedException instead.
+    private static async Task<string> AnswerNearUsAsync(string question, CancellationToken ct)
+    {
+        return await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>
+        {
+            pass.Command = question;
+            pass.Regions = [ModelRegion.UsEast, ModelRegion.UsWest, ModelRegion.Us, ModelRegion.Global];
+        }, ct);
+    }
+    #endregion
 }

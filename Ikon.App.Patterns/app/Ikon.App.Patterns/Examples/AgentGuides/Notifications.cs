@@ -74,11 +74,15 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
-    private void DocNotifyQuietHours(string userId)
+    private async Task DocNotifyQuietHoursAsync(string userId)
     {
         #region example:notify-quiet-hours
-        _inbox.SetQuietHoursFor(userId, new TimeOnly(21, 0), new TimeOnly(6, 0));   // 21:00–06:00 UTC
+        _inbox.SetQuietHoursFor(userId, new TimeOnly(21, 0), new TimeOnly(6, 0), "Europe/Helsinki");   // 21:00–06:00 local; without the zone, UTC
         // signed-in form: SetQuietHours(...) / QuietHours; read QuietHoursFor(userId); clear with ClearQuietHoursFor(userId)
+
+        // Quiet hours for email and SMS too, not only push; High priority still goes through.
+        var quietEverywhere = NotificationRoute.Default.With("email", "sms") with { QuietHoursApplyToChannels = true };
+        await _inbox.NotifyAsync(userId, new NotificationContent("Reminder", "Chapter 3 is due Friday"), route: quietEverywhere);
         #endregion
     }
 
@@ -106,11 +110,14 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:notification-sending
         // One connected session — sessionId is an int (e.g. ReactiveScope.ClientId inside a UI / onClick handler).
+        // SendToSessionAsync returns one result. SendToUserAsync and BroadcastAsync return a list with a row per session.
         NotificationSendResult r = await app.Notifications.SendToSessionAsync(
             sessionId, new NotificationContent("Build finished", "Your app deployed successfully."));
+        bool shown = r.Delivered;
 
         // A user's connected sessions — userId is a string. Falls back to offline push when the user has NO connected session (see below).
-        await app.Notifications.SendToUserAsync(userId, new NotificationContent("New message", "Alice replied"));
+        IReadOnlyList<NotificationSendResult> rows = await app.Notifications.SendToUserAsync(userId, new NotificationContent("New message", "Alice replied"));
+        bool reached = rows.Any(row => row.Delivered);
 
         // Everyone currently connected.
         await app.Notifications.BroadcastAsync(new NotificationContent("Maintenance in 5 min"));
@@ -119,6 +126,6 @@ internal sealed partial class AgentGuideExamples
         NotificationPermission p = await app.Notifications.GetPermissionAsync(sessionId);
         #endregion
 
-        Log.Instance.Debug($"{r} {p}");
+        Log.Instance.Debug($"{shown} {reached} {p}");
     }
 }

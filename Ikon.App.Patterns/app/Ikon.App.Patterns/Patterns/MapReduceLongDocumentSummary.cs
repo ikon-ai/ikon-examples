@@ -1,3 +1,5 @@
+using Ikon.Pipelines.Public.Processors.Pdf;
+
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: mapreduce-long-document-summary — see docs/patterns/mapreduce-long-document-summary.md.
@@ -72,6 +74,68 @@ internal sealed class MapReduceLongDocumentSummary : IPatternDemo
             start += length;
         }
         return chunks;
+    }
+    #endregion
+
+    #region example:pattern-mapreduce-pdf-parts
+    public sealed record PartSummary(string Pages, string? Summary);
+
+    // The model reads a long PDF in parts of a few pages each. A part that fails is named in the result
+    // and the other parts are still summarised.
+    private static async Task<string> SummarizePdfAsync(byte[] pdf, int pagesPerPart, CancellationToken ct)
+    {
+        var model = LLMModel.Claude55Sonnet;
+
+        if (!Emerge.GetCapabilities(model).SupportsInputPdf)
+        {
+            throw new InvalidOperationException($"{model} does not read PDFs; send page images instead");
+        }
+
+        var parts = new List<(string Pages, byte[] Pdf)>();
+
+        using (var document = PdfDocument.Load(pdf))
+        {
+            for (var first = 0; first < document.PageCount; first += pagesPerPart)
+            {
+                var count = Math.Min(pagesPerPart, document.PageCount - first);
+                using var part = new MemoryStream();
+                document.CopyPages(first, count, part);
+                parts.Add(($"{first + 1}-{first + count}", part.ToArray()));
+            }
+        }
+
+        using var limit = new SemaphoreSlim(3);
+
+        var summaries = await Task.WhenAll(parts.Select(async part =>
+        {
+            await limit.WaitAsync(ct);
+
+            try
+            {
+                var context = new KernelContext().Add(new MessageBlock(MessageBlockRole.User,
+                    [new TextPart($"Pages {part.Pages} of a longer document."), new PdfPart(part.Pdf, "application/pdf")]));
+
+                var summary = await Emerge.Run<string>(model, context,
+                    pass => pass.Command = "Summarise these pages in five sentences.", ct);
+                return new PartSummary(part.Pages, summary);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && SpendLimitExceededException.Find(ex) is null)
+            {
+                Log.Instance.Warning($"PDF part {part.Pages} was not summarised: {ex.Message}");
+                return new PartSummary(part.Pages, null);
+            }
+            finally
+            {
+                limit.Release();
+            }
+        }));
+
+        var read = summaries.Where(s => s.Summary is not null).Select(s => $"Pages {s.Pages}: {s.Summary}");
+        var skipped = summaries.Where(s => s.Summary is null).Select(s => s.Pages).ToList();
+
+        var overview = await Emerge.AskAsync($"Combine these part summaries into one overview:\n{string.Join("\n", read)}", model, ct);
+
+        return skipped.Count == 0 ? overview : $"{overview}\n\nNot read: pages {string.Join(", ", skipped)}";
     }
     #endregion
 }

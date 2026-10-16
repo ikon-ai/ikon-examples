@@ -31,7 +31,7 @@ internal sealed class TypicalAppStructure : IPatternDemo
             UI.Root(["h-screen flex flex-col"], content: view =>
             {
                 // ── Header region ───────────────────────────────────────────────
-                view.Row(["flex-shrink-0 px-6 py-4 border-b items-center justify-between"], content: view =>
+                view.Row(["shrink-0 px-6 py-4 border-b border-secondary items-center justify-between"], content: view =>
                 {
                     view.Text([Text.H3, "tracking-wide"], text: "MyApp");
                 });
@@ -41,10 +41,7 @@ internal sealed class TypicalAppStructure : IPatternDemo
                 {
                     view.Text([Text.H1], text: "Welcome");
                     view.Text([Text.Body, "text-muted-foreground"], text: $"count: {_count.Value}");
-                    view.Button(
-                        style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
-                        onClick: () => _count.Value++,
-                        content: v => v.Text(text: "Increment"));
+                    view.Button([Button.PrimaryMd], text: "Increment", onClick: () => _count.Value++);
                 });
             });
         }

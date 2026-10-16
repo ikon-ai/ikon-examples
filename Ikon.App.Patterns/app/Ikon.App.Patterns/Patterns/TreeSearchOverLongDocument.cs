@@ -123,4 +123,54 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
         });
     }
     #endregion
+
+    #region example:pattern-tree-index-from-headings
+    /// <summary>
+    /// A manual that already has headings needs no model to index it. One node per heading holds the
+    /// text under it, so a hit is that section rather than the whole document, and a long manual costs
+    /// nothing to index. The summary is the section's first line, which is what the navigator reads.
+    /// </summary>
+    internal static TreeIndex IndexFromHeadings(string title, string markdown)
+    {
+        var root = new TreeNode("root", title);
+        TreeNode? chapter = null;
+        TreeNode? current = null;
+        var text = new System.Text.StringBuilder();
+
+        void Close()
+        {
+            if (current is not null)
+            {
+                current.Content = text.ToString().Trim();
+                current.Summary = current.Content.Split('\n')[0] is var first && first.Length > 160 ? first[..160] : first;
+            }
+
+            text.Clear();
+        }
+
+        foreach (var line in markdown.Split('\n'))
+        {
+            if (line.StartsWith("# ", StringComparison.Ordinal))
+            {
+                Close();
+                chapter = new TreeNode($"{root.Children.Count + 1}", line[2..].Trim());
+                root.AddChild(chapter);
+                current = chapter;
+            }
+            else if (line.StartsWith("## ", StringComparison.Ordinal) && chapter is not null)
+            {
+                Close();
+                current = new TreeNode($"{chapter.Id}.{chapter.Children.Count + 1}", line[3..].Trim());
+                chapter.AddChild(current);
+            }
+            else
+            {
+                text.AppendLine(line);
+            }
+        }
+
+        Close();
+        return new TreeIndex(root);
+    }
+    #endregion
 }

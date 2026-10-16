@@ -168,14 +168,17 @@ file sealed class PxReactiveCollectionsReactivelistAndReactivedictioExamples(IAp
     public async Task PxReactiveCollectionsReactivelistAndReactivedictionary2(UIView view)
     {
         #region example:px-reactive-collections-reactivelist-and-reactivedictionary-2
-        _todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
-        _todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
-        _todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
+        view.Button(text: "Tidy up", onClick: () =>
+        {
+            _todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
+            _todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
+            _todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
 
-        _scores["anna"] = 10;                // add-or-replace, one notification
-        _scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
+            _scores["anna"] = 10;                // add-or-replace, one notification
+            _scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
+        });
 
-        foreach (var todo in _todos) { Render(todo); } // enumerate the reactive directly
+        foreach (var todo in _todos) { Render(todo); } // the render enumerates the reactive directly
         #endregion
     }
 }
@@ -342,11 +345,14 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
 
     public async Task PxMergeSemanticsTheDefaultMarker(UIView view)
     {
+        // The example shows the unstyled box on purpose.
+#pragma warning disable IKON025, IKON033
         #region example:px-merge-semantics-the-default-marker
         view.TextField(bind: _name);                        // fully themed input
         view.TextField(["default", "w-full"], bind: _name); // themed input, full width  ← what you usually want
         view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
         #endregion
+#pragma warning restore IKON025, IKON033
     }
 
     public async Task PxMergeSemanticsTheDefaultMarker2(UIView view)

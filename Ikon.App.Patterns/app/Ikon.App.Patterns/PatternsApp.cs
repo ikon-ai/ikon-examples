@@ -3,7 +3,7 @@ using Ikon.App.Patterns;
 return await App.Run(args);
 
 public record SessionIdentity(string? UserId);
-public record ClientParameters(string Name = "Ikon");
+public record ClientParameters(string Name = "Ikon", string? Checkin = null);
 
 [App]
 public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)

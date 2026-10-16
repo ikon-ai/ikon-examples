@@ -51,9 +51,9 @@ internal sealed class EndpointAndMcpTool(IAppBase app) : IPatternDemo
     /// A granted endpoint's PublicUrl is a bare address with no grant, so it is not callable as it
     /// stands (a Public endpoint's is). Minting is the ONLY way to a working granted URL, in the
     /// cloud and in local dev alike.
-    private async Task ShareAsync(string documentId)
+    private async Task ShareAsync()
     {
-        MintedUrl minted = await app.MintUrlAsync(nameof(Sum), new { DocumentId = documentId });
+        MintedUrl minted = await app.MintUrlAsync(nameof(Sum), expiresIn: TimeSpan.FromDays(7));
         _shareUrl.Value = minted.Url;
     }
 

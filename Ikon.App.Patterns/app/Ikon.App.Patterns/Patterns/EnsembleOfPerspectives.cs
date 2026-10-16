@@ -37,12 +37,13 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
     private readonly Reactive<Review?> _review = new(null);
 
     // BestOf picks one candidate; EnsembleMerge MERGES several. Reach for this when the answer
-    // should contain every perspective rather than the best single one.
-    private static readonly string[] Perspectives =
+    // should contain every perspective rather than the best single one. Each reviewer here has its
+    // own perspective and its own model, because different models miss different things.
+    private static readonly (string Role, LLMModel Model)[] Reviewers =
     [
-        "the security reviewer",
-        "the accessibility reviewer",
-        "the performance reviewer",
+        ("the security reviewer", LLMModel.Claude55Sonnet),
+        ("the accessibility reviewer", LLMModel.Gpt55),
+        ("the performance reviewer", LLMModel.Gemini31Pro),
     ];
 
     private async Task ReviewAsync(string proposal)
@@ -52,20 +53,29 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
         var merged = await Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
         {
             options.Command = proposal;
-            options.SolverCount = Perspectives.Length;
+            options.SolverCount = Reviewers.Length;
 
             // MaxParallel must be at least 1 -- there is no "unbounded" sentinel, and 0 is a
             // configuration error rather than a request for no limit.
             options.MaxParallel = 3;
 
-            // AgentScope.Role is added to that solver's system prompt, which is what makes the
-            // members differ. Left unset they default to Solver0, Solver1 … and differ only by
-            // that generic name, which is a much weaker form of divergence.
-            options.SolverConfig = solver => solver.Role = Perspectives[solver.Index % Perspectives.Length];
+            options.SolverConfig = solver =>
+            {
+                var reviewer = Reviewers[solver.Index % Reviewers.Length];
+
+                // AgentScope.Role is added to that solver's system prompt, which is what makes the
+                // members differ. Left unset they default to Solver0, Solver1 … and differ only by
+                // that generic name, which is a much weaker form of divergence.
+                solver.Role = reviewer.Role;
+
+                // A solver's own Model overrides the one EnsembleMerge was given. The merger
+                // still runs on the EnsembleMerge model.
+                solver.Model = reviewer.Model;
+            };
 
             // The merger inherits these options, its own settings on top -- unset, its Command is
-            // the proposal. It decides how the perspectives combine, and without steering it will
-            // simply concatenate them.
+            // the proposal. It decides how the perspectives combine, and without steering it keeps
+            // most of what each one says.
             options.Merger(merger =>
                 merger.Command = "Combine the reviews. Keep every distinct risk; drop duplicates.");
         });

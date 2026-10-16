@@ -63,7 +63,7 @@ internal sealed class OverlaySelection : IPatternDemo
             overlayStyle: [Dialog.Overlay],
             showClose: true,
             title: "Rename view",
-            content: v => v.TextField([Input.Default, "mt-4"], value: _renameDraft.Value ?? "",
+            content: v => v.TextField([Input.Default, "mt-4"], value: _renameDraft.Value ?? "", ariaLabel: "View name",
                 onValueChange: async text => _renameDraft.Value = text),
             footer: v => v.Button([Button.PrimaryMd], text: "Save", onClick: async () => _renameDraft.Value = null));
 

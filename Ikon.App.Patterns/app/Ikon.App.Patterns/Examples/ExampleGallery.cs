@@ -31,7 +31,6 @@ internal static class ExampleGallery
         ["CwFullScreenLayoutsWithPadding"] = "declares the app's root with UI.Root, which a view inside the gallery cannot be",
         ["PxOpenAsGuestTheDefault.PxOpenAsGuestTheDefault"] = "declares the app's root with UI.Root, which a view inside the gallery cannot be",
         ["CustomComponent"] = "draws custom nodes (my-component, custom.lua-editor) that this gallery's frontend registers no component for, so each would paint an Unregistered node type placeholder",
-        ["PxReactiveCollectionsReactivelistAndReactivedictio"] = "is handler code that mutates reactive collections, not a view: rendered, it would mutate them again on every render",
         ["PxBackgroundWorkTheForMethods"] = "is handler code that starts a background task writing client state, not a view: rendered, it would start another on every render",
         ["PxAppChromeAndSemantictone.PxAppChromeAndSemantictone3"] = "raises a success and an error toast in the same body that mounts the host, so a live render would raise two more on every render",
         ["PxHandBuiltSkeletons.PxHandBuiltSkeletons2"] = "is an empty snapshot-only branch, which draws nothing outside a boot-snapshot capture",

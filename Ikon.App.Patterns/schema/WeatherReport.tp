@@ -1,0 +1,13 @@
+type = "WeatherReport"
+version = 1
+doc = "The device-typed-messages pattern's reading, sent by a device program to the app. Generated here so the pattern's app side and device side compile against the class the Teleport compiler writes."
+
+[namespaces]
+csharp = "Ikon.App.Patterns.Protocol"
+typescript = ""
+
+[fields]
+StationKey = "string"
+StationId = "string"
+Sequence = "int32"
+TemperatureC = "float64"

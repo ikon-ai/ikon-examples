@@ -27,6 +27,8 @@ internal sealed class MultiUserGame : IPatternDemo
         private readonly ReactiveList<Player> _players = new();
 
         // ── Per-client state (each player has their own copy) ───────────────────
+        // Per client, not per user, because each tab is a player. In a local run every tab is signed
+        // in as you, so a UserReactive name would show in every tab.
         private readonly ClientReactive<string> _playerName = new("");
         private readonly ClientReactive<bool> _hasJoined = new(false);
         private readonly ClientReactive<int?> _selectedAnswer = new((int?)null);

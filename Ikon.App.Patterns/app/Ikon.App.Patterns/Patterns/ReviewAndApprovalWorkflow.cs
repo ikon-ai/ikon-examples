@@ -47,7 +47,8 @@ internal sealed class ReviewAndApprovalWorkflow : IPatternDemo
     // The rows are stored in a table; LoadAsync fills this list from app.OnStarting, and every move
     // updates the table first and the list after it.
     private readonly ReactiveList<Submission> _submissions = new();
-    private readonly ClientReactive<string> _reviewNote = new("");
+    // Per user, so a reload keeps a half-written note
+    private readonly UserReactive<string> _reviewNote = new("");
 
     private async Task LoadAsync()
     {
@@ -106,7 +107,7 @@ internal sealed class ReviewAndApprovalWorkflow : IPatternDemo
         {
             foreach (var submission in _submissions)
             {
-                view.Column([Card.Default, "gap-2"], key: submission.Id, content: card =>
+                view.Column([Card.Default, "gap-2 p-4"], key: submission.Id, content: card =>
                 {
                     card.Row([Layout.Row.SpaceBetween], content: row =>
                     {

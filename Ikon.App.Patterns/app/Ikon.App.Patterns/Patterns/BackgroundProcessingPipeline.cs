@@ -64,6 +64,10 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
                 await ProcessFileAsync(caseFileId, caseId, assetUri, fileName, mimeType, fileSize);
                 RemoveActiveUpload(uploadId);
             }
+            catch (Exception) when (app.StoppingToken.IsCancellationRequested)
+            {
+                // The instance is stopping: the row stays Processing for the next instance to pick up.
+            }
             catch (Exception ex)
             {
                 Log.Instance.Error($"Processing of file {caseFileId} ({fileName}) failed: {ex.Message}");

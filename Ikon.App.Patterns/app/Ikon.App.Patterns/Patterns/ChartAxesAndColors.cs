@@ -47,8 +47,8 @@ internal sealed class ChartAxesAndColors : IPatternDemo
                 // LegendOffset is signed, positive down or right, so a bottom legend takes a
                 // positive one; it has to fit inside the margin above.
                 LegendOffset = 36,
-                // TickCount asks for approximately N evenly-spaced ticks INSTEAD of one per data
-                // point -- the fix for a crowded axis, rather than rotating labels.
+                // TickCount asks for approximately N evenly-spaced ticks. Without it a crowded
+                // axis labels every n-th value by itself.
                 TickCount = 4,
             },
 

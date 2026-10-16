@@ -42,8 +42,10 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
     // NeedsLiveApp: it plays audio through the app's Audio, which only a running app has.
     internal sealed record DocExampleRun(Func<Task<string>> Run, bool NeedsLiveApp);
 
-    // Inputs the examples take as the reader's own data: a 1x1 PNG, and the zip signature a .docx starts with.
+    // Inputs the examples take as the reader's own data: a 1x1 PNG, a 256x256 one for the upscaler
+    // (which refuses an image under 128 pixels a side), and the zip signature a .docx starts with.
     private static readonly byte[] SamplePng = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+    private static readonly byte[] SampleUpscalePng = ImageUtils.EncodePng(new byte[256 * 256 * 4], 256, 256);
     private static readonly byte[] SampleDocx = [0x50, 0x4B, 0x03, 0x04];
 
     private void RenderDocExamplesSection(UIView view)
@@ -84,7 +86,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
             DocCaptureButtons(view);
             ExampleGallery.RenderMethodLabel(view, nameof(DocMicToggleButton));
             DocMicToggleButton(view);
-            DocLogLevels();
+            DocLogLevels("swap-42", 3);
         });
 
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
@@ -105,7 +107,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
                 RenderDocExampleButton(view, "Object generation", async () => (await AiRObjectGenerationExamples.AirObjectGenerationAsync()).Name);
                 RenderDocExampleButton(view, "Image one-shot", async () => await GenerateImageOneShotAsync("A neon-lit cyberpunk street"));
                 RenderDocExampleButton(view, "Image config", async () => { await DocImageGenerateConfigAsync(); return "generated"; });
-                RenderDocExampleButton(view, "Upscale one-shot", () => DocImageUpscaleOneShotAsync(SamplePng));
+                RenderDocExampleButton(view, "Upscale one-shot", () => DocImageUpscaleOneShotAsync(SampleUpscalePng));
                 RenderDocExampleButton(view, "Upscale", async () => await DocImageUpscaleConfigAsync());
                 RenderDocExampleButton(view, "Sound effect", DocSoundEffectOneShotAsync);
                 RenderDocExampleButton(view, "Sound effect streamed", async () => { await DocSoundEffectStreamedAsync(); return "played"; }, needsLiveApp: true);

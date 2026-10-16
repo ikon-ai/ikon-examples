@@ -18,19 +18,19 @@ internal sealed class ShareableResultExport : IPatternDemo
     private readonly Reactive<bool> _busy = new(false);
 
     /// <summary>
-    /// Screenshot a page the app itself serves. FullPage captures past the viewport, and
+    /// Screenshot a page the app itself serves. Jina is hosted, so it works in a deployed app and
+    /// needs a URL reachable from the internet. FullPage captures past the viewport, and
     /// JavaScript runs in the page before the shot -- the hook for hiding chrome that should not
     /// appear in a shared image.
     /// </summary>
     private async Task RenderPngAsync(string url)
     {
-        using var scraper = new WebScraper(WebScraperModel.LocalPlaywright);
+        using var scraper = new WebScraper(WebScraperModel.Jina);
 
         var shot = await scraper.TakeScreenshotAsync(new ScreenshotConfig
         {
             Url = url,
             FullPage = true,
-            Width = 1200,
             JavaScript = "document.querySelectorAll('.no-export').forEach(e => e.remove());",
         });
 

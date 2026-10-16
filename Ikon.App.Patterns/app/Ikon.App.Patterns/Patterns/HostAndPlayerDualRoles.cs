@@ -11,7 +11,7 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
     public string Title => "Host and player dual roles";
     public string Category => "Realtime";
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Multi-surface pattern with no self-contained demo: one app serves a host view and a player view from the same session, branching on a client's Host parameter. See the source and docs/patterns/host-and-player-dual-roles.md.");
+        "Multi-surface pattern with no self-contained demo: one app serves a host view and a player view from the same session, branching on whether a client's link carries the session's host code. See the source and docs/patterns/host-and-player-dual-roles.md.");
 
     public sealed record SessionIdentity(string Id);
 
@@ -22,21 +22,41 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
     private static void RenderPlayerView(UIView view) => throw new NotImplementedException();
 
     #region example:pattern-host-and-player-dual-roles
-    public record ClientParams(string Id = "", bool Host = false);
+    public record ClientParams(string Id = "", string HostCode = "");
 
     public partial class KahootApp(IApp<SessionIdentity, ClientParams> app)
     {
+        // The code the host's link carried when the session started. Players never see it, so a
+        // player cannot make themselves the host by editing their link.
+        private readonly Reactive<string?> _hostCode = new(null);
+
+        /// <summary>Call once from Main.</summary>
+        private void WireHostCode()
+        {
+            // The first client in a new session is the host who created it, because players can
+            // only learn the session id from the host's screen.
+            app.OnClientJoined((ctx, parameters) =>
+            {
+                if (_hostCode.Value is null && parameters.HostCode.Length > 0)
+                {
+                    _hostCode.Value = parameters.HostCode;
+                }
+
+                return Task.CompletedTask;
+            });
+        }
+
         private bool IsHost()
         {
-            var client = app.Clients[ReactiveScope.ClientId];
-            return client?.Parameters.Host == true;
+            var code = app.Clients[ReactiveScope.ClientId]?.Parameters.HostCode;
+            return !string.IsNullOrEmpty(code) && code == _hostCode.Value;
         }
 
         private string GetJoinUrl()
             => app.JoinUrl(new { id = app.SessionIdentity.Id });
 
         private string GetCreateSessionUrl()
-            => app.JoinUrl(new { id = GenerateSessionId(), host = "true" });
+            => app.JoinUrl(new { id = GenerateSessionId(), hostCode = Guid.NewGuid().ToString("N") });
 
         private void RenderUI(UIView view)
         {

@@ -137,7 +137,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
                     view.Row(["gap-2 items-center"], content: view =>
                     {
                         view.Image(
-                            style: ["w-16 h-16 object-cover", Tokens.Radius.Md],
+                            ["w-16 h-16 object-cover", Tokens.Radius.Md],
                             data: state.ImageData,
                             mimeType: state.ImageMime,
                             alt: state.Name);

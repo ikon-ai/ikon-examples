@@ -95,7 +95,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
                 // state. disabled: is for "the app is busy" only, never for the microphone
                 // permission, which the button asks for itself and cannot ask for while disabled.
                 view.PushToTalkButton(
-                    style: ["default", "w-auto px-5 gap-2"],
+                    ["default", "w-auto px-5 gap-2"],
                     text: _processing.Value ? "Thinking…" : "Hold to talk",
                     disabled: _processing.Value);
             });

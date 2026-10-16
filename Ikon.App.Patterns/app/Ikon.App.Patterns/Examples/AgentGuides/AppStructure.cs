@@ -103,6 +103,20 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    #region example:client-local-time
+    // DateTime.ToLocalTime() and DateTime.Now use the server's zone, which is UTC in a deployed app.
+    // In a render or a handler the viewer's zone is on the current client's context, which is null
+    // outside a client's scope; its Timezone is empty when the client reported none.
+    private string ViewerTime(DateTime utc)
+    {
+        var zoneId = app.CurrentClientContext?.Timezone;
+        var zone = !string.IsNullOrEmpty(zoneId) && TimeZoneInfo.TryFindSystemTimeZoneById(zoneId, out var found)
+            ? found
+            : TimeZoneInfo.Utc;
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).ToString("d MMM HH:mm");
+    }
+    #endregion
+
     private async Task DocBackgroundWorkAsync()
     {
         #region example:background-work
@@ -150,7 +164,7 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.StartVideoCaptureAsync(source, videoOptions); // returns streamId
         await ClientFunctions.StopCaptureAsync(streamId);
         await ClientFunctions.CaptureImageAsync(imageOptions);          // returns ClientImageCapture
-        await ClientFunctions.KeepScreenAwakeAsync(true);
+        await ClientFunctions.KeepScreenAwakeAsync(true);          // until KeepScreenAwakeAsync(false); returns false when the client refuses
         await ClientFunctions.GetLanguageAsync();
         await ClientFunctions.GetTimezoneAsync();
         await ClientFunctions.GetUrlAsync();
@@ -159,12 +173,13 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.NavigateToAsync(app.JoinUrl(new { room = "AB12" }));
         await ClientFunctions.OpenExternalUrlAsync("https://example.com"); // a new tab; false when the browser blocks it
         await ClientFunctions.GetVisibilityAsync();                // ClientVisibility.Visible/Hidden/Unknown
-        await ClientFunctions.GetBatteryLevelAsync();              // 0-100
-        await ClientFunctions.GetNetworkTypeAsync();               // connection type
+        await ClientFunctions.GetBatteryLevelAsync();              // 0-100; null in Safari and Firefox; 100 with no battery
+        await ClientFunctions.GetNetworkTypeAsync();               // "slow-2g", "2g", "3g" or "4g" in Chromium (fast wifi reads "4g"); null in Safari and Firefox
         // False without vibrating in a web client that has had no tap or click yet (browsers block it until then)
-        await ClientFunctions.VibrateAsync(200);                   // or a pattern: VibrateAsync(new[] { 100, 50, 100 })
+        await ClientFunctions.VibrateAsync(200);                   // or a pattern: VibrateAsync(new[] { 100, 50, 100 }); VibrateAsync(0) stops one
         await ClientFunctions.ScrollToAsync(x: 0, y: 0, smooth: true);
-        await ClientFunctions.RequestFullscreenAsync();
+        // A browser enters fullscreen only during a tap, and this call arrives after the tap. For a button
+        // that goes fullscreen, use view.ActionButton(action: ActionKind.RequestFullscreen, ...) (ui-components guide)
         await ClientFunctions.ExitFullscreenAsync();
         await ClientFunctions.LoginShowAsync("Sign in to save your event");   // the app's sign-in screen: email, passkey, providers
         await ClientFunctions.LoginAsync("google");                            // straight to one OAuth provider (not email or passkey)
@@ -289,29 +304,23 @@ internal sealed partial class AgentGuideExamples
         });
         app.OnClientLeft(async ctx => { /* cleanup client state */ });
 
-        // For a periodic background loop (live clock, polling, game tick), start it
-        // inside OnStarting and cancel it in OnStopping — there is no app.BackgroundWork
-        // "start a task" API (BackgroundWork only ref-counts idle-shutdown prevention):
-        var clockCts = new CancellationTokenSource();
+        // A periodic loop (a live clock, polling, a game tick) is a Task.Run started in
+        // OnStarting that ends on app.StoppingToken, which a stop, a deploy and a hot reload
+        // cancel. app.BackgroundWork, a property, does not run a loop: BackgroundWork.StartAsync()
+        // keeps the instance running while nobody is connected ("BackgroundWork" below).
         app.OnStarting(async () =>
         {
             _ = Task.Run(async () =>
             {
-                while (!clockCts.Token.IsCancellationRequested)
+                while (!app.StoppingToken.IsCancellationRequested)
                 {
-                    _now.Value = DateTime.Now;
-                    await Task.Delay(1000, clockCts.Token);
+                    _now.Value = DateTime.UtcNow;
+                    await Task.Delay(1000, app.StoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
-            }, clockCts.Token);
+            });
         });
-        app.OnStopping(async () => clockCts.Cancel());
-        // The loop's CancellationTokenSource is a plain local the lambdas capture
-        // (`var clockCts = new CancellationTokenSource();`) — do NOT
-        // declare the loop as a `readonly ClientReactiveEffect`/effect field and assign
-        // it inside Main(): Main() is a normal method, not a constructor, so assigning a
-        // `readonly` field there is CS0191/CS8618. A game tick / timer is just the
-        // Task.Run loop above started from OnStarting (or directly in Main), not a
-        // readonly effect object.
+        // Main() is a method, not a constructor, so assigning a `readonly` field there is
+        // CS0191; the loop needs no field at all.
         #endregion
     }
 }

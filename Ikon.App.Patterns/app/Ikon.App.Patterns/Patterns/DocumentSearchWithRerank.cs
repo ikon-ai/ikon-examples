@@ -2,12 +2,15 @@
 // namespaces are not imported by their parent, so an app doing retrieval adds these itself.
 using Ikon.AI.Reranking;
 using Ikon.AI.Retrieving;
+using System.Globalization;
+using Dapper;
+using Ikon.Pipelines.Public.Processors.Pdf;
 
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: document-search-with-rerank — see docs/patterns/document-search-with-rerank.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class DocumentSearchWithRerank : IPatternDemo
+internal sealed class DocumentSearchWithRerank(IAppBase app) : IPatternDemo
 {
     public string Slug => "document-search-with-rerank";
     public string Title => "Document search: OCR, retrieve, rerank";
@@ -49,6 +52,12 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
             }
 
             Render(col);
+
+            // A real library answer needs PDFs in the app's database, so this sample shows how an answer renders.
+            col.Text([Text.Label, "mt-4"], "Document library answer (sample)");
+            RenderAnswer((UIView)col, new CitedAnswer(
+                "Acme renews automatically for another year unless notice is given 90 days before the end [1]. Borealis ends on its end date [2].",
+                [new Passage("acme-services.pdf", 7, ""), new Passage("borealis-licence.pdf", 3, "")]));
         });
     }
 
@@ -166,6 +175,180 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
                 col.Text(["text-sm"], key: hit, text: hit);
             }
         });
+    }
+    #endregion
+
+    #region example:pattern-document-search-library
+    private sealed record Passage(string FileName, int Page, string Text);
+    private sealed record CitedAnswer(string Text, IReadOnlyList<Passage> Sources);
+
+    // Run once from app.OnStarting. The table has one row per page. vector(1536) is the vector length
+    // of OpenAI3Small, the EmbedAsync default, and the HNSW index keeps the nearest-page search fast
+    // as the table grows.
+    private async Task CreatePassagesTableAsync()
+    {
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await db.ExecuteAsync("""
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE TABLE IF NOT EXISTS passages (
+                id bigserial PRIMARY KEY,
+                file_name text NOT NULL,
+                page int NOT NULL,
+                text text NOT NULL,
+                embedding vector(1536) NOT NULL);
+            CREATE INDEX IF NOT EXISTS passages_by_embedding ON passages USING hnsw (embedding vector_cosine_ops);
+            """);
+    }
+
+    // pgvector reads a vector from its text form, [0.1,0.2,...]
+    private static string ToVector(float[] vector) =>
+        "[" + string.Join(",", vector.Select(value => value.ToString(CultureInfo.InvariantCulture))) + "]";
+
+    // Stores one uploaded PDF. A page's text comes from its text layer, or from OCR for a scanned page
+    // that has none. Each page gets one embedding and one row, so an answer can cite its page.
+    private async Task IngestAsync(string fileName, byte[] pdf)
+    {
+        var pages = new List<Passage>();
+
+        using (var document = PdfDocument.Load(pdf))
+        {
+            for (var i = 0; i < document.PageCount; i++)
+            {
+                using var page = document.GetPage(i);
+                var text = page.GetText();
+
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    using var single = new MemoryStream();
+                    page.CreateCopy(single);
+                    text = (await OCR.AnalyzeAsync(single.ToArray())).Text;
+                }
+
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    pages.Add(new Passage(fileName, i + 1, text.Trim()));
+                }
+            }
+        }
+
+        var vectors = await EmbeddingGenerator.EmbedAsync(pages.Select(page => page.Text).ToList(),
+            type: EmbeddingType.Document, timeout: TimeSpan.FromSeconds(60));
+
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await using var transaction = await db.BeginTransactionAsync();
+        await db.ExecuteAsync("DELETE FROM passages WHERE file_name = @fileName", new { fileName }, transaction);
+
+        for (var i = 0; i < pages.Count; i++)
+        {
+            await db.ExecuteAsync("""
+                INSERT INTO passages (file_name, page, text, embedding)
+                VALUES (@FileName, @Page, @Text, @embedding::vector)
+                """, new { pages[i].FileName, pages[i].Page, pages[i].Text, embedding = ToVector(vectors[i]) }, transaction);
+        }
+
+        await transaction.CommitAsync();
+    }
+
+    // The database finds the nearest pages, the reranker keeps the most relevant ones, and the answer
+    // cites them by number, so each claim maps to a file and a page.
+    private async Task<CitedAnswer> AskLibraryAsync(string question)
+    {
+        var query = (await EmbeddingGenerator.EmbedAsync([question], type: EmbeddingType.Query))[0];
+
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        var candidates = (await db.QueryAsync<Passage>("""
+            SELECT file_name AS FileName, page AS Page, text AS Text FROM passages
+            ORDER BY embedding <=> @query::vector LIMIT 40
+            """, new { query = ToVector(query) })).ToList();
+
+        if (candidates.Count == 0)
+        {
+            return new CitedAnswer("There are no documents yet.", []);
+        }
+
+        var ranked = await Reranker.RerankAsync(candidates.Select(candidate => candidate.Text).ToList(), question, topN: 5);
+        var sources = ranked.Select(item => candidates[item.Index]).ToList();
+        var numbered = string.Join("\n\n", sources.Select((source, i) => $"[{i + 1}] {source.FileName}, page {source.Page}:\n{source.Text}"));
+
+        var text = await Emerge.AskAsync($"""
+            Answer the question from these passages only. After each claim, put the number of the
+            passage it comes from in brackets, like [2]. If the passages do not answer it, say so.
+
+            {numbered}
+
+            Question: {question}
+            """);
+        return new CitedAnswer(text, sources);
+    }
+
+    private static void RenderAnswer(UIView view, CitedAnswer answer)
+    {
+        view.Column(["gap-2"], content: col =>
+        {
+            col.Text([Text.Body], answer.Text);
+
+            for (var i = 0; i < answer.Sources.Count; i++)
+            {
+                var source = answer.Sources[i];
+                col.Text([Text.Caption], key: $"{source.FileName}:{source.Page}", text: $"[{i + 1}] {source.FileName}, page {source.Page}");
+            }
+        });
+    }
+    #endregion
+
+    #region example:pattern-document-search-shipped
+    // Run from app.OnStarting, once the passages table exists. The handbook ships in the app's data/
+    // folder. Its sections are embedded once per version of its text, so a restart, a new instance
+    // or a deploy of the same text embeds nothing.
+    private async Task IndexHandbookAsync()
+    {
+        const string fileName = "handbook.md";
+        var text = await app.Files.Data.ReadTextAsync(fileName);
+        var version = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await db.ExecuteAsync("CREATE TABLE IF NOT EXISTS indexed_documents (file_name text PRIMARY KEY, version text NOT NULL)");
+        await using var transaction = await db.BeginTransactionAsync();
+
+        // Instances that start together wait here, and all but the first find the text indexed
+        await db.ExecuteAsync("SELECT pg_advisory_xact_lock(hashtext(@fileName))", new { fileName }, transaction);
+        var indexed = await db.ExecuteScalarAsync<string?>(
+            "SELECT version FROM indexed_documents WHERE file_name = @fileName", new { fileName }, transaction);
+
+        if (indexed == version)
+        {
+            return;
+        }
+
+        // One passage per "## " section, numbered in the page column so an answer cites the section
+        var sections = ("\n" + text).Split("\n## ")
+            .Select((section, index) => index == 0 ? section.Trim() : "## " + section.Trim())
+            .Where(section => section.Length > 0)
+            .Select((section, index) => new Passage(fileName, index + 1, section))
+            .ToList();
+
+        var vectors = await EmbeddingGenerator.EmbedAsync(sections.Select(section => section.Text).ToList(),
+            type: EmbeddingType.Document, timeout: TimeSpan.FromSeconds(60));
+
+        await db.ExecuteAsync("DELETE FROM passages WHERE file_name = @fileName", new { fileName }, transaction);
+
+        for (var i = 0; i < sections.Count; i++)
+        {
+            await db.ExecuteAsync("""
+                INSERT INTO passages (file_name, page, text, embedding)
+                VALUES (@FileName, @Page, @Text, @embedding::vector)
+                """, new { sections[i].FileName, sections[i].Page, sections[i].Text, embedding = ToVector(vectors[i]) }, transaction);
+        }
+
+        await db.ExecuteAsync("""
+            INSERT INTO indexed_documents (file_name, version) VALUES (@fileName, @version)
+            ON CONFLICT (file_name) DO UPDATE SET version = EXCLUDED.version
+            """, new { fileName, version }, transaction);
+        await transaction.CommitAsync();
     }
     #endregion
 }

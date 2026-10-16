@@ -9,8 +9,8 @@ file sealed class EndpointsExamples
 
     #region example:http-endpoints
     // The JSON body binds to your typed parameter. Missing fields default and unknown fields are
-    // ignored, but a body naming no member of the type ({} included), or an empty/null body for a
-    // required parameter, returns 400. Bad input returns a 4xx (it never throws a 500).
+    // ignored, but a body with only fields the type does not have returns 400, and so do {} and an
+    // empty body when the type has a required member. Bad input returns a 4xx (it never throws a 500).
     [HttpPost("/sum")]
     public HttpResult Sum(SumRequest req) => req.A < 0 || req.B < 0
         // A 4xx with a JSON body; BadRequest(reason) sends its reason as text/plain
@@ -54,14 +54,14 @@ public record SumRequest(int A, int B);
 
 file sealed class MintingExamples(IApp<SessionIdentity, ClientParameters> app)
 {
-    [HttpGet("/doc")]
-    public string GetDocument() => "doc";
+    [HttpGet("/docs/{documentId}")]
+    public string GetDocument(string documentId) => documentId;
 
-    [HttpGet("/doc-alias")]
-    public string GetDoc() => "doc";
+    [HttpGet("/docs/{documentId}/alias")]
+    public string GetDoc(string documentId) => documentId;
 
-    [HttpPost("/doc")]
-    public string UpdateDoc() => "ok";
+    [HttpPost("/docs/{documentId}")]
+    public string UpdateDoc(string documentId) => documentId;
 
     [HttpPost("/sum-alias")]
     public string Sum() => "ok";
@@ -69,7 +69,8 @@ file sealed class MintingExamples(IApp<SessionIdentity, ClientParameters> app)
     public async Task MintAsync()
     {
         #region example:url-minting
-        // Pin a resource identity into a signed grant in the URL:
+        // Pin the {documentId} of the path into the signed grant. DocumentId is not a SessionIdentity
+        // field, so it selects no instance, and the URL reaches the instance with an empty identity
         MintedUrl minted = await app.MintUrlAsync(nameof(GetDocument), new { DocumentId = "doc-42" });
         string url = minted.Url;   // https://{space}.ikonai.app/api/...?ikon-grant=...
 

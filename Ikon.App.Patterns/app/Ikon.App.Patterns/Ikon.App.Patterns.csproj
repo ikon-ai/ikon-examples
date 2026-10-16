@@ -17,38 +17,41 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.Agent" Version="3.16.2" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.16.2" />
-    <PackageReference Include="Ikon.AI" Version="3.16.2" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.16.2" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.16.2" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.16.2" />
-    <PackageReference Include="Ikon.App" Version="3.16.2" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.16.2" />
-    <PackageReference Include="Ikon.Common" Version="3.16.2" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.16.2" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.16.2" />
-    <PackageReference Include="Ikon.Parallax" Version="3.16.2" />
-    <PackageReference Include="Ikon.Resonance" Version="3.16.2" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.16.2" />
-    <PackageReference Include="Ikon.Server" Version="3.16.2" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.16.2" />
-    <PackageReference Include="Ikon.Teleport" Version="3.16.2" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.53" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.16.2" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.Browser" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.Google" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.Microsoft" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.Slack" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.GitHub" Version="3.16.2" />
-    <PackageReference Include="Ikon.Connectors.Procountor" Version="3.16.2" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.16.2" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.16.2" />
+    <PackageReference Include="Ikon.Agent" Version="3.16.7" />
+    <PackageReference Include="Ikon.Agent.Storage.Postgres" Version="3.16.7" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.16.7" />
+    <PackageReference Include="Ikon.AI" Version="3.16.7" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.16.7" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.16.7" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.16.7" />
+    <PackageReference Include="Ikon.App" Version="3.16.7" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.16.7" />
+    <PackageReference Include="Ikon.Common" Version="3.16.7" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.16.7" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.16.7" />
+    <PackageReference Include="Ikon.Parallax" Version="3.16.7" />
+    <PackageReference Include="Ikon.Resonance" Version="3.16.7" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.16.7" />
+    <PackageReference Include="Ikon.Server" Version="3.16.7" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.16.7" />
+    <PackageReference Include="Ikon.Teleport" Version="3.16.7" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.58" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.16.7" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Browser" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Google" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Microsoft" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Slack" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.GitHub" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Procountor" Version="3.16.7" />
+    <PackageReference Include="Ikon.Connectors.Imap" Version="3.16.7" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.16.7" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.16.7" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.Agent\Ikon.Agent.csproj" />
+    <ProjectReference Include="$(IkonRoot)\Ikon.Agent.Storage.Postgres\Ikon.Agent.Storage.Postgres.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Agent.Docs\Ikon.Agent.Docs.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.AI.Emergence\Ikon.AI.Emergence.csproj" />
@@ -75,6 +78,7 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Slack\Ikon.Connectors.Slack.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.GitHub\Ikon.Connectors.GitHub.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Procountor\Ikon.Connectors.Procountor.csproj" />
+    <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Imap\Ikon.Connectors.Imap.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Pipeline\Ikon.Pipeline.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Pipelines.Public\Ikon.Pipelines.Public.csproj" />
   </ItemGroup>
@@ -83,8 +87,8 @@
     <!-- The examples show EF Core and Dapper against an app database. EF's design-time package
          is kept out of the output; the two CodeAnalysis pins resolve its internally mismatched Roslyn
          versions (NU1107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
@@ -94,6 +98,9 @@
     <PackageReference Include="Dapper" Version="2.1.89" />
     <!-- barcode-scan decodes with ZXing.Net's core reader, which needs no image library binding. -->
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
+    <!-- rendered-video-feed draws its frames with Skia; the Linux assets are the ones a deployed app needs. -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Ikon.Agent.Test" />
@@ -109,6 +116,8 @@
     <MakeDir Directories="$(IntermediateOutputPath)" />
     <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" />
     <ItemGroup>
+      <_IkonGeneratedGone Include="@(Compile)" Condition="$([System.String]::Copy('%(Compile.FullPath)').StartsWith('$(MSBuildProjectDirectory)$([System.IO.Path]::DirectorySeparatorChar)Generated$([System.IO.Path]::DirectorySeparatorChar)', StringComparison.OrdinalIgnoreCase)) And !Exists('%(Compile.FullPath)')" />
+      <Compile Remove="@(_IkonGeneratedGone)" />
       <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
     </ItemGroup>
   </Target>
@@ -117,6 +126,8 @@
     <MakeDir Directories="$(IntermediateOutputPath)" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <ItemGroup>
+      <_IkonGeneratedGone Include="@(Compile)" Condition="$([System.String]::Copy('%(Compile.FullPath)').StartsWith('$(MSBuildProjectDirectory)$([System.IO.Path]::DirectorySeparatorChar)Generated$([System.IO.Path]::DirectorySeparatorChar)', StringComparison.OrdinalIgnoreCase)) And !Exists('%(Compile.FullPath)')" />
+      <Compile Remove="@(_IkonGeneratedGone)" />
       <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
     </ItemGroup>
   </Target>

@@ -127,7 +127,7 @@ internal sealed class StreamingAgentStatus : IPatternDemo
         #region example:pattern-streaming-agent-status
         var thread = _selectedThreadId.Value is { } id ? _orchestrator.GetThread(id) : null;
 
-        if (thread is not null && thread.Status.Value == ThreadStatus.Active)
+        if (thread is not null && thread.Busy.Value)
         {
             var activity = thread.Activity.Value;
             var usage = thread.Usage.Value;

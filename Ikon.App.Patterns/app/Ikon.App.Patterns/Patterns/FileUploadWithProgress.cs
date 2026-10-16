@@ -39,8 +39,8 @@ internal sealed class FileUploadWithProgress : IPatternDemo
     private void RenderFileUploadArea(UIView view, Guid caseId)
     {
         view.FileUpload(
+            SentrixStyles.UploadZone,
             multiple: true,
-            style: SentrixStyles.UploadZone,
             onUploadPreStart: args => OnFileUploadPreStartAsync(args),
             onUploadStart: args => OnFileUploadStartAsync(caseId, args),
             onUploadProgress: args => OnFileUploadProgressAsync(args),

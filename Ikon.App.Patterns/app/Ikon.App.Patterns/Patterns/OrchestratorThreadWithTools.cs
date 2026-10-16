@@ -15,12 +15,15 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
     {
         public static implicit operator OivaApp(OrchestratorThreadWithTools snippet) => throw new NotImplementedException();
 
-        public string SearchBuildings(string query) => throw new NotImplementedException();
+        public Task<string> SearchBuildingsAsync(string query) => throw new NotImplementedException();
         public string SelectBuilding(string id) => throw new NotImplementedException();
     }
 
     #region example:pattern-orchestrator-thread-with-tools
     private const string PersonaName = "oiva";
+
+    // Marks the seed so the chat leaves it out: the person did not write it
+    private const string SeedPayloadKind = "oiva/seed";
 
     private Orchestrator _mind = null!;
     private AgentThread _thread = null!;
@@ -38,7 +41,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
 
         _thread = await _mind.CreateThreadAsync(
             PersonaName,
-            new Content.Text("Help the user inspect and maintain their buildings."),
+            new Message(Author.User, [new Content.Text("Help the user inspect and maintain their buildings.")], SeedPayloadKind),
             appName: "Oiva",
             planName: "session");
     }
@@ -52,13 +55,15 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
 
         public override IEnumerable<Tool> Tools() =>
         [
+            // TResult is what the tool returns once awaited, so an async method returning
+            // Task<string> is Tool.Of<string, string>, the same as a sync one returning string.
             Tool.Of<string, string>("search_building",
                 "Search buildings by name/address/decade. Returns matches.",
-                query => Task.FromResult(app.SearchBuildings(query))),
+                app.SearchBuildingsAsync),
 
             Tool.Of<string, string>("select_building",
                 "Switch the UI to the given building id.",
-                id => Task.FromResult(app.SelectBuilding(id))),
+                app.SelectBuilding),
         ];
     }
 
@@ -72,7 +77,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
     private void RenderChat(UIView view)
     {
         var turns = _thread.Messages.Value
-            .Where(m => m.Author == Author.User || m.Author == Author.Agent(PersonaName))
+            .Where(m => m.PayloadKind is null && (m.Author == Author.User || m.Author == Author.Agent(PersonaName)))
             .ToList();
 
         foreach (var (message, index) in turns.Select((m, i) => (m, i)))
@@ -88,7 +93,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
             view.Text([Text.Caption], $"-> {call.ToolName}…");
         }
 
-        if (_thread.Status.Value == ThreadStatus.Active)
+        if (_thread.Busy.Value)
         {
             view.Spinner();
         }

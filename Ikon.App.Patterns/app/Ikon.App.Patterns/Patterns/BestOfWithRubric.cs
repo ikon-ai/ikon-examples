@@ -12,15 +12,20 @@ internal sealed class BestOfWithRubric : IPatternDemo
     #region example:pattern-best-of-with-rubric
     private sealed record Tagline(string Text, IReadOnlyList<string> Keywords);
 
-    // What a reader makes of a tagline, each axis in [0, 1]. A quick judge model fills it, so the
+    // What a reader makes of a tagline, each axis in [0, 1]. A capable judge model fills it, so the
     // rubric never measures the text itself -- a character count would call a Chinese tagline
     // three times shorter than its English twin.
     private sealed class TaglineReading
     {
-        [Description("How quickly it lands: 1 for a line said in one breath, 0 for one that needs a second read.")]
+        // Written before the scores so the judge has to find the flaws first; a judge that scores
+        // first tends to rate every draft 1.0.
+        [Description("The concrete faults in this tagline, one per line. Name at least one, or write 'none found' only after checking each axis.")]
+        public string Faults { get; set; } = "";
+
+        [Description("How quickly it lands: 1 is a line said in one breath, 0.5 needs a second read, 0 is a sentence.")]
         public double Brevity { get; set; }
 
-        [Description("How much of the brief it carries: 1 when every key idea is felt, 0 when none is.")]
+        [Description("How much of the brief it carries: 1 when every key idea is felt, 0.5 when about half are, 0 when none is.")]
         public double BriefFit { get; set; }
     }
 
@@ -38,9 +43,11 @@ internal sealed class BestOfWithRubric : IPatternDemo
 
     private static async Task<ScoreBreakdown> JudgeAsync(Tagline candidate, string brief)
     {
-        var reading = await Emerge.Run<TaglineReading>(LLMModel.Claude45Haiku, pass =>
+        // A small judge model rates everything near 1.0 and the ranking turns into a tie. Use a
+        // stronger judge, define what 0, 0.5 and 1 mean, and say that most drafts sit in between.
+        var reading = await Emerge.Run<TaglineReading>(LLMModel.Claude55Sonnet, pass =>
         {
-            pass.SystemPrompt = "You judge taglines against a brief. Read the tagline in whatever language it is written and rate each axis from 0 to 1.";
+            pass.SystemPrompt = "You judge taglines against a brief. Read the tagline in whatever language it is written. List its faults first, then rate each axis: 0 fails the axis, 0.5 is acceptable but unremarkable, 1 is the best tagline you could write for the brief. Most taglines belong between 0.3 and 0.8; give 1 almost never.";
             pass.Command = $"Brief: {brief}\nTagline: {candidate.Text}\nKeywords it claims to carry: {string.Join(", ", candidate.Keywords)}";
             pass.Temperature = 0;
         });

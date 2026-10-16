@@ -40,7 +40,7 @@ internal sealed class BusyFlagLoading : IPatternDemo
     private void Render(IView view)
     {
         view.Button(
-            style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _busy.Value ? "opacity-50 cursor-wait" : ""],
+            [Button.Default, "transition-colors duration-150 hover:opacity-90", _busy.Value ? "opacity-50 cursor-wait" : ""],
             disabled: _busy.Value,
             onClick: DoWorkAsync,
             content: v => v.Text(text: _busy.Value ? "Working…" : "Do thing"));

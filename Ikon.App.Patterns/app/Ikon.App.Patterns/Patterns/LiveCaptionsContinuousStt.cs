@@ -108,7 +108,9 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
             Log.Instance.Warning($"Live captions stopped: {ex.Message}");
         }
 
-        if (sentence.ToString().Trim() is { Length: > 0 } rest)
+        // A stream that ends with the microphone has already sent its last words as a final. One
+        // that failed leaves them only in the live line, so that is kept too.
+        if (_liveLine.Value is { Length: > 0 } rest)
         {
             _captions.Add(rest);
         }

@@ -14,10 +14,12 @@ internal sealed class FormFieldDiscipline : IPatternDemo
     private void CreateAccount() => _confirming.Value = false;
 
     #region example:pattern-form-field-discipline
-    // A form is one person's: per client, or every connected client types into the same fields.
-    private readonly ClientReactive<string> _name = new("");
-    private readonly ClientReactive<string> _email = new("");
-    private readonly ClientReactive<string> _plan = new("");
+    // What the person typed is per user, so a reload or a second tab keeps it; a shared Reactive
+    // would have every connected client typing into the same fields. The errors and the review
+    // step are view state, per client.
+    private readonly UserReactive<string> _name = new("");
+    private readonly UserReactive<string> _email = new("");
+    private readonly UserReactive<string> _plan = new("");
     private readonly ClientReactiveDictionary<string, string> _errors = new();
     private readonly ClientReactive<bool> _confirming = new(false);
 

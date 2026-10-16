@@ -82,7 +82,7 @@ file sealed class CwThreeStylingLayersAllValidInTheSameStyleArrayExamples(IApp<S
     {
         #region example:cw-three-styling-layers-all-valid-in-the-same-style-array-2
         view.Button(style: [Button.PrimaryMd], text: "Submit");
-        view.TextField(style: [Input.Default], defaultValue: "");
+        view.TextField(style: [Input.Default], defaultValue: "", placeholder: "Name");
         view.Box(style: [Card.Default], content: view => { });
         #endregion
     }

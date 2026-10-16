@@ -1,3 +1,7 @@
+#region example:ui-handler-rate-limit-usings
+using System.Threading.RateLimiting;
+#endregion
+
 namespace Ikon.App.Patterns.Examples;
 
 #region example:functions-static-class
@@ -65,6 +69,39 @@ public static class PolicyExamples
     public static Task<string> RefundAsync(decimal amount)
     {
         return Task.FromResult($"Refunded {amount}");
+    }
+    #endregion
+}
+
+file sealed class UiHandlerRateLimitExamples
+{
+    private static Task WriteSummaryAsync() => Task.CompletedTask;
+
+    #region example:ui-handler-rate-limit
+    // One limiter for the app: up to 5 summaries per user in any minute, across all their tabs.
+    private readonly PartitionedRateLimiter<string> _summaryLimiter = PartitionedRateLimiter.Create<string, string>(userId =>
+        RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,
+        }));
+
+    private readonly ClientReactive<string?> _notice = new((string?)null);
+
+    // The button's onClick
+    private async Task SummarizeCallAsync()
+    {
+        using var lease = _summaryLimiter.AttemptAcquire(ReactiveScope.UserId);
+
+        if (!lease.IsAcquired)
+        {
+            _notice.Value = "That's 5 summaries this minute. Try again in a moment.";
+            return;
+        }
+
+        _notice.Value = null;
+        await WriteSummaryAsync();
     }
     #endregion
 }
