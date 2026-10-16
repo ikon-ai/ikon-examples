@@ -276,7 +276,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                     [Input.Default, "min-h-[240px]"],
                                     value: _transcriptText.Value,
                                     placeholder: "Transcript output",
-                                    onValueChange: null);
+                                    readOnly: true);
                             }
                         });
 
