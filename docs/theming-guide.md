@@ -1,4 +1,4 @@
-<!-- checked-against: e41cf40893ba848bafa0cac4 -->
+<!-- checked-against: 8d6506213dd3d6c2990b1194 -->
 
 # IKON Theming Guide
 
@@ -81,6 +81,7 @@ Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warni
 - **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode`, its second spelling `Dark`, and `Light` are the only non-indexer members.
 - **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. Two exceptions: the label on brand fills — `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]` — and a `ThemeMode.Fixed` theme whose background measures dark, which builds on the platform's dark scheme, so the text tiers it leaves unset are light.
 - **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
+- **A theme per client.** The `IkonTheme` is app-wide: every client of the app gets the same palette, fonts and radius. Per client you choose only dark or light (`UI.UseTheme`, `ClientFunctions.SetThemeAsync`). For a brand colour per tenant or customer, keep it in your own state and pick fixed palette classes for it in the render (`bg-teal-700 text-white` on the tenant's header and primary buttons, from a class map per tenant), leaving the shared theme neutral.
 
 Committing a full mood takes roughly 10-14 entries: the brand line, the surface/text lines, shape, density, type, motion.
 
@@ -117,6 +118,26 @@ var theme = new IkonTheme
 ```
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
+
+For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`crosswind-styling-and-motion-guide.md`, "Theme Activation", has the arguments). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
+
+<!-- ikon-example: px-light-dark-switching-with-usetheme -->
+```csharp
+private ThemeControl _theme = null!;
+
+public async Task Main()
+{
+    _theme = UI.UseTheme();   // call once, before clients join
+
+    UI.Root([Page.Default], content: view =>
+    {
+        view.Button(
+            icon: _theme.Current.Value == Theme.Dark ? "sun" : "moon",
+            text: "Toggle theme",
+            onClick: _theme.ToggleAsync);
+    });
+}
+```
 
 Fixed app — one palette, no flip. An always-dark (or always-light) app is a Fixed one: there is no `ThemeMode.Dark` (CS0117), and `Fixed` with a dark `["background"]` stays dark whatever the viewer's device prefers:
 
@@ -163,6 +184,10 @@ Each key commits the listed canonical CSS variables. One value sets them all.
 | `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys is bundled into the web frontend; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter as a family name only (a role token, `"font-mono"`, as that role's family), drawn in the system font unless `frontend-flutter/pubspec.yaml` declares the font files | `"Crimson Pro"` |
 | `motion-duration-base` | `--default-transition-duration` | default speed of every `transition-*` utility | `"200ms"` |
 | `ease-default` (alias: `motion-easing-default`) | `--default-transition-timing-function` | default easing of every `transition-*` utility | `"ease-out"` |
+
+Of the status colours only `destructive` is a key: there is no `["success"]`, `["warning"]` or
+`["info"]`. Set a step of their scale (`["success-500"] = "emerald-500"`, as in "Color palette
+overrides" below) or a variable by name.
 
 Later entries win: to refine one variable inside a cluster, set the key first and the explicit canonical variable after it — `["primary"] = "amber-400"` then `["bg-brand-solid-hover"] = "amber-500"`.
 

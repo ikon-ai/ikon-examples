@@ -1,4 +1,4 @@
-<!-- checked-against: aa54567a59a1df1ae3b0c442 -->
+<!-- checked-against: 885ea1bb59a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -48,7 +48,7 @@ This is the only time the token is shown. Store it in your CI secret store as IK
 It carries your own access to the platform, so treat it as a password. Revoke it with 'ikon auth token revoke'.
 ```
 
-Only a hash of it is stored on our side, so it cannot be shown again — if you lose it, revoke it and create another.
+Only a hash of it is stored on our side, so it cannot be shown again — if you lose it, revoke it and create another. To write it to a file instead of the terminal, pass `--format json --output <file>`; the file holds it as `token`. Keep that file out of the repository.
 
 Options:
 
@@ -56,6 +56,7 @@ Options:
 |---|---|
 | `--expires-days <n>` | Lifetime in days, 1 to 90. Defaults to 30. A platform administrator can issue up to 365. |
 | `--format json` | Machine-readable output, for scripting the setup. |
+| `--output <file>` | With `--format json`, writes the output to the file rather than the terminal. |
 
 Pick the shortest lifetime you are willing to renew. Nothing rotates this credential, so its lifetime is exactly how long a leaked copy stays useful.
 
@@ -79,9 +80,25 @@ Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on �
 
 The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV` must name that same environment.
 
+Do not also set `IKON_BACKEND_URL` or `IKON_BACKEND_TOKEN`. That pair takes an access token from a sign-in, and the tool refuses to run when `IKON_BACKEND_TOKEN` holds a service token or is set without `IKON_BACKEND_URL`.
+
+### Installing the tool on a runner
+
+The install script installs .NET, Node.js, Git and the tool. On a runner (`CI=true`) it asks nothing and does not sign in. With `--format json` it prints one JSON event per line, and the last one, `result`, lists in `paths` the folders it added to `PATH`, which later steps need:
+
+```bash
+curl -fsSL https://ikonai.com/install.sh | bash -s -- --format json > ikon-install.jsonl
+```
+
 ### GitHub Actions
 
 ```yaml
+- uses: actions/checkout@v5
+- name: Install the IKON tool
+  run: |
+    set -euo pipefail
+    curl -fsSL https://ikonai.com/install.sh | bash -s -- --format json > "$RUNNER_TEMP/ikon-install.jsonl"
+    jq -r 'select(.event == "result") | .paths[]' "$RUNNER_TEMP/ikon-install.jsonl" >> "$GITHUB_PATH"
 - name: Deploy
   env:
     IKON_SERVICE_TOKEN: ${{ secrets.IKON_SERVICE_TOKEN }}
@@ -127,6 +144,8 @@ A service token acts as **you**. It carries the same access to the platform your
 **`Not signed in to the IKON platform ... Set IKON_SERVICE_TOKEN ...`** — the variable is not reaching the tool. In most CI systems a secret has to be named explicitly in the step's `env` block; check it is not only defined at the repository level.
 
 **`NU1101: Unable to find package Ikon.…`** — the build could not authenticate to the private package feed: the tool could not exchange your service token, so it has no feed credential to pass on. Check that `IKON_SERVICE_TOKEN` reaches the step, and that `IKON_BACKEND_ENV`, when set, names the environment the token was created against.
+
+**`IKON_BACKEND_TOKEN holds a service token`** or **`IKON_BACKEND_TOKEN is set without IKON_BACKEND_URL`** — the token is in the wrong variable. Put the service token in `IKON_SERVICE_TOKEN` and remove `IKON_BACKEND_TOKEN`.
 
 **`This command needs a target app ...`** — set `IKON_SPACE_ID`, or pass `--app-id`.
 

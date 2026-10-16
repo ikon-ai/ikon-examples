@@ -1,4 +1,4 @@
-<!-- checked-against: 710f94020bc7ed76d6531655 -->
+<!-- checked-against: 2df096df0bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -98,7 +98,7 @@ erase:
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
 `[Trigger(TriggerEventType.UserErased)]` method on your app class. Without it the platform does not
 call your app: an app whose active deployment declares no listener is never sent the event. (This
-example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package and `using Dapper;`.)
+example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package, 2.1.89 or later, and `using Dapper;`.)
 
 <!-- ikon-example: user-data-erasure-database -->
 ```csharp

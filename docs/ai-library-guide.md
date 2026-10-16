@@ -1,4 +1,4 @@
-<!-- checked-against: 05d3ca4adfb4074c1b38c03b -->
+<!-- checked-against: 1625b09f019f49ccc1d6fd65 -->
 
 # Ikon.AI Library Overview
 
@@ -242,11 +242,14 @@ it returns a JPEG no larger than `maxDimension` on either side and never enlarge
 `CompositeUnderMask(original, generated, mask)` keeps an inpainting result only inside the mask:
 it returns a PNG at the original's size with the generated pixels in the edit region and the
 original pixels everywhere else, because most mask models can change the whole picture.
+`Crop(source, x, y, width, height)` cuts a rectangle out as a PNG that keeps transparency.
+`DecodeToRgba(source)` returns straight RGBA pixels, and `EncodePng(rgba, width, height)` writes
+them back as a PNG with alpha.
 
 
 ## ImageSegmentation
 
-`Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes; a prompt that matches nothing returns an empty `Segments` list rather than throwing.
+`Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text or box prompts, which point prompts refine (Segment Anything models). A point on its own finds no object and is refused. The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes; a prompt that matches nothing returns an empty `Segments` list rather than throwing.
 
 Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. A `Mask` is a PNG cut-out rather than a black/white mask: it holds the object's own pixels with everything else transparent, and its alpha channel is the mask. `ImageUtils.ConvertAlphaMaskToBlackWhiteMask` turns it into a black/white mask that is white outside the object, and `ImageUtils.InvertMask` on that makes the object white. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
 
@@ -294,7 +297,7 @@ if (result.Segments.Count > 0)
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns the provider's own encoding; Crystal is the one model that will invent detail across the whole frame.
 
-Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider.
+Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider. `MinInputSide` is the smallest width and height a model takes (128 pixels on SeedVR2, 0 where none is stated), and an input of bytes under it is refused the same way, with its size in the message.
 
 **Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. No model is `Creative` today, so nothing hallucinates unless you raise `Creativity` on a `Tunable` model or set `EnhanceFaces`, which invents facial detail even on a `Faithful` model — and asking a `Faithful` model for `Creativity` above 0 throws rather than being quietly ignored. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
 
@@ -357,7 +360,11 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Rodin does not rig or skin a mesh; its `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
 
-Rodin runs on your app's own Hyper3D API key, because the platform does not provide one. Store the key as an app secret with `ikon secret set HYPER3D_API_KEY`. Ikon.AI picks the secret up by itself, and a running app gets it within 5 minutes. Rodin calls run in the app's process and are billed to that key. Without the key, a Rodin call throws a `MissingApiKeyException` whose message says this.
+Rodin runs on your app's own Hyper3D API key, because the platform does not provide one. Store the key as an app secret with `ikon secret set IKON_HYPER3D_API_KEY`. Ikon.AI picks the secret up by itself, and a running app gets it within 5 minutes. Rodin calls run in the app's process and are billed to that key. Without the key, a Rodin call throws a `MissingApiKeyException` whose message says this.
+
+No provider states a unit for a generated mesh, and the size it comes out at is arbitrary (a GLB
+reader takes the units as metres). Scale the mesh to the size you need before you print or place
+it.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -1098,6 +1105,8 @@ using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
 var result = await classifier.ClassifyAsync("What a nice weather!");
 Log.Instance.Info($"Flagged: {result.IsFlagged}");
 ```
+
+`OpenAIOmniModeration` reads one image per request. A `ClassifyAsync` call with several images sends one request per image, each with all the call's text inputs, and returns one merged result: flagged if any request was, with each label's highest score.
 
 ## Decisions
 

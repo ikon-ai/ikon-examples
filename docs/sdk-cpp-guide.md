@@ -1,4 +1,4 @@
-<!-- checked-against: 119a8567b9e71c57e3b0c442 -->
+<!-- checked-against: 8351b2a4b9e71c57e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -77,7 +77,7 @@ The SDK supports two authentication modes. Exactly one must be configured.
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
 
 <!-- ikon-example: cpp-sdk-auth-api-key -->
 ```cpp

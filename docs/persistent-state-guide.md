@@ -1,4 +1,4 @@
-<!-- checked-against: a82ffdbed3093f65ee325f56 -->
+<!-- checked-against: 1dfe904b73655e76aca02dc5 -->
 
 # IKON Persistent State Guide
 
@@ -6,9 +6,19 @@ How to persist app state across restarts. Read this before reaching for files or
 
 ## TL;DR — what to pick
 
+**Records people create go in the database, written when they change.** Tasks, notes, documents,
+orders, messages: anything a user would call "my data". Open the app's built-in Postgres database
+with `app.DatabaseAsync()` and write each change before the UI says it is saved. A committed
+database write is durable the moment it returns, and each row is written on its own, so two
+instances that change different records do not overwrite each other.
+
+A `Persistent…Reactive` is written within about two seconds of a change and again when the app
+stops, so **a crash loses the changes of those last seconds.** Each value is stored whole and the
+last writer wins. Use it for preferences, drafts, layout, view settings and small app state.
+
 <!-- ikon-example: persistent-default -->
 ```csharp
-// Default for almost everything you want to persist:
+// Preferences, drafts and small app state:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
 ```
 
@@ -21,7 +31,9 @@ _state.Value = next;
 var current = _state.Value;
 ```
 
-The framework loads from cloud storage before `Main()` runs and saves on graceful shutdown. You need no file paths, no `Directory.CreateDirectory` and no hand-built AssetUri.
+**Renamed a field? Saved data does not follow a plain record.** A renamed property loses its stored value, and a removed or added one only drops or defaults that property; keep the stored name with `[JsonPropertyName("oldName")]`, or define the type as a Teleport data schema with a `version` and an `UpgradeFrom` step ("Schema-versioned state", below). Rows in a database table get no version from the platform: store a `version` beside the `jsonb` data. Moving or renaming the reactive's own field orphans its value unless it has a `key:`.
+
+The framework loads from cloud storage before `Main()` runs, writes changes as the app runs, and saves on graceful shutdown. You need no file paths, no `Directory.CreateDirectory` and no hand-built AssetUri. Before telling a user a change is saved, `await app.SavePersistentStateAsync()` (see "Save semantics").
 
 ## Three scopes — pick by who shares the value
 
@@ -190,9 +202,11 @@ Without `key:`, a field's stored value is found by its declaring source file's p
 ## Save semantics
 
 - **Load**: parallel for all persistent reactives that exist once the app instance is constructed, finishes before `Main()` runs. Your code sees persisted values from the start. If a startup load fails for any reason other than the stored payload's shape (store unreachable, stale database credentials), the app refuses to start; any other failed load logs an error, keeps the default, and skips saving that value for the run, so the stored value is kept until you fix the code. Such a load fails when the code cannot read the stored payload: the type changed, or the error says `stored state was captured as …` and names the type the value was saved as. Make the type readable again, or give the reactive a new `key:` to start it fresh. (User-scoped reactives load per user. The primary user's partition is preloaded before `Main()`. A connected user's partition loads before their first render and before `OnClientJoined` runs. If that takes over 10 s, the client renders and `OnClientJoined` runs with the initial values, and the stored values replace them when the load finishes. Any other user's partition loads the first time their scope is touched, and until it arrives `ValueFor` returns the initial value. Background code (a cron, a webhook) that reads a user's value to work out what to write should await `LoadForAsync(userId)` first. An `UpdateFor`, `AddFor` or other change made during that load is applied again to the stored value when it arrives; a plain `SetFor` made during it is replaced by the stored value, and a warning names the reactive.)
-- **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown). Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.
+- **Autosave**: a persistent reactive assigned, or changed through its collection methods, is written within about two seconds, together with any other changes in that time. Only values whose stored payload changed are written. A failed write logs a warning and is retried, waiting longer after each failure, up to a minute. A value mutated in place (`_state.Value.Items.Add(x)` on a plain record) does not tell the reactive it changed; it is written by the next explicit save or at shutdown.
+- **Explicit save**: `await app.SavePersistentStateAsync()` writes every value and completes when they are stored. That includes a value mutated in place, and a value this instance stored before and has not changed since, because another instance may have changed the stored copy. It throws the storage error when a write fails. Await it before a UI says "Saved". Set `app.AutosavePersistentState = false` in `Main` to write only on this call and at shutdown, for an app that wants to choose its save points or changes a value many times a second.
+- **Save at shutdown**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown). Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.
 - **A local run shares the deployed app's state.** `ikon run` loads and saves persistent reactives in the space the app is linked to, through that space's databases or its asset storage, under the same keys as the deployed app in that space. Stopping a local run saves its values over the deployed app's, and the run logs this once at startup. The keys are the same wherever the app runs, because the platform's user-data erasure matches these keys. Once an app holds real data, test changes that write state with care.
-- **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.DatabaseAsync()`.
+- **A crash loses what was not yet written**: up to two seconds of changes with autosave on, everything since the last explicit save with it off. Records that must never be lost, or that several instances change at once, go in postgres directly through `app.DatabaseAsync()`.
 
 ## Erasing a user's state
 
@@ -208,6 +222,13 @@ await app.EraseUserStateAsync(userId);
 It applies `ClearFor` semantics to every registered user-scoped persistent reactive and additionally deletes every stored row under the user's storage scope key — including rows left behind by fields that no longer exist in the code — and completes only when the stored state is gone. Global- and session-scoped values are untouched: they are shared state, not per-user data. Each stored value is its own round trip to storage, so when a button starts the erasure, update the UI first and let the erasure finish in the background instead of making the person wait on the click.
 
 ## Schema-versioned state (`.tp` types)
+
+**Keep a list in one root.** What follows covers a single-value `Persistent…Reactive<T>`, not the
+list, dictionary and set forms, so a list whose shape will change goes in one `.tp` root as a
+nested array (`Notes = "Note[]"` in a `NoteBook`), held in one `PersistentSessionReactive<NoteBook>`.
+Rows in a database get no schema version from the platform: store each as `jsonb` with a version
+field beside the data (`{"version": 2, "data": {…}}`) and translate older versions when you read a
+row.
 
 A plain record works fine — until you rename a property. The stored JSON still carries the old
 name, the deserializer doesn't recognize it, and the value silently resets. If a persisted type is
@@ -234,6 +255,11 @@ migration you write in your partial class, so forgetting it is a compile error, 
 
 <!-- ikon-example: persistent-schema-migration -->
 ```csharp
+// schema/PlayerProfile.tp generated the other half of this class in <Project>.Protocol (or the
+// namespace its [namespaces] csharp line names, as here). A partial half must be in the same
+// namespace, so this file is the one app file that declares a namespace.
+namespace Ikon.App.Patterns.Protocol;
+
 public sealed partial class PlayerProfile
 {
     static void UpgradeFrom1(PlayerProfile value, PlayerProfile.RetiredFields? retiredFields)
@@ -246,7 +272,31 @@ public sealed partial class PlayerProfile
 }
 ```
 
+The migration's parameters follow the schema. With an `[obsolete]` ledger it is
+`static void UpgradeFrom1(PlayerProfile value, PlayerProfile.RetiredFields? retiredFields)`, as
+above; a schema without one has no `RetiredFields` type, and the method is
+`static void UpgradeFrom1(PlayerProfile value)`. A missing step fails the build with `CS0103: The
+name 'UpgradeFrom1' does not exist`, reported in the generated file.
+
+Adding a field needs no version bump and no migration: a payload saved before the field existed
+loads with the field's declared default. Bump `version` only when old data must be translated, as
+in a rename. A default is part of the field's type string, so a string default carries its own
+quotes inside it: `Title = 'string = "My family"'`.
+
+The generated classes are in the namespace `<Project>.Protocol`, after the app's C# project name,
+unless the schema sets `[namespaces] csharp`. The template's `GlobalUsings.cs` does not import it,
+so add `global using <Project>.Protocol;` below its managed block. Then a schema type named like a
+platform type, such as `MotionSample` from `Ikon.App`, is ambiguous (`CS0104`), so give schema
+types names of their own (`DancerMotion`). Put the partial with the
+`UpgradeFrom` steps in a file of its own that declares that namespace, as above: a partial in the
+global namespace is a different class (`CS0426: The type name 'RetiredFields' does not exist`). It
+is the one exception to AGENTS.md's rule against namespaces in app files. A `[nested.Person]` type is a
+class nested in the root class: `FamilyTree.Person`, not `Person`.
+
 Then use it like any other persisted value — `new PersistentSessionReactive<PlayerProfile>(new())`.
+The generated class is mutable and has no `with` or copy method, so change a stored value inside
+`Update`: `_profile.Update(p => { p.Score += 10; return p; });`. Setting a property on `Value` and
+assigning the same instance back is skipped as unchanged, so nothing re-renders.
 Nothing else changes; the contract is stored inside the payload. Three guarantees come with it:
 
 - **Renames survive.** A removed property moves to the schema's `[obsolete]` ledger; on load its
@@ -274,8 +324,13 @@ Boundaries: the contract applies to single-value `Persistent…Reactive<T>` wher
 root — the collection variants keep plain behavior for now. Nested `[obsolete.Section]` entries are
 not migrated by the state contract yet — a retired key inside a nested section is kept as an
 unknown key and written back on every save: **don't retire nested fields on persisted
-types**; keep ledger entries at the root. Plain records keep today's behavior exactly; nothing opts
-in until the type is a Teleport data schema.
+types**; keep ledger entries at the root. A retired field's type must be `string`, `bool`,
+`int32`, `int64`, `float64` or `string[]`; any other type, such as an array of a nested type, fails
+the build with `TELEPORT001`. So neither a field holding a list of nested records
+(`Pages = "Page[]"`) nor a field inside a nested type can be renamed through the ledger. To rename
+one, keep the old field, add the new one beside it, bump `version` and copy the values across in the
+`UpgradeFrom` step.
+Plain records keep today's behavior exactly; nothing opts in until the type is a Teleport data schema.
 
 ## Anti-patterns — don't do these
 
@@ -286,7 +341,7 @@ in until the type is a Teleport data schema.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
 - ❌ Writing a reactive from inside a render lambda (`if (_boxes.Count == 0) _boxes.Add(new Box())` in the middle of `UI.Root(...)`). The platform drops the change notification of a write made while it renders — nothing re-renders from it — and logs `update was ignored because it was done within a reactive callback, at <call site>` once per site. Render only reads; create-if-missing belongs in the event handler that needs it (the switch that enables the feature, the button that adds the item) or in a lifecycle callback such as `app.OnClientJoined`. When the render needs something to show before it exists, render a detached placeholder value and let the first edit handler store it.
 - ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
-- ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.DatabaseAsync()` directly.
+- ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is read at load and written by autosave, an explicit save and the shutdown save; in between, the value lives in memory. For read-your-writes durability, go through `app.DatabaseAsync()` directly.
 
 ## When to drop down to `Asset.Instance` directly
 

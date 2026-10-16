@@ -1,4 +1,4 @@
-<!-- checked-against: 2adbb4f1fe959f6dfb86c4fa -->
+<!-- checked-against: 7cbd0e505def240b9786dcab -->
 
 # App Files Guide
 
@@ -30,15 +30,17 @@ var url = await app.Files.Public.GetUrlAsync($"thumbnails/{id}.png");
 ```
 
 Files your app **writes at runtime** go to cloud storage and persist across deploys and restarts.
-Files **shipped in the repo** redeploy with the app. On a read through `app.Files.Data`, a runtime-written file wins over a
-shipped file at the same path; `app.Files.Public` cannot read shipped `public/` files, which are
-reachable only by their URL path.
+Files **shipped in the repo** redeploy with the app. On a read, a runtime-written file wins over a
+shipped file at the same path. A local run reads shipped files straight from the app's `data/` and
+`public/` folders, so a file added there while the app runs is readable at once. In a deployed app, the
+frontend serves the shipped `public/` files, and `app.Files.Public` reads one by fetching it from the
+app's own URL.
 
 ## Referencing files
 
 | The file | How to reference it |
 |---|---|
-| Shipped in `public/` | Its URL path: `public/textures/wall.png` → `"/textures/wall.png"` |
+| Shipped in `public/` | Its URL path: `public/textures/wall.png` → `"/textures/wall.png"`. On the server, `app.Files.Public.ReadBytesAsync(path)`, or `GetAbsoluteUrlAsync(path)` for `Audio.Play` |
 | Shipped in `data/` | Its relative path via `app.Files.Data`: `"models/db.bin"` |
 | Written at runtime (public) | In the browser, `await app.Files.Public.GetUrlAsync(path)`: a root-relative path on the app's own origin (`/ikon/assets/…`). For a model (`ImageUrlPart`), an email or share text, `GetAbsoluteUrlAsync(path)`. On the server, `app.Files.Public.ReadBytesAsync(path)` |
 | Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
@@ -48,8 +50,9 @@ is stored under a new URL and the old one stops working. Ask `GetUrlAsync` for i
 and give each version of a file you hand out (a feed entry, a link in an email) a path of its own.
 
 A root-relative path has no host, so server code cannot fetch it: `new Uri(url)` throws, and
-`Audio.Play` takes only absolute URLs. To play a file the app wrote, read its bytes and play them
-as a stream:
+`Audio.Play` takes only absolute URLs. A file shipped in `public/` plays from
+`GetAbsoluteUrlAsync(path)` in a local run and in a deployed app. A local run cannot fetch its own
+local address, so it reads the file from the folder instead. To play a file the app wrote, read its bytes and play them as a stream:
 
 <!-- ikon-example: app-files-play-written -->
 ```csharp
@@ -82,8 +85,9 @@ app nested inside a larger one bundles and deploys its binaries as they are and 
 repository's files alone.
 
 `ikon save` and the save before a deploy commit every file in the app that git does not ignore, and
-offload the binaries among them, test fixtures included. List a folder of test files (`scripts/`,
-`testdata/`) in the app's `.gitignore` to keep it out of the repository and the Asset store.
+offload the binaries among them, test fixtures included. Keep test files in `scratch/`, which the
+app's `.gitignore` lists, or list their folder (`testdata/`) there, to keep them out of the
+repository and the Asset store.
 
 The native project folders of a Flutter frontend (`frontend-flutter/android`, `ios`, `macos`,
 `windows`, `linux`) stay in git as they are, because the Android and iOS builds refuse files they do

@@ -1,4 +1,4 @@
-<!-- checked-against: 0483b0231ffc3b66a7090300 -->
+<!-- checked-against: 393f3c7c2a6211ba62dd1ea4 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -167,7 +167,7 @@ view.Button([Button.GhostMd, Button.Icon],
     onClick: _theme.ToggleAsync,
     content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
 ```
-   Do not hand-write the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` code this replaces. If you rewrite the app body and drop the `UseTheme` call, the invisible-button problem comes back. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme. Make it replace the plain `UI.UseTheme()` call above, not sit beside it: a repeat call with different arguments throws `InvalidOperationException`.
+   Do not hand-write the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` code this replaces. If you rewrite the app body and drop the `UseTheme` call, the invisible-button problem comes back. In any app that uses fixed dark Crosswind palette classes for surfaces, call `UI.UseTheme(Theme.Dark, followClient: false)` so a light-OS browser does not keep the light theme. Call `UseTheme` once: where the app already has a `UI.UseTheme()` call, change its arguments rather than adding a second call, since a repeat call with different arguments throws `InvalidOperationException`. The scaffold has none.
 
 The same applies in reverse for a fixed-light UI: don't leave `text-primary` on a fixed-white background while the theme is dark.
 
@@ -882,7 +882,7 @@ This applies to any fullscreen overlay effect: scan lines, sweep bands, CRT over
 
 ### Responsive Breakpoints
 
-**All UIs must be built responsively using breakpoint prefixes.** Never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
+**All UIs must be built responsively using breakpoint prefixes.** For how a layout looks, never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Which panels or features a phone is offered is app behaviour, not looks, so branching on `ctx.ViewportWidth` or `ClientPlatform.IsMobile` is fine for that. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
 
 <!-- ikon-example: cw-responsive-breakpoints -->
 ```csharp

@@ -1,4 +1,4 @@
-<!-- checked-against: a4aaf0f1f0c3b23724db1ac9 -->
+<!-- checked-against: bc4bafa98df7cf06a1793de1 -->
 
 # IKON C# SDK
 
@@ -34,7 +34,8 @@ var config = new IkonClientConfig
     {
         ApiKey = Environment.GetEnvironmentVariable("IKON_API_KEY")!,
         SpaceId = "your-space-id",
-        ExternalUserId = "user-123"
+        ExternalUserId = "user-123",
+        BackendType = BackendType.Production // Development for an app on *.dev.ikonai.app
     },
     Description = "My App"
 };
@@ -98,7 +99,7 @@ when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and 
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
 
 <!-- ikon-example: sdk-api-key-config -->
 ```csharp
@@ -106,11 +107,11 @@ var config = new IkonClientConfig
 {
     ApiKey = new ApiKeyConfig
     {
-        ApiKey = "ikon-xxxxx",           // API key from portal
-        SpaceId = "...",                  // Space ID
+        ApiKey = "ikon-xxxxx",           // From `ikon api-key create` in the app's folder
+        SpaceId = "...",                  // The app's id
         ExternalUserId = "user-123",      // Your user identifier
         SessionIdentityHash = "...",      // Optional: attach to a specific live session (connect fails if none owns this hash)
-        BackendType = BackendType.Production,
+        BackendType = BackendType.Production, // Development for an app on *.dev.ikonai.app
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
     }
@@ -160,7 +161,7 @@ var config = new IkonClientConfig
 Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
 host — for example an embedded in-process app server minting URLs for its own clients. The
 authentication step is skipped entirely and the client connects straight through the URL. This
-mode is mutually exclusive with the other five; a config that combines them is rejected.
+mode is mutually exclusive with the other six; a config that combines them is rejected.
 
 <!-- ikon-example: sdk-external-connect-url -->
 ```csharp
@@ -199,8 +200,164 @@ browser SDK connects a user who has not signed in. It needs no sign-in. The plat
 user by `IkonClientConfig.DeviceId`: two clients with the same device id are the same guest, and a new
 device id is a new guest. If the app's guest entries include "global", the device id is ignored and
 all guests share one user. If the app lets no guests in, the connect fails with a 403. `Environment`
-names the platform, Development or Production; null uses the process's own. For a local server,
+(`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the platform the app is on, Development
+or Production. Null uses the platform this process signed in to. A standalone program has not signed
+in, so it must set `Environment`; otherwise `ConnectAsync` throws `ArgumentException` ("Guest
+authentication needs the Development or Production platform, not Unknown"). For a local server,
 `LocalConfig.IsAnonymous = true` connects as a guest in the same way, under the `UserId` you give it.
+
+## A Console Program That Joins An App
+
+A kiosk, a bot or a script that shows an app's live state or calls its functions is a console
+program with this SDK. Kept with an app, it goes in the app's `devices/<name>/` folder, which is
+kept in the app's repository (the save before a deploy commits it) but is not built or run by the
+deploy or by `ikon run`. Create it with `dotnet new console` and add the package with
+`dotnet add package Ikon.Sdk --version <version>`, taking the `Ikon.Sdk` version the app's csproj
+lists in its `PackageReference`. The SDK is released on its own version line, apart from the app's
+other `Ikon.*` libraries, and is on nuget.org. That published package also works against an app
+that this machine builds from platform sources, locally and deployed, so the program needs no
+source build of its own. When `ikon update` raises the versions in the app's csproj, raise the
+program's `Ikon.Sdk` to match. `OnMessage<T>`, `IkonClientConfig.LogFilter`, the console log at
+`Info` on stderr and `LocalConfig.SpaceId` need `Ikon.Sdk` 2.0.54 or later; `ikon update` raises an
+app whose csproj lists an earlier one. An earlier package logs
+every connect step to stdout; `Log.Instance.Filter = LogFilter.Info;` before creating the client
+keeps the steps out.
+
+`Program.cs` starts with:
+
+<!-- ikon-example: sdk-console-usings -->
+```csharp
+using Ikon.Common.Core;
+using Ikon.Sdk;
+```
+
+Which authentication mode to use depends on where the app runs:
+
+| The app | Mode | What it needs |
+|---|---|---|
+| A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (8443 unless another run held it), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
+| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The app's `[Auth] Methods` must list `guest` or `global` |
+| Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
+
+<!-- ikon-example: sdk-console-client -->
+```csharp
+// The app id: [Target] SpaceId in the app's ikon-config.<environment>.toml
+const string appId = "your-app-id";
+
+// For a local `ikon run`, use Local with the port of the Server URL that the run prints; with SpaceId
+// set, a port that serves another app makes the connect throw. For the deployed app, join as a guest,
+// which needs no key; Environment is required.
+var local = args.Contains("--local");
+var config = local
+    ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = 8443, UserId = "door-kiosk", SpaceId = appId } }
+    : new IkonClientConfig
+    {
+        Guest = new GuestConfig { SpaceId = appId, Environment = IkonBackend.EnvironmentType.Development },
+        DeviceId = "door-kiosk",
+    };
+
+await using var client = new IkonClient(config);
+client.ReadyAsync += async e => await client.SignalReadyAsync();
+await client.ConnectAsync();
+
+// The app looks up a reactive's stable id by the member's name in its [App] class
+var stableId = await client.FunctionRegistry.CallAsync<string>("Ikon.Reactive.GetStableIdByName", args: ["_visitorCount"]);
+
+// The callback runs once with the current value, then on every change
+var reactives = new ReactiveRegistry(client);
+await using var visitors = await reactives.SubscribeAsync<int>(stableId, count => Console.WriteLine($"Visitors today: {count}"));
+
+// Call an External [Function] of the app, passing the key it checks
+var answer = await client.FunctionRegistry.CallAsync<string>("RecordVisit",
+    args: [Environment.GetEnvironmentVariable("KIOSK_KEY"), "Front door"]);
+```
+
+The app's side, on its `[App]` class:
+
+<!-- ikon-example: sdk-console-app-side -->
+```csharp
+// On the [App] class: a shared reactive the program reads by its name
+private readonly Reactive<int> _visitorCount = new(0);
+
+// Any program can join as a guest, so a call that changes data sends a key the app checks
+[Function(Name = "RecordVisit", Visibility = FunctionVisibility.External)]
+[AllowAnonymous]
+public string RecordVisit(string key, string door)
+{
+    if (!app.Secrets.TryGet("KIOSK_KEY", out var expected)
+        || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(expected)))
+    {
+        return "denied";
+    }
+
+    _visitorCount.Value++;
+    return $"ok, {door}";
+}
+```
+
+- **Which reactive.** `Ikon.Reactive.GetStableIdByName` finds a reactive field or auto-property of
+  the app's `[App]` class by its name in the source. A reactive kept anywhere else has no name there:
+  the app hands out its `StableId` from an `External` function instead. A stable id is made from
+  where the reactive is declared, so it stays the same across restarts and deploys until that code
+  moves.
+- **Which instance.** The program joins the instance its identity maps to. With the scaffold's
+  per-user `SessionIdentity(string? UserId)` that is an instance of its own, for its own guest or
+  local user, so it does not see what other people's instances hold. To share state with everyone,
+  keep it in an app with one instance for everyone (`public record SessionIdentity();`) or in the
+  database.
+- **Values.** `SubscribeAsync<T>` reads the value as JSON into `T`: `int` for a `Reactive<int>`, a
+  `List<T>` for a `ReactiveList<T>`, `JsonElement` to look at any of them. A `ClientReactive` gives
+  the program its own copy, not a browser's.
+- **Who can read a reactive.** Any client that joins the instance, a guest included, can subscribe
+  to every reactive of the `[App]` class by its name, private fields too, and to any other reactive
+  whose stable id it learns. Nothing marks a reactive as server-only. A `ClientReactive` or
+  `UserReactive` gives each caller only its own value; keep anything a guest must not see out of
+  shared reactives, in a plain field or the database, and hand it out from a function that checks
+  the caller.
+- **A function that returns an app type.** The result arrives as JSON with the C# property names
+  as they are (`Name`, `SinceUtc`) and enums as their names. Ask for `JsonElement` and read it with
+  `GetProperty("Name")`, or declare a record with the same property names in the program and ask
+  for it (`CallAsync<RosterEntry[]>`); the names are matched with their case. A `schema/*.tp` type
+  arrives in its binary form instead, and needs the app's generated class.
+- **Keys.** Anyone can join an app that lets guests in, so a function that changes data checks a
+  key it is given against an app secret (`ikon secret set KIOSK_KEY`), and the program reads the
+  key from its environment.
+- `ContextType.Plugin`, the default, is the right one here, because the program draws no UI.
+- **Output.** In a program that has not used `Log.Instance` before it creates the client, the SDK
+  logs at `LogFilter.Info` to stderr, so stdout holds only what the program prints. Set
+  `LogFilter = LogFilter.Debug` in `IkonClientConfig` to see each step of a connect that fails.
+- **Typed messages.** A device that sends readings as the app's `schema/*.tp` types, and waits for
+  an ack, is the `device-typed-messages` pattern; see "Receiving Typed Messages" below.
+
+A program that should keep running while the app restarts (`ikon stop` and a new `ikon run`, a
+deploy, `ikon session stop`) connects again itself. The client reconnects by itself after a dropped
+connection, but when the server stops, the client goes `Offline` and stays there. A loop at the end
+of the program connects it again:
+
+<!-- ikon-example: sdk-console-stay-connected -->
+```csharp
+// Connecting again joins the app's next server, and the ReactiveRegistry subscribes again by itself
+while (true)
+{
+    await Task.Delay(TimeSpan.FromSeconds(15));
+
+    if (client.State != ConnectionState.Offline)
+    {
+        continue;
+    }
+
+    try
+    {
+        await client.ConnectAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Not connected: {ex.Message}");
+    }
+}
+```
+
+Against a deployed app, each connect starts the app's server if none is running.
 
 ## Connection Lifecycle
 
@@ -339,6 +496,36 @@ payload when the client is not connected, so send only after `ReadyAsync` has fi
 // Send a typed payload (creates ProtocolMessage automatically)
 await client.SendMessageAsync(new MyCustomPayload { /* ... */ });
 ```
+
+### Receiving Typed Messages
+
+`OnMessage<T>` is the client's side of the app's `app.OnMessage<T>`. It can be called before
+`ConnectAsync` and lasts across reconnects until the handle it returns is disposed. The handler runs
+on the client's receive loop, so the next message waits until it returns:
+
+<!-- ikon-example: sdk-receive-typed -->
+```csharp
+// The handler gets only messages of this type, decoded, with the sender's session id
+var subscription = client.OnMessage<MyCustomPayload>(async (message, senderId) =>
+{
+    Console.WriteLine($"{senderId}: {message.Text}");
+});
+
+// Later, to stop receiving them
+subscription.Dispose();
+```
+
+In the app, the `senderId` that `app.OnMessage<T>` gets for a message from this program is the
+program's `client.ClientContext.SessionId`, the same number as `ReactiveScope.ClientId` and
+`Context.SessionId` for the program's client, and `app.SendMessageAsync(reply, senderId)` answers
+only the program.
+
+The types an app sends and receives come from its `schema/*.tp`, and the app's build writes their C#
+to `app/<App>/Generated/Protocol/` only. A standalone program compiles those same files, linked from
+its csproj, never copied. A type's opcode comes from its schema file's place in the sorted list of
+schema files, so a copy can end up with the wrong opcodes when a schema is added. The `device-typed-messages` pattern
+(`docs/Ikon.Agent.Docs/patterns/device-typed-messages.md` in an app) has the csproj lines and a
+program that sends a reading and waits for the app's ack.
 
 ## Audio
 

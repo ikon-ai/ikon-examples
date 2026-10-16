@@ -1,4 +1,4 @@
-<!-- checked-against: 490791683c16bdd973cfd46c -->
+<!-- checked-against: d9898d775305ebaf69cad9ea -->
 
 # IKON Pipeline Guide
 
@@ -56,7 +56,7 @@ internal class SimplePipeline
 ### Running the Pipeline
 
 Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
-(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache. The items `Run` and `RunAsEnumerable` return are hashes whose content the runner serves, so read their content before the runner is disposed and from the async flow that ran it; otherwise `GetContentAsString` and its siblings throw `PipelineException`.
+(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache. The items `Run` and `RunAsEnumerable` return are hashes whose content the runner serves, so read their content before the runner is disposed and from the async flow that ran it; otherwise `GetContentAsString` and its siblings throw `PipelineException`. The same holds for input items: create them after `Initialize`, on that flow, or `Item.CreateInitial` throws `PipelineException` too.
 
 <!-- ikon-example: pipeline-run -->
 ```csharp
@@ -623,8 +623,9 @@ Use `ikon pipeline` to execute a pipeline outside your application code. Inside 
 
 `Ikon.Pipelines.Public` carries the PDF reader the document pipelines are built on, and it is usable
 on its own. `PdfDocument.Load(bytes, password)` returns an `IPdfDocument` — a `PageCount` and
-`GetPage(index)` — and each `IPdfPage` gives `Index`, `Width`, `Height`, `GetText()`, `CreateCopy`
-to split one page into its own file, and two `GetPixels` overloads that render it as a row-major
+`GetPage(index)`, plus `CopyPages(first, count, stream)` to write a range of pages as one PDF — and
+each `IPdfPage` gives `Index`, `Width`, `Height`, `GetText()` (the page's text layer, empty for a
+scanned page), `CreateCopy` to split one page into its own file, and two `GetPixels` overloads that render it as a row-major
 RGBA buffer: one scales the page so its longest side is exactly `maxDimension` pixels (upscaling a
 small page) and preserves aspect ratio, the other renders at an exact size. Both the document and the pages are `IDisposable` and hold native handles, so dispose them.
 

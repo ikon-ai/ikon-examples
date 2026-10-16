@@ -1,4 +1,4 @@
-<!-- checked-against: aa9df627c6c3498ddb3691ae -->
+<!-- checked-against: a34f44c6c6c3498ddb3691ae -->
 
 # App Container Guide
 
@@ -27,6 +27,7 @@ Put programs in `tools/<runtime>/` at the app root, one folder per platform they
 |---|---|
 | `tools/linux-x64/` | the deployed app, always |
 | `tools/win-x64/`, `tools/osx-arm64/`, `tools/linux-x64/`, or the `arm64`/`x64` counterpart | `ikon run` on that kind of machine |
+| `tools/source/<name>/` | nothing: the source of a program of your own, published into the folders above, never shipped |
 
 `ikon deploy` puts `tools/linux-x64/` in the bundle, and the server puts it first on the app's
 `PATH`, so the app starts a program by name. A `lib/` folder inside it is on `LD_LIBRARY_PATH`, for
@@ -41,7 +42,8 @@ programs would shadow another's. Hosted mode is something IKON turns on per spac
 tools should stay off it.
 
 A program that is too large to keep in the repository is better downloaded than committed. Name the
-script that downloads it in `ikon-config.toml`:
+script that downloads it in `ikon-config.toml`, and keep the script in `scripts/`, which is
+committed with the app (`scratch/` is git-ignored, for throwaway scripts):
 
 ```toml
 [Tools]
@@ -52,7 +54,8 @@ The tool runs it before `ikon run`, `ikon run --container`, `ikon bundle` and `i
 `IKON_TOOLS_RUNTIME` naming the runtime (`linux-x64` for a deploy) and `IKON_TOOLS_DIR` the
 `tools/<runtime>/` folder to fill. It runs every time, so the script keeps its download, checks the
 SHA-256, returns at once when the folder is complete, and does nothing for a runtime it has no
-program for. Add the folder to `.gitignore`. On Windows `python3` at the start of the command runs
+program for. Add the runtime folders it fills to `.gitignore` (`/tools/linux-x64/`), not `tools/`,
+which would hide `tools/source/`. On Windows `python3` at the start of the command runs
 `python`. A program that needs its whole folder beside it gets a small launcher script there:
 
 ```sh

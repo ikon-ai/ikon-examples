@@ -1,4 +1,4 @@
-<!-- checked-against: 715e30e69a5d6ee8e3b0c442 -->
+<!-- checked-against: 80c95c0e9cb58ce5e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -6,7 +6,7 @@ The IKON TypeScript SDK connects browser and Node.js applications to an IKON app
 
 ## Features
 
-- Three authentication modes: API Key, Local Development, Session Token
+- Four authentication modes: Guest, API Key, Local Development, Session Token
 - UI-friendly connection states, with slow-connection detection in the React layer (`isConnectingSlow`)
 - Automatic reconnection with fixed-delay retries
 - Web Worker support for off-UI-thread protocol processing
@@ -23,11 +23,34 @@ Install the npm package with its Opus codec:
 npm install @ikonai/sdk @ikonai/sdk-libopus
 ```
 
+The `guest` mode, a connect in `apiKey` mode, `local.spaceId` and `local.backendType`, the
+`boolean` that `AppMessaging.send` and `sendProtocolMessage` return, `AppMessaging.on` before
+`connect()`, the refusal of an app message without any of its fields, a function call that waits
+for the app's function list, and reactive subscriptions that last across a reconnect need
+`@ikonai/sdk` 1.13.3 or later.
+
 For UI state management (optional):
 
 ```bash
 npm install @ikonai/sdk-ui
 ```
+
+### In Node.js
+
+WebRTC and Web Workers exist only in a browser. In Node the SDK receives audio and video over its
+protocol channels and does not decode them, which does not affect a program that sends and receives
+messages or calls functions. `@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
+stack trace and a retry every 10 seconds; `webRtc: { enabled: false }` in the configuration stops
+that, and `setLogLevel(LogLevel.WARN)` hides the info lines.
+
+Run a program that imports an app's generated message codec (`frontend-node/src/generated/protocol/*.ts`,
+see "App Messages" below) with `tsx` (`npx tsx client.ts`). `node client.ts` fails, because the codec
+imports its other files without a file extension and uses TypeScript enums, and Node's built-in
+TypeScript support handles neither. A program kept with an app goes in the app's `devices/<name>/`
+folder, with a `package.json` of its own, and imports the codec from
+`../../frontend-node/src/generated/protocol/`. A `tsconfig.json` there holding
+`{ "extends": "../../frontend-node/tsconfig.paths.json" }` makes `tsx` load the same SDK the app's
+frontend builds with, which is the platform's source when the app builds against a platform checkout.
 
 ## Quick Start
 
@@ -41,6 +64,7 @@ const client = new IkonClient({
     apiKey: process.env.IKON_API_KEY!,
     spaceId: 'your-app-id',
     externalUserId: 'user-123',
+    backendType: 'production', // 'development' for an app on *.dev.ikonai.app
   },
   onConnectionStateChange: (state) => {
     console.log(`Connection state: ${state}`);
@@ -58,11 +82,31 @@ await client.connect();
 
 ## Authentication Modes
 
-The SDK supports three authentication modes. Exactly one must be configured.
+The SDK supports four authentication modes. Exactly one must be configured.
+
+### Guest
+
+Join a deployed app as a guest, a visitor who has not signed in. It needs no key, only the app id,
+and is the TypeScript counterpart of the .NET SDK's `Guest` mode. The platform's anonymous sign-in
+gives the client a guest user keyed by `deviceId`: clients with the same device id are the same
+guest, and a client without one gets a new device id each time it cannot store one (every run of a
+Node program). The connect fails when the app's `[Auth] Methods` list neither `guest` nor `global`,
+with 403 "Anonymous users not allowed". A program connects to such a private app with an API key.
+
+<!-- ikon-example: ts-sdk-auth-guest -->
+```ts
+const client = new IkonClient({
+  guest: {
+    spaceId: 'your-app-id',     // The app's id ([Target] SpaceId in ikon-config.<environment>.toml)
+    backendType: 'production',  // 'development' for an app on *.dev.ikonai.app
+    deviceId: 'info-screen-1',  // Optional: the same device id is the same guest
+  },
+});
+```
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. Get your API key from the IKON portal.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
 
 <!-- ikon-example: ts-sdk-auth-api-key -->
 ```ts
@@ -70,17 +114,17 @@ import { IkonClient, UserType, ClientType } from '@ikonai/sdk';
 
 const client = new IkonClient({
   apiKey: {
-    apiKey: 'ikon-xxxxx',              // API key from portal
+    apiKey: 'ikon-xxxxx',              // From `ikon api-key create` in the app's folder
     spaceId: '...',                     // The app's id (ikon app list)
     externalUserId: 'user-123',         // Your user identifier
-    backendType: 'production',          // 'production' | 'development'
+    backendType: 'production',          // 'development' for an app on *.dev.ikonai.app
     userType: UserType.Human,           // Optional: UserType enum
     clientType: ClientType.DesktopWeb,  // Optional: ClientType enum
   },
 });
 ```
 
-`userType`, `clientType` and `joinOnly` apply to `apiKey` and `sessionToken` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
+`userType`, `clientType` and `joinOnly` apply to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
 
 ### Local Development
 
@@ -91,11 +135,30 @@ Connect directly to a local IKON server during development.
 const client = new IkonClient({
   local: {
     host: 'localhost',
-    httpsPort: 8443,
-    userId: 'dev-user',  // Optional
+    httpsPort: 8443,         // The port of the Server URL that the app's `ikon run` printed
+    spaceId: 'your-app-id',  // Optional: refuse a server that runs another app
+    backendType: 'development',  // With spaceId and no userId: the app's platform, as for guest
+    userId: 'dev-user',      // Optional
   },
 });
 ```
+
+The port belongs to the run, not to the app: a run takes 8443 when it is free and the next free
+port when another app's run holds it. Use the port of the Server URL the run printed, which is also
+the `serverUrl` in `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. With `spaceId`
+set to the app id, a connect to a server that runs another app fails with an `AuthenticationError`
+that names both apps, instead of joining it. Without `userId`, a `spaceId` also makes the SDK sign
+in anonymously to the app's platform for a user id. A Node program names that platform with
+`backendType` (`'development'` for an app on `*.dev.ikonai.app`, `'production'` by default);
+otherwise the sign-in for a development app fails with `403 Space ... not found`.
+
+A local run serves a development certificate. Browsers trust it once `ikon install certificate` has
+added it to the computer's certificate store, but Node reads only its own list of authorities, so
+a Node program's connect (or `fetch`) fails with `fetch failed`, caused by
+`DEPTH_ZERO_SELF_SIGNED_CERT` or `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. Start the program with
+`NODE_OPTIONS=--use-system-ca` (Node 22.15 or later) so that Node also reads the computer's store
+on Windows and macOS. On Linux, set `NODE_EXTRA_CA_CERTS` to the certificate exported with
+`dotnet dev-certs https --export-path ikon-local.pem --format Pem`. A deployed app needs neither.
 
 ### Session Token Authentication
 
@@ -338,6 +401,26 @@ client.sendProtocolMessage(message);
 client.sendActionCall(actionId, JSON.stringify({ key: 'value' }));
 ```
 
+`sendProtocolMessage` returns false when the client has no connection to send on, or no channel of
+it carries the message's opcode group, and the message is dropped.
+
+### App Messages
+
+`appMessaging(client)` sends and receives an app's own `schema/*.tp` types, the counterpart of the
+app's `app.SendMessageAsync` and `app.OnMessage<T>`; the `realtime-game-loop` and
+`device-typed-messages` patterns show both sides. The generated interfaces keep the schema's field
+names, usually PascalCase (`StationId`), and `AppMessaging.send` throws a `TypeError` for an object
+that has none of the type's fields (`{ stationId }`), which would otherwise arrive with every field
+empty. An `AppMessageType` takes the codec's synchronous `toProtocolMessageX`. `send` throws a
+`TypeError` for the Promise that `toProtocolMessageXAsync` returns, which `@ikonai/sdk` 1.13.3 and
+earlier dropped while `send` returned true. `AppMessaging.send` returns false, and logs a
+warning for the first such send, when the client has no connection to send on. `AppMessaging.on`
+can subscribe before `connect()`, and the subscription lasts across reconnects. The app logs a
+warning, once per type, for an app message that arrives with no `app.OnMessage<T>` handler. In the
+app, the `senderId` that `app.OnMessage<T>` gets for a message from this client is
+`client.sessionId`, the same number as `ReactiveScope.ClientId` and `Context.SessionId` for this
+client, and `app.SendMessageAsync(reply, senderId)` answers only this client.
+
 ## Functions
 
 Register functions in the client's function registry for the app server to call. The server offers a browser client's functions to the app: the app can call them, and another browser client cannot, though it may see them listed (the server normally relays the registrations to the app alone).
@@ -431,7 +514,13 @@ client.functionRegistry.register(
 
 ### Remote Function Calling
 
-Call functions the app server registers (another browser client's functions are not reachable):
+Call functions the app server registers (another browser client's functions are not reachable).
+A call made while the client connects, such as one straight after `await client.connect()`, waits
+up to 10 seconds for the app's function list instead of failing with `Not connected`; a name the
+list does not have fails at once.
+A function that returns a C# record or class resolves to the parsed JSON, with the C# property
+names as they are (`{ Name, SinceUtc }`, PascalCase) and enums as their names, so type the call
+with an interface that has those names:
 
 <!-- ikon-example: ts-sdk-remote-call -->
 ```ts
@@ -458,6 +547,82 @@ try {
   }
 }
 ```
+
+### Subscribing to App State
+
+A program reads an app's reactive values live through `client.reactiveRegistry`, the counterpart of
+the .NET SDK's `ReactiveRegistry`:
+
+<!-- ikon-example: ts-sdk-subscribe-reactive -->
+```ts
+const client = new IkonClient({
+  guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
+  webRtc: { enabled: false },
+});
+
+await client.connect();
+
+// The app looks up a reactive's stable id by the member's name in its [App] class
+const stableId = await client.functionRegistry.call<string>('Ikon.Reactive.GetStableIdByName', ['_visitorCount']);
+
+// The callback runs once with the current value, then on every change
+const unsubscribe = await client.reactiveRegistry.subscribe<number>(stableId, (count) => {
+  console.log(`Visitors today: ${count}`);
+});
+
+// Later: stop receiving changes
+unsubscribe();
+```
+
+`Ikon.Reactive.GetStableIdByName` finds a reactive field or auto-property of the app's `[App]`
+class by its name in the source; for a reactive kept anywhere else, return its `StableId` from an
+`External` function. The program sees the instance its identity joins, so state that the app shares
+with everyone belongs in an app with one instance (`public record SessionIdentity();`). The value arrives as
+parsed JSON with the C# property names. Any client that joins, a guest included, can subscribe to
+every reactive of the `[App]` class, so keep what a guest must not see out of shared reactives.
+After a reconnect the client subscribes to each of them again, and `client.disconnect()` ends them.
+
+Against a local run, connect with `local` and the app's `spaceId` ("Local Development" above), so
+that a port that serves another app fails the connect instead of joining it.
+
+A program that should keep running while the app restarts (`ikon stop` and a new `ikon run`, a
+deploy, `ikon session stop`) builds a new client itself. The client reconnects by itself after a
+dropped connection, but when the server stops, the client goes `offline` and stays there, and
+`connect()` runs once per client:
+
+<!-- ikon-example: ts-sdk-stay-connected -->
+```ts
+// A client that went offline cannot connect again, so a new client joins the app's next server 15 seconds later
+function watchVisitors(): void {
+  const client = new IkonClient({
+    guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
+    webRtc: { enabled: false },
+    onConnectionStateChange: (state) => {
+      if (state === 'offline') {
+        setTimeout(() => {
+          client.disconnect();
+          watchVisitors();
+        }, 15_000);
+      }
+    },
+  });
+
+  void (async () => {
+    await client.connect();
+    const stableId = await client.functionRegistry.call<string>('Ikon.Reactive.GetStableIdByName', ['_visitorCount']);
+    await client.reactiveRegistry.subscribe<number>(stableId, (count) => {
+      console.log(`Visitors today: ${count}`);
+    });
+  })().catch((error: unknown) => {
+    // A failed connect also goes offline, which already schedules the next client
+    console.error(`Not connected: ${error instanceof Error ? error.message : String(error)}`);
+  });
+}
+
+watchVisitors();
+```
+
+Against a deployed app, each new client starts the app's server if none is running.
 
 ### Value Descriptors
 
@@ -664,6 +829,7 @@ const client = new IkonClient({
     apiKey: '...',
     spaceId: '...',
     externalUserId: 'user-123',
+    backendType: 'production', // 'development' for an app on *.dev.ikonai.app
     // Client identification
     deviceId: 'unique-device-id',
     productId: 'my-app',
@@ -898,6 +1064,7 @@ const client = new IkonClient({
 | Type | Description |
 |------|-------------|
 | `LocalConfig` | Configuration for local server development |
+| `GuestConfig` | Configuration for guest authentication |
 | `ApiKeyConfig` | Configuration for API key authentication |
 | `SessionTokenConfig` | Configuration for session token authentication |
 | `TimeoutConfig` | Timeout settings |

@@ -56,7 +56,7 @@ IKON applications communicate over Teleport, a binary protocol that carries all 
 
 IKON has a built-in policy system that controls what users can do inside an application. Policies are attached to functions and evaluated before every call. There are three kinds.
 
-**Rate limits** restrict how often a function can be called, either globally or per session. A patient-facing AI assistant can be limited to a fixed number of consultations per hour, while an internal tool can allow unlimited use. The platform enforces the limits, so they do not depend on application code that someone might forget to add.
+**Rate limits** restrict how often a function can be called, globally, per user or per session. A patient-facing AI assistant can be limited to a fixed number of consultations per hour, while an internal tool can allow unlimited use. The platform enforces the limits, so they do not depend on application code that someone might forget to add.
 
 **Usage limits** check quotas and credits before execution. An enterprise deployment can cap AI usage per department, per user or per billing period, and the check happens before the AI call is made.
 

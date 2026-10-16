@@ -1,4 +1,4 @@
-<!-- checked-against: 1cc27ab7e91b969dd16c36fd -->
+<!-- checked-against: bb83c9eeda577a64483b7aea -->
 
 # Ikon.Parallax Library Overview
 
@@ -266,7 +266,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.PanZoom()` - Viewport the user pans and zooms by wheel, pinch and drag; the offset stays client-side
 
 **Display:**
-- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content; `view.Heading(level: 2)` renders `<h2>` (1 to 6, default `<h1>`)
+- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content; `view.Heading(level: 2)` renders `<h2>` (1 to 6); without `level:` a `Text.H1`…`Text.H6` token in the style sets it, else `<h1>`
 - `view.Image()` - Images from URL or bytes
 - `view.Icon()` - Icon library glyphs
 - `view.Spinner()` / `view.Skeleton()` - Loading states
@@ -291,16 +291,16 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.Breadcrumb()` - Path navigation
 
 **Data:**
-- `view.DataTable()` - Paginated tables with typed cells, row actions, and column resize (per-slot styling via the `DataTableStyles` record on `styles:`)
+- `view.DataTable()` - Paginated tables with typed cells, row actions, column resize and a `selectedRowId` row shown as selected (per-slot styling via the `DataTableStyles` record on `styles:`)
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
 - `view.ChatLog()` - `ScrollColumn` with auto-scroll on and optional header/footer slots (pass your composer as the footer)
 - `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload when `onAttachmentStart` or `onAttachmentAdded` is wired, auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
-- `view.ContentGrid()` - Column-defined grid taking `ContentGridColumn[]`, for card and media layouts a `DataTable` would over-structure
+- `view.ContentGrid()` - A grid with fixed columns (`ContentGridColumn[]`: header, width or `Flex`, alignment) that the content fills cell by cell, row after row: a comparison table, a sheet of aligned values, a card or media grid. A `DataTable` adds typed cells, paging and row actions
 - `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
 
 **Editors:**
 - `view.CodeEditor()` - A monospace text area with a line-number gutter, a `language` badge and Ctrl+Enter `onSubmit`, named by `label:` (shown above it) or `ariaLabel:`. It highlights no syntax. `readOnly: true` shows code without editing; a controlled `value` with no write-back handler also renders read-only, with a dev warning
-- `view.RichTextEditor()` - HTML-valued editor whose toolbar you can narrow with `RichTextTool` (`Bold`, `Italic`, …); same `readOnly` and read-only rule as `CodeEditor`
+- `view.RichTextEditor()` - HTML-valued editor whose toolbar you choose with `RichTextTool` (`Bold`, `Italic`, …). `FontSize`, `TextColor` and `Image` are not in the default toolbar; name them in `tools:` to use them, and the value keeps a colour, size or image only while its tool is there. Same `readOnly` and read-only rule as `CodeEditor`
 - `view.ImageEditorCanvas()` - Brush, shape and text annotation over an image, or a blank pad the size of its container when there is no `src`, driven by `ImageEditorTool`; `onSave` yields `ImageEditorSaveArgs` (with `MaskData`, the changed area as a white-on-black mask, under `saveMask: true`) and `onHistoryChange` an `ImageEditorHistoryArgs` for undo/redo affordances
 - `view.ShadertoyCanvas()` - A GLSL fragment shader as a live surface, with named `ShaderUniform` values and optional pointer input. `onCompileError` gets the WebGL log, with line numbers counted in your source; `onCompile` fires when a new source is drawing
 
@@ -345,7 +345,7 @@ view.TextField(["flex-1"], label: "Name", bind: _name);
 view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
 ```
 
-Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written. A `value:` with no `bind:` and no handler that writes a change back (`onValueChange:`, or `onSubmit:` on a text field) renders the control read-only and logs a dev warning; `readOnly: true` on a TextField or TextArea renders the value read-only without the warning. When the value is certainly set and no `disabled:` (or, on TextField, TextArea, `CodeEditor` and `RichTextEditor`, `readOnly: true`) is passed, the build reports it too, as warning IKON027. An overlay's or picker's `open:` (Dialog, AlertDialog, Popover, Select, DatePicker and the rest) is controlled the same way: with no `onOpenChange:` its trigger, Esc and its own buttons cannot open or close it, which logs a dev warning and, when `open:` is certainly set, is warning IKON032 at build time.
+Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written. A `value:` with no `bind:` and no handler that writes a change back (`onValueChange:`, or `onSubmit:` on a text field) renders the control read-only and logs a dev warning; `readOnly: true` on a TextField or TextArea renders the value read-only without the warning. A Select whose value, bound or passed, matches none of its options shows no selection and logs a dev warning, unless the value is empty and a `placeholder:` is set. When the value is certainly set and no `disabled:` (or, on TextField, TextArea, `CodeEditor` and `RichTextEditor`, `readOnly: true`) is passed, the build reports it too, as warning IKON027. An overlay's or picker's `open:` (Dialog, AlertDialog, Popover, Select, DatePicker and the rest) is controlled the same way: with no `onOpenChange:` its trigger, Esc and its own buttons cannot open or close it, which logs a dev warning and, when `open:` is certainly set, is warning IKON032 at build time.
 
 ### App Chrome and SemanticTone
 
@@ -404,7 +404,10 @@ view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
 ```
 
 The default wording follows the kind and the variant, in the language of the client's `Context.Locale` (English, Finnish, Swedish, German, Spanish, French, Italian, Portuguese, Dutch, Polish, Estonian, Russian, Ukrainian, Arabic and Somali, English for any other; `Pill` gets the short "AI" / "AI-generated"); `note:` renders as a second line on `Banner` and after the disclosure on `Note`, and `Pill` drops it; pass `text:` for a product whose own voice says it
-better or a market whose regulator words it differently. It renders themed from
+better or a market whose regulator words it differently. The `GeneratedContent` sentence a `Note` or
+`Banner` shows by default is in the past tense ("This was generated by AI."), so show it beside what a model has already made; a
+caption for a choice that will produce AI content (a "Picture round" switch) passes its own `text:`.
+It renders themed from
 `Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
 rather than as the app's own output.
 
@@ -466,7 +469,7 @@ view.TextField(["default", "w-full"], bind: _name); // themed input, full width 
 view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
 ```
 
-A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, a dialog, sheet or drawer panel with no `fixed` or `absolute` class, a stat card with no padding, and a disabled button with no `disabled:` class. Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill. An array of string literals that holds only layout classes is also reported at build time, as warning IKON025, and the other warnings in this paragraph are warning IKON029 when every entry of the array is a constant (a literal, or a token such as `Card.Elevated`) and none is `"default"`. Both build warnings check the array written at the call, each branch of a conditional there, and the arrays a one-expression helper in the same file returns (`static string[] Tone(int side) => side == 0 ? [...] : [...]`). `view.Card` pads its `content:` (and its header) itself, so a padding class in the card's own array (`[Card.Default, "py-2"]`) doubles the padding: that warns at run time, and at build time as IKON026. Drop the padding, or pass `contentStyle: ["p-0"]`. The other way round, a `Card.*` token on a `Column`, `Row` or `Box` draws the card's border and background but adds no padding, so a `Text` drawn straight into it touches the border; when the array has no padding class, that is warning IKON034.
+A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, a dialog, sheet or drawer panel with no `fixed` or `absolute` class, a stat card with no padding, a disabled button with no `disabled:` class, and a feed scroller with no `overflow-y-auto` (it then neither scrolls nor snaps). Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill. An array of string literals that holds only layout classes is also reported at build time, as warning IKON025, and the other warnings in this paragraph are warning IKON029 when every entry of the array is a constant (a literal, or a token such as `Card.Elevated`) and none is `"default"`. Both build warnings check the array written at the call, each branch of a conditional there, and the arrays a one-expression helper in the same file returns (`static string[] Tone(int side) => side == 0 ? [...] : [...]`). `view.Card` pads its `content:` (and its header) itself, so a padding class in the card's own array (`[Card.Default, "py-2"]`) doubles the padding: that warns at run time, and at build time as IKON026. Drop the padding, or pass `contentStyle: ["p-0"]`. The other way round, a `Card.*` token on a `Column`, `Row` or `Box` draws the card's border and background but adds no padding, so a `Text` drawn straight into it touches the border; when the array has no padding class, that is warning IKON034.
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
@@ -691,7 +694,7 @@ What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled
 
 ## The IKON O
 
-`view.LivingO()` (`LivingOExtensions`) draws the IKON O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
+`view.LivingO()` (`LivingOExtensions`) draws the IKON O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. It has no size of its own, so give it a height in the style array (`["w-full h-48"]`, or `["absolute inset-0"]` inside a sized box); without one it draws nothing. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
 
 ## Example: Interactive Form
 
@@ -960,7 +963,7 @@ Guard your authed-only paths: skip user-backend calls, per-user persistence, and
 
 The platform can offer the people using an app a feedback sheet: they pick a kind (a problem, an idea, something confusing, something they like), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
 
-Who is offered it is a setting of the app on the platform, not of its code: `off`, `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. It applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts and offers it to every visitor unless it is `off`.
+**A new app offers it only to test-link visitors**, whatever `ikon-config.toml` says, so `Button = "overlay"` shows nothing until the setting below changes. Who is offered it is a setting of the app on the platform, not of its code: `off` (the default), `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. It applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts and offers it to every visitor unless it is `off`.
 
 Where the way in is drawn is the app's choice, in `ikon-config.toml`:
 

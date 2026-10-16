@@ -1,4 +1,4 @@
-<!-- checked-against: 758f497b12909dc0024025a6 -->
+<!-- checked-against: 95326a1912909dc0024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -239,6 +239,13 @@ The payload is an `EmailReceivedPayload` — the envelope only (`Id`, `Recipient
 `AttachmentCount`, `SpamScore`, `Tag`); read the subject, bodies and attachments with the message id.
 Delivery is at-least-once: a handler that throws sees the same event again after a backoff, so keep
 it idempotent, and `MaxParallelism` above 1 lets independent messages be handled concurrently.
+The trigger and an inbox sweep, such as one run at startup, can also reach the same new message at
+the same time, so a check that the message is not stored yet is not enough: both can pass it at once,
+and the second insert fails on the primary key. Claim the message in one statement keyed by its id,
+`INSERT INTO mail (id, …) VALUES (@id, …) ON CONFLICT (id) DO NOTHING`, and do the rest of the work
+only when that statement inserted a row (`ExecuteAsync` returns 1); the path that gets 0 stops there.
+When that work can fail, keep a `processed` flag on the row and have the sweep and the redelivered
+event finish a row that is stored but not processed.
 `TriggerContext` lives in `Ikon.App.Triggers` and `TriggerEventType` in `Ikon.Common.Core.Protocol`,
 neither of which the scaffold's global usings cover.
 
@@ -250,3 +257,8 @@ that skips mail from the app's own address, as one that answers mail should, ski
 Start the test message's subject with a marker of your own, such as `[self-test]`, and let mail from
 the app's own address through only when its subject starts with that marker. An automatic reply's
 subject starts with `Re:`, so the handler still skips it.
+
+The ikon tool sends the same test message without code: `ikon inbox send --subject "[self-test] Lost umbrella" --text "…" --attach photo.jpg`
+sends it to `test@` at the app's own hostname (`--to` names another address at a receiving domain, and no
+other), as the app's own sent mail. `ikon inbox list` shows it once it arrives, and
+`ikon inbox delete <id>`, or `--all`, removes test mail from the inbox.

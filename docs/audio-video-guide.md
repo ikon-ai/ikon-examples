@@ -1,4 +1,4 @@
-<!-- checked-against: 114acba4e299badd77063233 -->
+<!-- checked-against: 17d1524a36a1cd1501b9401b -->
 
 # IKON Audio & Video Guide
 
@@ -20,7 +20,7 @@ Hold one `Audio` and one `Video` per app. Each `Audio` is its own mix with its o
 
 Both are `IAsyncDisposable`. Disposing one stops its playbacks and ends its streams on the clients. App stop does the same for every `Video`, and for every `Audio` stops the mixing without sending the clients stream ends, so an app that holds one for its whole life never disposes it.
 
-The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using Ikon.Common.Core.Protocol;`.
+The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;`. Importing the whole namespace instead also brings its `Action` type, which makes a bare `Action` ambiguous with `System.Action` (CS0104).
 
 ## Playing audio
 
@@ -30,8 +30,13 @@ The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses
 // Each client hears everything aimed at it, mixed.
 
 // 1. Speech — TTS in one call. A new line crossfades out the speech still playing.
+//    A generation failure is the outcome Failed with the cause in Error, never an exception.
 var line = Audio.Speak(MediaTargets.Everyone, "Hello world");
-await line.Completion;
+
+if (await line.Completion == AudioPlaybackOutcome.Failed)
+{
+    Log.Instance.Warning($"Speech failed: {line.Error?.Message}");
+}
 
 // 2. A clip (decoded file, generated music) — mixed with everything else, any length.
 //    Replace in a named slot cuts the previous clip there instead of overlapping it.
@@ -54,7 +59,7 @@ Every sound is a **playback**, and each client hears every playback aimed at it,
 
 - **`Audio.Play`** plays a clip: an `AudioClip` (`AudioClip.FromWav` reads 8–32-bit integer or float WAV bytes) or interleaved `float[]` samples, copied before the call returns. Mono or stereo at any sample rate; any other channel count throws `ArgumentOutOfRangeException`, so downmix first. `PlayOptions.Loop` repeats it and `PlayOptions.Rate` changes speed and pitch together.
 - **`Audio.PlayLive`** opens a `LiveAudioPlayback` the app writes into as it produces audio — a synth, a relayed realtime model, streamed TTS chunks. `WriteAsync` copies the samples and returns once they are queued, waiting while the buffer is `maxBufferAhead` ahead of playout (default 200 ms; a bursty relay wants about 2 s). It returns `false`, discarding the samples, once the playback has ended, so `while (await live.WriteAsync(buffer))` is the write loop. Silence is not an ending: with nothing written it stays open and plays nothing. `Clear()` drops what is buffered and keeps it open (a user barged in on a relay); `Complete()` plays out the buffer and ends it `Finished`; disposing it stops it with a fade.
-- **`Audio.Speak`** generates speech and plays it. `SpeechOptions` picks `Model` (default `SpeechGeneratorModel.Default`), `Voice`, `Instructions`, `Speed` and `Regions` (where the speech may be generated, in preference order; a model that serves none of them fails the playback) — ElevenLabs models fail the playback for `Instructions` (except Eleven3), and ElevenLabs and the Gemini 3.8 TTS models for a speed other than 1.0. Generation starts when the playback is next in its slot, and is cancelled when it has ended for every listener. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
+- **`Audio.Speak`** generates speech and plays it. `SpeechOptions` picks `Model` (default `SpeechGeneratorModel.Default`), `Voice`, `Instructions`, `Speed` and `Regions` (where the speech may be generated, in preference order; a model that serves none of them fails the playback) — `Speak` throws `ArgumentException` at the call for `Instructions` on an ElevenLabs model other than Eleven3, and for a speed other than 1.0 on ElevenLabs and the Gemini 3.8 TTS models. Generation starts when the playback is next in its slot, and is cancelled when it has ended for every listener. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
 
 `await playback.Completion` waits for playout and yields an `AudioPlaybackOutcome`; it never throws. Playout runs in real time, so for `Speak` it ends only after the speech is generated and the whole line has played. Clear a busy flag or re-enable a mic button before you await it. `Finished` means it played to its end; `Stopped`, `Replaced` and `Evicted` (a listener already heard 64 playbacks: the oldest one-shot clip is cut to make room, or the new playback when nothing but loops, live playbacks, file and URL playbacks and speech is playing) mean something else ended it; `NoListeners` means nobody in its audience was connected (every connected client is a listener — a browser tab, an SDK client or an `ikon browse` session alike — except the app's own internal session); `Failed` means producing the audio failed, with `AudioPlayback.Error` saying why; `AppStopping` ends everything at app stop. When listeners ended it differently, `Finished` wins if anyone heard it to the end. `Started` completes when its timeline begins — at once, at the front of a queue, or on resume of a paused slot.
 
@@ -82,7 +87,7 @@ Replace and Queue consider only the playbacks in the slot that the new playback'
 
 `PlayOptions.Effects` and `PlayOptions.Analyzers` process one playback's audio, analyzers first; each playback creates its own effect state, so one list can be passed to many playbacks. Pass the same `VisemeAnalyzer` instance to every playback: a client learns the analysis shapes of its stream from the frame that first declares them, and a set it has not seen reopens that client's stream to declare it. Each value is tagged with the playback and slot it came from, so a frontend follows one speaker with `ikonClient.viseme.getCurrentVisemeValues({ slot: 'aria' })` (or `{ playbackId }`, the C# `AudioPlayback.Id`); with no filter it returns the most recently started playback that is speaking. Your own analyzer's values are read the same way by the name of its shape set: `ikonClient.viseme.getShapeSetValues({ setName: 'Spectrum', slot: 'music' })`.
 
-**Files and URLs.** `Audio.Play(targets, uri, options)` fetches a WAV, MP3 or Ogg (Vorbis or Opus) file (http or https, public addresses only, up to 100 MB) and decodes it a few seconds ahead of playout — the way to play music and long recordings without holding them decoded. `Audio.Play(targets, stream, mimeType, options)` does the same for a stream the app already has, and disposes it once read. Both take the clip options except `Rate`, loop by decoding the file again, are never cut to make room for another playback (though the new one can itself be evicted), and complete `Failed` with `AudioPlayback.Error` set when the file cannot be fetched or decoded. `AudioClip.DecodeAsync(bytes, mimeType)` decodes a short file completely into a clip — the format is read from the bytes, the MIME type only breaks ties. Its `Samples` are the decoded audio, interleaved floats from -1 to 1, for an app's own analysis or mixing (beat detection, a waveform) without ffmpeg.
+**Files and URLs.** `Audio.Play(targets, uri, options)` fetches a WAV, MP3 or Ogg (Vorbis or Opus) file (http or https, public addresses only, up to 100 MB) and decodes it a few seconds ahead of playout — the way to play music and long recordings without holding them decoded. `Audio.Play(targets, stream, mimeType, options)` does the same for a stream the app already has, and disposes it once read. Both take the clip options except `Rate`, loop by decoding the file again, are never cut to make room for another playback (though the new one can itself be evicted), and complete `Failed` with `AudioPlayback.Error` set when the file cannot be fetched or decoded. `Play` itself returns at once and does not throw, so an app that shows the sound as playing awaits `Completion` to learn that it failed. A file the app ships in `public/` plays from `app.Files.Public.GetAbsoluteUrlAsync(path)`. A local run cannot fetch its own local address, so it reads that file from the `public/` folder instead. `AudioClip.DecodeAsync(bytes, mimeType)` decodes a short file completely into a clip — the format is read from the bytes, the MIME type only breaks ties. Its `Samples` are the decoded audio, interleaved floats from -1 to 1, for an app's own analysis or mixing (beat detection, a waveform) without ffmpeg.
 
 **Cached sounds.** A short fixed sound replayed often — a pad hit, a click, a notification — is made once with `Audio.CreateSound(clip)` (at most 30 s and 5 MB as 16-bit WAV) and played with `Audio.Play(targets, sound, options)`, like a clip: same defaults, slots, modes and ducks. A client that can cache sounds receives the bytes once and plays its own copy, without the server's streaming delay; any other client hears it mixed. `AudioSound.PreloadAsync(targets)` puts it in the clients' caches before the first press — with `Everyone`, clients that join later too. A browser that has not had a user gesture yet cannot play: a one-shot ends `NoListeners` for that client and a loop starts at its live position on the first gesture. Effects and analyzers are refused for a cached sound (`Play` throws `ArgumentException`), and cached sounds do not count toward the 64-playback cap.
 
@@ -282,8 +287,8 @@ For meetings, huddles, and multiplayer voice, `GroupAudioMixer` (from `Ikon.Reso
 private readonly GroupAudioMixer _mixer = new();
 
 // The frame event carries no SampleRate/ChannelCount — the format lives on the
-// BEGIN event, so stash it per stream:
-private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
+// BEGIN event, so stash it per stream. The handlers run concurrently, so a concurrent map:
+private readonly ConcurrentDictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
 ```
 
 Then from Main:
@@ -302,13 +307,16 @@ Audio.AudioInputStreamBeginAsync += async args =>
 
 Audio.AudioInputFrameAsync += async args =>
 {
-    var format = _streamFormats[args.StreamId];
-    _mixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+    // A frame can arrive after its stream ended; there is nothing to mix it into then
+    if (_streamFormats.TryGetValue(args.StreamId, out var format))
+    {
+        _mixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+    }
 };
 
 Audio.AudioInputStreamEndAsync += async args =>
 {
-    _streamFormats.Remove(args.StreamId);
+    _streamFormats.TryRemove(args.StreamId, out _);
     _mixer.RemoveStream(args.StreamId);
 };
 
@@ -316,7 +324,7 @@ Audio.AudioInputStreamEndAsync += async args =>
 // are already mixed and real-time paced, so the raw lane is correct here:
 _ = Task.Run(async () =>
 {
-    await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
+    await foreach (var (participantId, frame) in _mixer.StreamAsync(app.StoppingToken))
     {
         await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
             frame.ChannelCount, frame.IsFirst, frame.IsLast);
@@ -334,6 +342,8 @@ Rules that are easy to get wrong:
 ## Video
 
 The platform routes **encoded** video frames; it never decodes or encodes them. Video comes from a client's camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), from a machine client sending its own encoded frames (a drone, a robot), or from an encoder the app runs itself (an ffmpeg process, a headless browser). Captured video always goes to the app on the server, never straight to other clients; the app decides who sees what by playing it on **surfaces**.
+
+Audio and video reach only the clients of the app instance that plays them. Nothing relays media to another instance or to another shard of a `[Sharded]` identity, so a stage that every viewer must see and hear is one unsharded instance, with `app.MaxClients` set to what it has been measured to hold.
 
 ### Surfaces
 
@@ -529,6 +539,8 @@ Video.InputStartedAsync += async input =>
 ```
 
 `VideoInputFrame.Data` is the input's bitstream in its `Codec`, not decoded pixels; decode it yourself (ffmpeg) to look at the picture. Handlers run off the message loop, one frame at a time; a handler that falls more than about two seconds behind skips to the next keyframe, so a slow one never delays the app or a relay. `RequestKeyFrame()` asks the input's client for a keyframe now, for instance before keeping one.
+
+Each frame is one whole picture. For H.264 it is an Annex-B access unit with 4-byte start codes, and the keyframes browsers send carry SPS and PPS; for VP8 it is one frame as an IVF file stores it. To record, start at the first `IsKey` frame and pipe the frames in order into ffmpeg (`-use_wallclock_as_timestamps 1 -f h264 -i pipe:0 -c copy` muxes H.264 without re-encoding; raw H.264 has no timing, and a browser camera often sends fewer frames than `input.Framerate` announces, so ffmpeg stamps each frame as it arrives, where `-framerate` would give a clip too short). Pipe the frames in as they arrive: frames saved to a `.h264` file and remuxed later give a clip too short too, because the stream's own timing wins over `-framerate`. `VideoInput.Ended` completes once the source has stopped and every frame has been through the handlers, so a recorder can await it and then close ffmpeg's input. Await it outside the handlers: when a handler makes no progress for 10 seconds after the source stopped (it awaits `Ended` itself, or hangs), `Ended` completes without the frames still queued. `input.StopAsync()` stops a browser capture from the app. `app.Files.Data.WriteStreamAsync` stores the finished file from an open `FileStream` without loading it into memory.
 
 ### Raw output
 

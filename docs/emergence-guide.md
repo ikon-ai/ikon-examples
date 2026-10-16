@@ -1,4 +1,4 @@
-<!-- checked-against: 9032d73201311e5281703555 -->
+<!-- checked-against: 4855142808f9e30f6d61b4c5 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -43,6 +43,10 @@ awaiting a run whose enumeration ended before either event throws
 `InvalidOperationException`, and so does enumerating a run that has already been
 awaited.
 
+An `EmergeRun<T>` is not a `Task`, but it converts to `Task<T>`: implicitly, or with `AsTask()`.
+`Task.WhenAll(Emerge.Run<A>(…), Emerge.Run<B>(…))` therefore runs both at once, and awaiting
+each run afterwards returns its result without calling the model again.
+
 ### Event Types
 
 | Event | Description |
@@ -52,6 +56,7 @@ awaited.
 | `ToolCallResult<T>` | Tool execution completed (contains `Call`, `Events`, `Result`) |
 | `Stage<T>` | Pattern stage boundary (e.g., "Candidate:0", "Critic") |
 | `Progress<T>` | Progress message |
+| `SolverResult<T>` | One `EnsembleMerge` solver's own answer, before the merge (contains `Index`, `Role`, `Model`, `Result`) |
 | `Retry<T>` | Retry attempt (contains `Reason`, `AttemptNumber`, `MaxAttempts`) |
 | `TokenUpdate<T>` | Token usage update (contains `InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) |
 | `Completed<T>` | Final result with `Result`, `Context`, and `Trace` |
@@ -203,14 +208,17 @@ The `EmergePass<T>` configure callback is invoked before every iteration, on the
 - `MaxInvalidJsonReplies` - Consecutive replies that fail to deserialize into `T` before the run
   stops with `InvalidJson (<last error>)` (default 3). Each rejected reply is fed back to the model
   with the error; a reply that parses or calls tools resets the count.
-- `MaxRetries`, `RetryDelay` - Automatic retry on transient failures
+- `MaxRetries`, `RetryDelay` - Automatic retry on transient failures (3 retries when null). If a
+  generation's reasoning uses up `MaxOutputTokens` before it writes anything, it is retried once, as
+  one of those retries, with less reasoning and the cap doubled (at most 64000).
+  `MaxRetries = 0` turns every retry off, so no request asks for more than `MaxOutputTokens`.
 - `Tools` - Available tools (see [Tool Registration](#tool-registration))
 
 ---
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — with `Count` above 1 and no scorer the run throws `ArgumentException` before the first candidate, since unscored candidates all tie. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which give different results in different languages.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — with `Count` above 1 and no scorer the run throws `ArgumentException` before the first candidate, since unscored candidates all tie. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which give different results in different languages. A business rule that is a count ("under 50 words") is pass or fail, not a matter of quality: check it in the scorer and return 0 for a candidate that breaks it, and let the judge rate only the candidates that pass. The top candidate is returned even when every one scored 0, so check the rule on the result as well.
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
@@ -300,7 +308,7 @@ var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.
 - `Map(Action<EmergeScope<TMapped>>)` - Configure chunk processing (the scope is typed by the map output)
 - `Reduce(Action<EmergeScope<TResult>>)` - Configure reduction
 
-**Context flow:** Map runs use isolated contexts. All map outputs are collected in input order and serialized as JSON into Reduce's `Command`; Reduce runs on the caller's context. If any chunk stops or produces no result, Reduce never runs and the run stops with `ChunksFailed` (`NoMappedResults` when every chunk did), so awaiting it throws `EmergenceStoppedException`. Setting neither `Chunks` nor `Input` stops it with `NoInputOrChunks`.
+**Context flow:** Map runs use isolated contexts. All map outputs are collected in input order and serialized as JSON into Reduce's `Command`; Reduce runs on the caller's context. If any chunk stops or produces no result, Reduce never runs and the run stops with `ChunksFailed` (`NoMappedResults` when every chunk did), so awaiting it throws `EmergenceStoppedException`. To go on past a failed chunk and say which one was skipped, run the map calls yourself, one `Emerge.Run` per chunk under `Task.WhenAll`, each catching its own failure (the `mapreduce-long-document-summary` pattern shows it). Setting neither `Chunks` nor `Input` stops it with `NoInputOrChunks`.
 
 ---
 
@@ -339,7 +347,9 @@ var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, op
 - `Initial(Action<EmergeScope<T>>)` - Configure initial generation
 - `Refinement(Action<EmergeScope<T>>)` - Configure refinement passes
 
-**Context flow:** Each refinement automatically receives the previous attempt's JSON output in context.
+**Context flow:** Each round runs on the context the Initial stage returned, not on the earlier rounds'. Its `Command` is the refinement command followed by the current result as JSON, the round number and "Provide an improved version.", so write the refinement command as an instruction about that result.
+
+**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one.
 
 ---
 
@@ -349,13 +359,17 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 
 <!-- ikon-example: emergence-ensemble -->
 ```csharp
+// Without s.Model every solver runs on the model passed here; the merger always does
+LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
+
 var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
-    opt.SolverCount = 4;
-    opt.MaxParallel = 4;
+    opt.SolverCount = models.Length;
+    opt.MaxParallel = models.Length;
 
     opt.Solver(s =>
     {
+        s.Model = models[s.Index];               // Each solver on its own model
         s.Temperature = 0.6 + 0.15 * s.Index;  // Varying temperatures
         s.Command = "Analyze this data from your unique perspective.";
     });
@@ -371,10 +385,10 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, 
 **Options:**
 - `SolverCount` - Number of parallel solvers (default: 3)
 - `MaxParallel` - Concurrency limit (default: 3; must be at least 1, otherwise the setter throws `ArgumentOutOfRangeException`)
-- `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`)
-- `Merger(Action<EmergeScope<T>>)` - Configure the merger
+- `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`, and every scope setting, including `Model`: `s.Model = models[s.Index]` runs each solver on its own model)
+- `Merger(Action<EmergeScope<T>>)` - Configure the merger. Without a `Command` of its own it gets the ensemble's `Command` as the task to answer once, within the task's limits such as a length; its own `Command` replaces that task
 
-**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`.
+**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
 
 **`Role` and `Seed`:** both reach the solver's system prompt — `Role` (default `Solver{Index}`) is what differentiates ensemble members, and `Seed` tells a solver to explore a different approach from its siblings. Neither is a sampler seed.
 
@@ -445,7 +459,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 
 ## Tool Registration
 
-Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes document individual parameters. The scaffold's global usings already bring in IKON's own `[Description]`, which tools read like the BCL one, so do not add `using System.ComponentModel;` (it makes the bare name ambiguous, CS0104). Tools are deduplicated by name.
+Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes document individual parameters. The scaffold's global usings alias `DescriptionAttribute` to IKON's own, so `[Description]` means IKON's even in a file that adds `using System.ComponentModel;`, and every schema reads the BCL attribute too. Tools are deduplicated by name.
 
 <!-- ikon-example: emx-tool-registration -->
 ```csharp
@@ -468,7 +482,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 ```
 
 **Methods:**
-- `Tool.Of(name, description, lambda)` — sync or async lambda, up to 4 parameters; the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
+- `Tool.Of(name, description, lambda)` — sync or async lambda, up to 6 parameters (a seventh fails with CS0411 naming the zero-parameter overload; `Tool.OfContext` takes up to 4 after the context); the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
 - `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments
 - `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
@@ -477,7 +491,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 
 **Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes without a result: the `Completed<T>` event carries `HasResult` false, and awaiting the run throws `EmergenceStoppedException` saying so, for a value-type `T` as much as a reference type, rather than returning a `default(T)` that looks real.
 
-**Many-parameter tools — request record.** `Tool.Of` takes at most 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field. The model sees the record's fields as the tool's own arguments (`title`, `start`, …) rather than nested under the lambda's parameter name. The record stays nested only when a field has a type the flat schema cannot describe as an argument, such as a collection other than an array or `Dictionary<string, string>` (a `List<T>`), a `DateTime`, `TimeSpan`, `decimal`, `Guid` or `Uri`, or a number other than `int`, `long`, `float` or `double`:
+**Many-parameter tools — request record.** `Tool.Of` takes at most 6 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field. The model sees the record's fields as the tool's own arguments (`title`, `start`, …) rather than nested under the lambda's parameter name. The record stays nested only when a field has a type the flat schema cannot describe as an argument, such as a collection other than an array or `Dictionary<string, string>` (a `List<T>`), a `DateTime`, `TimeSpan`, `decimal`, `Guid` or `Uri`, or a number other than `int`, `long`, `float` or `double`:
 
 <!-- ikon-example: emergence-tool-request -->
 ```csharp
@@ -495,7 +509,7 @@ pass.AddTool(Tool.Of("create_event", "Create a calendar event",
     (CreateEventRequest request) => CreateEvent(request)));
 ```
 
-**MCP tools.** Wrap a connected `McpClient` in an `McpSkill` — it yields one `Tool.FromSchema` per tool the server advertises, proxying calls back through the client. `McpSkill` and `Built` need `using Ikon.Agent.Skills;`:
+**MCP tools.** `mcpClient.ToFunctions(toolNames)` turns the tools a connected `McpClient` advertises into functions for the `Tools` of any pass or pattern scope, in or outside an agent run; pass the names of the tools the model may call. For a persona, wrap the client in an `McpSkill`, which yields one `Tool.FromSchema` per tool whose schema it can describe; those resolve their `ToolContext` from the agent run, so invoking one on a bare `Emerge.Run` pass throws:
 
 <!-- ikon-example: emx-tool-registration-2 -->
 ```csharp
@@ -508,8 +522,11 @@ var persona = new Persona("Assistant", systemPrompt,
     Skills: [Built.Messaging, skill],
     Reasoning: new Reasoning());
 
-// Or directly on a pass (requires an AgentRunner scope):
-pass.AddTools(skill.Tools().ToArray());
+// Or on any pass, allow-listed:
+foreach (var tool in mcpClient.ToFunctions(new[] { "search_docs" }))
+{
+    pass.Tools.Add(tool);
+}
 ```
 
 ---
@@ -617,3 +634,12 @@ var result = await Emerge.Run<MyType>(
     Emerge.Scripted(responses)  // Replays the given texts in order; no provider call
 );
 ```
+
+`Emerge.ScriptedTurns` replays turns that are either a text reply or a tool call, for a test of a
+run that calls tools. `Emerge.ScriptedTurns([ScriptedModelTurn.ToolCall("lookup_parcel", new { trackingNumber = "1Z999" }), "It is in Helsinki."])`
+asks for `lookup_parcel`, which runs with its arguments bound the way a provider's call is bound, and
+then answers. An `Ikon.Agent` thread takes the same stream through `new Orchestrator(llm: stream)`.
+
+Only the model call has a substitute. For OCR, image generation and the other AI services, call the
+service through an interface of the app's own, such as an `ILabelReader` with one implementation
+that calls `OCR` and one that returns fixed text, and give the code under test the fixed one.
