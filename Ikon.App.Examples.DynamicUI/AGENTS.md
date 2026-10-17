@@ -4,7 +4,7 @@
 
 ## Quick start
 
-1. Converting an existing app? Read the `convert` playbook first. Else read `## By kind of app` in `docs/Ikon.Agent.Docs/patterns/_index.md` now and the patterns your row names; `ikon docs --search <feature>` finds the doc for any other feature.
+1. Converting an existing app? Its screens become C#: read the `convert` playbook first. Else read `## By kind of app` in `docs/Ikon.Agent.Docs/patterns/_index.md` now and the patterns your row names; `ikon docs --search <feature>` finds the doc for any other feature.
 2. Pick a visual direction (below) and who shares an instance (`app-structure` guide): the scaffold's `SessionIdentity(string? UserId)` gives each user their own, `SessionIdentity()` one for all, `SessionIdentity(string? Room)` one per `?room=`; a local run hosts one (`?room=` and `--param` do not split it). Private app: `RequireSignIn = true`, no `guest`; any account signs in, so staff-only screens check a role. An instance holds 200 clients; more need `[Sharded]` (`scaling` guide).
 3. The scaffold runs as is: `ikon build`, `ikon run --detach`, then `ikon browse --steps "observe"` ("Running and checking the app").
 
@@ -41,18 +41,16 @@ or `ikon-config.toml` change needs `ikon stop` and a new run. Check the app as t
 ikon browse --steps "observe"  # screen text + [id] action handles
 ikon browse --steps "fill Message hello; tap Send; wait-absent 60s Thinking; wait 5s --new Sent"
 ikon browse --steps 'tap Host; capture code /Room (\w+)/; as bob: fill Room code ${code}; tap Join'
-ikon browse --text-only --format json < scratch/steps.txt  # one step per line, one JSON object per step
 ```
 
 `ikon browse --help` lists the steps and options. Acting steps print only what changed; `click`,
-`eval` and `console` reach custom React components; a canvas is in no tree, so give its node a `content` prop with a text summary, which `observe` prints. A screenshot costs ten observations; `look` only for pixels. `wait 15s Sent` returns once the text shows, or if it showed before
+`eval` and `console` reach custom React components; `observe` lists a canvas or custom node as one line; its `content` prop adds a text summary. `look` (a screenshot) is for pixels only. A run starts at `/`: `--path /room/7` opens another page. `wait 15s Sent` returns once the text shows, or if it showed before
 the last tap, once the tap's handlers return. `--new` waits for new text, `wait 15s` alone for those
 handlers, and `sleep 15s` pauses. A bare number is milliseconds. Each run is a new
-client (new ids, empty `ClientReactive` state), so a script names controls by label
-and fills a form in one run. Where the shell strips quotes (PowerShell), use
+client (new ids, empty `ClientReactive` state) that ends with the run, and so does what the app keeps only while a client is connected (a room): a script names controls by label
+and plays a whole scenario in one run. Where the shell strips quotes (PowerShell), use
 `--steps-file scratch/steps.txt`. `hold`, `mic` and `--fake-media-file` (a .wav loops into
-the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app;
-`audio 3s` fails if the page plays nothing.
+the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app.
 `look`, `upload`, `mic` and `audio` need the page, which `--text-only` and an `as` user lack
 (`as bob: observe` reads bob).
 
@@ -107,13 +105,13 @@ The two most common compile failures:
 
 ### Reactive state
 
-The `reactive-state` guide has the rest ("Rules that are easy to get wrong").
+More in the `reactive-state` guide ("Rules that are easy to get wrong").
 
 - **Re-render is implicit.** Reading `_x.Value` in a UI lambda registers the dependency, and only the diff is streamed. There is NO `view.Dynamic`/`Watch`/`Bind`/`Observe` (CS1061).
 - **Reactives are `private readonly` fields constructed with the initial value**: `private readonly ClientReactive<int> _count = new(0);`, collections `= new();`. No `app` argument, no `app.ClientReactive(...)` (CS1503/CS7036). A `ClientReactive` of a mutable type needs `ClientReactive.Create(_ => new Settings())`.
 - **Mutate collections on the reactive** (`_todos.Add(item)`, `.RemoveAll(match)`, `.ReplaceWhere(match, t => t with { … })`, `.ReplaceAll(items)`, `.Update(list => …)` that returns new items or edits the copy, `_map[key] = v`) and enumerate it directly. `.Value` is read-only (`.Value.Add` is CS1061).
 - **Scope by lifetime**: `Reactive<T>` is shared by all clients; view state (the open screen or dialog, an in-flight flag) is `ClientReactive`, per browser tab even in a per-user instance; typed text, drafts and the open record `UserReactive` (a reload is a new client). `Persistent*` is ONE value for the app, `PersistentSession*` one per `SessionIdentity`, `PersistentUser*` one per user; they autosave in seconds (await `app.SavePersistentStateAsync()` before "Saved"); records that can't be lost go in a database; renamed fields: `reactive-state` guide.
-- **`_x.Value` is the current client's** in a UI lambda or handler. Outside a scope (`Main`, a timer, an endpoint) name the target: `_x.SetFor(cid, value)` (a list: `ReplaceAllFor`, `AddFor`), `_x.ValueFor(cid)` or `ReactiveScope.Use(new ClientScope(cid))`; `cid` is `ReactiveScope.ClientId` captured in a scope, and a `User*` one takes the user id string.
+- **`_x.Value` is the current client's** in a UI lambda or handler. Outside a scope (`Main`, a timer, an endpoint) name the target: `_x.SetFor(cid, value)` (list: `AddFor`, `ReplaceWhereFor`), `_x.ValueFor(cid)` or `ReactiveScope.Use(new ClientScope(cid))`; `cid` is `ReactiveScope.ClientId` captured in a scope, and a `User*` one takes the user id string.
 - The user is `ReactiveScope.UserId` (`UserIdOrNull`), not `app.SessionIdentity.UserId` (yours in a local run); `app.CurrentClientContext` (nullable; no `Context.Current`) has `IsAnonymous` and `Timezone`, the email and roles are in `new ClientProfiles(app)`, a field (`profiles-and-roles` guide).
 - **Render only reads.** A reactive written inside a render lambda, or by work it starts, is not propagated (IKON031): load a screen's data in the handler that opens it (`reactive-state` guide).
 
@@ -128,7 +126,7 @@ The `reactive-state` guide has the rest ("Rules that are easy to get wrong").
 
 ### The view-call shape
 
-The `ui-components` guide has the rest ("Call-shape details").
+More in the `ui-components` guide ("Call-shape details").
 
 - **The leading `string[]` style array is positional; name everything else.** `view.Column(["flex gap-4"], content: v => …)`, `view.Button(["px-4"], text: "Save", onClick: async () => …)`. Never also write `style:` (CS1744), never a named arg before a positional (CS8323). Lambdas are always named (IKON003).
 - **The display string is `text:`** on Text, Button, Link and ActionButton (not `value:`/`label:`).
@@ -163,11 +161,11 @@ The `ui-components` guide has the rest ("Call-shape details").
 - **Lifecycle**, wired in `Main()`: `app.OnStarting(async () => …)`, `app.OnStopping`, `app.OnClientJoined(async ctx => …)` (or `(ctx, parameters)`), `app.OnClientLeft`, `app.OnMessageReceived(async msg => …)`, `app.Navigation.PathChangedAsync += async e => …` (`e.Path`), not `(sender, args)` (CS1593).
 - **A hot reload starts a new instance** and runs `Main`/`OnStarting` again: reactives are restored, plain fields (engines, caches, counters) are not. In `OnStarting` rebuild them and settle restored in-flight state. End loops on `app.StoppingToken` (`app-structure` guide).
 - **Test data goes in `app.Seed`**, run only on a staging copy (`ikon link --target staging --new-app`); rows the live app needs, in `app.OnStarting` when the table is empty. `ikon bundle`/`deploy` run `Main`, `OnStarting` and a capture client's `OnClientJoined` against the real databases to capture a boot snapshot: guard side effects with `SnapshotCapture.IsCaptureProcess`, and the capture client's with `ctx.IsSnapshot`.
-- **A value presented as unique is GENERATED** (room and invite codes, share slugs, ids) from `Random.Shared` or `Guid`. Demo rows look real, not `Item 1`.
+- **A value presented as unique is GENERATED** (room and invite codes, ids) from `Random.Shared` or `Guid`. Demo rows look real, not `Item 1`.
 - **Cloud servers run in UTC**: store UTC and show times in the viewer's `ctx.Timezone` (a shared screen shows the place's zone; `app-structure` guide).
 - **Log with `Log.Instance.Info/Warning/Error/Debug(…)`** (`logging` guide), not `app.Logger`.
 - **A "Sign in" button drawn in C#** calls `ClientFunctions.LoginShowAsync(reason)`; `LoginAsync(provider)` is OAuth only.
-- **Open a database connection PER operation**: `await using var conn = await app.DatabaseAsync("mydb"); await conn.OpenAsync();` in each method, never a field (`databases` guide). A database `"X"` needs `ikon db create --name X`; the built-in one needs nothing. `QueryAsync`/`ExecuteAsync` (CS1061) need package `Dapper` and `global using Dapper;`.
+- **Open a database connection PER operation**: `await using var conn = await app.DatabaseAsync("mydb"); await conn.OpenAsync();` in each method, never a field (`databases` guide). A database `"X"` needs `ikon db create --name X`; the built-in one needs nothing. `QueryAsync`/`ExecuteAsync` (CS1061) need package `Dapper` and `global using Dapper;` in `GlobalUsings.cs`.
 - **Don't invent a `using Ikon.*;`** (CS0234), but a parent does not import its nested namespaces (CS0246). Outside `GlobalUsings.cs`: `Ikon.Common.Core.Protocol` (`TriggerEventType`, `VideoCodec`; `Action` clashes: CS0104), `Ikon.App.Cells`, `Ikon.App.Mcp`, `Ikon.App.Triggers`, `Ikon.AI.Retrieving`, `Ikon.AI.Reranking`, `Ikon.AI.Database`, `Ikon.AI.Storage`, `Ikon.AI.Emergence.Structured`, `Ikon.AI.Emergence.Tree`, `Ikon.Crosswind`, `System.Globalization`, `System.Net`, `System.Net.Http.Json`, `System.Diagnostics`, `System.Text.RegularExpressions`.
 - **A real `Ikon.*` namespace failing with CS0234 needs its package**: line 2 of its `api/<namespace>.md` names it.
 - **Keep the entry point and the global namespace.** Never delete the top-level `return await App.Run(args);` (CS5001) or move it to a `Program.cs`. Never add a `namespace` to app files: inside `namespace Ikon.App.<Anything>`, `App` is the `Ikon.App` namespace (CS0234/CS0305/CS8956).
@@ -181,7 +179,7 @@ The `ui-components` guide has the rest ("Call-shape details").
 
 ### C# syntax
 
-The `csharp-primer` guide has the rest (CS8917, CS9176, raw strings, curly quotes, `using` locals).
+More in the `csharp-primer` guide (CS8917, CS9176, raw strings, curly quotes, `using` locals).
 
 - **Escape inner quotes in `$"…"`** (`$"Add card to \"{col}\""`): one unescaped `"` cascades into CS1002/CS1010/CS1026 across the file; fix that quote, not the lines the errors point at. Many quotes → `$"""…"""`.
 
