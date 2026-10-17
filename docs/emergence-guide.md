@@ -1,4 +1,4 @@
-<!-- checked-against: 4855142808f9e30f6d61b4c5 -->
+<!-- checked-against: b4bb1ad998bcc3b306b739e6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -349,7 +349,31 @@ var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, op
 
 **Context flow:** Each round runs on the context the Initial stage returned, not on the earlier rounds'. Its `Command` is the refinement command followed by the current result as JSON, the round number and "Provide an improved version.", so write the refinement command as an instruction about that result.
 
-**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one.
+**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one. A
+progress line on screen, then:
+
+<!-- ikon-example: emergence-refine-rounds -->
+```csharp
+await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+{
+    opt.MaxRefinements = 3;
+    opt.Initial(s => s.Command = "Write initial implementation of the feature.");
+    opt.Refinement(s => s.Command = "Improve the code based on the issues found.");
+}))
+{
+    switch (ev)
+    {
+        // Refinement:0 is the first improvement round, after the initial draft
+        case Stage<Implementation> stage when stage.Name.StartsWith("Refinement:", StringComparison.Ordinal):
+            status.Value = $"Improving, round {int.Parse(stage.Name["Refinement:".Length..]) + 1} of 3";
+            break;
+        case Completed<Implementation> { HasResult: true } done:
+            draft.Value = done.Result;
+            status.Value = "Done";
+            break;
+    }
+}
+```
 
 ---
 
@@ -640,6 +664,9 @@ run that calls tools. `Emerge.ScriptedTurns([ScriptedModelTurn.ToolCall("lookup_
 asks for `lookup_parcel`, which runs with its arguments bound the way a provider's call is bound, and
 then answers. An `Ikon.Agent` thread takes the same stream through `new Orchestrator(llm: stream)`.
 
-Only the model call has a substitute. For OCR, image generation and the other AI services, call the
-service through an interface of the app's own, such as an `ILabelReader` with one implementation
-that calls `OCR` and one that returns fixed text, and give the code under test the fixed one.
+To take every AI service off its provider at once, OCR and image generation included, wrap the test
+in `using var mocks = AIMocks.Use();` (namespace `Ikon.AI`): each service the test constructs on its
+async flow answers with the platform's fixed mock output, and `Emerge.Run<T>` gets a `T` filled in
+from its JSON schema. A test that needs its own answer from OCR or another service calls it through
+an interface of the app's own, such as an `ILabelReader` with one implementation that calls `OCR`
+and one that returns fixed text, and gives the code under test the fixed one.

@@ -1,4 +1,4 @@
-<!-- checked-against: bb83c9eeda577a64483b7aea -->
+<!-- checked-against: 27a26d78c087d55d11641db2 -->
 
 # Ikon.Parallax Library Overview
 
@@ -486,7 +486,6 @@ The marker is what asks for the theme — with it the base merges *under* what y
 | `disabled:pointer-events-none disabled:opacity-50` | A `disabled:` control looks and reads identical to an enabled one (a dev warning names the call site). |
 | `hover:` / `active:` variants | Nothing responds to the pointer. |
 | `transition-colors` | State changes snap. |
-| `whitespace-nowrap` | A two-word label wraps inside the control. |
 | The variant's colours | Intentional when you are restyling — surprising when you only meant to add a margin. |
 
 Cursor and the focus ring are *not* on that list: those come from the platform's button reset, so a hand-styled button still shows a pointer on hover and a visible ring on keyboard focus.
@@ -513,7 +512,7 @@ Note that `style:` on a composite is the **outermost container**, not the contro
 
 **Some bases always apply.** A handful of components carry classes they cannot function without — the layout
 primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scrollbar/thumb, `Select`'s parts, `Slider`'s root,
-`ResizableSplit`, size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`), and the
+`ResizableSplit`, size classes a component derives from its own parameters (`Spinner`, `Icon`, and `Skeleton` unless your array sets a height), and the
 display class of the table parts (`table-cell`, `table-row`, …) unless your array sets a display class of its own.
 There your array is *appended* to that base rather than replacing it, and later classes win:
 
@@ -690,6 +689,8 @@ view.PanZoom(
 
 Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
 
+`onTap:` reports a tap or click on the content that did not pan, as a `PanZoomTapArgs` in the content's own unzoomed pixels from its top-left corner, whatever the pan and zoom. For a picture shown at its natural size that is the tapped pixel of the picture, so a marker drawn at that position inside a `relative` box the size of the picture lands where the person tapped and stays there at every zoom (the `pan-zoom-split-layout` pattern places a pin this way). A press on a button or link inside the content is that control's click, not a tap. The view opens at `defaultScale:` (or `scale:`) with the content's top-left corner in view, however large the content is: to open a 1400-pixel plan whole in a 700-pixel viewport, start at 0.5.
+
 What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled, and the viewport captures every primary pointer press to pan — a drag that starts on the content, a `DndContext` item's included, pans the view too. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`).
 
 ## The IKON O
@@ -789,7 +790,7 @@ Everything routed through the wrapper is real HTML for crawlers and an instant r
 
 ### Hand-built skeletons
 
-The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI. `SkeletonSize` sets only the height, so a circle needs its width and height in the style, or it fills the row as a pill:
+The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI. `SkeletonSize` sets only the height, and a height in the style (`h-80`, `size-10`) replaces it. A circle needs its width and height in the style, or it fills the row as a pill:
 
 <!-- ikon-example: px-hand-built-skeletons -->
 ```csharp
@@ -963,7 +964,7 @@ Guard your authed-only paths: skip user-backend calls, per-user persistence, and
 
 The platform can offer the people using an app a feedback sheet: they pick a kind (a problem, an idea, something confusing, something they like), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
 
-**A new app offers it only to test-link visitors**, whatever `ikon-config.toml` says, so `Button = "overlay"` shows nothing until the setting below changes. Who is offered it is a setting of the app on the platform, not of its code: `off` (the default), `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. It applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts and offers it to every visitor unless it is `off`.
+**A new app has the setting `off`**, so only the visitors of a test link are offered the sheet, whatever `ikon-config.toml` says, and `Button = "overlay"` shows nothing for anyone else until the setting changes. After `ikon feedback set --audience everyone`, a guest on an ordinary link is offered it too. Who is offered it is a setting of the app on the platform, not of its code: `off` (the default), `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. Each app has its own setting, so a staging target needs the command again with `--target`. On a deployed app it applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts, so restart it to see a change, and offers it to every visitor unless it is `off`. A client with no page to draw the sheet on is never offered it, so `view.CanOpenFeedback()` is false for an `ikon browse --text-only` client, and for a browse of a deployed app whose page could not sign in as you.
 
 Where the way in is drawn is the app's choice, in `ikon-config.toml`:
 
@@ -974,6 +975,10 @@ Button = "overlay"     # "overlay" | "none"
 
 - **`Button = "overlay"`** (the default) has the platform draw a floating feedback button for everyone offered feedback; each person can hide it from the feedback sheet, and the choice is kept for their next visit (not on the shared `global` identity, whose choice would be every visitor's).
 - **`Button = "none"`** draws no button at all, for an app that wants its own controls to be the only way in.
+
+The floating button is the easy way in, and it floats over a corner of the page, where it can cover
+a composer, an input bar or a bottom navigation. When it does, set `Button = "none"` and draw a
+control of your own that opens the sheet, as below, in a header, a menu or beside the input.
 
 An app may still place its own "Send feedback" control, such as in an account menu or a help page, but it does not need one:
 
