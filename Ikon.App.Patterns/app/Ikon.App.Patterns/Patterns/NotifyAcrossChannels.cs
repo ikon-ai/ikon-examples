@@ -48,6 +48,8 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
             title,
             body,
             LaunchUrl: "/approvals",
+            // One tag for every approval notice: a newer one replaces the older in the inbox and on the
+            // device, since /approvals lists them all. Notices that must each stay need a tag of their own.
             Tag: "approvals",
             Priority: urgent ? NotificationPriority.High : NotificationPriority.Normal,
             Actions: [new NotificationAction("approve", "Approve", "/approvals?act=approve")]);

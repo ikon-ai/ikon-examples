@@ -142,4 +142,36 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
 
         Log.Instance.Debug($"{outcome}");
     }
+
+    #region example:video-live-audience
+    private readonly Lock _cameraLock = new();
+    private LiveVideoPlayback? _camera;
+
+    // Call it whenever the set of clients allowed to watch changes (a join, a leave, a role change).
+    private void ShowCameraTo(IReadOnlyList<int> viewers)
+    {
+        lock (_cameraLock)
+        {
+            if (viewers.Count == 0)
+            {
+                // An empty audience ends a playback, so the camera starts afresh for the next viewer
+                _camera?.Stop();
+                _camera = null;
+                return;
+            }
+
+            if (_camera is { IsEnded: false } camera)
+            {
+                camera.SetAudience(MediaTargets.To(viewers));
+                return;
+            }
+
+            _camera = Video.PlayLive(MediaTargets.To(viewers), "shop-camera", VideoCodec.H264);
+            _ = RunCameraEncoderAsync(_camera);
+        }
+    }
+    #endregion
+
+    // The encoder pipes ffmpeg's stdout into WriteH264StreamAsync, which returns false once the playback ends.
+    private static Task RunCameraEncoderAsync(LiveVideoPlayback camera) => Task.CompletedTask;
 }

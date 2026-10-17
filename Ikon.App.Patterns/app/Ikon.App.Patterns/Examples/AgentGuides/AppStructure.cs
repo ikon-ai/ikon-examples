@@ -298,8 +298,9 @@ internal sealed partial class AgentGuideExamples
         app.OnStopping(async () => { /* app stopping, cleanup */ });
         app.OnClientJoined(async ctx =>
         {
-            // ctx IS the Context: ctx.ClientSessionId (alias of ctx.SessionId), ctx.UserId,
-            // ctx.Theme, ctx.Timezone, ctx.ClientType, ctx.InitialPath, ctx.InitialUrl, ctx.ViewportWidth
+            // ctx is a Context, the parameter type of a separate handler method, as in Task Greet(Context ctx).
+            // ctx.ClientSessionId (alias of ctx.SessionId), ctx.UserId, ctx.Theme, ctx.Timezone,
+            // ctx.ClientType, ctx.InitialPath, ctx.InitialUrl, ctx.ViewportWidth
             var client = app.Clients[ctx.ClientSessionId];
         });
         app.OnClientLeft(async ctx => { /* cleanup client state */ });

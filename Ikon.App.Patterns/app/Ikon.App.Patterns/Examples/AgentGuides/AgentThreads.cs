@@ -25,6 +25,22 @@ public static class AgentThreadExamples
     }
     #endregion
 
+    #region example:agent-subagent-json
+    public sealed record Finding(string Label, double X, double Y);
+
+    public static Task<List<Finding>> FindDamageAsync(AgentThread parent, Content.Image photo, CancellationToken ct)
+    {
+        return AgentCall.RunSubAgentAsync<List<Finding>>(
+            parent,
+            instructions: "List the damage you see. Answer with only a JSON array: " +
+                "[{\"label\": \"short name\", \"x\": 0.5, \"y\": 0.5}], x and y from 0 to 1 from the top-left corner.",
+            skills: [],
+            inputs: photo,
+            maxPasses: 3,
+            ct: ct);
+    }
+    #endregion
+
     #region example:agent-subagent-fan-out
     // A coordinator's tool hands each course to its own helper agent at once, and a reactive the UI
     // renders shows each helper's state while the tool runs.

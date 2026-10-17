@@ -123,6 +123,10 @@ file sealed class InputsExamples
     private readonly Reactive<string> _radio = new("");
     private readonly Reactive<bool> _isDragging = new(false);
     private readonly Reactive<string> _layout = new("list");
+    private readonly Reactive<string> _date = new("");
+    private readonly Reactive<string> _time = new("09:00");
+    private readonly Reactive<string> _day = new("");
+    private readonly List<string> _fullDays = ["2026-12-24", "2026-12-25"];
 
     private static Task HandleSubmit(string submitted) => Task.CompletedTask;
     private static Task RunSearchAsync(string query) => Task.CompletedTask;
@@ -203,6 +207,17 @@ file sealed class InputsExamples
             zoneStyle: [FileUpload.Zone.Base],
             activeStyle: [FileUpload.Zone.Active],
             content: v => v.Text([Text.Caption], "Drop files here"));
+        #endregion
+
+        #region example:date-time-pickers
+        // Dates are ISO yyyy-MM-dd strings and times 24-hour HH:mm, both in value: and in onValueChange.
+        // label: shows above the picker and names it, so ikon browse fills it by that name.
+        view.DatePicker(label: "Date", value: _date.Value, labelLocale: "en-GB",
+            minDate: DateTime.UtcNow.ToString("yyyy-MM-dd"), onValueChange: async date => _date.Value = date);
+        view.TimePicker(label: "Starts", value: _time.Value, minuteStep: 15,
+            onValueChange: async time => _time.Value = time);
+        // A month grid that stays open, for a page that shows which days are free
+        view.Calendar(value: _day.Value, disabledDates: _fullDays, onValueChange: async day => _day.Value = day);
         #endregion
     }
 }

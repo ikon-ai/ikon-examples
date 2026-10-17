@@ -12,6 +12,7 @@ internal sealed class PanZoomSplitLayout : IPatternDemo
     #region example:pattern-pan-zoom-split-layout
     private readonly ClientReactive<double> _scale = new(1);
     private readonly ClientReactive<double> _panelWidth = new(280);
+    private readonly ClientReactive<PanZoomTapArgs?> _pin = new(null);
 
     private void Render(IView view)
     {
@@ -26,7 +27,10 @@ internal sealed class PanZoomSplitLayout : IPatternDemo
             onResized: async width => _panelWidth.Value = width,
 
             first: panel => panel.Column(["p-4 gap-2"], content: col =>
-                col.Text([Text.H3], text: "Inspector")),
+            {
+                col.Text([Text.H3], text: "Inspector");
+                col.Text([Text.Caption], text: _pin.Value is { } pin ? $"Pin at {pin.X:0}, {pin.Y:0} px" : "Tap the plan to place a pin");
+            }),
 
             second: canvas =>
             {
@@ -43,7 +47,19 @@ internal sealed class PanZoomSplitLayout : IPatternDemo
                     // cheap, and also why it cannot drive per-frame server logic.
                     onScaleChange: async scale => _scale.Value = scale,
 
-                    content: inner => inner.Image(["w-[2000px]"], src: "/floorplan.png", alt: "Floor plan"));
+                    // A tap that did not pan arrives in the content's own unzoomed pixels, so it
+                    // is a position on the 2000px-wide plan whatever the zoom.
+                    onTap: async tap => _pin.Value = tap,
+
+                    content: inner => inner.Box(["relative w-[2000px]"], content: plan =>
+                    {
+                        plan.Image(["w-full"], src: "/floorplan.png", alt: "Floor plan");
+
+                        if (_pin.Value is { } pin)
+                        {
+                            plan.Box([$"absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary left-[{pin.X:0}px] top-[{pin.Y:0}px]"]);
+                        }
+                    }));
 
                 canvas.Text(["text-muted-foreground text-xs"], text: $"{_scale.Value:P0}");
             });

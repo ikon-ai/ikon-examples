@@ -58,8 +58,14 @@ internal sealed class RecordThenAnalyseAudio(IAppBase app) : IPatternDemo
 
         Audio.AudioInputStreamEndAsync += async args =>
         {
-            _recording.TryRemove(args.StreamId, out _);
-            _formats.TryRemove(args.StreamId, out _);
+            var hasFormat = _formats.TryRemove(args.StreamId, out var format);
+
+            // A page that closes mid-take never sends IsLast, so the take is analysed as far as it got
+            if (_recording.TryRemove(args.StreamId, out var take) && hasFormat && take.Count > 0)
+            {
+                var clientSessionId = args.ClientSessionId;
+                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount));
+            }
         };
     }
 

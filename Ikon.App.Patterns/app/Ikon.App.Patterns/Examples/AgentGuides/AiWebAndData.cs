@@ -71,6 +71,17 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private async Task<string> DocWebScreenshotAsync(string competitorUrl)
+    {
+        #region example:web-screenshot
+        var scraper = new WebScraper(WebScraperModel.Jina);
+        var shot = await scraper.TakeScreenshotAsync(new ScreenshotConfig { Url = competitorUrl, Width = 1280, Height = 800 });
+        var path = $"screenshots/{DateTime.UtcNow:yyyyMMdd-HHmm}.png";
+        await app.Files.Data.WriteBytesAsync(path, shot.Data, shot.MimeType);
+        #endregion
+        return path;
+    }
+
     private static async Task DocWebSearchConfigAsync()
     {
         #region example:web-search-config
