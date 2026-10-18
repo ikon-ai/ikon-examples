@@ -1,4 +1,4 @@
-<!-- checked-against: 1dfe904b73655e76aca02dc5 -->
+<!-- checked-against: e0c11c5c73655e76aca02dc5 -->
 
 # IKON Persistent State Guide
 
@@ -39,13 +39,20 @@ The framework loads from cloud storage before `Main()` runs, writes changes as t
 
 | Class | Same value seen by | When to pick |
 |---|---|---|
-| `PersistentReactive<T>` | All session identities, all users (app-wide) | App-wide config. Rare — most apps don't need this. |
+| `PersistentReactive<T>` | All session identities, all users (app-wide), stored once | App-wide config. Rare — most apps don't need this. |
 | **`PersistentSessionReactive<T>`** | The same SessionIdentity (the app's routing key) | **Default.** One app instance = one bucket of state. |
 | `PersistentUserReactive<T>` | The same UserId, across all of their sessions | State that follows a user (preferences, history, profile). |
 
+**The value is stored once, but each running instance has its own copy.** Every instance loads the stored value when it starts and then
+works on its own copy, so a write in another instance is not seen until this one starts again, and
+the instance that saves last wins. Endpoints and `[Cron]` methods run in the instance with an empty
+identity, which under the scaffold's per-user `SessionIdentity(string? UserId)` is not any user's
+instance. Data that an endpoint writes for users' pages, or that several users' instances share,
+goes in the database, or the app declares `SessionIdentity()` so everyone shares one instance.
+
 Heuristic: if you can't articulate why it should be `Global` or `User`, it's `Session`. The session identity is what the app already declared as its routing key — using the same key for storage means your data partitions match how your app instances partition.
 
-**Composer drafts and other "the user's words in progress" belong in USER scope** (`UserReactive<string>`, or `PersistentUserReactive<string>` to survive app restarts) — never `ClientReactive`. A page reload mints a NEW client session, so per-client state ends with it by design: a draft bound to `ClientReactive` is lost on every reload. User scope survives reloads and follows the user across tabs. Do NOT use browser storage (localStorage/sessionStorage in a custom component) to work around this; on this platform, drafts are kept in server state.
+**Composer drafts, choices a person has not made yet and other "the user's words in progress" belong in USER scope** (`UserReactive<string>`, or `PersistentUserReactive<string>` to survive app restarts) — never `ClientReactive`. A page reload mints a NEW client session, so per-client state ends with it by design: a draft bound to `ClientReactive` is lost on every reload. User scope survives reloads and follows the user across tabs. Do NOT use browser storage (localStorage/sessionStorage in a custom component) to work around this; on this platform, drafts are kept in server state.
 
 Each scope also has persistent collection variants — the durable counterparts of `ReactiveList<T>`, `ReactiveHashSet<T>` and `ReactiveDictionary<TKey, TValue>`. Use these instead of wrapping a collection in a `Persistent...Reactive<List<T>>`:
 

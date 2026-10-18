@@ -1,4 +1,4 @@
-<!-- checked-against: 80c95c0e9cb58ce5e3b0c442 -->
+<!-- checked-against: 7446c52d9cb58ce5e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -91,7 +91,9 @@ and is the TypeScript counterpart of the .NET SDK's `Guest` mode. The platform's
 gives the client a guest user keyed by `deviceId`: clients with the same device id are the same
 guest, and a client without one gets a new device id each time it cannot store one (every run of a
 Node program). The connect fails when the app's `[Auth] Methods` list neither `guest` nor `global`,
-with 403 "Anonymous users not allowed". A program connects to such a private app with an API key.
+with 403 "Anonymous users not allowed". A program connects to such a private app with an API key. The app must have been deployed once
+(`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
+ever local is reached with the `local` mode below.
 
 <!-- ikon-example: ts-sdk-auth-guest -->
 ```ts
@@ -100,9 +102,12 @@ const client = new IkonClient({
     spaceId: 'your-app-id',     // The app's id ([Target] SpaceId in ikon-config.<environment>.toml)
     backendType: 'production',  // 'development' for an app on *.dev.ikonai.app
     deviceId: 'info-screen-1',  // Optional: the same device id is the same guest
+    parameters: { room: 'harbour' },  // Optional: the app's client parameters, such as the room or instance to join
   },
 });
 ```
+
+`parameters` is a field of the connection config, so it works the same in the `guest`, `apiKey`, `sessionToken` and `local` modes. The app reads it as its client parameters; with a `SessionIdentity` built on one, it chooses which instance the client joins.
 
 ### API Key Authentication
 

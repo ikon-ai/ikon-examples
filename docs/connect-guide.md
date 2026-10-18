@@ -1,10 +1,10 @@
-<!-- checked-against: 48b8e4a35d753426e3b0c442 -->
+<!-- checked-against: 7edb3c465d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
 IKON Connect is an advanced feature. It lets IKON Studio and your apps use this computer: its coding
 agents, folders, browser and phones. You don't need it to build an app. To build one, see
-[Getting started](https://ikonai.com/getting-started).
+[Getting started](https://studio.ikonai.app/getting-started).
 
 How to connect a computer of yours to an IKON app with IKON Connect, so the app's tasks can run
 external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use

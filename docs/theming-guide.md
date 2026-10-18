@@ -1,4 +1,4 @@
-<!-- checked-against: 8d6506213dd3d6c2990b1194 -->
+<!-- checked-against: 0c0872f93dd3d6c20abdf656 -->
 
 # IKON Theming Guide
 
@@ -81,7 +81,7 @@ Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warni
 - **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode`, its second spelling `Dark`, and `Light` are the only non-indexer members.
 - **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. Two exceptions: the label on brand fills — `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]` — and a `ThemeMode.Fixed` theme whose background measures dark, which builds on the platform's dark scheme, so the text tiers it leaves unset are light.
 - **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
-- **A theme per client.** The `IkonTheme` is app-wide: every client of the app gets the same palette, fonts and radius. Per client you choose only dark or light (`UI.UseTheme`, `ClientFunctions.SetThemeAsync`). For a brand colour per tenant or customer, keep it in your own state and pick fixed palette classes for it in the render (`bg-teal-700 text-white` on the tenant's header and primary buttons, from a class map per tenant), leaving the shared theme neutral.
+- **A theme per client.** The `IkonTheme` is app-wide: every client of the app gets the same palette, fonts and radius. Per client you choose only dark or light (`UI.UseTheme`, `ClientFunctions.SetThemeAsync`). For a brand colour per tenant or customer, keep it in your own state and pick fixed palette classes for it in the render (`bg-teal-700 text-white` on the tenant's header and primary buttons, from a class map per tenant), leaving the shared theme neutral. An arbitrary value such as `bg-[#db2777]` also works for a colour held in state; text fields, selects, focus rings and the tab bar keep the app-wide theme. Give a field `["default", "bg-[#db2777]"]` so only the colours you set replace the themed ones.
 
 Committing a full mood takes roughly 10-14 entries: the brand line, the surface/text lines, shape, density, type, motion.
 
@@ -119,7 +119,7 @@ var theme = new IkonTheme
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
 
-For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`crosswind-styling-and-motion-guide.md`, "Theme Activation", has the arguments). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
+For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
 
 <!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp

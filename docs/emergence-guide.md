@@ -1,4 +1,4 @@
-<!-- checked-against: b4bb1ad998bcc3b306b739e6 -->
+<!-- checked-against: 9a3c7981d952e85506b739e6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -349,7 +349,7 @@ var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, op
 
 **Context flow:** Each round runs on the context the Initial stage returned, not on the earlier rounds'. Its `Command` is the refinement command followed by the current result as JSON, the round number and "Provide an improved version.", so write the refinement command as an instruction about that result.
 
-**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one. A
+**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). The stream carries one `Completed<T>`, at the end, with the final result; no event carries a round's result. `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one: keep a version per round from there. A
 progress line on screen, then:
 
 <!-- ikon-example: emergence-refine-rounds -->

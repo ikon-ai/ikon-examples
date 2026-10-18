@@ -1,4 +1,4 @@
-<!-- checked-against: 7cbd0e505def240b9786dcab -->
+<!-- checked-against: c297d107e200d537125b015e -->
 
 # App Files Guide
 
@@ -102,7 +102,7 @@ for example. Each rename is listed, and code that loads the file by its old name
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
 `ikon asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
-development never needs them. `ikon duplicate` re-homes stored binaries under the copy.
+development never needs them. `materialize` keeps a binary you edited since its pointer was written and warns (`--force` restores the stored bytes), and `normalize` leaves binaries git does not track yet alone unless given `--include-untracked`. `ikon duplicate` re-homes stored binaries under the copy.
 
 ## A shared app's node_modules
 

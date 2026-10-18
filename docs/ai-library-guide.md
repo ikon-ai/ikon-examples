@@ -1,4 +1,4 @@
-<!-- checked-against: 1625b09f9a3a277c91d8fcf1 -->
+<!-- checked-against: 58e27d2b61d997295f75b9c5 -->
 
 # Ikon.AI Library Overview
 
@@ -1116,9 +1116,13 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 `Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
-A registered custom decision model always runs in-process; `Jev` resolves through the hosted model routing like every other category. To reach TypeSafe directly with your own key instead, register a `CustomDecisionModel` pointing at `https://api.typesafe.ai/v1/systemone`.
+`Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. It costs $2.50 per million input tokens with output free, about 60 times Jev, so keep Jev for routing and triage and use Eevo where the trade-off between people is the question. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A request over a limit is refused before it is sent.
 
-Several questions about one state cost one request, and the state is charged once. Read each answer through `AsChoice`, `AsScore` or `AsNoul`, which refuse an answer of the wrong type rather than returning a default.
+`Decider.GetCapabilities(model)` says which models take stakeholders and consequences (`SupportsStakeholders`, `SupportsConsequences`). A question that names them is refused with a `NotSupportedException` before anything is sent to a model without them, rather than being answered as if it had asked something simpler.
+
+A registered custom decision model always runs in-process; `Jev` and `Eevo1` resolve through the hosted model routing like every other category. To reach TypeSafe directly with your own key instead, register a `CustomDecisionModel` pointing at `https://api.typesafe.ai/v1/systemone`.
+
+Several questions about one state cost one request, and the state is charged once. A question with stakeholders is a decision of its own, one request each. Read each answer through `AsChoice`, `AsScore` or `AsNoul`, which refuse an answer of the wrong type rather than returning a default.
 
 Needs the `Ikon.AI.Decisions` using directive.
 
@@ -1140,6 +1144,37 @@ double refundOdds = triage["refund"].AsNoul();         // a probability, not a b
 // Structured state instead of text, and the one-shot form for a single question
 string warehouse = await Decider.ChooseAsync(
     DecisionState.From(order), "Which warehouse ships this?", "helsinki", "tampere");
+```
+
+A decision that affects several people is asked once per stakeholder. Write each consequence as one effect with its amounts, as a change from what happens if no option is taken, and limit it with `For` to the stakeholders it touches:
+
+<!-- ikon-example: decision-stakeholders -->
+```csharp
+// Eevo answers once per stakeholder and weighs the consequences listed under each option
+using var decider = new Decider(DecisionModel.Eevo1);
+
+var question = DecisionQuestion.Choice("Ship the fix now, or wait for the logs that confirm it?", "ship", "wait")
+    .ForStakeholders(
+        DecisionStakeholder.Of("customers", "The customers who see a wrong invoice total"),
+        DecisionStakeholder.Of("team", "The on-call team", values: "A deploy they can stand behind"))
+    .WithConsequences("ship",
+        DecisionConsequence.Benefit("About 200 customers stop seeing a wrong total 40 minutes sooner", "Correct sooner"),
+        DecisionConsequence.Harm("The team deploys without the logs that would confirm the fix", "Blind deploy").For("team"))
+    .WithConsequences("wait",
+        DecisionConsequence.Harm("About 200 customers see a wrong invoice total for 40 more minutes", "Wrong totals").For("customers"));
+
+var answer = await decider.DecideAsync(incident, question);
+
+// One verdict per stakeholder, with each option's expected value on that stakeholder's own scale
+foreach ((string stakeholder, StakeholderAnswer verdict) in answer.ByStakeholder)
+{
+    double shipValue = verdict.ExpectedValues["ship"].Mean;
+    Log.Instance.Info($"{stakeholder}: {verdict.Choice} ({verdict.Confidence:P0}); shipping is worth {shipValue:0.0} to them");
+}
+
+// There is no verdict across stakeholders. AsChoice returns the option they all chose and throws
+// when they disagree, which is when to show the table to a person
+string shared = answer.AllAgree ? answer.AsChoice() : "the stakeholders disagree";
 ```
 
 ## Embeddings
