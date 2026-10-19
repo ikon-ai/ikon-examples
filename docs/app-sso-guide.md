@@ -1,4 +1,4 @@
-<!-- checked-against: 8e947403ffbadbb83b9362be -->
+<!-- checked-against: 67913fa6e3701ba496d9cdde -->
 
 # Ikon.App.Sso Guide
 
@@ -16,10 +16,12 @@ raise.
 
 ## Turn on the sign-in UI
 
-Add `sso` to the app's sign-in methods in `ikon-config.toml`:
+Add `sso` to the sign-in methods of the app's `[[Surface]]` in `ikon-config.toml`:
 
 ```toml
-[Auth]
+[[Surface]]
+Name = "app"
+[Surface.Auth]
 Methods = ["sso", "google", "email"]
 ```
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 30577e6a7e424edb650f4c5c -->
+<!-- checked-against: f00aebd07e424edb650f4c5c -->
 
 # Teleport message schema specification
 
@@ -257,12 +257,11 @@ same rule applies to wire and data schemas:
 
 ```toml
 [fields]
-RequireSignIn = "bool = false"
+StopSessions = "bool = true"
 
-# The v1 auth surface, consumed by the v1 -> v2 upgrade (RequireSignIn = Enabled && !DeferLogin)
+# Replaced by StopSessions: a drain period is no longer configurable
 [obsolete]
-Enabled = "bool"
-DeferLogin = "bool"
+DrainSeconds = "int32"
 ```
 
 A ledger entry does three things:

@@ -1,4 +1,4 @@
-<!-- checked-against: d9898d775305ebaf69cad9ea -->
+<!-- checked-against: 75db130e136e752316327970 -->
 
 # IKON Pipeline Guide
 
@@ -149,8 +149,9 @@ while discarding the content it refers to.
 
 A run reports through `PipelineStatus`: item counts in, processed and out; per-stage cache hits and
 misses; `ProcessFailureCount` and `ProcessRetryCount`; `ErrorLogCount` and `WarningLogCount`;
-`Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; and the accumulated `Usages` map that
-carries whatever the processors metered. Once `TotalFailureCount` (input, process and output
+`Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; the accumulated `Usages` map that
+carries whatever the processors metered; and `Stages`, a `PipelineStageStatus` with the processed, cached, retry and failure
+counts of each stage by the name its log lines carry (`summarize_v0_s1`). Once `TotalFailureCount` (input, process and output
 failures) exceeds `Config.ProcessFailureThreshold` (default 0) the run throws `PipelineException`,
 and a failed item's output is dropped. Input and output failures are judged at completion; a processor failure that takes the process
 failure count past the threshold stops the run there and then: items not yet processed never are,

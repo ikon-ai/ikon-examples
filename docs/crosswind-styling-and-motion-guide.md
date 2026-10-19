@@ -1,4 +1,4 @@
-<!-- checked-against: 393f3c7cf354dde937a00ca7 -->
+<!-- checked-against: 21595a45f354dde9b85d28fb -->
 
 # Crosswind Styling and Motion Guide
 
@@ -100,7 +100,7 @@ Crosswind supports three ways to style a component, and you can mix them freely 
 
 <!-- ikon-example: cw-three-styling-layers-all-valid-in-the-same-style-array -->
 ```csharp
-view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { });
+view.Box(style: ["rounded-2xl bg-card border border-card p-6 text-foreground"], content: view => { });
 ```
 
 Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.

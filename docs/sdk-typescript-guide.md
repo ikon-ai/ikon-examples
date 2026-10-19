@@ -1,4 +1,4 @@
-<!-- checked-against: 7446c52d9cb58ce5e3b0c442 -->
+<!-- checked-against: 99beb5bb9f3b6450e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -41,7 +41,7 @@ WebRTC and Web Workers exist only in a browser. In Node the SDK receives audio a
 protocol channels and does not decode them, which does not affect a program that sends and receives
 messages or calls functions. `@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
 stack trace and a retry every 10 seconds; `webRtc: { enabled: false }` in the configuration stops
-that, and `setLogLevel(LogLevel.WARN)` hides the info lines.
+that (those versions have no `media` option), and `setLogLevel(LogLevel.WARN)` hides the info lines.
 
 Run a program that imports an app's generated message codec (`frontend-node/src/generated/protocol/*.ts`,
 see "App Messages" below) with `tsx` (`npx tsx client.ts`). `node client.ts` fails, because the codec
@@ -90,8 +90,11 @@ Join a deployed app as a guest, a visitor who has not signed in. It needs no key
 and is the TypeScript counterpart of the .NET SDK's `Guest` mode. The platform's anonymous sign-in
 gives the client a guest user keyed by `deviceId`: clients with the same device id are the same
 guest, and a client without one gets a new device id each time it cannot store one (every run of a
-Node program). The connect fails when the app's `[Auth] Methods` list neither `guest` nor `global`,
-with 403 "Anonymous users not allowed". A program connects to such a private app with an API key. The app must have been deployed once
+Node program). The connect fails with 403 "Anonymous users not allowed" when none of the app's surfaces
+lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' requires sign-in with one of: …"
+when the surface the client enters does not list one. `guest` listed on another surface does not let the
+client in. The client enters the surface with neither `Routes` nor `Host`, or the first declared if every
+surface has routes or a host, unless `surface` in the config names another. A program connects to such a private app with an API key. The app must have been deployed once
 (`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
 ever local is reached with the `local` mode below.
 
@@ -214,13 +217,14 @@ The client tracks its connection state via the `connectionState` property. Live 
 
 | State | Description |
 |-------|-------------|
+| `idle` | No connection yet: the React layer's state while a page of a surface whose `Connect` is `"onAction"` shows its boot snapshot and waits for the visitor's first action, or forever on a surface whose `Connect` is `"none"`. An `IkonClient` itself never reports it |
 | `waitingForExternalConnectUrl` | Waiting for external connect URL (used in preview mode) |
 | `connecting` | Authentication and connection in progress |
 | `connected` | Protocol channels connected; the session is joined (GlobalState received, `onJoined` run) shortly after |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
 | `offline` | Disconnected (timeout, server stopped, user-initiated). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
 
-The `ConnectionState` union also includes deprecated states (`idle`, `connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
+The `ConnectionState` union also includes deprecated states (`connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
 
 Helper functions are available for common state checks:
 
@@ -562,7 +566,7 @@ the .NET SDK's `ReactiveRegistry`:
 ```ts
 const client = new IkonClient({
   guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
-  webRtc: { enabled: false },
+  webRtc: { media: 'none' },
 });
 
 await client.connect();
@@ -601,7 +605,7 @@ dropped connection, but when the server stops, the client goes `offline` and sta
 function watchVisitors(): void {
   const client = new IkonClient({
     guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
-    webRtc: { enabled: false },
+    webRtc: { media: 'none' },
     onConnectionStateChange: (state) => {
       if (state === 'offline') {
         setTimeout(() => {
@@ -674,7 +678,7 @@ const client = new IkonClient({
     performance: { preferOffscreenCanvas: true },
   },
   webRtc: {
-    enabled: true,  // WebRTC for audio/video transport (enabled by default)
+    media: 'atPermission',  // when the peer is negotiated: at the first media permission (the default), 'atConnect' or 'none'
   },
   mediaSession: {
     title: 'My App Audio',
@@ -687,16 +691,16 @@ When WebRTC is disabled or its signaling fails, the playback pipelines process a
 
 ### WebRTC
 
-The SDK supports WebRTC for audio and video transport. It is enabled by default and can be turned off in the configuration:
+The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-config.toml`, which a page passes on, says when the peer is negotiated: at the person's first microphone or camera permission (`atPermission`, the default, so a visitor who enables nothing costs the server no peer), with the connection (`atConnect`), or never (`none`). A program sets it in the configuration, and `client.negotiateWebRtc()` brings the peer up from a permission step of your own:
 
 <!-- ikon-example: ts-sdk-webrtc -->
 ```ts
 const client = new IkonClient({
   local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
-  webRtc: { enabled: false },  // disable WebRTC; default is true
+  webRtc: { media: 'none' },  // never negotiate a peer; 'atPermission' (the default) or 'atConnect' otherwise
 });
 
-// Check if WebRTC is enabled by config (false if both audio and video are disabled)
+// Check if WebRTC is enabled by config (false if both audio and video are disabled, or media is 'none')
 console.log(client.isWebRtcEnabled);
 
 // Check if WebRTC is actually carrying media (false after a fallback to the protocol channel)
@@ -1060,7 +1064,7 @@ const client = new IkonClient({
 |------|-------------|
 | `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
-| `ConnectionState` | Union type. Live states: `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `idle`, `connectingSlow`, `offlineError` |
+| `ConnectionState` | Union type. Live states: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `connectingSlow`, `offlineError` |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
 | `GlobalState` | Server state received after connection |
 

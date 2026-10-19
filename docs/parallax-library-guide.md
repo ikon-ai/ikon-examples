@@ -1,4 +1,4 @@
-<!-- checked-against: e2556d66c5064f52bd871b87 -->
+<!-- checked-against: 5cf36621be32696a42e4664d -->
 
 # Ikon.Parallax Library Overview
 
@@ -454,7 +454,7 @@ Three layers compose freely in the same style array:
 <!-- ikon-example: px-styling-with-crosswind -->
 ```csharp
 view.Button([Button.PrimaryMd, "mt-4 self-center"], text: "Submit", onClick: SubmitAsync);
-view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { });
+view.Box(["bg-card border border-card p-6 rounded-2xl"], content: v => { });
 view.Text([Text.Caption], text: "Updated just now");
 ```
 
@@ -469,7 +469,7 @@ view.TextField(["default", "w-full"], bind: _name); // themed input, full width 
 view.TextField(["w-full"], bind: _name);            // an unstyled box that is full width
 ```
 
-A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, a dialog, sheet or drawer panel with no `fixed` or `absolute` class, a stat card with no padding, a disabled button with no `disabled:` class, and a feed scroller with no `overflow-y-auto` (it then neither scrolls nor snaps). Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill. An array of string literals that holds only layout classes is also reported at build time, as warning IKON025, and the other warnings in this paragraph are warning IKON029 when every entry of the array is a constant (a literal, or a token such as `Card.Elevated`) and none is `"default"`. Both build warnings check the array written at the call, each branch of a conditional there, and the arrays a one-expression helper in the same file returns (`static string[] Tone(int side) => side == 0 ? [...] : [...]`). `view.Card` pads its `content:` (and its header) itself and stacks the content in a column 12px apart, which a `gap-*` or `items-*` class in the card's array respaces or aligns. A padding class in the card's own array (`[Card.Default, "py-2"]`) doubles the padding: that warns at run time, and at build time as IKON026. Drop the padding, or pass `contentStyle: ["p-0"]`. The other way round, a `Card.*` token on a `Column`, `Row` or `Box` draws the card's border and background but adds no padding, so a `Text` drawn straight into it touches the border; when the array has no padding class, that is warning IKON034. A `Row` child with a fixed width of 16rem or more (`w-96`, `w-[380px]`) beside other children is warning IKON036: a Row keeps one line, so on a phone the other children shrink to a sliver. Lay such panes out with `view.Column(["md:flex-row"], …)` and give the pane its width from `md:` up.
+A `style:` array that leaves out the classes that draw or place a component logs a dev warning with its file and line: a text field or text area with no background and no border, a progress bar with no background or no height, a dialog, sheet or drawer panel with no `fixed` or `absolute` class, a stat card with no padding, a disabled button with no `disabled:` class, and a feed scroller with no `overflow-y-auto` (it then neither scrolls nor snaps). Any other themed component (a badge, card, stat card, table part, link, toggle, alert, button…) warns, naming itself, when its array holds only layout classes such as `self-start`, `mt-4`, `w-full`, `flex-1`, `gap-2` or `col-span-2`: `view.Badge(["self-start"], …)` renders the text with no badge around it. A badge array of colors with no padding or no rounding (`["bg-teal-100 text-teal-800"]`) warns too, since it renders as colored text without the pill. An array of string literals that holds only layout classes is also reported at build time, as warning IKON025, and the other warnings in this paragraph are warning IKON029 when every entry of the array is a constant (a literal, or a token such as `Card.Elevated`) and none is `"default"`. Both build warnings check the array written at the call, each branch of a conditional there, and the arrays a one-expression helper in the same file returns (`static string[] Tone(int side) => side == 0 ? [...] : [...]`). `view.Card` pads its `content:` (and its header) itself and stacks the content in a column 12px apart, which a `gap-*` or `items-*` class in the card's array respaces or aligns. A padding class in the card's own array (`[Card.Default, "py-2"]`) doubles the padding: that warns at run time, and at build time as IKON026. Drop the padding, or pass `contentStyle: ["p-0"]`. The other way round, a `Card.*` token on a `Column`, `Row` or `Box` draws the card's border and background but adds no padding, so a `Text` drawn straight into it touches the border; when the array has no padding class, that is warning IKON034. A `Row` child with a fixed width of 16rem or more (`w-96`, `w-[380px]`) beside other children is warning IKON036: a Row keeps one line, so on a phone the other children shrink to a sliver. Lay such panes out with `view.Column(["md:flex-row"], …)` and give the pane its width from `md:` up. A page whose width is capped (`max-w-3xl` on the `UI.Root` style, a call directly in it, or one directly inside a full-width `ScrollArea`, `Column` or `Box` there) with nothing centring it is warning IKON037: it sits against the left edge of a wide screen. Add `mx-auto`, or use `Layout.Page`. A `Text` or `Markdown` call whose literal reads like an empty state (`"No messages yet"`, `"Nothing here yet"`, `"No results found"`) is warning IKON038: use `view.EmptyState(title: …)`. `Tabs` with `listStyle: [Tabs.NavList]` and the default or `Tabs.Trigger` triggers is warning IKON039: pass `triggerStyle: [Tabs.NavTriggerMd]`.
 
 The marker is what asks for the theme — with it the base merges *under* what you wrote, without it there is no merge at all:
 
@@ -477,7 +477,7 @@ The marker is what asks for the theme — with it the base merges *under* what y
 
 - **Theme token composites** (`Button.PrimaryMd`, `Input.Default`, `Card.Interactive`, `Badge.SuccessMd`, …) are already complete component styles, so they need no marker: `[Button.OutlineMd]` renders exactly the outline button, and `[Button.OutlineMd, "mt-2 w-full"]` layers on top of it. Fragments (`Button.Base`, `Layout.*`, `Text.*`) are partial and are meant to be combined.
 
-**Order inside the array decides conflicts.** The whole array compiles to a single CSS declaration block in array order, and a repeated property keeps its last value — no specificity, no stylesheet ordering, just "later wins". So `[Button.GhostMd, Button.IconSm]` is a 32px square (the size token's `px-5`/`min-h-10` is overridden by the square's `p-0`/`min-h-0`), and the same two tokens the other way round are a 40px-high button with 40px of side padding.
+**Order inside the array decides conflicts.** The whole array compiles to a single CSS declaration block in array order, and a repeated property keeps its last value — no specificity, no stylesheet ordering, just "later wins". So `[Button.GhostMd, Button.IconSm]` is a 32px square, 44px below the `sm` breakpoint (the size token's `px-5`/`min-h-10` is overridden by the square's `p-0`/`min-h-0`), and the same two tokens the other way round are a 40px-high button with 40px of side padding.
 
 **What a bare array costs you.** Writing `view.Button(["px-3 py-1 rounded bg-card"], …)` is legal and sometimes exactly right — but it is the whole style, so the button loses every affordance the base carried:
 
@@ -553,7 +553,7 @@ view.Button([Button.GhostMd, Button.IconSm],   // h-8 w-8 p-0 min-h-0 — last w
     onClick: RefreshAsync);
 ```
 
-`Button.Icon` (40×40, 44×44 below the `sm` breakpoint — the comfortable touch target), `Button.IconSm` (32) and `Button.IconXs` (28) each carry `p-0 min-h-0` (and `max-sm:min-h-0`, so the phone rule of the small sizes does not stretch them) for exactly this reason, and each must come after the variant token to win. Measure the rendered box when the size matters: an entrance animation (`scale-75`) or a `pointer-coarse:` rule can make it something other than what the classes say.
+`Button.Icon` (40×40), `Button.IconSm` (32) and `Button.IconXs` (28) each grow to 44×44 below the `sm` breakpoint, the comfortable touch target, and carry `p-0 min-h-0` (and `max-sm:min-h-0`, so the phone rule of the small sizes does not stretch them) for exactly this reason, and each must come after the variant token to win. Measure the rendered box when the size matters: an entrance animation (`scale-75`) or a `pointer-coarse:` rule can make it something other than what the classes say.
 
 ### Tooltips and Naming Controls
 
@@ -695,7 +695,7 @@ What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled
 
 ## The IKON O
 
-`view.LivingO()` (`LivingOExtensions`) draws the IKON O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. It has no size of its own, so give it a height in the style array (`["w-full h-48"]`, or `["absolute inset-0"]` inside a sized box); without one it draws nothing. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
+`view.LivingO()` (`LivingOExtensions`) draws the IKON O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. On the embedded O, `candidates:` is JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer; the full O ignores all three (it is always calm and follows the pointer) and reads only `shapeSchedule:`, timed candidates the embedded O ignores. It has no size of its own, so give it a height in the style array (`["w-full h-48"]`, or `["absolute inset-0"]` inside a sized box); without one it draws nothing. Its code loads the first time a page shows it. A boot snapshot includes the O only inside a `SnapshotReveal` region, where the page then animates before its session opens. Outside one, the capture skeletonizes the O like any other leaf, `poster:` included. `poster:` names a still image drawn where the O rests until its first frame, and it is what a prerendered page shows a crawler. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
 
 ## Example: Interactive Form
 
@@ -710,7 +710,7 @@ public async Task Main()
 {
     UI.Root([Page.Default], content: view =>
     {
-        view.Column(["gap-4 max-w-md p-8"], content: view =>
+        view.Column(["mx-auto gap-4 max-w-md p-8"], content: view =>
         {
             view.TextField(label: "Name", placeholder: "Your name", bind: _name);
 
@@ -741,11 +741,12 @@ Each client edits its own `_name`/`_subscribed` (they are `ClientReactive`), the
 
 ## Boot Snapshot and Privacy
 
-The platform captures an app's **initial UI at build time** and ships it as a static snapshot asset, so the first paint appears instantly — before the WebSocket connects. Capture is **on by default**: `[BootSnapshot] Routes` lists the routes to snapshot (scaffolded as `["/"]`), and `ikon bundle` / `ikon deploy` renders the app once per route for a synthetic snapshot client and serializes the resulting UI tree. An empty list, with no `GuestSeeds` / `SignedInSeeds` seed rules either (below), disables boot snapshotting.
+The platform captures an app's **initial UI at build time** and ships it as a static snapshot asset, so the first paint appears instantly — before the WebSocket connects. Capture is **on by default**: each `[[Surface]]` in `ikon-config.toml` lists the routes to snapshot in `Routes` (an app with no surface declared captures `["/"]`), and `ikon bundle` / `ikon deploy` renders the app once per route for a synthetic snapshot client and serializes the resulting UI tree. When no surface has `Routes` or `Seeds` rules (below), boot snapshotting is off.
 
 ```toml
-[BootSnapshot]
-Routes = ["/"]   # the default; [] disables boot snapshotting
+[[Surface]]
+Name = "site"
+Routes = ["/"]   # what an app with no [[Surface]] captures; [] with no Seeds disables boot snapshotting
 ```
 
 Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would otherwise be baked into it and shown to every visitor before the live UI loads. So the snapshot is **privacy-safe by default**: during capture, Parallax automatically **replaces every piece of content with a skeleton**. Each text, image, input, and control becomes a pulsing placeholder block while the layout shape (rows, columns, tabs, cards) is preserved — so the first paint looks like your app's skeleton screen and **no per-user content can leak**, with no work from you.
@@ -814,10 +815,10 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML **to crawlers** for the route's URL, so search engines and link-preview fetchers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in). **Human visitors** always get the SPA index instead: the SDK seeds the route's snapshot JSON (the bundle bakes a route→snapshot map into the index) for an instant, pixel-faithful first paint, and the live app takes over when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
 
 ```toml
-[BootSnapshot]
+[[Surface]]
+Name = "site"
 Routes = ["/", "/pricing", "/about"]     # static routes to snapshot
-MaxRoutes = 50                           # how many routes are captured (the default), 1 to 200
-SignedInSeeds = ["/**:shell"]            # optional seed rules; see below
+Seeds = []                               # optional seed rules; see below
 ```
 
 Content-driven routes (one per store listing, article, …) are declared in app code and unioned with the static list at capture time:
@@ -832,26 +833,27 @@ Two capture-quality tools:
 - **Settle signal** — capture treats a quiet UI stream as "settled" and additionally listens for an explicit ready signal; whichever arrives first wins, and everything is bounded by a per-route cap. A route whose content loads asynchronously after a silent gap could quiesce too early and bake its loading skeleton into the snapshot — call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded and capture snapshots at exactly that moment. Nothing to configure; the call is a harmless no-op for normal browser clients.
 - **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a sign-in view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
 
-**A capture that falls short does not stop the deploy.** When the capture misses a declared route or variant — the app failed to start, a route redirected, it timed out — the bundle ships with no boot snapshots at all, the state of an app without `[BootSnapshot]`, and the deploy ends with a `BOOT_SNAPSHOT_SKIPPED` warning that leads with the app's own error and names the file holding the full capture output. Until a later deploy captures again the app has no prerendered first paint, and no `sitemap.xml` or `robots.txt` is generated for it.
+**A capture that falls short does not stop the deploy.** When the capture misses a declared route or variant — the app failed to start, a route redirected, it timed out — the bundle ships with no boot snapshots at all, the state of an app whose surfaces declare no `Routes` or `Seeds`, and the deploy ends with a `BOOT_SNAPSHOT_SKIPPED` warning that leads with the app's own error and names the file holding the full capture output. Until a later deploy captures again the app has no prerendered first paint, and no `sitemap.xml` or `robots.txt` is generated for it.
 
 **The capture runs the app against the target's real data.** `ikon bundle` and `ikon deploy` start the built app on the deploying machine, signed in as the deployer, against the databases and storage of the app being deployed (the one `--target` names, or the environment's default), and its `Main` and starting handlers run there. Persistent reactives are not saved when the capture stops, but anything else `Main` and the handlers do (send an email, charge a card, seed or migrate data) happens. Guard those with `SnapshotCapture.IsCaptureProcess`. `Context.IsSnapshot` marks only the capture's clients, so it does not cover `Main`.
 
-Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. A snapshot is matched by path alone, so `/?game=abc` first paints the `/` snapshot until the live page replaces it; an app whose page depends on the query string should keep that difference out of the snapshot (a skeleton, or `SnapshotHide`) or move it into the path. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without sign-in (`RequireSignIn = false`, or `guest` or `global` among the methods) — serving marketing HTML to crawlers in front of a hard sign-in wall is a cloaking pattern, so for sign-in-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. A snapshot is matched by path alone, so `/?game=abc` first paints the `/` snapshot until the live page replaces it; an app whose page depends on the query string should keep that difference out of the snapshot (a skeleton, or `SnapshotHide`) or move it into the path. Prerendered crawler HTML (and the sitemap built from it) is produced only for the routes of a surface that admits visitors without sign-in (`guest` or `global` among its `Methods`) — serving marketing HTML to crawlers in front of a hard sign-in wall is a cloaking pattern, so the routes of a surface that requires sign-in ship the JSON snapshots alone (the instant skeletonized first paint still works).
 
 #### How to use it
 
 Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind sign-in), so enable it only on the public surface.
 
-1. **Make the public routes openable without signing in.** In `ikon-config.toml`, either leave `[Auth] RequireSignIn = false` (the default), or set it with `guest` or `global` in `Methods` so a crawler can connect without a sign-in wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
+1. **Make the public routes openable without signing in.** In `ikon-config.toml`, keep `guest` or `global` in the `Methods` under `[Surface.Auth]` of the `[[Surface]]` that lists the routes (the default `Methods` include `guest`), so a crawler can connect without a sign-in wall. Otherwise the bundle skips the crawler HTML and ships JSON snapshots only.
 
 2. **List the static routes.** Enumerate the fixed public paths (the scaffold starts you at `["/"]`):
 
    ```toml
-   [BootSnapshot]
+   [[Surface]]
+   Name = "site"
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first `[BootSnapshot] MaxRoutes` routes are captured, 50 unless set. The rest get no prerendered page, but they are still listed in `sitemap.xml` (up to 50,000 URLs in all), and the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names them, so an archive of thousands of pages returns all of them. `MaxRoutes` takes 1 to 200, and a value outside that fails the bundle. Each captured route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first 50 routes are captured. The rest get no prerendered page, but they are still listed in `sitemap.xml` (up to 50,000 URLs in all), and the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names them, so an archive of thousands of pages returns all of them. Each captured route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
 
 <!-- ikon-example: px-how-to-use-it -->
 ```csharp
@@ -867,7 +869,7 @@ app.OnSnapshotRoutes(async () =>
 
    If the app registers **custom UI modules** (`useIkonApp({ modules })`), the prerender needs them too or those elements render as skeletons in the static HTML: create `src/prerender-modules.ts` in the frontend exporting `prerenderModules: IkonUiModuleRegistration[]` with the same registrations, and the prerender build picks it up automatically.
 
-6. **Give each route its title and description.** Without them a route's page gets `index.html`'s title with the route appended (`Shop — p · toffee-mug`) and `index.html`'s description. Call `ClientFunctions.SetPageMetadataAsync(title, description, imageUrl, language)` where the app decides which route a client is on (the join handler, a path change). The capture records it, and the route's prerendered page carries that `<title>`, description, Open Graph and Twitter card tags and `<html lang>`. In a browser the same call sets the tab title and the tags as the user moves between routes. The image must be an absolute URL (`app.Files.Public.GetAbsoluteUrlAsync`), and a null value leaves that field as it is.
+6. **Give each route its title and description.** Without them a route's page gets `index.html`'s title with the route appended (`Shop — p · toffee-mug`) and `index.html`'s description. Call `ClientFunctions.SetPageMetadataAsync(title, description, imageUrl, language)` where the app decides which route a client is on (the join handler, a path change). The capture records it, and the route's prerendered page carries that `<title>`, description, Open Graph and Twitter card tags and `<html lang>`. In a browser the same call sets the tab title and the tags as the user moves between routes. The image must be an absolute URL (`app.Files.Public.GetAbsoluteUrlAsync`), and a null value leaves that field as it is. `noIndex: true` marks a page search engines must not list, such as the app's not-found screen: it gets a `noindex` robots tag, and a captured noIndex route stays out of `sitemap.xml`. The page still answers HTTP 200, and the next call without it removes the tag.
 
    When a page exists in several languages, pass `alternates:` as well: a dictionary from a language tag (`"fi"`, `"en-GB"`, or `"x-default"` for the version to show when none matches) to that version's route (`"/fi/hinnat"`) or an absolute http(s) URL. The deploy turns them into `<link rel="alternate" hreflang="…">` tags with absolute URLs in the route's prerendered page and into `xhtml:link` entries under the route in `sitemap.xml`. Give every version the same set: search engines ignore an alternate that the other page does not name back. When the set leaves out the route itself and `language` is set, the route is added under that language. Each call replaces the alternates the call before it set, and a call without them removes them, so a route with no other versions does not keep the links of the route the user came from. A tag that is not a language tag, or a value that is neither a route nor an absolute URL, throws `ArgumentException`.
 
@@ -877,29 +879,37 @@ app.OnSnapshotRoutes(async () =>
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
 
-#### Seed rules and snapshot variants (`GuestSeeds` / `SignedInSeeds`)
+#### Seed rules and snapshot variants (`Seeds`)
 
 Route snapshots cover concrete paths that exist at deploy time. Two situations need more:
 
 - **Identity-split pages** — the deferred sign-in pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, someone who has just signed in would see a blank page until the instance boots.
 - **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
 
-Seed rules cover both. Each entry is `"pattern:variantId"`, listed per sign-in state, **first match wins** in array order. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
+Seed rules cover both. Each entry is `"pattern:variantId"` in a surface's `Seeds`, and the **first match wins** in array order. A rule applies to the visitors its surface admits: rules on a surface with sign-in providers seed signed-in visitors, and rules on a surface with `guest` or `global` seed anonymous visitors. A variant id is 1-32 lowercase letters, digits or `-` (not leading) — `Dashboard` or `signed_in` fails the bundle:
 
 ```toml
-[BootSnapshot]
+[[Surface]]
+Name = "public"
 Routes = ["/"]
-GuestSeeds = ["/**:welcome"]
-SignedInSeeds = ["/:admin", "/*:dashboard", "/*/**:experience"]
+Seeds = ["/**:welcome"]
+[Surface.Auth]
+Methods = ["guest"]
+
+[[Surface]]
+Name = "app"
+Seeds = ["/:admin", "/*:dashboard", "/*/**:experience"]
+[Surface.Auth]
+Methods = ["google", "email"]
 ```
 
 A pattern segment is a literal (exact match), `*` (exactly one segment, any content), or a final `**` (zero or more remaining segments). So `/` matches only the front page, `/*` any one-segment path, `/*/**` any path two segments or deeper, and `/**` everything. Order matters — `**` means *zero* or more, so `/*/**` also matches one-segment paths; listing `/*:dashboard` first keeps those on the dashboard rule. A `/**` entry anywhere but last fails the bundle (the entries after it could never apply).
 
-On load, the SDK picks the array from the stored-session heuristic (a non-anonymous localStorage session, or an OAuth callback token), then resolves per axis: **guests** seed an exact route snapshot first — real public content beats a generic fallback skeleton — and consult `GuestSeeds` for everything unmapped; **signed-in** visitors consult `SignedInSeeds` first — the rules exist precisely to override the public route snapshots — and fall back to the exact route snapshot, so an app with no rules still paints (route snapshots are skeletonized and identity-free).
+On load, the SDK works out which surface the visitor enters: the surface with the longest route covering the path, or the surface with neither routes nor host when no route covers it. A visitor who appears signed in (a non-anonymous localStorage session, or an OAuth callback token) skips a surface whose methods are all anonymous. The SDK then paints that surface's own snapshot of the route if the build captured one, otherwise the file of the surface's first matching seed rule. If the surface has neither, the page stays blank until it connects rather than painting another visitor's page. So in the example above, a signed-in person at `/` enters `app` and paints its `admin` skeleton, while an anonymous visitor paints the captured `/` page.
 
 Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton (the seed rules may name at most 16 distinct variant ids; more fails the bundle) — no magic paths, the toml ids are the `case` labels:
 
-<!-- ikon-example: px-seed-rules-and-snapshot-variants-guestseeds-signedinseeds -->
+<!-- ikon-example: px-seed-rules-and-snapshot-variants -->
 ```csharp
 if (view.IsSnapshot)
 {
@@ -917,16 +927,17 @@ if (view.IsSnapshot)
 
 Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction. Render it from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives — the capture client is unauthenticated, and the skeleton only needs the right geometry. Variant artifacts ship separately from the public routes: they are **not** prerendered to HTML and never appear in the route manifest or sitemap (a skeleton standing for unboundedly many URLs is not crawlable content — concrete SEO stays with `Routes` and `OnSnapshotRoutes`). A returning user's live-snapshot cache of their own last UI still wins over any seed rule. A declared variant the capture cannot produce leaves the bundle without boot snapshots, exactly like a missing route.
 
-The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:shell"]` seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
+The simplest rule set is one shell: `Seeds = ["/**:shell"]` on the signed-in surface seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
 
 ### Open-as-guest (the default)
 
-A sign-in-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. Leaving `RequireSignIn` off inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
+A sign-in-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. A surface that lists `guest` or `global` in its `Methods` (the default lists `guest`) inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
 
 ```toml
-[Auth]
-RequireSignIn = false            # the default — no sign-in wall
-Methods = ["google", "guest"]    # "guest" is what visitors connect as
+[[Surface]]
+Name = "app"
+[Surface.Auth]
+Methods = ["google", "guest"]    # "guest" is what visitors connect as, so there is no sign-in wall
 ```
 
 The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one app-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
@@ -958,7 +969,7 @@ view.Button([Button.PrimaryMd], text: "Sign in with Google",
 
 Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL. This matters more under `global`, where every visitor shares one `UserId`: never key per-user state on it.
 
-**This is how an app with sign-in gets a crawlable landing page**: combine open-as-guest with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live session connecting invisibly underneath, taking over pixel-identically.
+**This is how an app with sign-in gets a crawlable landing page**: combine open-as-guest with `Routes = ["/"]` on that surface. The capture client connects as an anonymous session, renders the same landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live session connecting invisibly underneath, taking over pixel-identically.
 
 ## In-App Feedback
 

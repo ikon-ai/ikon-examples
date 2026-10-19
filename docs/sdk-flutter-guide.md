@@ -1,4 +1,4 @@
-<!-- checked-against: a0179e7fe776842ae3b0c442 -->
+<!-- checked-against: 5d9f32d062c9340ce3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -357,8 +357,8 @@ uses the code the auth service mails. The token is kept in secure storage, so th
 connects straight in as that user. If the server no longer accepts the token, it is dropped and the
 app connects as a guest. `sso:` connections and passkeys are not offered on a phone yet.
 
-`ikon bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
-`RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template already does this; the essential parts are:
+`ikon bundle --flutter-*` passes every method the app's surfaces list as `IKON_AUTH_METHODS` and, when
+none admits anonymous visitors, `IKON_AUTH_REQUIRE_SIGN_IN=true`. The app template already does this; the essential parts are:
 
 <!-- ikon-example: flutter-sdk-native-sign-in -->
 ```dart
@@ -406,6 +406,14 @@ await client.connect();
 registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
 client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 ```
+
+### Entering a surface
+
+`surface:` on `IkonClient.connectWithToken` and `IkonClient.connectGuest` names the `[[Surface]]` of the
+app's `ikon-config.toml` the client enters. The backend checks the person against that surface's
+`Methods` and `Roles` before it provisions anything, and refuses the connect otherwise. A guest enters
+only a surface listing `guest` or `global`. Without `surface:` the client enters the surface with neither
+routes nor host. The app reads which surface a client entered from its `Context` (the `Surface` field).
 
 ### Joining only a running session
 
@@ -524,9 +532,10 @@ await capture.stop();
 final playback = enableIkonAudioPlayback(client);
 
 // Live WebRTC A/V (peer connection to the server SFU via flutter_webrtc);
-// the Opus stack above remains the fallback when WebRTC is unavailable
+// the Opus stack above remains the fallback when WebRTC is unavailable. The peer
+// comes up as the surface's Media says: with the connection, or at the first
+// capture; webRtcMedia.start() brings it up at a moment the app chooses.
 final webRtcMedia = enableIkonWebRtcMedia(client);
-await webRtcMedia.start();
 await webRtcMedia.startCameraCapture();
 ```
 

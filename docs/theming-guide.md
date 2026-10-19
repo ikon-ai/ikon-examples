@@ -1,4 +1,4 @@
-<!-- checked-against: 0c0872f93dd3d6c20abdf656 -->
+<!-- checked-against: b452907d3dd3d6c26f72b629 -->
 
 # IKON Theming Guide
 
@@ -173,7 +173,7 @@ Each key commits the listed canonical CSS variables. One value sets them all.
 | `muted` | `--bg-muted` | subtle fills | `"zinc-800"` |
 | `muted-foreground` | `--text-muted-foreground` | secondary/caption text | `"zinc-500"` |
 | `accent-foreground` | `--text-accent-foreground` | text on hover surfaces | `"zinc-100"` |
-| `border` | `--border-primary`, `--border-secondary` | default hairlines and dividers | `"zinc-800"` |
+| `border` | `--border-primary`, `--border-secondary`, `--border-card` | default hairlines, dividers and card edges | `"zinc-800"` |
 | `input` | `--border-input` | form control borders | `"zinc-700"` |
 | `ring` (alias: `ring-brand`) | `--border-focus-ring` | focus ring only (already inside the `primary` cluster) | `"amber-500"` |
 | `text-brand` | `--text-brand-secondary`, `--text-brand-tertiary` | brand-tinted copy only (already inside the `primary` cluster — prefer `primary`) | `"amber-300"` |
@@ -310,7 +310,7 @@ For coherent themes, follow these rules (the StylingOracle's internal taxonomy):
 - **Pick one palette family.** Warm-bedtime → amber/rose/stone. Fintech minimal → emerald/zinc. Cyberpunk neon → violet/cyan/zinc. Don't mix amber + cyan + lime in one app — the eye reads it as random.
 - **Contrast the page.** Dark background (`zinc-950`, `slate-900`) → light foreground (`zinc-50`, `amber-50`). Light background (`zinc-50`, `stone-100`) → dark foreground (`zinc-950`, `stone-950`).
 - **Step conventions.** Dark palettes use 900s/950 for `background`, 50s for `foreground`. Light palettes reverse: 50s/100s for `background`, 950s for `foreground`.
-- **Brand contrast:** `["primary"]` labels its fills white wherever white reaches 3:1 contrast (`rose-500`, `violet-500`, `emerald-600`, every 600 step but `yellow-600`, every 700 step), and near-black on a lighter fill (`amber-400`, `emerald-500`, `sky-500`). Set `["primary-foreground"]` only to choose otherwise.
+- **Brand contrast:** `["primary"]` labels its fills white wherever white reaches 4.5:1 contrast, the floor for button text (`rose-600`, `violet-600`, `indigo-600`, `blue-600`, `red-600`, `emerald-700`), and near-black on a lighter fill (`rose-500`, `emerald-600`, `indigo-400`, `amber-400`). Set `["primary-foreground"]` only to choose otherwise.
 - **Match radius to mood.** Sharp / brutalist → `rounded-none`. Modest / SaaS → `rounded-md`. Friendly / bedtime → `rounded-2xl` or higher.
 - **Match density to mood.** Editorial / calm / luxury → `airy`. Terminal / data-dense → `compact`.
 - **Decide the dark story.** One committed scheme → `Mode = ThemeMode.Fixed`. Adaptive → a `DarkMode` block restating the surface/text/brand keys.

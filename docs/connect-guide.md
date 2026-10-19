@@ -1,15 +1,16 @@
-<!-- checked-against: 7edb3c465d753426e3b0c442 -->
+<!-- checked-against: e6cea22e5d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
-IKON Connect is an advanced feature. It lets IKON Studio and your apps use this computer: its coding
-agents, folders, browser and phones. You don't need it to build an app. To build one, see
+IKON Connect lets IKON Studio and your apps use this computer: its coding agents, folders, browser
+and phones. It is how Studio builds with your own coding agent, on your own plan with it. IKON
+Desktop sets it up for Studio without a terminal; see
 [Getting started](https://studio.ikonai.app/getting-started).
 
-How to connect a computer of yours to an IKON app with IKON Connect, so the app's tasks can run
-external coding agents — Claude Code, Codex, Gemini, Antigravity — on it, and its web tasks can use
-the computer's own browser. For app developers; everything here works
-with the `ikon` CLI you already have.
+This guide connects a computer of yours to an IKON app from a terminal, so the app's tasks can run
+the coding agents on it (`ikon agent list` names the ones IKON Connect runs), and its web tasks can
+use the computer's own browser. For app developers; everything here works with the `ikon` CLI you
+already have.
 
 ## What IKON Connect is
 
@@ -52,7 +53,7 @@ ikon service install
 ```
 
 `install` checks which coding agents the machine has and sets up what they need — it lets Claude
-Code, Codex and Gemini CLI use the ikon tool through the service's MCP server, and installs tmux,
+Code and Codex use the ikon tool through the service's MCP server, and installs tmux,
 which lets a terminal and the board share one session (macOS and Linux; Windows can run and watch
 sessions but not share them). On macOS it also lets an app's **Connect this computer** link open
 here; elsewhere, paste a link after `ikon connect`. On macOS and Windows it starts IKON

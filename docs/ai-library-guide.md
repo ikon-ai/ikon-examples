@@ -1,4 +1,4 @@
-<!-- checked-against: 58e27d2b61d997295f75b9c5 -->
+<!-- checked-against: aafa67d752e4d6285f75b9c5 -->
 
 # Ikon.AI Library Overview
 
@@ -77,7 +77,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 `Ikon.AI.LLM` offers direct, streaming-level access to language models when higher-level orchestration is unnecessary.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.LLM.md` in AI apps).
 
 Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`. An organisation admin sets that policy in Studio's organisation settings, under "Where AI calls are served", or with `ikon org set --ai-region eu-only`. `ikon model list --eu` lists the models that have an EU region, and `Emerge.FindModels(c => c.SupportsInputAudio, [ModelRegion.Eu])` lists the LLMs with a capability on an EU route. The policy applies the same way in `ikon run` as in the deployed app, and a call that names no speech model gets one with an EU route.
 
@@ -141,7 +141,7 @@ Key behaviors:
 
 `Ikon.AI.ImageGeneration.ImageGenerator` creates images with negative prompts, seeding, and resolution controls.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.ImageGeneration.md` in AI apps).
 
 One-shot — defaults to `Gemini25FlashImage` (cheap+fast). The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the image:
 
@@ -253,7 +253,7 @@ them back as a PNG with alpha.
 
 Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. A `Mask` is a PNG cut-out rather than a black/white mask: it holds the object's own pixels with everything else transparent, and its alpha channel is the mask. `ImageUtils.ConvertAlphaMaskToBlackWhiteMask` turns it into a black/white mask that is white outside the object, and `ImageUtils.InvertMask` on that makes the object white. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.ImageSegmentation.md` in AI apps).
 
 One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 
@@ -295,7 +295,7 @@ if (result.Segments.Count > 0)
 
 `Ikon.AI.ImageUpscaling.ImageUpscaler` raises the resolution of a single input image (super-resolution). The result is one larger image. Useful for rescuing low-resolution source material, printing or presenting a generated image at a larger size, and recovering detail from compressed photos.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns the provider's own encoding; Crystal is the one model that will invent detail across the whole frame.
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.ImageUpscaling.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns the provider's own encoding; Crystal is the one model that will invent detail across the whole frame.
 
 Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input bytes and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills; an input given by URL has no known size and is left to the provider. `MinInputSide` is the smallest width and height a model takes (128 pixels on SeedVR2, 0 where none is stated), and an input of bytes under it is refused the same way, with its size in the message.
 
@@ -330,7 +330,7 @@ await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync())
 
 `Ikon.AI.DepthEstimation.DepthEstimator` produces a monocular depth map from a single input image. The result is a `DepthEstimatorResult` whose single `Depth` image is the map (closer surfaces brighter, farther surfaces darker). Useful for 3D reconstruction, parallax/relighting effects, compositing, and depth-conditioned image generation. The estimator implements `IDepthEstimator`.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). Depth Anything V2 is the fast default; Marigold is diffusion-based and higher quality but slower; MiDaS is a lightweight classic.
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.DepthEstimation.md` in AI apps). Depth Anything V2 is the fast default; Marigold is diffusion-based and higher quality but slower; MiDaS is a lightweight classic.
 
 One-shot from image bytes — defaults to `DepthAnythingV2` (cheap+fast):
 
@@ -366,7 +366,7 @@ No provider states a unit for a generated mesh, and the size it comes out at is 
 reader takes the units as metres). Scale the mesh to the size you need before you print or place
 it.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.MeshGeneration.md` in AI apps).
 
 One-shot text-to-mesh — defaults to `Meshy6` (the current Meshy generation):
 
@@ -469,7 +469,7 @@ Log.Instance.Info($"Parts: {parts.GlbUrl}, repainted: {repainted.GlbUrl}");
 
 `Ikon.AI.VideoGeneration.VideoGenerator` renders video clips with configurable length, resolution, and aspect ratio.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.VideoGeneration.md` in AI apps).
 
 One-shot text-to-video — defaults to `Veo31Fast` (cheap+fast):
 
@@ -510,7 +510,7 @@ the ones that take a ratio there. For the others, crop the image to the ratio yo
 
 `Ikon.AI.VideoEnhancement.VideoEnhancer` upscales and frame-interpolates existing video clips.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.VideoEnhancement.md` in AI apps).
 
 One-shot — defaults to `TensorPixUpscale2xUltra41` (the current 2x upscale generation):
 
@@ -546,7 +546,7 @@ The result is a `VideoSegmenterResult`: `Url` is the segmented video, with `Mime
 
 Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL or an asset: `Data` is uploaded to a temporary asset first and a minutes-long clip is far too large to hold in memory. The endpoint is priced by the length of the input, so to make a long video cheaper, trim it or reduce its frame rate before the call. Scaling it down does not lower the price.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.VideoSegmentation.md` in AI apps).
 
 One-shot from a video URL — defaults to `Sam3`:
 
@@ -576,7 +576,7 @@ Log.Instance.Info($"Segmented video: {result.Url} ({result.SizeBytes} bytes)");
 
 `Ikon.AI.SpeechGeneration.SpeechGenerator` streams synthesized speech while exposing supported voice IDs per model.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.SpeechGeneration.md` in AI apps).
 
 One-shot — defaults to `SpeechGeneratorModel.Default` (`ElevenFlash25`, cheap and fast, or a model with an EU route under an EU-only policy) and returns the full clip as a single PCM `AudioChunk`. The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the clip:
 
@@ -631,7 +631,7 @@ like — name the language in `Instructions` there instead.
 
 `Ikon.AI.SpeechRecognition.SpeechRecognizer` converts audio streams into text with configurable sample rates and languages.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.SpeechRecognition.md` in AI apps).
 
 One-shot batch transcription — defaults to `SpeechRecognizerModel.Default` (`WhisperLarge3Turbo`, cheap and fast, or a model with an EU route under an EU-only policy):
 
@@ -790,7 +790,7 @@ await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeech
 
 `Ikon.AI.SoundEffectGeneration.SoundEffectGenerator` generates sound effects from text prompts.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.SoundEffectGeneration.md` in AI apps).
 
 One-shot — returns a buffered WAV file:
 
@@ -823,7 +823,7 @@ await File.WriteAllBytesAsync("thunder.wav", await result.GetDataAsync());
 
 `Ikon.AI.MusicGeneration.MusicGenerator` generates music clips from text prompts, with optional audio-to-audio editing (input clips re-styled by the prompt). For short UI/game sound effects use `SoundEffectGenerator` instead.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.MusicGeneration.md` in AI apps).
 
 One-shot — defaults to `ElevenLabsMusicV2` (supports duration control and editing) and returns a buffered, encoded audio file:
 
@@ -858,7 +858,7 @@ The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending
 
 `Ikon.AI.WebScraping.WebScraper` fetches and normalizes website content, with options for Markdown extraction and screenshots.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.WebScraping.md` in AI apps).
 
 **Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it the speech models resolve through the IKON service as usual, while the local browser models throw a `UserException` naming the package.
 
@@ -911,7 +911,7 @@ await File.WriteAllBytesAsync("screenshot.png", screenshot.Data);
 
 `Ikon.AI.WebSearching.WebSearcher` wraps search providers for page and image discovery.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.WebSearching.md` in AI apps).
 
 One-shot page search — defaults to `Google` (cheap+fast general web search):
 
@@ -964,7 +964,7 @@ foreach (var result in imageResults)
 
 `Ikon.AI.FileConversion.FileConverter` converts one binary document to PDF per call and handles long-running jobs transparently.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.FileConversion.md` in AI apps).
 
 One-shot from raw file bytes (the file name carries the source format):
 
@@ -995,7 +995,7 @@ await File.WriteAllBytesAsync("brochure.pdf", await convertedFile.GetDataAsync()
 
 `Ikon.AI.OCR.OCR` extracts selectable text and structural metadata from images, PDFs and Office documents.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.OCR.md` in AI apps).
 
 One-shot from raw file bytes — defaults to `AzureDocumentIntelligence` (cheap+robust):
 
@@ -1041,7 +1041,7 @@ A `0` on either numeric limit means the provider publishes no limit — not a ze
 
 `Ikon.AI.Reranking.Reranker` orders candidate documents for relevance to a query to improve retrieval pipelines.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.Reranking.md` in AI apps).
 
 One-shot — defaults to `CohereRerank4Fast` (cheap+fast):
 
@@ -1074,7 +1074,7 @@ var items = await reranker.RerankAsync(new RerankerConfig { Documents = document
 
 `Ikon.AI.Classification.Classifier` performs moderation and category detection with score-level transparency per safety label.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.Classification.md` in AI apps).
 
 One-shot text moderation — defaults to `OpenAIOmniModeration` (free to use):
 
@@ -1112,7 +1112,7 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 `Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each `Choice` and `Score` answer carries calibrated probabilities and a confidence (a `Noul` answer carries its uncertainty in the probability itself), so routing, triage and gating inside a flow need no parsing step and always get an answer of the expected type.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.Decisions.md` in AI apps).
 
 `Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
@@ -1181,7 +1181,7 @@ string shared = answer.AllAgree ? answer.AsChoice() : "the stakeholders disagree
 
 `Ikon.AI.Embeddings.EmbeddingGenerator` creates vector representations for similarity search, clustering, or semantic scoring.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.Embeddings.md` in AI apps).
 
 One-shot — defaults to `OpenAI3Small` (cheap+fast) with `EmbeddingType.Generic`:
 

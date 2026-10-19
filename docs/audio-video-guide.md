@@ -1,4 +1,4 @@
-<!-- checked-against: 06eb4cfd1f898688648a98c0 -->
+<!-- checked-against: 8b6a9210afac094ae7c8b860 -->
 
 # IKON Audio & Video Guide
 
@@ -144,7 +144,7 @@ Until the browser has granted a microphone, a capture button renders itself as a
 
 The separation is what makes push-to-talk work at all. A permission dialog takes focus, and the page sees that as the button being released: a hold that doubles as the ask is cancelled behind the dialog, so the user grants access and finds that nothing was captured, on a button that now looks idle. After the grant the button flashes a green **ready** ring for two seconds, so the user sees that the mic is ready, and the next press is clearly a talk press.
 
-A refusal (or a machine with no microphone) switches the button to a **"Mic blocked"** state that stays pressable: a press asks again, which succeeds once the site settings allow it, and fires `onPermissionChanged`. The event fires only when a press asks: a microphone already blocked or missing when the page loads shows the state silently, and the handler first runs on the first press:
+A refusal switches the button to a **"Mic blocked"** state, whose tooltip says the browser blocked the microphone and how to allow it, and a machine with no microphone to **"No mic found"**. Both stay pressable: a press asks again, which succeeds once the site settings allow it, and fires `onPermissionChanged`. The event fires only when a press asks: a microphone already blocked or missing when the page loads shows the state silently, and the handler first runs on the first press:
 
 <!-- ikon-example: av-push-to-talk -->
 ```csharp
@@ -162,23 +162,30 @@ Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pres
 
 Flutter frontends run the same state machine against the OS permission dialog, so a mic button means the same thing in a browser and on a phone.
 
-For transcription, prefer `UseSpeechRecognition` (next section). For raw PCM access:
+For transcription, prefer `UseSpeechRecognition` (next section). For raw PCM access (a frame event carries no format, so keep it per stream from the begin event):
 
 <!-- ikon-example: av-audio-input -->
 ```csharp
+// The frame event carries no SampleRate/ChannelCount: keep the format from the begin event.
+var streamFormats = new System.Collections.Concurrent.ConcurrentDictionary<string, (int SampleRate, int ChannelCount)>();
+
 Audio.AudioInputStreamBeginAsync += async args =>
 {
     // Register per-stream state HERE — this fires before any frame from the stream.
-    // args.StreamId, args.SampleRate, args.ChannelCount, args.ClientSessionId, args.UserId
+    streamFormats[args.StreamId] = (args.SampleRate, args.ChannelCount);
 };
 
 Audio.AudioInputFrameAsync += async args =>
 {
     // args.Samples: decoded float PCM in [-1, 1]; args.IsFirst / args.IsLast
     // bracket one captured segment (e.g. one push-to-talk press).
+    if (streamFormats.TryGetValue(args.StreamId, out var format))
+    {
+        var seconds = args.Samples.Length / (double)(format.SampleRate * format.ChannelCount);
+    }
 };
 
-Audio.AudioInputStreamEndAsync += async args => { /* cleanup */ };
+Audio.AudioInputStreamEndAsync += async args => { streamFormats.TryRemove(args.StreamId, out _); };
 ```
 
 The event args carry `args.ClientSessionId` / `args.UserId` / `args.ClientContext` directly — never pass client identity through a button's `onCaptureStart` into the frame handlers.
@@ -399,7 +406,7 @@ view.Row(["flex-wrap gap-2"], content: row =>
 {
     if (_tiles.Count == 0)
     {
-        row.Text(["text-sm text-muted-foreground"], text: "No cameras on yet");
+        row.EmptyState([EmptyState.RootSm], title: "No cameras on yet", description: "Turn a camera on to see its tile here.");
         return;
     }
 

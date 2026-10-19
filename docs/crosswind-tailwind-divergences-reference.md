@@ -1,4 +1,4 @@
-<!-- checked-against: d552eccee3b0c442e3b0c442 -->
+<!-- checked-against: 6e4c7a30e3b0c442e3b0c442 -->
 
 # Crosswind ↔ Tailwind v4: deliberate divergences
 
@@ -74,6 +74,13 @@ but is Chromium 108: an older smart television drops the declaration and an `h-d
 collapses to nothing. Crosswind emits `100vh` and overrides it with `100dvh` under
 `@supports (height: 100dvh)`, so the one class is right everywhere. An explicit `h-[100vh]` or
 `h-dvh` keeps its literal meaning.
+
+**9. Default border colour is `var(--border-secondary)` (Tailwind v4: `currentColor`)** — not a
+class, a preflight rule. Tailwind v4 draws a bare `border`, `border-b` or `border-dashed` in the
+text colour, which is pure black in light mode and white in dark mode. Code written to the v3
+habit (a bare `border` with no colour class) therefore gets a harsh line. Crosswind sets the
+default to the theme's `--border-secondary`, falling back to `currentColor` where the variable is
+undefined. An explicit `border-*` colour class still wins.
 
 ## Not a divergence: physical fallbacks beside logical properties
 

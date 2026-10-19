@@ -1,51 +1,47 @@
-<!-- checked-against: f37bcd1be3b0c442e3b0c442 -->
+<!-- checked-against: 942c8919a86125dce3b0c442 -->
 
 # Getting started with IKON
 
-You build an IKON app by telling a coding agent what the app should do. The agent creates the app
-with the IKON tool, runs it on your computer and checks that it works. When you are happy with it,
-one command puts it online.
+You build an IKON app in [IKON Studio](https://studio.ikonai.app) by saying what the app should do.
+Studio plans the app, builds it, checks that it works and puts it online. All you need is a browser
+and an IKON account.
 
-There are three ways to start:
+## Build in IKON Studio
 
-1. **IKON Studio** in your browser. It is still experimental and under development.
-2. **IKON Desktop and Claude Desktop.** No terminal needed.
-3. **A terminal**, with Claude Code, Codex or Gemini CLI.
+Open [IKON Studio](https://studio.ikonai.app), sign in and describe the app you want. Studio drafts
+a plan, builds the app and shows it running. Keep asking for changes in the same place.
 
-For now we recommend the second or the third. Both install the same things and make the same kind of app, so you can
-switch between them later.
+Building with Studio uses IKON credits, and so does the AI your app uses, such as text, images or
+speech.
 
-## What you need
+## Use your own coding agent
 
-- A computer with Windows, macOS or Linux.
-- An IKON account. You sign in to it while installing.
-- For IKON Desktop: a Claude subscription, which Claude Desktop's **Code** tab needs.
-- For a terminal: an account for the coding agent you use — a Claude subscription for Claude Code,
-  a ChatGPT plan for Codex, or a Google account for Gemini CLI.
+Studio can also build with a coding agent on your own computer, signed in with your own account and
+working under your plan with it. This needs a computer with Windows, macOS or Linux, where the agent
+runs:
 
-The AI your app uses, such as text, images or speech, is paid with IKON credits, not with your
-coding agent's subscription.
+1. **[Download IKON Desktop](https://studio.ikonai.app/download)**, open it and sign in to IKON.
+2. Under **Your coding agents**, install the ones you have an account for and sign in to each.
+3. Select **Connect Studio**.
+4. In Studio, choose your agent under **Runs on**, below the field where you type.
 
-## IKON Studio (experimental)
+## Build on your own
 
-[IKON Studio](https://studio.ikonai.app) builds apps in the browser, with nothing to install. It is
-still experimental and under development, so for now we recommend IKON Desktop or a terminal. An app
-you build in Studio can move to your computer later, as described below.
+You can also build IKON apps without Studio, in a desktop coding app or in a terminal. Both make
+the same kind of app, and an app can move between Studio and your computer.
 
-## IKON Desktop and Claude Desktop
+### In a desktop coding app
 
-1. **[Download IKON Desktop](https://studio.ikonai.app/download)** for Windows, macOS (Apple silicon)
-   or Linux. The installers are also on the
-   [releases page](https://github.com/ikon-ai/ikon-install/releases/latest).
-2. Open IKON Desktop, sign in to IKON and follow its steps. It installs what IKON needs, and
-   [Claude Desktop](https://claude.ai/download) if you don't have it yet.
-3. In Claude Desktop, choose the **Code** tab and select the `IKON Apps` folder in your home folder.
-4. Say what you want, for example:
+IKON Desktop installs and opens the desktop coding apps it supports, under **Desktop apps**.
+
+1. Open the app and sign in with your account there.
+2. Choose the `IKON Apps` folder in your home folder as the folder to work in.
+3. Say what you want, for example:
 
    > Use the ikon tool to create a new IKON app in a new folder inside this one. The app should let
    > my book club vote on the next book.
 
-## A terminal
+### In a terminal
 
 1. Install the IKON tool. On Windows, in PowerShell:
 
@@ -68,16 +64,13 @@ you build in Studio can move to your computer later, as described below.
    cd ikon-apps
    ```
 
-3. Start your coding agent there: `claude`, `codex` or `gemini`. If you don't have one yet, install
-   one with `ikon install claude`, `ikon install codex` or `ikon install gemini`.
-4. Say what you want, for example:
-
-   > Use the ikon tool to create a new IKON app in a new folder inside this one. The app should let
-   > my book club vote on the next book.
+3. Start your coding agent there. If you don't have one yet, `ikon agent list` lists the ones IKON
+   works with and the command that installs each.
+4. Say what you want, as in the example above.
 
 You can also create an app yourself with `ikon new <name>`, then start your agent in its folder.
 
-## What happens next
+### What happens next
 
 The agent runs `ikon new` to create the app and reads the app's `AGENTS.md`, which explains how
 IKON apps are built. Then it writes the app, runs it and checks that it works. Keep asking for
@@ -93,8 +86,9 @@ To put the app online, run `ikon deploy` in the app's folder, or ask your agent 
 
 ## Work on a Studio app on your computer
 
-In Studio, open the app's **Settings**, then **Code**, and choose **Open on your computer**. In IKON
-Desktop, choose **Work on an app you already have**. Or run this in a terminal, with your app's id:
+In Studio, open the app's **Settings**, then **Code**, choose **Open on your computer**, then **Open
+in IKON Desktop**. Or, in IKON Desktop, open **Desktop apps** and choose **Work on an app you already
+have**. Or run this in a terminal, with your app's id:
 
 ```bash
 ikon open <app-id>

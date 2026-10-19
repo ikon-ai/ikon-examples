@@ -1,4 +1,4 @@
-<!-- checked-against: bc4bafa971246f2da1793de1 -->
+<!-- checked-against: 07831566a18df8277492baf2 -->
 
 # IKON C# SDK
 
@@ -199,12 +199,14 @@ var config = new IkonClientConfig
 browser SDK connects a user who has not signed in. It needs no sign-in. The platform picks the guest
 user by `IkonClientConfig.DeviceId`: two clients with the same device id are the same guest, and a new
 device id is a new guest. If the app's guest entries include "global", the device id is ignored and
-all guests share one user. If the app lets no guests in, the connect fails with a 403. `Environment`
-(`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the platform the app is on, Development
-or Production. Null uses the platform this process signed in to. A standalone program has not signed
-in, so it must set `Environment`; otherwise `ConnectAsync` throws `ArgumentException` ("Guest
-authentication needs the Development or Production platform, not Unknown"). For a local server,
-`LocalConfig.IsAnonymous = true` connects as a guest in the same way, under the `UserId` you give it.
+all guests share one user. If the app lets no guests in, or the surface the program enters
+(`IkonClientConfig.Surface`, else the one with neither `Routes` nor `Host`) does not, the connect
+fails with a 403. `Environment` (`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the
+platform the app is on, Development or Production. Null uses the platform this process signed in to.
+A standalone program has not signed in, so it must set `Environment`; otherwise `ConnectAsync` throws
+`ArgumentException` ("Guest authentication needs the Development or Production platform, not
+Unknown"). For a local server, `LocalConfig.IsAnonymous = true` connects as a guest in the same way,
+under the `UserId` you give it.
 
 ## A Console Program That Joins An App
 
@@ -236,7 +238,7 @@ Which authentication mode to use depends on where the app runs:
 | The app | Mode | What it needs |
 |---|---|---|
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (8443 unless another run held it), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
-| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The app's `[Auth] Methods` must list `guest` or `global` |
+| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the one with neither `Routes` nor `Host`) must list `guest` or `global` in its `Methods` |
 | Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
