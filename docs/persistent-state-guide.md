@@ -1,4 +1,4 @@
-<!-- checked-against: e0c11c5c753cd0a741a73628 -->
+<!-- checked-against: 52f8c8fd753cd0a741a73628 -->
 
 # IKON Persistent State Guide
 
@@ -232,7 +232,7 @@ It applies `ClearFor` semantics to every registered user-scoped persistent react
 
 **Keep a list in one root.** What follows covers a single-value `Persistent…Reactive<T>`, not the
 list, dictionary and set forms, so a list whose shape will change goes in one `.tp` root as a
-nested array (`Notes = "Note[]"` in a `NoteBook`), held in one `PersistentSessionReactive<NoteBook>`.
+nested array (`Notes = "Note[]"` in a `NoteBook`, which the generated C# declares as `List<Note>`), held in one `PersistentSessionReactive<NoteBook>`.
 Rows in a database get no schema version from the platform: store each as `jsonb` with a version
 field beside the data (`{"version": 2, "data": {…}}`) and translate older versions when you read a
 row.
@@ -291,7 +291,7 @@ in a rename. A default is part of the field's type string, so a string default c
 quotes inside it: `Title = 'string = "My family"'`.
 
 The generated classes are in the namespace `<Project>.Protocol`, after the app's C# project name,
-unless the schema sets `[namespaces] csharp`. The template's `GlobalUsings.cs` does not import it,
+unless the schema sets `[namespaces] csharp`. Hyphens become PascalCase and a leading digit gets an underscore, so `pixel-art-collab` gives `PixelArtCollab.Protocol` and `3d-viewer` gives `_3dViewer.Protocol`. The template's `GlobalUsings.cs` does not import it,
 so add `global using <Project>.Protocol;` below its managed block. Then a schema type named like a
 platform type, such as `MotionSample` from `Ikon.App`, is ambiguous (`CS0104`), so give schema
 types names of their own (`DancerMotion`). Put the partial with the
@@ -329,9 +329,9 @@ preserved forever. Retire a key only when this build owns deciding what it means
 
 Boundaries: the contract applies to single-value `Persistent…Reactive<T>` where `T` is a data-`.tp`
 root — the collection variants keep plain behavior for now. Nested `[obsolete.Section]` entries are
-not migrated by the state contract yet — a retired key inside a nested section is kept as an
-unknown key and written back on every save: **don't retire nested fields on persisted
-types**; keep ledger entries at the root. A retired field's type must be `string`, `bool`,
+not migrated by the state contract, so an app schema that has one fails the build with
+`TELEPORT001` (a retired key would stay in the stored data and the new field would start empty):
+keep ledger entries at the root. A retired field's type must be `string`, `bool`,
 `int32`, `int64`, `float64` or `string[]`; any other type, such as an array of a nested type, fails
 the build with `TELEPORT001`. So neither a field holding a list of nested records
 (`Pages = "Page[]"`) nor a field inside a nested type can be renamed through the ledger. To rename

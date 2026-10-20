@@ -1,4 +1,4 @@
-<!-- checked-against: c2afa5a97d7361b198e26ea9 -->
+<!-- checked-against: c2afa5a92f6649a59954a0f9 -->
 
 # Teleport message binary specification
 

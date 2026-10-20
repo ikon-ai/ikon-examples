@@ -1,4 +1,4 @@
-<!-- checked-against: 99beb5bb9f3b6450e3b0c442 -->
+<!-- checked-against: a605df13b23ca6e8e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -159,6 +159,13 @@ that names both apps, instead of joining it. Without `userId`, a `spaceId` also 
 in anonymously to the app's platform for a user id. A Node program names that platform with
 `backendType` (`'development'` for an app on `*.dev.ikonai.app`, `'production'` by default);
 otherwise the sign-in for a development app fails with `403 Space ... not found`.
+
+**Calling `[RequireLogin]` functions from a Node program.** The anonymous sign-in above gives a user
+id, not a signed-in user, so a `[RequireLogin]` function of an app that lets no guests in refuses the
+connection. Pass `apiKey` (a space API key from `ikon api-key create`) inside `local`, together with
+`spaceId` and `backendType`: `local: { host: 'localhost', httpsPort, spaceId, apiKey, backendType }`.
+The key is exchanged for a backend token, as in `apiKey` mode. It is ignored when `userId` or `token`
+is also set.
 
 A local run serves a development certificate. Browsers trust it once `ikon install certificate` has
 added it to the computer's certificate store, but Node reads only its own list of authorities, so
@@ -678,7 +685,7 @@ const client = new IkonClient({
     performance: { preferOffscreenCanvas: true },
   },
   webRtc: {
-    media: 'atPermission',  // when the peer is negotiated: at the first media permission (the default), 'atConnect' or 'none'
+    media: 'atConnect',  // negotiate the peer with the connection (the default), or 'none' for no WebRTC
   },
   mediaSession: {
     title: 'My App Audio',
@@ -691,13 +698,13 @@ When WebRTC is disabled or its signaling fails, the playback pipelines process a
 
 ### WebRTC
 
-The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-config.toml`, which a page passes on, says when the peer is negotiated: at the person's first microphone or camera permission (`atPermission`, the default, so a visitor who enables nothing costs the server no peer), with the connection (`atConnect`), or never (`none`). A program sets it in the configuration, and `client.negotiateWebRtc()` brings the peer up from a permission step of your own:
+The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-config.toml`, which a page passes on, says whether the peer is negotiated: with the connection (`atConnect`, the default) or never (`none`). A program sets it in the configuration:
 
 <!-- ikon-example: ts-sdk-webrtc -->
 ```ts
 const client = new IkonClient({
   local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
-  webRtc: { media: 'none' },  // never negotiate a peer; 'atPermission' (the default) or 'atConnect' otherwise
+  webRtc: { media: 'none' },  // never negotiate a peer; 'atConnect' (the default) negotiates it with the connection
 });
 
 // Check if WebRTC is enabled by config (false if both audio and video are disabled, or media is 'none')

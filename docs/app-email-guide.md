@@ -1,4 +1,4 @@
-<!-- checked-against: 95326a1912909dc0024025a6 -->
+<!-- checked-against: 4e418a00e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -175,7 +175,8 @@ platform default sender.
 The app receives mail sent to any address on one of its hostnames that has the **Receive email**
 capability turned on. A new app has it off on every hostname, so no mail arrives until you turn it
 on with `ikon inbox enable` (the app's own hostname) or `ikon inbox enable <hostname>`, and check it
-with `ikon inbox status`. `ikon app show <app>` lists the receiving domains under Inbound email,
+with `ikon inbox status`. To receive at a domain of your own, add it first with
+`ikon hostname create <hostname> --email-receive`. `ikon app show <app>` lists the receiving domains under Inbound email,
 and `app.Email.GetInboundDomainsAsync()` returns them to the app once their DNS is verified, its own
 hostname first.
 

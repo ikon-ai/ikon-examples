@@ -1,4 +1,4 @@
-<!-- checked-against: 9a3c798143fa90b006b739e6 -->
+<!-- checked-against: 207c5d21e7b4ec3f186ffcd0 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -199,7 +199,8 @@ The `EmergePass<T>` configure callback is invoked before every iteration, on the
   one; an OpenAI model that reads an effort logs a warning and drops it, and ignores it silently
   when `ReasoningEffort` is also set; a Gemini 3 model that reads an effort refuses any non-zero budget
   and fails the request. Asking a model that cannot reason for either fails the request
-  rather than being quietly dropped. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
+  (`NonRetryableLLMException ... does not support reasoning`) rather than being quietly dropped; check
+  `AcceptedReasoningDial` or `ikon model list --capability reasoning` before setting one. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
   which dial a model reads: `ReasoningDial.Effort`, `ReasoningDial.TokenBudget`, or
   `ReasoningDial.None` for a model that takes neither.
 - `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits (10 iterations, 50 tool calls and
@@ -349,7 +350,7 @@ var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, op
 
 **Context flow:** Each round runs on the context the Initial stage returned, not on the earlier rounds'. Its `Command` is the refinement command followed by the current result as JSON, the round number and "Provide an improved version.", so write the refinement command as an instruction about that result.
 
-**Seeing each round:** enumerate the run instead of awaiting it. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). The stream carries one `Completed<T>`, at the end, with the final result; no event carries a round's result. `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one: keep a version per round from there. A
+**Seeing each round:** enumerate the run instead of awaiting it. The first stage is `Initial`, the draft before any round. A round starts with a `Stage<T>` named `Refinement:<n>` (from 0) and ends with a `Progress<T>` saying it completed, produced no result or stopped (the previous result is kept in the last two cases). The stream carries one `Completed<T>`, at the end, with the final result; no event carries a round's result. `ShouldContinue` receives the current result before every round, so it sees the initial result and each round's result but the last, which is the final one: keep a version per round from there. A
 progress line on screen, then:
 
 <!-- ikon-example: emergence-refine-rounds -->
@@ -465,6 +466,8 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 - `MaxResults` - Maximum sections to return (default: 5)
 - `Navigator(Action<EmergeScope<NavigationDecision>>)` - Configure navigator
 
+The navigator model is offered three tools: `tree_get_children(nodeId)`, `tree_get_content(nodeId)` and `tree_mark_relevant(nodeId, reason)`. Under `--mock-ai-script`, script a `tool` turn for `tree_mark_relevant` to get a section back (`ai-models` guide).
+
 **Tree indexing types:**
 
 `TreeIndex` builds a hierarchical document structure:
@@ -508,7 +511,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 **Methods:**
 - `Tool.Of(name, description, lambda)` — sync or async lambda, up to 6 parameters (a seventh fails with CS0411 naming the zero-parameter overload; `Tool.OfContext` takes up to 4 after the context); the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
-- `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments
+- `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments; it needs an agent run, and a plain `Emerge.Run` throws an error that no tool bridge is set, where `Tool.Of` or `mcpClient.ToFunctions` work
 - `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool; since `AddTool` keeps the first registration of a name and the configure callback re-runs on the same pass, re-adding the copy with new values on a later iteration is silently dropped — remove the old one from `pass.Tools` first. On a tool whose request record's fields are its arguments (below), name a field (`title`); naming the record parameter throws `ArgumentException`
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`

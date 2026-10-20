@@ -1,4 +1,4 @@
-<!-- checked-against: 5cf36621be32696a42e4664d -->
+<!-- checked-against: 687e41afdb25b5774fb80a1a -->
 
 # Ikon.Parallax Library Overview
 
@@ -322,7 +322,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.TableHeader()` / `view.TableBody()` / `view.TableRow()` / `view.TableHead()` / `view.TableCell()` - Hand-built tables, for what `DataTable` does not cover
 - `view.FormControl()` / `view.FormLabel()` / `view.FormMessage()` - Field parts that wire label, control and validation message together
 - `view.SliderRange()` / `view.SliderThumb()` - Slider parts, for a two-thumb range
-- `view.OtpField()` with `view.OtpFieldInput()` - One-time-code entry, with `autoSubmit` on the last digit
+- `view.OtpField(maxLength: 6)` (boxes drawn for you; `view.OtpFieldInput()` children lay out your own) - One-time-code entry, with `autoSubmit` on the last digit
 - `view.PasswordToggleField()` with `view.PasswordToggleFieldInput()` / `view.PasswordToggleFieldToggle()` / `view.PasswordToggleFieldIcon()` - Password field with a reveal toggle
 
 **Drag and drop:**
@@ -973,7 +973,7 @@ Guard your authed-only paths: skip user-backend calls, per-user persistence, and
 
 ## In-App Feedback
 
-The platform can offer the people using an app a feedback sheet: they pick a kind (a problem, an idea, something confusing, something they like), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it.
+The platform can offer the people using an app a feedback sheet: they pick a kind (a problem, an idea, something confusing, something they like), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app, where its members read them in Studio and with `ikon issue list --source person`. The platform draws the sheet above the app; the app writes no UI for it. `IkonApp` draws it, so a page built only from `ParallaxView`s, with no `IkonApp` on it, shows neither the button nor the sheet.
 
 **A new app has the setting `off`**, so only the visitors of a test link are offered the sheet, whatever `ikon-config.toml` says, and `Button = "overlay"` shows nothing for anyone else until the setting changes. After `ikon feedback set --audience everyone`, a guest on an ordinary link is offered it too. Who is offered it is a setting of the app on the platform, not of its code: `off` (the default), `testers` (signed-in people with the tester role), `signed-in` or `everyone` (guests and the shared `global` visitor too), changed in Studio › Settings › Sharing or with `ikon feedback set --audience <value>`. Each app has its own setting, so a staging target needs the command again with `--target`. On a deployed app it applies from the next person who joins, with no build or deploy. Unless it is `off`, the app's own members are offered it too, and a test link admits its visitors whatever the setting. A local run reads the setting when it starts, so restart it to see a change, and offers it to every visitor unless it is `off`. A client with no page to draw the sheet on is never offered it, so `view.CanOpenFeedback()` is false for an `ikon browse --text-only` client, and for a browse of a deployed app whose page could not sign in as you.
 

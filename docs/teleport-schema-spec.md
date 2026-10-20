@@ -1,4 +1,4 @@
-<!-- checked-against: f00aebd07e424edb650f4c5c -->
+<!-- checked-against: 181da652b64ded51008f6b74 -->
 
 # Teleport message schema specification
 
@@ -83,7 +83,7 @@ Rules and generation behavior:
 
 - `opcode` is forbidden — declaring both `data = true` and `opcode` fails the build. `version` remains required: it drives the generated migration chain, which calls an `UpgradeFrom{N}` method the author writes for each step below the current version, so raising `version` without adding that step fails the build.
 - Nested messages inherit data-ness from the root.
-- C# emits `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes, and enums — no `IProtocolMessagePayload`, no serializer registration, no opcode. The result serializes cleanly with System.Text.Json, and every class additionally carries Teleport payload codecs (see "Binary Codecs" below). A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
+- C# emits `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes (named through the root: `CursorFrame.CursorPos`, and a bare `CursorPos` is CS0246), and enums — no `IProtocolMessagePayload`, no serializer registration, no opcode. The result serializes cleanly with System.Text.Json, and every class additionally carries Teleport payload codecs (see "Binary Codecs" below). A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
 - TypeScript emits only `export interface` declarations and enums. Optional fields (`"T?"`) become true optional properties (`Field?: T`). No codecs, no opcode export, no opcode-registry participation.
 - Dart, C++, and Rust generators emit nothing for data schemas — data-schema support is C#/TS-only for now.
 - `string[]` fields may declare a default as a TOML array literal — `Methods = 'string[] = ["google", "email"]'` emits `new List<string> { "google", "email" }` in C#. List defaults are data-schema-only and string-element-only.
@@ -279,7 +279,13 @@ Naming a field that is still declared in `[fields]` is an error — remove it fr
 delete the entry. There is no deprecation marker feature: while a field is still live, migration
 guidance belongs in its `#` doc comment (which every generator carries into the generated code), and
 removal is the point at which the line moves into the ledger. Nested scopes are addressed as
-`[obsolete.NestedType]`, mirroring `[nested.X]`.
+`[obsolete.NestedType]`, mirroring `[nested.X]`; an app schema rejects it, because persisted state
+migrates only the root ledger.
+
+Outside app schemas (the platform's wire and config schemas) the ledger is accepted in nested
+scopes, and it reserves each retired name and hash inside that nested type as the root ledger does.
+In an app schema, rename a nested field by keeping the old one, adding the new one, bumping
+`version` and copying the value in `UpgradeFrom`.
 
 Entry values are the data-mode scalar set: `string`, `bool`, `int32`, `int64`, `float64` (alias
 `double`), and `string[]`.

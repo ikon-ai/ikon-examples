@@ -1,4 +1,4 @@
-<!-- checked-against: 5d9f32d062c9340ce3b0c442 -->
+<!-- checked-against: 4608af0362c9340ce3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -533,8 +533,7 @@ final playback = enableIkonAudioPlayback(client);
 
 // Live WebRTC A/V (peer connection to the server SFU via flutter_webrtc);
 // the Opus stack above remains the fallback when WebRTC is unavailable. The peer
-// comes up as the surface's Media says: with the connection, or at the first
-// capture; webRtcMedia.start() brings it up at a moment the app chooses.
+// comes up with the connection unless the surface's Media is none.
 final webRtcMedia = enableIkonWebRtcMedia(client);
 await webRtcMedia.startCameraCapture();
 ```
