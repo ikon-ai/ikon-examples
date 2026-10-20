@@ -1,22 +1,43 @@
 public partial class Validation
 {
-    private static readonly AxisConfig SparklineAxis = new() { Hidden = true };
-
-    private static readonly (string Label, string Value, LineChartSeries[] Series, string Color)[] Sparklines =
+    private static readonly (string Label, string Value, double?[] Values, string Color)[] Sparklines =
     [
-        ("Weekly signups", "1,284", SparklineSeries("signups", [12, 18, 15, 22, 28, 26, 34, 31, 40]), "#22c55e"),
-        ("Error rate", "0.42%", SparklineSeries("errors", [9, 7, 8, 5, 6, 4, 5, 3, 4]), "#ef4444"),
-        ("Median latency", "182 ms", SparklineSeries("latency", [20, 22, 19, 25, 21, 23, 20, 24, 22]), "#3b82f6"),
+        ("Weekly signups", "1,284", [12, 18, 15, 22, 28, 26, 34, 31, 40], "#22c55e"),
+        ("Error rate", "0.42%", [9, 7, 8, 5, 6, 4, 5, 3, 4], "#ef4444"),
+        ("Median latency (gap on day 5)", "182 ms", [20, 22, 19, 25, null, 23, 20, 24, 22], "#3b82f6"),
     ];
 
-    private static LineChartSeries[] SparklineSeries(string id, double[] values) =>
+    // Days with no builds are missing, as they are from a GROUP BY day query, and the chart fills them with zero.
+    private static readonly (string Day, double? Builds)[] SparseDays =
     [
-        new LineChartSeries
+        ("2026-10-01", 4), ("2026-10-02", 6), ("2026-10-05", 3), ("2026-10-06", null), ("2026-10-07", 5), ("2026-10-09", 2),
+    ];
+
+    private static readonly (string Step, double Count)[] SignupFunnel =
+    [
+        ("Visited the site", 18_420), ("Opened the editor", 6_310), ("Asked for an app", 2_085), ("Previewed an app", 912), ("Published", 233),
+    ];
+
+    private static IEnumerable<HeatMapCell> VisitsByWeekdayAndHour()
+    {
+        string[] days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+        for (var d = 0; d < days.Length; d++)
         {
-            Id = id,
-            Data = values.Select((y, i) => new LineChartPoint { X = i, Y = y }).ToArray()
+            for (var hour = 6; hour <= 22; hour += 2)
+            {
+                // Saturday afternoon has no data at all, which must show as empty, not as zero.
+                if (d == 5 && hour is >= 12 and <= 16)
+                {
+                    continue;
+                }
+
+                var weekday = d < 5 ? 1.0 : 0.4;
+                var busy = Math.Exp(-Math.Pow((hour - 14) / 4.0, 2));
+                yield return new HeatMapCell { Row = days[d], Column = $"{hour:00}", Value = Math.Round(weekday * busy * 120 + d * 3) };
+            }
         }
-    ];
+    }
 
     private ChartTheme GetChartTheme() =>
         _theme.Current.Value == Theme.Dark ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
@@ -220,7 +241,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Pie Chart");
-                view.Text([Text.Caption, "mb-4"], "15 slices with arc link labels");
+                view.Text([Text.Caption, "mb-4"], "15 slices: the 5 largest stay and the rest fold into one Other slice");
                 view.Box(["h-96 overflow-x-auto"], content: v =>
                 {
                     v.PieChart([Chart.Container, "min-w-[36rem] h-full"],
@@ -313,10 +334,10 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-1"], "Sparklines");
-                view.Text([Text.Caption, "mb-4"], "AxisConfig { Hidden = true } on every axis, no grid and a zero margin turn a LineChart into an inline trend line.");
+                view.Text([Text.Caption, "mb-4"], "view.Sparkline: a trend line with no axes. A null value breaks the line.");
                 view.Grid(["grid grid-cols-1 sm:grid-cols-3 gap-4"], content: grid =>
                 {
-                    foreach (var (label, value, series, color) in Sparklines)
+                    foreach (var (label, value, values, color) in Sparklines)
                     {
                         grid.Box([Card.Subtle, "p-4"], content: tile =>
                         {
@@ -324,30 +345,116 @@ public partial class Validation
                             tile.Row(["items-end justify-between gap-3"], content: row =>
                             {
                                 row.Text([Text.H3, "tabular-nums"], value);
-                                row.Box(["h-10 w-32"], content: spark =>
-                                {
-                                    spark.LineChart(["w-full h-full"],
-                                        theme: chartTheme,
-                                        data: series,
-                                        colors: [color],
-                                        curve: LineCurve.MonotoneX,
-                                        margin: new ChartMargin { Top = 2, Right = 2, Bottom = 2, Left = 2 },
-                                        axisTop: SparklineAxis,
-                                        axisRight: SparklineAxis,
-                                        axisBottom: SparklineAxis,
-                                        axisLeft: SparklineAxis,
-                                        enableGridX: false,
-                                        enableGridY: false,
-                                        enablePoints: false,
-                                        enableArea: true,
-                                        areaOpacity: 0.12,
-                                        lineWidth: 2,
-                                        isInteractive: false);
-                                });
+                                row.Sparkline(["h-10 w-32"], values: values, color: color, ariaLabel: $"{label} trend");
                             });
                         });
                     }
                 });
+            });
+
+            // Chart defaults: what a chart does with no layout parameters set.
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Chart defaults");
+                view.Text([Text.Caption, "mb-4"], "Charts with no margin, legend or axis settings. Long category names get horizontal bars, small counts get whole-number ticks, missing days show as zero, a null shows as a gap, wide legends wrap, and keys named in colorsByKey keep their colours.");
+
+                view.Grid(["grid grid-cols-1 lg:grid-cols-2 gap-6"], content: grid =>
+                {
+                    grid.Column(["gap-2"], content: c =>
+                    {
+                        c.Text([Text.Caption], "Long names get horizontal bars without a layout setting");
+                        c.BarChart(["h-72 w-full"],
+                            theme: chartTheme,
+                            data:
+                            [
+                                new Dictionary<string, object> { ["reason"] = "The build timed out after ten minutes", ["count"] = 14 },
+                                new Dictionary<string, object> { ["reason"] = "A package was not found", ["count"] = 9 },
+                                new Dictionary<string, object> { ["reason"] = "The preview never answered", ["count"] = 6 },
+                                new Dictionary<string, object> { ["reason"] = "Out of credits", ["count"] = 3 },
+                            ],
+                            keys: ["count"],
+                            indexBy: "reason");
+                    });
+
+                    grid.Column(["gap-2"], content: c =>
+                    {
+                        c.Text([Text.Caption], "Whole-number ticks for a small count");
+                        c.LineChart(["h-72 w-full"],
+                            theme: chartTheme,
+                            data: [new LineChartSeries { Id = "Paywall hits", Data = [new LineChartPoint { X = "Mon", Y = 3 }, new LineChartPoint { X = "Tue", Y = 1 }, new LineChartPoint { X = "Wed", Y = 2 }] }]);
+                    });
+
+                    grid.Column(["gap-2"], content: c =>
+                    {
+                        c.Text([Text.Caption], "Missing days filled with zero; Oct 6 is a null, so a gap");
+                        c.LineChart(["h-72 w-full"],
+                            theme: chartTheme,
+                            data: [new LineChartSeries { Id = "Builds", Data = SparseDays.Select(d => new LineChartPoint { X = d.Day, Y = d.Builds }).ToArray() }]);
+                    });
+
+                    grid.Column(["gap-2"], content: c =>
+                    {
+                        c.Text([Text.Caption], "Outcome colours by name, stacked, with a legend that wraps");
+                        c.BarChart(["h-72 w-full"],
+                            theme: chartTheme,
+                            data: new[] { "Mon", "Tue", "Wed", "Thu", "Fri" }.Select((day, i) => new Dictionary<string, object>
+                            {
+                                ["day"] = day, ["Made"] = 5 + i, ["Failed"] = 2 + i % 3, ["Cancelled"] = 1, ["Pending review"] = i % 2,
+                                ["Waiting for credits"] = 1 + i % 2, ["Not recorded"] = 1,
+                            }).ToArray(),
+                            keys: ["Made", "Failed", "Cancelled", "Pending review", "Waiting for credits", "Not recorded"],
+                            indexBy: "day",
+                            colorsByKey: new Dictionary<string, string> { ["Made"] = "#16a34a", ["Failed"] = "#dc2626", ["Not recorded"] = "#9ca3af" });
+                    });
+                });
+            });
+
+            // Funnel and heat map
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Funnel and heat map");
+                view.Text([Text.Caption, "mb-4"], "view.FunnelChart shows each step's share of the one before it. view.HeatMap leaves Saturday afternoon empty because it has no data.");
+                view.Grid(["grid grid-cols-1 lg:grid-cols-2 gap-6"], content: grid =>
+                {
+                    grid.FunnelChart(["w-full"],
+                        data: SignupFunnel.Select(s => new FunnelStep { Id = s.Step, Value = s.Count }),
+                        valueUnit: "people");
+                    grid.HeatMap(["w-full"],
+                        data: VisitsByWeekdayAndHour(),
+                        rows: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                        valueUnit: "visits");
+                });
+            });
+
+            // Stat cards with sparklines and table cells
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Stat card sparklines and table cells");
+                view.Text([Text.Caption, "mb-4"], "StatCard(sparkline:), and DataTable's Cell.Bar, Cell.Sparkline and Cell.Badge in one table; values formatted with ValueUnits.");
+                view.Grid(["grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"], content: grid =>
+                {
+                    grid.StatCard("People this week", ValueUnits.Compact(1_243_100), delta: "+18%", trend: StatTrend.Up, trendLabel: "vs last week",
+                        sparkline: [820_000, 910_000, 880_000, 1_020_000, 1_100_000, 1_190_000, 1_243_100]);
+                    grid.StatCard("Median build", ValueUnits.Format(252_000, "milliseconds"), delta: "-6%", trend: StatTrend.DownGood, trendLabel: "vs last week",
+                        sparkline: [300, 290, 285, null, 270, 260, 252]);
+                    grid.StatCard("Spend", ValueUnits.Format(12_431.5, "usd"), sparkline: [9_000, 9_800, 10_400, 11_200, 12_431.5]);
+                });
+
+                var maxBuilds = 412.0;
+                view.DataTable(
+                    columns:
+                    [
+                        new DataTableColumn("App", Flex: 3, MinWidth: "8rem", Wrap: true),
+                        new DataTableColumn("Builds", Flex: 2, MinWidth: "6rem", Align: ColumnAlign.Right),
+                        new DataTableColumn("Last 7 days", Flex: 2, MinWidth: "6rem"),
+                        new DataTableColumn("Health", Flex: 1, MinWidth: "6rem"),
+                    ],
+                    rows:
+                    [
+                        new DataTableRow("a1", [Cell.Text("Weather dashboard for sailing clubs on the west coast"), Cell.Bar(412, maxBuilds), Cell.Sparkline([30, 42, 55, null, 61, 70, 82], text: "Builds rising"), Cell.Badge("Good", SemanticTone.Success)]),
+                        new DataTableRow("a2", [Cell.Text("Recipe planner"), Cell.Bar(187, maxBuilds), Cell.Sparkline([40, 35, 30, 28, 22, 26, 24], text: "Builds falling"), Cell.Badge("Warn", SemanticTone.Warning)]),
+                        new DataTableRow("a3", [Cell.Text("Quiz night"), Cell.Bar(23, maxBuilds), Cell.Sparkline([2, 3, 2, 4, 3, 5, 4], text: "Builds steady"), Cell.Badge("Bad", SemanticTone.Error)]),
+                    ]);
             });
 
             // Stat Cards
