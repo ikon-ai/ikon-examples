@@ -1,7 +1,6 @@
 using Dapper;
-#region example:pattern-delete-account-and-data-usings
-using Ikon.Common.Core.Protocol;
-#endregion
+using ServerRunType = Ikon.Common.Core.Protocol.ServerRunType;
+using TriggerEventType = Ikon.Common.Core.Protocol.TriggerEventType;
 
 namespace Ikon.App.Patterns.Patterns;
 

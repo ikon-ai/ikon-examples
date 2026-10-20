@@ -288,7 +288,8 @@ internal sealed class DocumentSearchWithRerank(IAppBase app) : IPatternDemo
     {
         view.Column(["gap-2"], content: col =>
         {
-            col.Text([Text.Body], answer.Text);
+            // The model writes Markdown (lists, bold), which view.Text would show as raw symbols
+            col.Markdown(answer.Text);
 
             for (var i = 0; i < answer.Sources.Count; i++)
             {

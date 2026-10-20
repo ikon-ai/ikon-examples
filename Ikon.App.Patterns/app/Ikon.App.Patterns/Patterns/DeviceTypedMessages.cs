@@ -65,7 +65,7 @@ internal sealed class DeviceTypedMessages(IAppBase app) : IPatternDemo
 
             if (_stations.Count == 0)
             {
-                col.Text([Text.Body], "No station has reported yet.");
+                col.EmptyState([EmptyState.RootSm], title: "No station has reported yet", description: "Stations appear here once they send a message.");
                 return;
             }
 

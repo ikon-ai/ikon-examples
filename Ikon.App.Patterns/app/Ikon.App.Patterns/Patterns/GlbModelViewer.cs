@@ -76,7 +76,7 @@ internal sealed class GlbModelViewer(IAppBase app) : IPatternDemo
             }
             else
             {
-                view.Text([Text.Caption], _generating.Value ? "Making the model, this takes a few minutes…" : "No model yet");
+                view.EmptyState([EmptyState.RootSm], title: _generating.Value ? "Making the model" : "No model yet", description: _generating.Value ? "This takes a few minutes." : "Generate one to see it here.");
             }
 
             if (_error.Value is { } error)

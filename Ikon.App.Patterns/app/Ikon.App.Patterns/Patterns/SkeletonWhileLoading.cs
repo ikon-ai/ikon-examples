@@ -89,7 +89,7 @@ internal sealed class SkeletonWhileLoading : IPatternDemo
             // screen -- a skeleton that never resolves is the worst of both.
             if (_articles.Count == 0)
             {
-                col.Text(["text-muted-foreground"], text: "Nothing here yet");
+                col.EmptyState([EmptyState.RootSm], title: "No articles yet", description: "Articles you add appear here.");
                 return;
             }
 

@@ -67,4 +67,18 @@ internal sealed partial class AgentGuideExamples
             poster: clip.PosterUrl);  // optional still-frame shown before play
         #endregion
     }
+
+    private static void DocVideoFeedSlides(UIView view, IReadOnlyList<DocClip> clips)
+    {
+        #region example:video-feed-slides
+        // MediaUrl only preloads, in a hidden element. The slide's own Content draws the player
+        var slides = clips.Select(clip => new FeedSlide(
+            Content: slide => slide.VideoUrlPlayer(["h-full w-full object-cover"], url: clip.Url, poster: clip.PosterUrl, loop: true, controls: false),
+            Key: clip.Url,
+            MediaKind: FeedMediaKind.Video,
+            MediaUrl: clip.Url)).ToList();
+
+        view.FeedScroller(slides, style: [FeedScroller.Root, "h-dvh"]);
+        #endregion
+    }
 }

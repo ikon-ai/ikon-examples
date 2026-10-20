@@ -69,6 +69,8 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
 
             ExampleGallery.RenderMethodLabel(view, nameof(DocSortableList));
             DocSortableList(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocVirtualList));
+            DocVirtualList(view);
             ExampleGallery.RenderMethodLabel(view, nameof(DocJoinUrlAndQr));
             DocJoinUrlAndQr(view, app.GlobalState.SpaceId);
             ExampleGallery.RenderMethodLabel(view, nameof(DocTextAndContent));
@@ -130,6 +132,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
                 });
                 RenderDocExampleButton(view, "Moderation by label", () => DocModerationByLabelAsync("You never listen in meetings"));
                 RenderDocExampleButton(view, "Typed decisions", async () => { await DocTypedDecisionsAsync("I was charged twice for one order", new DocOrder("A-1001")); return "decided"; });
+                RenderDocExampleButton(view, "Decision per stakeholder", async () => { await DocDecisionStakeholdersAsync("A fix for the wrong invoice total is ready; the logs that would confirm it arrive in 40 minutes."); return "weighed"; });
                 RenderDocExampleButton(view, "Emerge basic", async () => { await DocEmergeBasicAsync("tide pools"); return "analyzed"; });
                 RenderDocExampleButton(view, "Emerge typed run", async () => (await Research("tide pools")).Summary);
                 RenderDocExampleButton(view, "Emerge tools", DocEmergeToolsRunAsync);
@@ -231,6 +234,39 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
         #endregion
 
         _ = (team, frustration, refundOdds, warehouse);
+    }
+
+    private static async Task DocDecisionStakeholdersAsync(string incident)
+    {
+        #region example:decision-stakeholders
+        // Eevo answers once per stakeholder and weighs the consequences listed under each option
+        using var decider = new Decider(DecisionModel.Eevo1);
+
+        var question = DecisionQuestion.Choice("Ship the fix now, or wait for the logs that confirm it?", "ship", "wait")
+            .ForStakeholders(
+                DecisionStakeholder.Of("customers", "The customers who see a wrong invoice total"),
+                DecisionStakeholder.Of("team", "The on-call team", values: "A deploy they can stand behind"))
+            .WithConsequences("ship",
+                DecisionConsequence.Benefit("About 200 customers stop seeing a wrong total 40 minutes sooner", "Correct sooner"),
+                DecisionConsequence.Harm("The team deploys without the logs that would confirm the fix", "Blind deploy").For("team"))
+            .WithConsequences("wait",
+                DecisionConsequence.Harm("About 200 customers see a wrong invoice total for 40 more minutes", "Wrong totals").For("customers"));
+
+        var answer = await decider.DecideAsync(incident, question);
+
+        // One verdict per stakeholder, with each option's expected value on that stakeholder's own scale
+        foreach ((string stakeholder, StakeholderAnswer verdict) in answer.ByStakeholder)
+        {
+            double shipValue = verdict.ExpectedValues["ship"].Mean;
+            Log.Instance.Info($"{stakeholder}: {verdict.Choice} ({verdict.Confidence:P0}); shipping is worth {shipValue:0.0} to them");
+        }
+
+        // There is no verdict across stakeholders. AsChoice returns the option they all chose and throws
+        // when they disagree, which is when to show the table to a person
+        string shared = answer.AllAgree ? answer.AsChoice() : "the stakeholders disagree";
+        #endregion
+
+        _ = shared;
     }
 
     private sealed record DocOrder(string Id);

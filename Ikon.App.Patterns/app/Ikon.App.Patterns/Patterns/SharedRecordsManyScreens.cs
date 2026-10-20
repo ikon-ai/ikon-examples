@@ -98,7 +98,7 @@ internal sealed class SharedRecordsManyScreens(IApp<SessionIdentity, ClientParam
 
             if (items.Count == 0)
             {
-                view.Text([Text.Caption], $"No stock recorded for {_shop.Value} yet.");
+                view.EmptyState([EmptyState.RootSm], title: $"No stock recorded for {_shop.Value} yet", description: "Rows you record for this shop show up here.");
             }
 
             foreach (var item in items)

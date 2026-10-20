@@ -183,7 +183,7 @@ file sealed class InputsExamples
                     view.Text(text: "Option 2");
                 });
             });
-        // A toggle group has no theme styling of its own. Its tokens are ToggleGroup.Root (the group) and ToggleGroup.Item
+        // ToggleGroupSingle holds one value, ToggleGroupMultiple a list. A toggle group has no theme styling of its own. Its tokens are ToggleGroup.Root (the group) and ToggleGroup.Item
         view.ToggleGroupSingle([ToggleGroup.Root, "w-full"], value: _layout.Value, ariaLabel: "Layout",
             onValueChange: async v => { _layout.Value = v; },
             content: group =>
@@ -197,6 +197,11 @@ file sealed class InputsExamples
             accept: [".jpg", ".png", ".pdf"],  // optional file type filter
             multiple: true,                     // without it, one file per pick; each file is a separate upload with its own onUploadComplete
             maxFileSize: 10 * 1024 * 1024);    // optional max size in bytes, per file
+
+        // directory: true picks or drops a whole folder; each file's args.RelativePath is its path inside it ("Photos/2024/a.jpg")
+        view.FileUpload(
+            directory: true,
+            onUploadComplete: async args => { /* args.RelativePath, args.FileName, args.LocalTempFilePath */ });
 
         // FileUploadZone wraps any content with drag-drop + paste upload capability
         view.FileUploadZone(
@@ -227,6 +232,7 @@ file sealed class OverlaysExamples
     private readonly Reactive<bool> _open = new(false);
     private readonly Reactive<bool> _alertOpen = new(false);
     private readonly Reactive<bool> _popOpen = new(false);
+    private readonly Reactive<bool> _renameOpen = new(false);
     private readonly Reactive<bool> _toastOpen = new(false);
     private readonly Reactive<bool> _menuOpen = new(false);
     private readonly Reactive<string> _sort = new("Newest");
@@ -252,6 +258,15 @@ file sealed class OverlaysExamples
                     view.Button([Button.PrimaryMd], text: "Confirm", onClick: async () => _open.Value = false);
                 });
             });
+
+        // The same panel from the built-in parts: title and description draw the header, content goes
+        // under them, and footer holds the buttons
+        view.Dialog(open: _renameOpen.Value, onOpenChange: async o => _renameOpen.Value = o, showClose: true,
+            trigger: view => view.Button([Button.OutlineMd], text: "Rename"),
+            title: "Rename the board",
+            description: "Everyone on the board sees the new name.",
+            content: view => view.Text([Text.Body], "The fields go here"),
+            footer: view => view.Button([Button.PrimaryMd], text: "Save", onClick: async () => _renameOpen.Value = false));
 
         // AlertDialog
         view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Value = o,
@@ -375,6 +390,78 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
             loading: _loading.Value,
             onNearEnd: async args => { await LoadMoreItems(); },
             content: view => { foreach (var item in _items) { view.Text(text: item); } });
+        #endregion
+    }
+
+    private static void DocFeedInTab(UIView view, IReadOnlyList<FeedSlide> slides)
+    {
+        #region example:feed-in-tab
+        // The root and the panel are flex children down to the feed, so each has a definite height
+        view.Tabs(
+            defaultValue: "feed",
+            rootStyle: ["flex h-dvh flex-col"],
+            contentStyle: [Tabs.Content, "min-h-0 flex-1"],
+            tabs: [
+                new TabItem("feed", "Feed", panel => panel.FeedScroller(slides, style: [FeedScroller.Root, "h-full"])),
+                new TabItem("about", "About", panel => panel.Text(text: "About this feed")),
+            ]);
+        #endregion
+    }
+}
+
+file sealed class EventCalendarExamples
+{
+    private sealed record CalendarEvent(DateOnly Day, string Title);
+
+    private readonly ClientReactive<DateOnly> _month = new(new DateOnly(2026, 10, 1));
+    private readonly ReactiveList<CalendarEvent> _events = new();
+
+    public void Render(UIView view)
+    {
+        #region example:event-calendar
+        // view.Calendar picks a date and draws nothing in the day. A month with events in its days
+        // is a 7-column Grid: blank cells pad the first week (weeks start on Monday), one Box per day.
+        var first = _month.Value;
+        var padding = ((int)first.DayOfWeek + 6) % 7;
+
+        view.Row(["items-center justify-between"], content: header =>
+        {
+            header.Button([Button.GhostSm], ariaLabel: "Previous month", text: "<", onClick: async () => _month.Value = first.AddMonths(-1));
+            header.Text([Text.H4], first.ToString("MMMM yyyy"));
+            header.Button([Button.GhostSm], ariaLabel: "Next month", text: ">", onClick: async () => _month.Value = first.AddMonths(1));
+        });
+
+        view.Grid(["grid-cols-7 gap-1"], content: grid =>
+        {
+            foreach (var name in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+            {
+                grid.Text([Text.Caption], name);
+            }
+
+            for (var blank = 0; blank < padding; blank++)
+            {
+                grid.Box(["min-h-20"], key: $"blank-{blank}");
+            }
+
+            for (var number = 1; number <= DateTime.DaysInMonth(first.Year, first.Month); number++)
+            {
+                var day = new DateOnly(first.Year, first.Month, number);
+                var label = number.ToString();
+
+                grid.Box([Card.Default, "flex min-h-20 min-w-0 flex-col gap-1 p-1"], key: day.ToString("yyyy-MM-dd"), content: cell =>
+                {
+                    cell.Text([Text.Caption], label);
+
+                    foreach (var calendarEvent in _events)
+                    {
+                        if (calendarEvent.Day == day)
+                        {
+                            cell.Text([Text.BodySm, "truncate"], calendarEvent.Title);
+                        }
+                    }
+                });
+            }
+        });
         #endregion
     }
 }
@@ -511,7 +598,7 @@ file sealed class EditorsExamples
     public void RenderShaderUniforms(UIView view)
     {
         #region example:shadertoy-uniforms
-        // Each uniforms: entry is declared for the shader (uniform float uStrength;), so the GLSL only reads it.
+        // The canvas writes "uniform float uStrength;" for each uniforms: entry, so the GLSL reads it and declares nothing.
         // A new value reaches the running shader without a recompile
         view.ShadertoyCanvas(["w-full h-64 rounded-lg"], shaderSource: """
             void mainImage(out vec4 color, in vec2 fragCoord)
@@ -546,6 +633,34 @@ file sealed class EditorsExamples
 
 internal sealed partial class AgentGuideExamples
 {
+    private sealed record SoundRow(string Name, string Code);
+
+    private static readonly IReadOnlyList<SoundRow> DocSounds =
+        [.. Enumerable.Range(1, 1000).Select(number => new SoundRow($"Rifle shot {number}", $"SFX-{number:00000}"))];
+
+    private void DocVirtualList(UIView view) => RenderSounds(view, DocSounds);
+
+    #region example:virtual-list
+    // A field, so each client keeps its own first visible row
+    private readonly ClientReactive<int> _soundScrollIndex = new(0);
+
+    private void RenderSounds(UIView view, IReadOnlyList<SoundRow> sounds)
+    {
+        // The list scrolls inside a parent of fixed height; itemHeight is each row's height in pixels
+        view.Box(["h-[420px]"], content: view =>
+            view.VirtualList(itemCount: sounds.Count, itemHeight: 56, scrollIndex: _soundScrollIndex,
+                onRenderItem: (row, index) =>
+                {
+                    var sound = sounds[index];
+
+                    row.Row([Layout.Row.SpaceBetween, "h-14 px-3 border-b border-secondary"], content: view =>
+                    {
+                        view.Text([Text.Body], sound.Name);
+                        view.Text([Text.Caption], sound.Code);
+                    });
+                }));
+    }
+    #endregion
 
     private void DocSortableList(UIView view)
     {

@@ -173,6 +173,16 @@ internal sealed partial class AgentGuideExamples
         adapter.Dispose();
     }
 
+    private static void ToGptStreamFormat(float[] samples, int sampleRate, int channelCount)
+    {
+        #region example:stt-gpt-live-format
+        // GPT live transcription takes 24 kHz mono only; samples, sampleRate and channelCount are the frame's
+        var mono24 = new float[AudioResampler.CalculateResampledFrameCount(samples.Length / channelCount, sampleRate, 24000)];
+        var frames = AudioResampler.Resample(samples, mono24, sampleRate, 24000, channelCount, 1);
+        var gptFrame = mono24.AsMemory(0, frames);
+        #endregion
+    }
+
     private void DocRawAudioHandling()
     {
         #region example:raw-audio-handling

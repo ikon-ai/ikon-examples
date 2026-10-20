@@ -36,7 +36,7 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
             }
         });
 
-        // Runs on the deploying machine during the capture. The first [BootSnapshot] MaxRoutes routes
+        // Runs on the deploying machine during the capture. The first SnapshotCapture.MaxRoutes routes
         // are prerendered and the rest are only listed in sitemap.xml, so the most important come first.
         app.OnSnapshotRoutes(async () =>
             (await LoadPublishedArticlesAsync()).OrderByDescending(article => article.Views).Select(PathOf));
@@ -51,7 +51,9 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
     {
         if (!_articlesByPath.TryGetValue(path, out var article))
         {
-            await ClientFunctions.SetPageMetadataAsync(title: "Field notes", description: "Short guides to the shore and what lives there.", language: "en");
+            // Any other path shows the not-found screen, which search engines must not list
+            bool home = path == "/";
+            await ClientFunctions.SetPageMetadataAsync(title: home ? "Field notes" : "Not found", description: "Short guides to the shore and what lives there.", language: "en", noIndex: !home);
             return;
         }
 

@@ -29,7 +29,6 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public int MaxMemoryLimitMb => throw new NotImplementedException();
     public int MaxClients { get; set; }
     public bool DynamicMaxClientsEnabled { get; set; }
-    public bool WebRtcEnabled { get; set; }
     public bool UdpEnabled { get; set; }
     // Forwarded when the gallery runs inside the live Patterns app, so an example that routes on
     // interaction (tabs that set the path) reaches the URL; Navigation cannot be built here, its

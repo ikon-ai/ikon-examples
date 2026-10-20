@@ -83,7 +83,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
                         foreach (var t in _turns)
                         {
                             var isUser = t.Role == "You";
-                            vv.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-card", "rounded-lg p-3 max-w-[80%]"],
+                            vv.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-tertiary", "rounded-lg p-3 max-w-[80%]"],
                                 content: c => c.Text(text: $"{t.Role}: {t.Text}"));
                         }
                     });

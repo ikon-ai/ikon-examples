@@ -1,0 +1,14 @@
+type = "WorkerPosition"
+version = 1
+unreliable = true
+doc = "The latest-wins-updates pattern's position, sent many times a second by a tablet or a device program. Generated here so the pattern compiles against the class the Teleport compiler writes."
+
+[namespaces]
+csharp = "Ikon.App.Patterns.Protocol"
+typescript = ""
+
+[fields]
+WorkerId = "string"
+Sequence = "int32"
+X = "float64"
+Y = "float64"

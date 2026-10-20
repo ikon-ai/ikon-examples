@@ -218,6 +218,31 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{final}");
     }
 
+    private static async Task RefineWithProgressAsync(KernelContext ctx, Reactive<string> status, Reactive<Implementation?> draft)
+    {
+        #region example:emergence-refine-rounds
+        await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+        {
+            opt.MaxRefinements = 3;
+            opt.Initial(s => s.Command = "Write initial implementation of the feature.");
+            opt.Refinement(s => s.Command = "Improve the code based on the issues found.");
+        }))
+        {
+            switch (ev)
+            {
+                // Refinement:0 is the first improvement round, after the initial draft
+                case Stage<Implementation> stage when stage.Name.StartsWith("Refinement:", StringComparison.Ordinal):
+                    status.Value = $"Improving, round {int.Parse(stage.Name["Refinement:".Length..]) + 1} of 3";
+                    break;
+                case Completed<Implementation> { HasResult: true } done:
+                    draft.Value = done.Result;
+                    status.Value = "Done";
+                    break;
+            }
+        }
+        #endregion
+    }
+
     public static async Task EnsembleAsync(KernelContext ctx)
     {
         #region example:emergence-ensemble

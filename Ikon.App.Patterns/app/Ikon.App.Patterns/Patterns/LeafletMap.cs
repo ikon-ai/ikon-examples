@@ -18,6 +18,8 @@ public static class MapViewExtensions
             ["route"] = route?.Select(p => new { lat = p.Lat, lng = p.Lng }).ToList(),
             ["center"] = center is null ? null : new { lat = center.Lat, lng = center.Lng },
             ["zoom"] = zoom,
+            // ikon browse cannot read a map, so observe prints this line for it, with each pin's id
+            ["content"] = $"Map with {pins.Count} pins: {string.Join(", ", pins.Select(p => $"{p.Label} ({p.Id})"))}",
             ["onPinClickId"] = onPinClick is null ? null : view.CreateAction<string>(args => onPinClick(args.Value ?? "")),
             ["onMapClickId"] = onMapClick is null ? null : view.CreateAction<MapPoint>(args => onMapClick(args.Value)),
         }, style: style, key: key);

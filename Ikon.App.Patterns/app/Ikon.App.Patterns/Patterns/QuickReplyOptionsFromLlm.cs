@@ -115,4 +115,40 @@ internal sealed class QuickReplyOptionsFromLlm : IPatternDemo
         await thread.ReactivateIfIdleAsync();
     }
     #endregion
+
+    private sealed record Choice(string Question, string[] Options);
+
+    private static string Topic => "a weekend trip";
+
+    #region example:quick-reply-non-chat
+    private readonly UserReactive<Choice?> _choice = new(null);
+    private readonly UserReactive<string> _answer = new("");
+
+    private async Task AskAsync()
+    {
+        _choice.Value = await Emerge.Run<Choice>(LLMModel.Claude55Sonnet, pass =>
+            pass.Command = $"Ask one clarifying question about {Topic}, with 2 to 4 short answer options");
+    }
+
+    private async Task PickAsync(Choice choice, string option)
+    {
+        _answer.Value = await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>
+            pass.Command = $"{choice.Question}\nThe user chose: {option}\nContinue.");
+    }
+
+    private void RenderChoice(IView view)
+    {
+        if (_choice.Value is not { } choice)
+        {
+            return;
+        }
+
+        view.Text(text: choice.Question);
+
+        foreach (var option in choice.Options)
+        {
+            view.Button(text: option, onClick: async () => await PickAsync(choice, option));
+        }
+    }
+    #endregion
 }

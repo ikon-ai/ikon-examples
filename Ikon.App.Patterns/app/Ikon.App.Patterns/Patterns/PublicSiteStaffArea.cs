@@ -45,7 +45,7 @@ internal sealed class PublicSiteStaffArea(IAppBase app) : IPatternDemo
 
             // The join handler runs in the joining client's scope, so these are that client's flags
             _signedIn.Value = true;
-            _isStaff.Value = profile.HasRole("staff") || profile.HasRole(UserRole.Admin);
+            _isStaff.Value = profile.HasRole(UserRole.Moderator) || profile.HasRole(UserRole.Admin);
         });
     }
 
@@ -63,7 +63,7 @@ internal sealed class PublicSiteStaffArea(IAppBase app) : IPatternDemo
                 }
                 else
                 {
-                    // The app's own sign-in screen, with every method the [Auth] section lists
+                    // The app's own sign-in screen, with every sign-in method the surface lists
                     header.Button([Button.GhostSm], text: "Staff sign in", onClick: async () => await ClientFunctions.LoginShowAsync("Sign in with your staff account"));
                 }
             });
@@ -103,7 +103,7 @@ internal sealed class PublicSiteStaffArea(IAppBase app) : IPatternDemo
 
             if (_questions.Count == 0)
             {
-                staff.Text([Text.Body], "No questions yet.");
+                staff.EmptyState([EmptyState.RootSm], title: "No questions yet", description: "Questions sent from the public page appear here.");
             }
 
             foreach (var question in _questions)

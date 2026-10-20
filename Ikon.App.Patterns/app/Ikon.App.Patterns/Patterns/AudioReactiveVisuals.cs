@@ -2,7 +2,7 @@ namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: audio-reactive-visuals — see docs/patterns/audio-reactive-visuals.md.
 // The example region below is the canonical body the doc extracts.
-internal sealed class AudioReactiveVisuals : IPatternDemo
+internal sealed class AudioReactiveVisuals(IAppBase app) : IPatternDemo
 {
     public string Slug => "audio-reactive-visuals";
     public string Title => "Visuals that move with the audio";
@@ -13,7 +13,7 @@ internal sealed class AudioReactiveVisuals : IPatternDemo
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
         "Attaches a viseme analyzer to speech so each audio frame carries mouth-shape values, and a custom client component animates an avatar from them in step with playback. The avatar needs its React component registered in the app's frontend. See the source and docs/patterns/audio-reactive-visuals.md.");
 
-    private Audio Audio => throw new NotImplementedException();
+    private Audio Audio { get; } = new(app);
 
     #region example:pattern-audio-reactive-visuals
     // One analyzer instance for the app, not one per utterance: it declares the shape set once

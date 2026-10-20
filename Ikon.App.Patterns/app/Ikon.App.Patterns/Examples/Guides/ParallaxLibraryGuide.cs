@@ -333,7 +333,7 @@ file sealed class PxStylingWithCrosswindExamples(IApp<SessionIdentity, ClientPar
     {
         #region example:px-styling-with-crosswind
         view.Button([Button.PrimaryMd, "mt-4 self-center"], text: "Submit", onClick: SubmitAsync);
-        view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { });
+        view.Box(["bg-card border border-card p-6 rounded-2xl"], content: v => { });
         view.Text([Text.Caption], text: "Updated just now");
         #endregion
     }
@@ -548,7 +548,7 @@ file sealed class PxExampleInteractiveFormExamples(IApp<SessionIdentity, ClientP
     {
         UI.Root([Page.Default], content: view =>
         {
-            view.Column(["gap-4 max-w-md p-8"], content: view =>
+            view.Column(["mx-auto gap-4 max-w-md p-8"], content: view =>
             {
                 view.TextField(label: "Name", placeholder: "Your name", bind: _name);
 
@@ -667,7 +667,7 @@ file sealed class PxSeedRulesAndSnapshotVariantsGuestseedsSignedinseExamples(IAp
 
     public async Task PxSeedRulesAndSnapshotVariantsGuestseedsSignedinseeds(UIView view)
     {
-        #region example:px-seed-rules-and-snapshot-variants-guestseeds-signedinseeds
+        #region example:px-seed-rules-and-snapshot-variants
         if (view.IsSnapshot)
         {
             switch (view.SnapshotVariant)

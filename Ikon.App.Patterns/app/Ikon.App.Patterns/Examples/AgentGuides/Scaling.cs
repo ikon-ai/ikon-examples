@@ -113,8 +113,7 @@ internal sealed class ScalingCellClientExamples
     {
         var total = Board(gameId).Total;
 
-        // On a cloud run the reactive is a mirror that starts at its seed (0) until the subscription
-        // is live. A local run returns the cell itself, which is not a MirrorReactive.
+        // The reactive is a mirror that starts at its seed (0) until the subscription is live.
         if (total is MirrorReactive<int> { Status: not MirrorStatus.Live } mirror)
         {
             view.Text(mirror.Status == MirrorStatus.Failed ? "Scores are unavailable right now" : "Loading scores…");

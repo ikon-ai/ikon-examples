@@ -100,6 +100,8 @@ internal sealed class McpToolsFromServer(IApp<SessionIdentity, ClientParameters>
         return await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>
         {
             pass.Command = question;
+            // Every tool call of the run counts: enough for a few lookups, one answer. A list that
+            // needs a lookup per item needs at least one call per item
             pass.MaxToolCalls = 6;
 
             foreach (var tool in serverTools)

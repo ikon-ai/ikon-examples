@@ -84,7 +84,7 @@ internal sealed class LiveLeaderboardTable : IPatternDemo
             pageIndex: _page.Value,
             pageSize: PageSize,
             onPageChange: async page => _page.Value = page,
-            emptyContent: v => v.Text(["text-muted-foreground p-4"], text: "No players yet"));
+            emptyContent: v => v.EmptyState([EmptyState.RootSm], title: "No players yet", description: "Scores appear here once someone plays."));
     }
     #endregion
 }

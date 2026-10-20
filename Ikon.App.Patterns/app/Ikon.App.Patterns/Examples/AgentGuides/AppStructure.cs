@@ -42,23 +42,6 @@ file sealed class ViewportExamples
     }
 }
 
-file sealed class LocalRoomExamples(IApp<LocalRoomExamples.SessionIdentity, LocalRoomExamples.ClientParameters> app)
-{
-    #region example:room-identity-local-fallback
-    // In the cloud the identity's Room gives each room its own instance. In a local run every identity
-    // field is null, so the client's own ?room= on ClientParameters says which room it asked for.
-    public record SessionIdentity(string? Room);
-
-    public record ClientParameters(string? Room = null);
-
-    private string? CurrentRoom()
-    {
-        var room = app.SessionIdentity.Room;
-        return string.IsNullOrEmpty(room) ? app.Clients[ReactiveScope.ClientId]?.Parameters.Room : room;
-    }
-    #endregion
-}
-
 internal sealed partial class AgentGuideExamples
 {
 
@@ -173,6 +156,8 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.NavigateToAsync(app.JoinUrl(new { room = "AB12" }));
         await ClientFunctions.OpenExternalUrlAsync("https://example.com"); // a new tab; false when the browser blocks it
         await ClientFunctions.GetVisibilityAsync();                // ClientVisibility.Visible/Hidden/Unknown
+        // The same from the client's context, with no call. A render that reads it re-renders when the tab is hidden or shown
+        _ = app.CurrentClientContext?.GetVisibility();
         await ClientFunctions.GetBatteryLevelAsync();              // 0-100; null in Safari and Firefox; 100 with no battery
         await ClientFunctions.GetNetworkTypeAsync();               // "slow-2g", "2g", "3g" or "4g" in Chromium (fast wifi reads "4g"); null in Safari and Firefox
         // False without vibrating in a web client that has had no tap or click yet (browsers block it until then)

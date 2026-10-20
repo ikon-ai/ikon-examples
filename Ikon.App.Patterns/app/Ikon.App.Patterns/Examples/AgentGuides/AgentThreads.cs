@@ -1,4 +1,5 @@
 using Ikon.Agent.Skills;
+using Ikon.Agent.Storage.Postgres;
 
 namespace Ikon.App.Patterns.Examples;
 
@@ -6,6 +7,17 @@ namespace Ikon.App.Patterns.Examples;
 
 public static class AgentThreadExamples
 {
+    #region example:agent-durable-storage
+    // Threads, plans and artifacts kept in the app's built-in database, so they survive a restart,
+    // a deploy and a hot reload. Build it once, in OnStarting, then call ResumeAsync.
+    public static async Task<Orchestrator> CreateDurableOrchestratorAsync(IAppBase app)
+    {
+        var storage = new PostgresStorage((await app.EnsureDefaultDatabaseAsync()).ConnectionString);
+        await storage.EnsureSchemaAsync();
+        return new Orchestrator(storage);
+    }
+    #endregion
+
     #region example:agent-subagent-call
     public static Task<string> SummariseAsync(AgentThread parent, string document, CancellationToken ct)
     {
@@ -120,6 +132,22 @@ public static class AgentThreadExamples
             "dispatcher", new Content.Text("Take the next parcel."), appName: "Desk", planName: "depot",
             options: new ThreadOptions(StageMachineName: stages.Name, InitialStage: nameof(DispatchStage.Intake)),
             ct: ct);
+    }
+    #endregion
+
+    #region example:agent-stage-transition
+    // The body of IStageMachine.TryTransitionAsync. It runs after each completed pass and decides from
+    // the app's own state (here two flags a tool set), because the event is always AgentCompleted.
+    public static Task<StageTransitionResult<DispatchStage>?> DecideDispatchStageAsync(DispatchStage current, bool intakeDone, bool routeApproved)
+    {
+        StageTransitionResult<DispatchStage>? result = current switch
+        {
+            DispatchStage.Intake when intakeDone => new(DispatchStage.Routing),
+            DispatchStage.Routing when routeApproved => new(DispatchStage.Confirmation, ThreadTransition.WaitForInput, Notes: "Route approved"),
+            _ => null,
+        };
+
+        return Task.FromResult(result);
     }
     #endregion
 

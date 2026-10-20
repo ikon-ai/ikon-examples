@@ -63,8 +63,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
 
         if (_items.Count == 0)
         {
-            view.Box(["text-center text-muted-foreground p-12"], content: v =>
-                v.Text(text: "No items yet — add one above to get started."));
+            view.EmptyState(title: "No items yet", description: "Add one above to get started.");
         }
         else
         {

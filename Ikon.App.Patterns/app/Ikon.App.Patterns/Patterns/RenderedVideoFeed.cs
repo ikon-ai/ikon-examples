@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Ikon.Common.Core.Protocol;
+using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;
 using SkiaSharp;
 
 namespace Ikon.App.Patterns.Patterns;
@@ -181,6 +181,20 @@ internal sealed class RenderedVideoFeed(IAppBase app) : IPatternDemo
                 col.Text([Text.Caption, "text-destructive"], $"The feed stopped: {error}");
             }
         });
+    }
+    #endregion
+
+    #region example:pattern-rendered-video-feed-bitmap
+    // Decode once per feed, not per frame, and dispose it with the feed
+    private async Task<SKBitmap> LoadLogoAsync(CancellationToken ct) =>
+        SKBitmap.Decode(await app.Files.Data.ReadBytesAsync("images/logo.png", ct))
+            ?? throw new InvalidDataException("images/logo.png is not an image Skia can decode");
+
+    // SKSamplingOptions replaces SKPaint.FilterQuality, which no longer exists; Linear smooths a scaled picture
+    private static void DrawLogo(SKCanvas canvas, SKBitmap logo, float x, float y, float width)
+    {
+        var height = width * logo.Height / logo.Width;
+        canvas.DrawBitmap(logo, SKRect.Create(x, y, width, height), new SKSamplingOptions(SKFilterMode.Linear));
     }
     #endregion
 }

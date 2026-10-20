@@ -69,7 +69,7 @@ internal sealed class OverlaySelection : IPatternDemo
 
         // DETAIL BESIDE THE LIST → a panel, NOT a modal. The list stays on screen and keeps its
         // scroll position, so the user can move to the next record without re-finding it.
-        view.Row(["flex w-full gap-4"], content: view =>
+        view.Column(["w-full gap-4 md:flex-row"], content: view =>
         {
             view.Column([Layout.Column.Sm, "flex-1 min-w-0"], content: view =>
             {
@@ -83,7 +83,7 @@ internal sealed class OverlaySelection : IPatternDemo
 
             if (_inspecting.Value is { } open)
             {
-                view.Column([Card.Elevated, "w-80 shrink-0 p-4"], content: view =>
+                view.Column([Card.Elevated, "w-full md:w-80 shrink-0 p-4"], content: view =>
                 {
                     view.Row([Layout.Row.SpaceBetween], content: v =>
                     {

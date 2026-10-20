@@ -107,7 +107,7 @@ internal sealed class DeviceIngest(IAppBase app) : IPatternDemo
 
             if (_latest.Count == 0)
             {
-                col.Text([Text.Body], "No readings yet. Devices post to /api/readings.");
+                col.EmptyState([EmptyState.RootSm], title: "No readings yet", description: "Devices post to /api/readings.");
                 return;
             }
 

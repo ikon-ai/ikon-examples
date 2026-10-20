@@ -40,7 +40,7 @@ internal sealed class VideoReview : IPatternDemo
 
             RenderTimeline(col);
 
-            col.Row(["gap-2 items-end"], content: row =>
+            col.Row([Layout.Row.Form], content: row =>
             {
                 row.TextField(["default", "flex-1"], label: $"Comment at {Timecode(_position.Value)}", placeholder: "Pause where the note belongs", bind: _draft);
                 row.Button([Button.PrimaryMd], text: "Add", disabled: string.IsNullOrWhiteSpace(_draft.Value), onClick: AddComment);

@@ -84,7 +84,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
     #region example:costs-daily
     public async Task<IReadOnlyList<DailyCost>> ImageCostsAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
-        var query = new CostQuery(from, to, Category: "image-generation");
+        var query = new CostQuery(from, to, Category: "image-generator");
 
         return await app.Costs.GetDailyCostsAsync(query, ct);
     }

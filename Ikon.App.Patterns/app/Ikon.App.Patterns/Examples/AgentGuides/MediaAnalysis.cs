@@ -129,4 +129,30 @@ file static class MediaProbeExamples
 
         await ProbeMediaAsync(default);
     }
+
+    public static async Task DescribeFramesAsync(string url, double[] seconds)
+    {
+        #region example:media-frames-to-vision
+        List<IMessagePart> parts = [new TextPart("These are frames of one video, in order. Describe what changes.")];
+
+        foreach (var second in seconds)
+        {
+            // One frame per call, read from the signed URL straight into memory
+            var startInfo = new ProcessStartInfo { FileName = "ffmpeg", RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+
+            foreach (var arg in new[] { "-loglevel", "quiet", "-ss", second.ToString(System.Globalization.CultureInfo.InvariantCulture), "-i", url, "-frames:v", "1", "-vf", "scale=768:-2", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1" })
+            {
+                startInfo.ArgumentList.Add(arg);
+            }
+
+            using var process = Process.Start(startInfo)!;
+            using var frame = new MemoryStream();
+            await process.StandardOutput.BaseStream.CopyToAsync(frame);
+            await process.WaitForExitAsync();
+            parts.Add(new ImagePart(frame.ToArray(), "image/jpeg"));
+        }
+
+        var description = await Emerge.Run<string>(LLMModel.Claude55Sonnet, new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts)), pass => pass.SystemPrompt = "You describe video from its frames.");
+        #endregion
+    }
 }

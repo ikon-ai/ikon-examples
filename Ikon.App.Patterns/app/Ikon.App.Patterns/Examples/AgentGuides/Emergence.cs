@@ -55,6 +55,7 @@ internal sealed partial class AgentGuideExamples
         {
             pass.Command = "What are the latest numbers on tide pools?";
             DocEmergeTools(pass);
+            DocEmergeToolsDescribed(pass);
         });
 
     private static async Task<AnalysisResult> DocCancellationAsync(string topic)
@@ -79,6 +80,19 @@ internal sealed partial class AgentGuideExamples
         pass.MaxToolCalls = 10;
         #endregion
     }
+
+    private static void DocEmergeToolsDescribed(EmergePass<string> pass)
+    {
+        #region example:emerge-tools-described
+        pass.AddTool(Tool.Of("find_sounds", "Find sound effects in the catalogue",
+            ([Description("What the sound is, such as 'rifle shot' or 'rain on a roof'")] string query,
+             [Description("How many results to return, 1 to 20; 5 when left out")] int? limit,
+             [Description("Only sounds of this category; every category when left out")] string? category) =>
+                FindSounds(query, limit ?? 5, category)));
+        #endregion
+    }
+
+    private static string FindSounds(string query, int limit, string? category) => $"{query} {limit} {category}";
 
     private static async Task DocBestOfAsync(string prompt)
     {

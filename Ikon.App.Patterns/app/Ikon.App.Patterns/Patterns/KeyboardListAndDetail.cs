@@ -32,9 +32,10 @@ internal sealed class KeyboardListAndDetail : IPatternDemo
 
         var selected = Clauses[_selected.Value];
 
-        view.Row(["h-[420px] gap-4"], content: row =>
+        // Side by side from md: up; on a phone the list sits above the detail, each with a height of its own.
+        view.Column(["gap-4 md:flex-row md:h-[420px]"], content: row =>
         {
-            row.ScrollArea(["w-56 shrink-0 rounded-lg border border-secondary bg-card"], content: list =>
+            row.ScrollArea(["h-48 w-full md:h-auto md:w-56 shrink-0 rounded-lg border border-secondary bg-card"], content: list =>
             {
                 for (var i = 0; i < Clauses.Length; i++)
                 {
@@ -56,7 +57,7 @@ internal sealed class KeyboardListAndDetail : IPatternDemo
                 }
             });
 
-            row.ScrollArea(["flex-1 rounded-lg border border-secondary bg-card"], viewportStyle: ["px-5 py-3"], content: pane =>
+            row.ScrollArea(["h-80 md:h-auto md:flex-1 rounded-lg border border-secondary bg-card"], viewportStyle: ["px-5 py-3"], content: pane =>
             {
                 foreach (var clause in Clauses)
                 {

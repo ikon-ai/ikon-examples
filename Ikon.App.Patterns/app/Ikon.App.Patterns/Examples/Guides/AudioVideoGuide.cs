@@ -90,19 +90,26 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     public void AudioInput()
     {
         #region example:av-audio-input
+        // The frame event carries no SampleRate/ChannelCount: keep the format from the begin event.
+        var streamFormats = new System.Collections.Concurrent.ConcurrentDictionary<string, (int SampleRate, int ChannelCount)>();
+
         Audio.AudioInputStreamBeginAsync += async args =>
         {
             // Register per-stream state HERE — this fires before any frame from the stream.
-            // args.StreamId, args.SampleRate, args.ChannelCount, args.ClientSessionId, args.UserId
+            streamFormats[args.StreamId] = (args.SampleRate, args.ChannelCount);
         };
 
         Audio.AudioInputFrameAsync += async args =>
         {
             // args.Samples: decoded float PCM in [-1, 1]; args.IsFirst / args.IsLast
             // bracket one captured segment (e.g. one push-to-talk press).
+            if (streamFormats.TryGetValue(args.StreamId, out var format))
+            {
+                var seconds = args.Samples.Length / (double)(format.SampleRate * format.ChannelCount);
+            }
         };
 
-        Audio.AudioInputStreamEndAsync += async args => { /* cleanup */ };
+        Audio.AudioInputStreamEndAsync += async args => { streamFormats.TryRemove(args.StreamId, out _); };
         #endregion
     }
 
@@ -317,7 +324,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
         {
             if (_tiles.Count == 0)
             {
-                row.Text(["text-sm text-muted-foreground"], text: "No cameras on yet");
+                row.EmptyState([EmptyState.RootSm], title: "No cameras on yet", description: "Turn a camera on to see its tile here.");
                 return;
             }
 

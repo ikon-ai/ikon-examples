@@ -103,7 +103,7 @@ internal sealed class ClusterSimilarItems : IPatternDemo
     {
         view.Column(["gap-4 w-full max-w-xl"], content: col =>
         {
-            col.Row(["gap-2 items-end"], content: row =>
+            col.Row([Layout.Row.Form], content: row =>
             {
                 row.TextField(["default", "flex-1"], label: "New feedback", bind: _draft);
                 row.Button([Button.PrimaryMd], text: "Add", disabled: string.IsNullOrWhiteSpace(_draft.Value), onClick: async () =>

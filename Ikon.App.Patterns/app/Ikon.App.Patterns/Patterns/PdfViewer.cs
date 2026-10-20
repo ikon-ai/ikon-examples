@@ -108,7 +108,7 @@ internal sealed class PdfViewer(IAppBase app) : IPatternDemo
 
             if (pages.Count == 0)
             {
-                col.Text([Text.Body], "No document open yet.");
+                col.EmptyState([EmptyState.RootSm], title: "No document open yet", description: "Open a PDF to read it here.");
                 return;
             }
 

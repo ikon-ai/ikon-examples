@@ -101,4 +101,33 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
         });
     }
     #endregion
+
+    #region example:pattern-ensemble-member-answers
+    private readonly ReactiveList<(string Role, Review Review)> _memberReviews = new();
+
+    // Enumerating the run instead of awaiting it also yields each member's own answer, so a screen
+    // can show every reviewer's review beside the merged one.
+    private async Task ReviewWithMemberAnswersAsync(string proposal)
+    {
+        _memberReviews.Clear();
+
+        await foreach (var ev in Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
+        {
+            options.Command = proposal;
+            options.SolverCount = Reviewers.Length;
+            options.SolverConfig = solver => solver.Role = Reviewers[solver.Index % Reviewers.Length].Role;
+        }))
+        {
+            switch (ev)
+            {
+                case SolverResult<Review> member:
+                    _memberReviews.Add((member.Role, member.Result));
+                    break;
+                case Completed<Review> { HasResult: true } done:
+                    _review.Value = done.Result;
+                    break;
+            }
+        }
+    }
+    #endregion
 }

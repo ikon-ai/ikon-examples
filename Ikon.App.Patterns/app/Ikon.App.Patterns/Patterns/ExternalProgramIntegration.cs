@@ -82,7 +82,7 @@ internal sealed class ExternalProgramIntegration(IAppBase app) : IPatternDemo
 
             if (_jobs.Count == 0)
             {
-                col.Text([Text.Body], "No jobs yet.");
+                col.EmptyState([EmptyState.RootSm], title: "No jobs yet", description: "Jobs you start appear here.");
             }
 
             foreach (var job in _jobs)

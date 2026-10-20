@@ -31,9 +31,11 @@ internal sealed class TypicalAppStructure : IPatternDemo
             UI.Root(["h-screen flex flex-col"], content: view =>
             {
                 // ── Header region ───────────────────────────────────────────────
-                view.Row(["shrink-0 px-6 py-4 border-b border-secondary items-center justify-between"], content: view =>
+                // flex-wrap: on a phone the actions move under the title rather than squeezing their labels onto two lines.
+                view.Row(["shrink-0 px-6 py-4 border-b border-secondary items-center justify-between flex-wrap gap-3"], content: view =>
                 {
                     view.Text([Text.H3, "tracking-wide"], text: "MyApp");
+                    view.Button([Button.OutlineSm], text: "Reset count", onClick: () => _count.Value = 0);
                 });
 
                 // ── Main region ─────────────────────────────────────────────────

@@ -164,7 +164,7 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
 
             if (_devices.Count == 0)
             {
-                col.Text([Text.Body], "No device has reported yet.");
+                col.EmptyState([EmptyState.RootSm], title: "No device has reported yet", description: "Devices appear here once they connect and send a line.");
                 return;
             }
 

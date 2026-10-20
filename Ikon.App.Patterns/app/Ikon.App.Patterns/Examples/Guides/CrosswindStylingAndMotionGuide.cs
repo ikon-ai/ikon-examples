@@ -73,7 +73,7 @@ file sealed class CwThreeStylingLayersAllValidInTheSameStyleArrayExamples(IApp<S
     public async Task CwThreeStylingLayersAllValidInTheSameStyleArray(UIView view)
     {
         #region example:cw-three-styling-layers-all-valid-in-the-same-style-array
-        view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { });
+        view.Box(style: ["rounded-2xl bg-card border border-card p-6 text-foreground"], content: view => { });
         #endregion
         PatternDemoNote.RenderCaption(view, "An empty card above: rounded-2xl and p-6 are Tailwind, bg-card and border-secondary are theme tokens, and all of them sit in one style array");
     }

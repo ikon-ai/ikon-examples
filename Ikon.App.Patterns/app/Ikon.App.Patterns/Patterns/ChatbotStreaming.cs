@@ -105,9 +105,10 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 {
                     var isUser = msg.Role == "You";
                     // bg-brand-solid, not bg-primary: in the IKON semantic set bg-primary is the
-                    // PAGE surface, so a bubble painted with it disappears into the page.
+                    // PAGE surface, so a bubble painted with it disappears into the page. The reply is
+                    // bg-tertiary, which shows on the page and on a card, where bg-card would vanish.
                     // A model writes markdown (lists, **bold**), which Text would show as raw marks.
-                    view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-card", "rounded-lg p-3 max-w-[80%]"], content: v =>
+                    view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-tertiary", "rounded-lg p-3 max-w-[80%]"], content: v =>
                     {
                         if (isUser)
                         {
@@ -125,7 +126,7 @@ internal sealed class ChatbotStreaming : IPatternDemo
                 // event. Empties when Completed fires above.
                 if (!string.IsNullOrEmpty(_streaming.Value))
                 {
-                    view.Box(["self-start bg-card rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
+                    view.Box(["self-start bg-tertiary rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
                         v.Markdown(_streaming.Value));
                 }
             }),
