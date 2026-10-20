@@ -31,6 +31,7 @@ global using Ikon.Agent.Skills;
 global using Ikon.App;
 global using Ikon.App.Cron;
 global using Ikon.App.Http;
+global using Ikon.App.Mcp;
 global using Ikon.App.Payments;
 global using Ikon.App.Reactive;
 global using Ikon.Common.Core.Assets;
