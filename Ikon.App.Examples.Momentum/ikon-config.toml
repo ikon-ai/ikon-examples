@@ -27,7 +27,7 @@ StopSessions = true
 # ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
 [Feedback]
 # "overlay": a floating feedback button the platform draws for everyone offered feedback, so the
-# app needs no control of its own; each person can hide it from the sheet. Feedback starts off, so it
+# app needs no control of its own. Feedback starts off, so it
 # shows only after 'ikon feedback set --audience'. "none": no button.
 Button = "overlay"
 
