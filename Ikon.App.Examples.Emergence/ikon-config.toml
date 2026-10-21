@@ -27,7 +27,7 @@ StopSessions = false
 # ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
 [Feedback]
 # "overlay": a floating feedback button the platform draws for everyone offered feedback, so the
-# app needs no control of its own; each person can hide it from the sheet. Feedback starts off, so it
+# app needs no control of its own. Feedback starts off, so it
 # shows only after 'ikon feedback set --audience'. "none": no button.
 Button = "overlay"
 
@@ -131,7 +131,8 @@ Placement = "shared"
 # gives each visitor a private, device-scoped anonymous user; "global" gives every visitor one shared
 # anonymous user on shared app instances (scale out with [Sharded] on the SessionIdentity record;
 # detect with Context.IsGlobal). A surface that lists neither requires sign-in, and its sign-in screen
-# offers the listed providers. Any signed-in person may enter, whichever provider they used.
+# offers the listed providers. Any signed-in person may enter, whichever provider they used. "phone"
+# adds a QR code to the sign-in screen that a phone signed in to the app approves.
 Methods = ["google", "guest"]
 # Roles a signed-in person must hold to enter (e.g. ["admin"]), checked when they connect and on every
 # function call from the surface. Empty admits every signed-in person.
