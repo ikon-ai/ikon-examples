@@ -72,7 +72,7 @@
     <IkonTeleportSchemaFile Include="$(MSBuildProjectDirectory)/../../schema/**/*" />
   </ItemGroup>
   <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile);$(IkonRoot)/artifacts/bin/BuildUtil/$(Configuration.ToLowerInvariant())/build-util.dll" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
-    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" Properties="Configuration=$(Configuration)" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
+    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
       <Output TaskParameter="TargetOutputs" ItemName="_BuildUtilOutput" />
     </MSBuild>
     <Exec Command="dotnet &quot;@(_BuildUtilOutput)&quot; --generate-app-teleport --app-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" />
