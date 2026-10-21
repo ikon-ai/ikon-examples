@@ -1,4 +1,4 @@
-<!-- checked-against: a605df13b23ca6e8e3b0c442 -->
+<!-- checked-against: 53d773ee11f0f09be3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -907,6 +907,7 @@ app state.
 | `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`) |
 | `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific IKON server, for shareable preview links. Carries a credential — treat the link like one |
 | `ikon-session` | session identity hash | Join a specific live session instead of resolving one by identity |
+| `ikon-version` | app bundle id | Run a deploy that is not live (`ikon deploy --no-activate`) in a session of its own. Only someone who may change the app is let in; anyone else gets `AccessDeniedError`. Stays in the address bar, so a reload stays on that version |
 | `ikon-same-origin` | `true`, `false` | Route API and auth calls through the app's own origin. On by default for deployed apps. `true` cannot turn it on in local dev; in the cloud it only wins over a configured auth URL override |
 | `ikon-debug` | `true` | Verbose SDK logging, and the devtools extension |
 | `ikon-debug-overlay` | `true` | The on-screen debug panel. `ikon-debug` does not imply it |

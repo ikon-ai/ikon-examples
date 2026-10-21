@@ -1,4 +1,4 @@
-<!-- checked-against: c4fd6686c45295fb50391750 -->
+<!-- checked-against: 126bd56c5dad3191611752d1 -->
 
 # Google Connector Guide
 
@@ -6,7 +6,7 @@ This guide covers `Ikon.Connectors.Google` — Google Workspace's Drive, Gmail, 
 
 ## Google Workspace
 
-The types are in namespace `Ikon.Connectors.Google`. Each client takes the person's `GoogleCredentials(ClientId, ClientSecret, RefreshToken)` and an optional `HttpClient` (a shared one otherwise), and needs no disposing. Access tokens come from a `GoogleTokenProvider`: pass one provider to every client of a credential so they share its tokens, and give it an `onRefreshTokenRotated` callback to persist the refresh token should Google issue a new one. `GoogleTokenProvider.ForAccessToken` wraps an access token obtained elsewhere, such as from Google's OAuth Playground while developing; it never refreshes, so calls fail with `401` once the token expires, about an hour after it was issued.
+The types are in namespace `Ikon.Connectors.Google`. Each client takes the person's `GoogleCredentials(ClientId, ClientSecret, RefreshToken)` and an optional `HttpClient` (a shared one otherwise), and needs no disposing. Access tokens come from a `GoogleTokenProvider`: pass one provider to every client of a credential so they share its tokens, and give it an `onRefreshTokenRotated` callback to persist the refresh token should Google issue a new one. A provider can also sign in as a service account (see "Service accounts and delegation"). `GoogleTokenProvider.FromCallback` takes tokens with their expiry from your own code, and `GoogleTokenProvider.ForAccessToken` wraps an access token obtained elsewhere, such as from Google's OAuth Playground while developing. A `ForAccessToken` provider never refreshes, so calls fail with `401` once the token expires, about an hour after it was issued.
 
 <!-- ikon-example: connectors-google-clients -->
 ```csharp
@@ -42,9 +42,65 @@ With the `openid` and `email` scopes too, `GoogleAuth.GetSignedInAccountAsync(to
 
 `GoogleAuth.RevokeAsync(token)` withdraws the grant when the person disconnects; it takes the refresh token or an access token of the grant, and a token Google no longer knows counts as revoked.
 
+### Service accounts and delegation
+
+A service account is an identity your organisation owns in Google Cloud, not a person. It needs no sign-in, so it suits background jobs and data that several people share. Keep its JSON key file as an app secret: `GoogleServiceAccountCredentials.FromJson` reads it, and the provider signs a new assertion for each token, so there is no refresh token to store. The private key is never printed when the credentials are logged.
+
+Without a `subject` the calls act as the service account itself, which sees only the files, calendars and other data shared with its address (`...@<project>.iam.gserviceaccount.com`). With a `subject` they act as that Workspace account through domain-wide delegation. A Workspace admin has to allow delegation for the key's numeric client id and for every scope the provider asks for, in the Admin console under Security › API controls › Domain-wide delegation. Until they do, the first call fails with `401`, Google's code (`unauthorized_client`, `access_denied`) as `ErrorCode`, and a `Reason` naming the client id to allow. A new delegation can take up to 24 hours to apply. A subject that is not an account in the Workspace fails with `401` `invalid_grant`.
+
+<!-- ikon-example: connectors-google-service-account -->
+```csharp
+var key = GoogleServiceAccountCredentials.FromJson(app.Secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]);
+
+// Acts as the service account: it sees only what was shared with its address.
+var drive = new Drive(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/drive.readonly"]));
+
+// Acts as a Workspace account, through domain-wide delegation.
+var gmail = new Gmail(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/gmail.readonly"], subject: "ada@example.com"));
+```
+
+Secrets are read once when the app starts, so a rotated key takes effect after a restart.
+
+When your code gets tokens some other way, such as from a service that holds the credential, `GoogleTokenProvider.FromCallback` takes them with their expiry. The provider reuses a token until five minutes before it expires, and asks your callback again when Google refuses one with `401`, so the callback must return a fresh token rather than the one it returned last.
+
+<!-- ikon-example: connectors-google-callback -->
+```csharp
+var tokens = GoogleTokenProvider.FromCallback(async ct =>
+{
+    var (token, expiresAt) = await FetchFromTokenBrokerAsync(ct);
+    return new GoogleAccessToken(token, expiresAt);
+});
+var drive = new Drive(tokens);
+```
+
+### Choosing an identity
+
+Whose account the calls run as decides what the app can see, who has to agree to it, and who else can see what it reads.
+
+- **The person's own account** (`GoogleAuth` sign-in). The app sees what that person sees, for features each person uses on their own data. Every person signs in and the app stores a refresh token for each. Drive and Gmail scopes are restricted: an app that people outside your own Workspace sign in to shows an "unverified app" warning and is capped at 100 users until Google verifies it.
+- **A service account, with no subject.** An identity your organisation owns, for background jobs and for data that several people share. It sees only what was shared with its address, which also works for customers outside your Workspace: they share a folder with the address. No one signs in and no Google verification is needed.
+- **A service account acting as a Workspace account** (`subject`). It can act as any account in your Workspace for the scopes an admin allowed. Google cannot limit delegation to some folders or some accounts, so use it only where nothing narrower works, such as reading the directory or one person's mail.
+- **A dedicated Workspace account**, such as `assistant@yourcompany.com`, signed in once through `GoogleAuth`. It works like a service account, but it is a real user: it can own files in My Drive and appears in the sharing dialog by name, which helps where an organisation's sharing policy refuses addresses outside its domain. It needs a licence, and its refresh token ends when its password changes.
+
+To keep a service account inside the folders customers chose, give Drive the provider without a subject and give delegation only to the directory, with the one scope it needs:
+
+<!-- ikon-example: connectors-google-folder-identity -->
+```csharp
+var key = GoogleServiceAccountCredentials.FromJson(app.Secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]);
+
+// Sees only the folders customers shared with the service account's address.
+var drive = new Drive(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/drive.readonly"]));
+
+// Delegated, but only to read group membership.
+var directory = new GoogleDirectory(new GoogleTokenProvider(
+    key, ["https://www.googleapis.com/auth/admin.directory.group.member.readonly"], subject: app.Secrets["GOOGLE_DIRECTORY_ADMIN"]));
+```
+
+A service account reads for the app, not for one person, so anything it reads can reach every user the app shows it to. Before the app shows one person a file it read with a service account, or keeps it in a cache that others read, check that person with `GetAccessAsync` (see "Who can read a file").
+
 ### Drive files
 
-`GetFileAsync` reads one file's `DriveFile`: `Id`, `Name`, `MimeType`, and where Drive names them `Size`, `ModifiedTime`, `CreatedTime`, `Parents`, `DriveId`, `Md5Checksum`, `OwnerEmails` and a `WebViewLink` for opening it in Drive; `IsFolder` and `IsGoogleNative` say what kind of file it is.
+`GetFileAsync` reads one file's `DriveFile`: `Id`, `Name`, `MimeType`, and where Drive names them `Size`, `ModifiedTime`, `CreatedTime`, `Parents`, `DriveId`, `Md5Checksum`, `OwnerEmails` and a `WebViewLink` for opening it in Drive; `IsFolder` and `IsGoogleNative` say what kind of file it is. `Drive.ParseId` reads the id out of a link a person pasted (a folder, file, Docs, Sheets, Slides or Forms link, or the bare id), and returns null for anything that is not one.
 
 `UploadAsync(folderId, name, mimeType, content, size)` creates a new file — Drive allows duplicate names, so a name already in the folder gets a second file beside it. Up to 5 MB goes in one request and anything larger through a resumable session, which a failed or cancelled upload cancels. `DownloadAsync` streams a file's content; dispose the stream to release the connection. `DownloadBytesAsync(fileId, maxBytes)` reads it whole and refuses rather than truncates a file larger than `maxBytes`.
 
@@ -70,6 +126,47 @@ if (file.MimeType == "application/vnd.google-apps.document")
 
 The overload of `UploadAsync` taking `DriveUploadOptions` converts an upload into a Google-native file with `ConvertTo` — a docx into a Doc, an xlsx or csv into a Sheet, a pptx into Slides. `UpdateContentAsync` replaces a file's content with a new revision, keeping its id, place and sharing.
 
+### Reading files as text
+
+`DownloadTextAsync(fileId, maxBytes, options)` returns a file's content as a `DriveText`, its `File` and `Text`, whatever its kind: a Doc as Markdown, Slides as plain text, a Sheet as every tab of cells in CSV under a `## {tab}` heading (chart sheets left out), and text, JSON or XML files as they are. It reads a shortcut as the file it points to. Drive cannot turn a PDF, an Office document or an image into text, so `DriveTextOptions.ExtractText` takes that part: it gets the file and its bytes, and can hand them to `OCR.AnalyzeAsync` from `Ikon.AI`. Without it, those files give null, as do folders, Forms and Drawings. Content over `maxBytes` throws rather than being cut, and `MaxChars` cuts the text and sets `Truncated`.
+
+`ListDescendantsAsync(folderId, maxDepth)` lists everything under a folder, a level at a time, with folders and shortcuts listed as themselves. How much of a folder to read depends on the feature, so the connector leaves that to you. This example uses the two methods to read a customer's folder into an AI prompt, newest files first, up to a character limit:
+
+<!-- ikon-example: connectors-drive-folder-text -->
+```csharp
+var options = new DriveTextOptions
+{
+    MaxChars = 20_000,
+    ExtractText = async (file, bytes, ct) => file.MimeType is "application/pdf" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ? (await OCR.AnalyzeAsync(bytes, cancellationToken: ct)).Text
+        : null,
+};
+
+var budget = 200_000;
+var prompt = new System.Text.StringBuilder();
+var newestFirst = (await drive.ListDescendantsAsync(folderId, maxDepth: 2))
+    .Where(file => !file.IsFolder)
+    .OrderByDescending(file => file.ModifiedTime)
+    .Take(50);
+
+foreach (var file in newestFirst)
+{
+    try
+    {
+        if (await drive.DownloadTextAsync(file.Id, maxBytes: 10_000_000, options) is { } read && read.Text.Length <= budget)
+        {
+            prompt.Append($"## {file.Name}\n\n{read.Text}\n\n");
+            budget -= read.Text.Length;
+        }
+    }
+    catch (ConnectorException ex) when (!ex.IsReconnectRequired)
+    {
+        // A file that is too large or was deleted is skipped, and the rest of the folder is still read.
+        Log.Instance.Debug($"Skipped {file.Name}: {ex.Reason}");
+    }
+}
+```
+
 ### Organising files
 
 `CreateFolderAsync`, `CreateShortcutAsync`, `RenameAsync`, `MoveAsync` (out of every folder the file was in, into one) and `CopyAsync` (`copyComments: true` brings a native file's comments along) return the resulting `DriveFile`. `UpdateAsync` changes the name, description, star and the app's private `appProperties`, sending only the arguments given. `DeleteAsync` moves a file to the bin, `RestoreAsync` brings it back, and `PermanentDeleteAsync` deletes it for good. A shared drive is created with `CreateSharedDriveAsync` and managed with `RenameSharedDriveAsync`, `HideSharedDriveAsync`, `UnhideSharedDriveAsync` and `DeleteSharedDriveAsync`, which Drive allows only on an empty drive.
@@ -87,6 +184,37 @@ foreach (var permission in await drive.ListPermissionsAsync(fileId))
     if (permission.Type == DrivePermissionType.Anyone && !permission.Inherited)
     {
         await drive.RemovePermissionAsync(fileId, permission.Id);   // close the public link
+    }
+}
+```
+
+### Who can read a file
+
+`GetAccessAsync(fileId, emailAddress, minimumRole)` says what one person may do with a file, as a `DriveAccess`: whether their best `Role` reaches `minimumRole`, and the `DriveAccessSource` that gives it — a user grant to their address, a domain grant to their address's domain, a group they are in, or an anyone grant, whether or not the file turns up in search. Expired grants and deleted accounts give nothing, and on a file that turns inheritance off, only grants made on the file itself count, apart from a shared drive's managers, whom Drive still lets in.
+
+Group membership is in the Workspace directory, not in Drive. Pass a `GoogleDirectory` and `GetAccessAsync` asks it about each group that would raise the person's role. Without one, or for a group the directory cannot answer for (one outside the Workspace's own domain), the group is listed in `UnresolvedGroups` instead of counting as no access, so the app can say "maybe" rather than "no". `GoogleDirectory` needs the `admin.directory.group.member.readonly` scope on an admin's account, usually a service account acting as one (see "Choosing an identity").
+
+To check many people against one folder, read its permissions once and pass them to the static `Drive.GetAccessAsync(permissions, emailAddress, ...)`, which reads nothing more than group membership:
+
+<!-- ikon-example: connectors-drive-access -->
+```csharp
+var permissions = await drive.ListPermissionsAsync(folderId);
+
+foreach (var email in partnerEmails)
+{
+    var access = await Drive.GetAccessAsync(permissions, email, DriveRole.Reader, directory);
+
+    if (access.HasAccess)
+    {
+        Log.Instance.Info($"{email} can read the folder as {access.Role}, through a {access.Source} grant");
+    }
+    else if (access.UnresolvedGroups.Count > 0)
+    {
+        Log.Instance.Info($"{email} may read the folder through {string.Join(", ", access.UnresolvedGroups)}");
+    }
+    else
+    {
+        Log.Instance.Info($"{email} cannot read the folder");
     }
 }
 ```
@@ -554,4 +682,4 @@ Google meters each API per minute, per project and per user, in units that diffe
 
 ### What it does not reach
 
-This package covers Drive (files, sharing, comments, revisions, labels, activity and change notifications); Gmail (reading, sending, threads, drafts, labels, filters, the vacation reply, signatures and Pub/Sub notifications); Calendar (calendars, events, invitations, free time, sharing and change feeds); the content of Docs, Sheets and Slides; Contacts; Tasks; Meet's spaces and what its conferences leave behind; Chat as the person; Forms; and Workspace Events for Drive, Chat and Meet. It does not reach Calendar's appointment schedules, which have no API; Docs' suggestions; Sheets' formatting, charts and filters, or Slides' layout beyond whole slides, except through `BatchUpdateAsync`; Meet's live media; a Chat app (bot) of your own, which signs in as a service account; Chat's cards and message search; Workspace Events for Gmail and Calendar, which Google does not offer (their own push stands in); Drive approvals; Gmail's IMAP, POP, language, S/MIME and client-side encryption settings; or anything that needs a service account with domain-wide delegation, such as Gmail delegates, adding forwarding addresses, Keep, the Admin SDK or Vault. Everything it does goes through Google's REST APIs with the person's own consent.
+This package covers Drive (files, sharing, comments, revisions, labels, activity and change notifications); Gmail (reading, sending, threads, drafts, labels, filters, the vacation reply, signatures and Pub/Sub notifications); Calendar (calendars, events, invitations, free time, sharing and change feeds); the content of Docs, Sheets and Slides; Contacts; Tasks; Meet's spaces and what its conferences leave behind; Chat as the person; Forms; and Workspace Events for Drive, Chat and Meet. It does not reach Calendar's appointment schedules, which have no API; Docs' suggestions; Sheets' formatting, charts and filters, or Slides' layout beyond whole slides, except through `BatchUpdateAsync`; Meet's live media; a Chat app (bot) of your own; Chat's cards and message search; Workspace Events for Gmail and Calendar, which Google does not offer (their own push stands in); Drive approvals; Gmail's IMAP, POP, language, S/MIME and client-side encryption settings; Gmail delegates, adding forwarding addresses, Keep or Vault; or the Admin SDK beyond group membership (`GoogleDirectory`). Everything it does goes through Google's REST APIs, as the person who consented, a service account, or a Workspace account the service account may act for.

@@ -1,4 +1,4 @@
-<!-- checked-against: e6cea22e5d753426e3b0c442 -->
+<!-- checked-against: 5bbecd195d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -36,8 +36,10 @@ first hour, a few times an hour that day, hourly for the rest of the week. After
 stops looking, and the connection shows `Stopped after a week unused` in `ikon connect list`. `ikon connect resume`, or
 turning IKON Connect on in IKON Desktop, starts it looking again. If you have just opened an app and want the
 computer there now, run `ikon connect resume <app>` (`ikon connect resume studio` for Studio). It makes that connection look at once, and
-every ten seconds for the next two minutes while the app starts; without an app it does so for every connection.
-Opening Studio from IKON Desktop does it for Studio.
+every ten seconds for the next two minutes while the app starts. Without an app it makes every connection look at once,
+and then no more often than the platform allows.
+Opening Studio from IKON Desktop does it for Studio, and so does Check now, in IKON Desktop or
+beside Studio's "Waiting for your computer".
 
 Connecting lets an app start the coding agents installed on the computer, and they run as you.
 What an agent may do there is set by that agent's own permissions and settings, and IKON does not
@@ -61,6 +63,8 @@ Connect at login, and on Linux at boot (at login when lingering cannot be enable
 prints the `sudo loginctl enable-linger` command that changes that), so a computer that restarted
 is back without a command; `--no-links` and
 `--no-start-at-login` leave either out, or undo it. Without it, run `ikon service run` yourself.
+While an `ikon service run` you started in a terminal is running, the one started at login waits,
+and it serves the computer once you stop that terminal's service.
 
 ## 2. Connect an app
 

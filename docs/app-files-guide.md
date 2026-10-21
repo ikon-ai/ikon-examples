@@ -1,4 +1,4 @@
-<!-- checked-against: f76b97a0e56386d14e0f467b -->
+<!-- checked-against: f76b97a0ce9f063f4e0f467b -->
 
 # App Files Guide
 

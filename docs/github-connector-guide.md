@@ -1,4 +1,4 @@
-<!-- checked-against: d8b20d8ba63cbfa88dda48a4 -->
+<!-- checked-against: a425332cd56e60ba517aa33e -->
 
 # GitHub Connector Guide
 
@@ -19,7 +19,7 @@ Every failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider`
 
 A renamed or transferred repository answers its old name with a redirect (`301` for a read, `307` for a write) to its new address on the same API. The connector follows it with the token, sending a write again with the same method and body. A redirect to any other host, such as a download's signed link, is followed without the token. An `HttpClient` you pass in may follow redirects itself and drop the token on the way. The connector asks the new address again with the token when that happens, at the cost of a second request.
 
-A listing that reads every page pages by 100 up to `maxPages` (default 10; 50 for `ListFilesAsync` and the delta methods) and past it throws `ConnectorPageCapException<T>` with the items read, never a shortened list. Its `ResumeFrom` is set only where a method takes it back: `GitHubPullRequests.ListAsync` and `GitHubActions.ListRunsAsync` hand out the cursor `ListPageAsync` and `ListRunsPageAsync` take, and the delta methods the cursor to pass back. Elsewhere it is null, and a larger `maxPages` reads the rest.
+A listing that reads every page pages by 100 (`ListCommitFilesAsync` by GitHub's 300) up to `maxPages` (default 10; 50 for `ListFilesAsync` and the delta methods) and past it throws `ConnectorPageCapException<T>` with the items read, never a shortened list. Its `ResumeFrom` is set only where a method takes it back: `GitHubIssues.ListAsync`, `GitHubPullRequests.ListAsync`, `GitHubActions.ListRunsAsync` and `GitHub.ListCommitsAsync` hand out the cursor their `ListPageAsync`, `ListRunsPageAsync` and `ListCommitsPageAsync` take, and the delta methods the cursor to pass back. Elsewhere it is null, and a larger `maxPages` reads the rest.
 
 Every request pins `X-GitHub-Api-Version` — `2026-03-10` on github.com and GHE.com, and `2022-11-28` on an Enterprise Server, which every release accepts — so GitHub's answers keep the shape the records were written against.
 
@@ -28,7 +28,7 @@ Every request pins `X-GitHub-Api-Version` — `2026-03-10` on github.com and GHE
 A `GitHubTokenProvider` is what every client but `GitHubApp` takes in place of a bare token. Give the clients of one credential the same provider, so they share one renewal:
 
 - `GitHubTokenProvider.ForToken(token)` — a personal access token, an OAuth app's token, or an installation token minted elsewhere, used as it is.
-- `GitHubTokenProvider.Anonymous()` — no token: public data only, at 60 requests an hour per address.
+- `GitHubTokenProvider.Anonymous()` — no token: public data only, at 60 requests an hour per address. GitHub's GraphQL API answers nothing without a token, so the methods that use it (`QueryAsync`, `ListCommitsAsync` and the others this guide says read through GraphQL) throw `InvalidOperationException` before sending anything.
 - `new GitHubTokenProvider(userToken, clientId, clientSecret, onTokensRotated)` — a GitHub App user token. It lasts eight hours and is renewed five minutes before it expires, and once more when GitHub answers `401`; concurrent callers wait on one renewal. **GitHub rotates the refresh token on every renewal and the old pair stops working**, so persist the pair `onTokensRotated` receives. A renewal GitHub refuses is a `401`: the person signs in again.
 - `new GitHubTokenProvider(appCredentials, installationId)` — a GitHub App installation: it signs a JWT with the app's private key, mints the hour-long installation token and mints the next one before it runs out. `GitHubInstallationTokenOptions` narrows it to some repositories or permissions.
 
@@ -80,13 +80,16 @@ await SaveCursorAsync(delta.Since);   // pass back verbatim next time
 
 ### Working issues
 
-`GitHubIssues.ListAsync` lists a repository's issues (and pull requests) by a `GitHubIssueQuery` — state, labels, milestone, assignee, creator, mention, issue type, updated since — and `CreateAsync` takes a `NewGitHubIssue` with labels, assignees, a milestone and an issue type; GitHub drops those silently unless the token can push. `UpdateAsync` changes only the arguments given: a `GitHubIssueState` with a `GitHubIssueStateReason` closes or reopens it, labels and assignees replace the whole set, a `milestone` of 0 removes it and an empty `type` clears it. `LockAsync` (with a `GitHubLockReason`) and `UnlockAsync` stop and allow comments from people without push access.
+`GitHubIssues.ListAsync` lists a repository's issues by a `GitHubIssueQuery` — state, labels (an issue with any of them matches), milestone, assignee, creator, mention, issue type, updated since — most recently created first, and `ListPageAsync` reads one page of up to 100 as a `GitHubPage<GitHubIssue>` whose `NextCursor` it takes back. Both read through GraphQL, which lists issues without the pull requests, so a page of 20 is 20 issues; they need a token. `CreateAsync` takes a `NewGitHubIssue` with labels, assignees, a milestone and an issue type; GitHub drops those silently unless the token can push. `UpdateAsync` changes only the arguments given: a `GitHubIssueState` with a `GitHubIssueStateReason` closes or reopens it, labels and assignees replace the whole set, a `milestone` of 0 removes it and an empty `type` clears it. `LockAsync` (with a `GitHubLockReason`) and `UnlockAsync` stop and allow comments from people without push access.
 
 <!-- ikon-example: connectors-github-triage -->
 ```csharp
+var newest = await issues.ListPageAsync("ikon-ai/examples", limit: 20);
+await ShowAsync(string.Join("\n", newest.Items.Select(i => $"#{i.Number} {i.Title}")));
+
 var untriaged = await issues.ListAsync("ikon-ai/examples", new GitHubIssueQuery(Labels: ["needs-triage"], Assignee: "none"));
 
-foreach (var issue in untriaged.Where(i => !i.IsPullRequest))
+foreach (var issue in untriaged)
 {
     await issues.SetLabelsAsync("ikon-ai/examples", issue.Number, ["bug"]);
     await issues.UpdateAsync("ikon-ai/examples", issue.Number, assignees: ["octocat"], type: "Bug");
@@ -160,7 +163,19 @@ The `GitHub` client works a repository the way an editor does, without a clone. 
 
 Files: `GetFileAsync` returns a `GitHubFile` with the `Content` bytes, or null when no file is at the path (nothing, a directory, a symlink or a submodule), and reads a file over one megabyte through its blob. `DownloadFileAsync` streams the raw content instead, and `DownloadFileBytesAsync` reads it whole but refuses one over `maxBytes` rather than truncating it. `SetFileAsync` writes one file as one commit and returns the new blob and commit SHAs as a `GitHubWriteResult`; replacing a file needs the `Sha` it was read at as `expectedSha`, and a file that changed since throws `ConnectorException` with `StatusCode` `409` — as does another commit reaching the branch first, which only a fresh read of the file tells apart. `ListTreeAsync` gives every file path at a reference (a `GitHubTree`, whose `IsTruncated` says GitHub stopped short on a very large tree), `ListDirectoryAsync` one directory (`GitHubContentEntry` records, at most 1,000), and `DeleteFileAsync`, `GetReadmeAsync` and `DownloadArchiveAsync` (the whole repository as a zip or tarball, `GitHubArchiveFormat`) the rest.
 
-History: `ListCommitsAsync` (`GitHubCommit` records, newest first) is one request for `limit` commits (default 40, 1 to 100, else `ArgumentOutOfRangeException`) and filters by `since`, `until` and `author`; `GetCommitAsync` (a `GitHubCommit` whose `Files` are `GitHubChangedFile` records), `GetCommitDiffAsync`, `CompareAsync` (a `GitHubComparison` of two references) and `ListCommitPullRequestsAsync`. People: `GetUserAsync` (a `GitHubUser`). `GitHubPullRequests` has `ListAsync` (filtered by a `GitHubPullRequestState`), `GetAsync`, `CreateAsync` and `UpdateAsync` (`state: GitHubPullRequestState.Closed` closes one without merging), each returning a `GitHubPullRequest`, and `CreateReviewAsync` with a `GitHubReviewEvent` of `Approve`, `RequestChanges` or `Comment` (the last two need a body), which returns the `GitHubReview` it made. `GitHubIssues.AddCommentAsync` returns the `GitHubComment` it made.
+History: `ListCommitsAsync` reads every page of commits, newest first, and `ListCommitsPageAsync` one page of up to 100 as a `GitHubPage<GitHubCommit>` whose `NextCursor` it takes back. Both take a `GitHubCommitQuery`: a reference (the default branch when null), a path, `Since`, `Until` and an author: a person's login or any email address, since a bot such as `renovate[bot]` has no account GraphQL can filter by and is found by its commits' email address. With `IncludeStats` each commit's `Stats` (a `GitHubCommitStats`) holds its added and removed lines and how many files it changed, which GitHub leaves null when it cannot count them. Both read through GraphQL, so they need a token; `ListCommitsAsync` reads 100 commits a request whether or not they include stats. A `GitHubCommit` keeps the author's name, login, email address and `Date`, and its `Committer` (a `GitHubGitActor`) is whoever added it to the branch: a rebase, an amend, a cherry-pick or a merge on GitHub changes the committer and keeps the author. `GetCommitAsync` reads one commit with its `Stats` and the first 300 of its `Files` (`GitHubChangedFile` records). When it changed more, `HasMoreFiles` is set and `ListCommitFilesAsync` reads them all in pages of 300, up to the 3,000 GitHub lists. `GetCommitDiffAsync`, `CompareAsync` (a `GitHubComparison` of two references) and `ListCommitPullRequestsAsync` read one commit and its neighbours.
+
+<!-- ikon-example: connectors-github-history -->
+```csharp
+var commits = await gitHub.ListCommitsAsync("ikon-ai/examples", new GitHubCommitQuery(Since: lastSync, IncludeStats: true), maxPages: 40);
+
+foreach (var commit in commits)
+{
+    await RecordAsync(commit.Sha, commit.AuthorLogin ?? commit.AuthorEmail, commit.Date, commit.Stats!.Additions, commit.Stats.Deletions);
+}
+```
+
+People: `GetUserAsync` (a `GitHubUser`). `GitHubPullRequests` has `ListAsync` (filtered by a `GitHubPullRequestState`), `GetAsync`, `CreateAsync` and `UpdateAsync` (`state: GitHubPullRequestState.Closed` closes one without merging), each returning a `GitHubPullRequest`, and `CreateReviewAsync` with a `GitHubReviewEvent` of `Approve`, `RequestChanges` or `Comment` (the last two need a body), which returns the `GitHubReview` it made. `GitHubIssues.AddCommentAsync` returns the `GitHubComment` it made.
 
 <!-- ikon-example: connectors-github-files -->
 ```csharp
@@ -473,7 +488,35 @@ foreach (var failed in (await hooks.ListDeliveriesAsync(GitHubHookScope.Reposito
 
 ### Rate limits
 
-GitHub allows 5,000 REST requests an hour for a person's token (15,000 on GitHub Enterprise Cloud), 5,000 for an installation plus 50 for each repository and user past 20 (at most 12,500), and 60 without a token; GraphQL has its own 5,000-point hourly budget, and search 30 a minute (10 for code). On top of those, secondary limits refuse bursts — more than 100 concurrent requests, or more than about 80 content-creating requests a minute. The connector retries a rate-limited request three times as described under **GitHub** and then throws `429`; `GitHub.GetRateLimitAsync` reads where a token stands without spending any. Make writes one at a time, poll notifications no faster than `PollInterval`, and prefer the delta methods and webhooks to re-reading whole listings.
+GitHub allows 5,000 REST requests an hour for a person's token (15,000 on GitHub Enterprise Cloud), 5,000 for an installation plus 50 for each repository and user past 20 (at most 12,500), and 60 without a token; GraphQL has its own 5,000-point hourly budget, and search 30 a minute (10 for code). On top of those, secondary limits refuse bursts — more than 100 concurrent requests, or more than about 80 content-creating requests a minute. The connector retries a rate-limited request three times as described under **GitHub** and then throws `429`. That `ConnectorException` has `RetryAt`, the time GitHub said the limit lifts: its `Retry-After`, the reset of the spent window, or a minute on for a secondary limit without a `Retry-After`. Make writes one at a time, poll notifications no faster than `PollInterval`, and prefer the delta methods and webhooks to re-reading whole listings.
+
+Every response says how much of its limit is left, and `GitHubTokenProvider.GetLastRateLimit(GitHubRateLimitResource)` returns the latest of these readings for `Core` (REST), `Search`, `CodeSearch` or `GraphQL` as a `GitHubRateLimitBucket`, without a request. It covers every client built with that provider, and is null for a limit no response has counted against yet. `GitHub.GetRateLimitAsync` asks GitHub for all four without spending any. A long scan can check the reading and stop before the limit runs out:
+
+<!-- ikon-example: connectors-github-rate-limit -->
+```csharp
+var gitHub = new GitHub(tokens);
+
+foreach (var repo in repos)
+{
+    if (tokens.GetLastRateLimit(GitHubRateLimitResource.Core) is { Remaining: < 100 } core)
+    {
+        await ShowAsync($"Paused until {core.ResetAt:t} to keep some of GitHub's hourly limit for other work");
+        break;
+    }
+
+    try
+    {
+        await gitHub.GetRepositoryAsync(repo);
+    }
+    catch (ConnectorException ex) when (ex.RetryAt is { } retryAt)
+    {
+        await ShowAsync($"GitHub is busy. Try again at {retryAt:t}.");
+        break;
+    }
+}
+```
+
+The reading covers only this process. Other processes using the same token, and for a person's token their other tokens, spend the same limit.
 
 ### What it does not reach
 

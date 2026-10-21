@@ -1,4 +1,4 @@
-<!-- checked-against: 1998f0dd0bc7ed76d6531655 -->
+<!-- checked-against: f44222690bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -94,9 +94,10 @@ erase:
 - Personal data (names, emails, free text about a person) your app stored in `Session` or `Global`
   scoped values — those are shared state, not per-user state, so the platform cannot know what
   inside them belongs to whom.
-- Files your app wrote at run time through `app.Files` or the asset API. They cannot be listed or
-  deleted by prefix, so record each file's path (or asset URI) with the user id when you write it, and
-  delete from that record in the listener.
+- Files your app wrote at run time through `app.Files` or the asset API. Write a user's files under a
+  folder of their own (`users/{id}/`) and delete it in the listener with
+  `app.Files.Data.DeleteFolderAsync($"users/{userId}")`; for a file stored as its own asset, keep its
+  asset URI with the user id when you write it and delete from that record.
 
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
 `[Trigger(TriggerEventType.UserErased)]` method on your app class. Without it the platform does not

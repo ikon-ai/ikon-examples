@@ -1,4 +1,4 @@
-<!-- checked-against: 52f8c8fd753cd0a741a73628 -->
+<!-- checked-against: 82137ab7e8d2c7d5fa9683cb -->
 
 # IKON Persistent State Guide
 
@@ -353,9 +353,9 @@ Plain records keep today's behavior exactly; nothing opts in until the type is a
 ## When to drop down to `Asset.Instance` directly
 
 Reach for `Asset.Instance` (with a hand-built `AssetUri`) only when:
-- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one — and only for
-  `AssetClass.LocalFile` or `AssetClass.EmbeddedFile`. The cloud classes throw `NotSupportedException`
-  on listing, so cloud files you must enumerate later need their keys kept in a persistent reactive.
+- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one. A cloud file
+  listing needs a folder URI with the space in it; `CloudJson` cannot be listed at all, so keys of JSON
+  values you must enumerate later go in a persistent reactive.
 - You need streaming reads/writes for very large files (multi-GB).
 - The data isn't naturally a typed reactive value (e.g., a uploaded user file you only ever fetch on demand).
 

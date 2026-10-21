@@ -1,4 +1,4 @@
-<!-- checked-against: 4e418a00e0133b05024025a6 -->
+<!-- checked-against: f9909392e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -36,7 +36,12 @@ fields and the limits below, except the metadata key count, throw `ArgumentExcep
 anything is sent; a malformed `To` or `ReplyTo` address and too many metadata keys are rejected by the
 backend and surface as a `UserException`.
 
-A local `ikon run` sends real email from the app's cloud space, but in a local run `app.PublicUrl`
+A local `ikon run` does not refuse a reserved-domain recipient: it writes the message to
+`build/mail/<time>-<recipient>/` in the app folder (`message.json`, `body.html`, `attachments/`)
+and the send succeeds, so the success path can be tested without sending anything.
+`ikon run --mail-sink` writes every message there, whatever its recipient.
+
+Any other recipient of a local `ikon run` gets real email from the app's cloud space, but in a local run `app.PublicUrl`
 and `app.JoinUrl` are the address of that run, so a link built from them works only while the run is
 up:
 

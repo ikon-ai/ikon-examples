@@ -1,4 +1,4 @@
-<!-- checked-against: aafa67d752e4d6285f75b9c5 -->
+<!-- checked-against: 207bdcd59d9ce0835f75b9c5 -->
 
 # Ikon.AI Library Overview
 
@@ -694,6 +694,8 @@ for a granularity the model does not support throws** rather than returning an e
 `Words` would otherwise mean both "not supported" and "no speech". Check first with
 `SpeechRecognizer.GetCapabilities(model)`, which reports `SupportsWordTimestamps`,
 `SupportsSegmentTimestamps` and `SupportsDiarization` alongside the existing flags.
+
+`Diarize = true` needs a model with `SupportsDiarization`; the example above assumes one, and with `SpeechRecognizerModel.Whisper2` (or any other Whisper model) it throws. To get speakers from Whisper text, take the segments from Whisper and have a diarizing model, or an LLM, assign the speakers in a second pass.
 
 Two provider limits throw exceptions rather than leaving fields empty:
 

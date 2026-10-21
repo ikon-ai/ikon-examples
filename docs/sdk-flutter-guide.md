@@ -1,4 +1,4 @@
-<!-- checked-against: 4608af0362c9340ce3b0c442 -->
+<!-- checked-against: 756a6a8b8846f544e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -352,9 +352,10 @@ final client = await IkonClient.connectGuest(
 `IkonNativeSignIn` answers the server's `ClientFunctions.LoginAsync`, `LoginShowAsync` and
 `LogoutAsync` calls on a phone, where a browser would leave for the provider and come back. OAuth
 providers open in a web view that returns to the app's own https origin. The auth service returns a
-token to no other kind of address, so a custom-scheme deep link never receives one. Email sign-in
-uses the code the auth service mails. The token is kept in secure storage, so the next launch
-connects straight in as that user. If the server no longer accepts the token, it is dropped and the
+token to no other kind of address, so a custom-scheme deep link never receives one. When the
+provider's page cannot load because the phone has no connection, the web view says so and offers
+Try again. Email sign-in uses the code the auth service mails. The token is kept in secure storage,
+so the next launch connects straight in as that user. If the server no longer accepts the token, it is dropped and the
 app connects as a guest. `sso:` connections and passkeys are not offered on a phone yet.
 
 `ikon bundle --flutter-*` passes every method the app's surfaces list as `IKON_AUTH_METHODS` and, when
@@ -379,6 +380,34 @@ signIn.register(client);               // answers login, loginShow and logout
 
 An app that requires sign-in shows `IkonSignInChooser(methods: signIn.supportedMethods, canClose: false, onChosen: signIn.signInWith)`
 before connecting when `signIn.storedToken()` is null.
+
+An app can draw that first screen itself instead, in its own branding. It still passes OAuth
+providers to `signIn.signInWith(method)`, so they return to the https origin. If it asks for the email
+code on its own screen, it exchanges the code with `IkonAuthenticator.verifyEmailCode` and passes the
+token to `signIn.signInWithToken(token)`. The SDK stores that token like any other and the app
+reconnects. It returns false when the phone's secure storage refuses the token, so the screen can
+say so and let the user try again. Codes are nine letters and digits, so give the code field
+`emailCodeInputFormatters` and a text keyboard, and pass the typed code through `normalizeEmailCode`
+before verifying it.
+
+### Deployed Apps — Signing the Web Page In from the Phone
+
+A person signed in on the phone can sign the same app's web page in without signing in again. The
+app turns this on by listing `phone` in a surface's `[Surface.Auth] Methods`. There are two ways,
+and both open only this app's page, never another app's:
+
+- `signIn.createWebSignInLink()` returns an address that opens the app's web page signed in, or null
+  when no one is signed in on the phone. Open it on another of the person's devices within two
+  minutes. Whoever opens it first is signed in, so never share it with someone else.
+- `signIn.confirmWebSignIn(scanned)` approves the QR code the web page's sign-in screen shows. Pass
+  it the text from the app's own scanner, or the address a
+  deep link opened the app with. It shows which browser is asking and the code the page shows, and
+  returns true once the person approves. It throws `IkonWebHandoffException` when the page's code has
+  expired (`gone` is true) or the page is not this app's. The SDK has no camera dependency, so the
+  app brings its own scanner.
+
+A phone with no app can approve too. Its camera opens the QR code's address in the browser, and a
+signed-in page there asks the person to approve.
 
 ### Deployed Apps — API Key
 
@@ -434,6 +463,24 @@ the connect token because it was issued for a server that has since been replace
 expired, the connect stops retrying and asks `/init` for a new token once. If that one is refused
 too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
 connect again later.
+
+## Keyboard
+
+A tap outside the focused text field closes the keyboard, and on iOS so does dragging a scrolling
+list. A tap on a button or another field leaves it open, so a chat's Send button keeps the keyboard
+up, and on Android scrolling leaves it open too. The Parallax view applies this to the streamed UI,
+its dialogs and its menus, and the email sign-in page does the same. iOS number pads have no key
+that closes the keyboard, so without it a field in a streamed form could keep the keyboard open over
+the page. Screens an app draws itself get the same behaviour when it wraps them in
+`IkonKeyboardDismissal`:
+
+<!-- ikon-example: flutter-sdk-keyboard-dismissal -->
+```dart
+return MaterialApp(
+  builder: (context, child) => IkonKeyboardDismissal(child: child!),
+  home: const MyHomeScreen(),
+);
+```
 
 ## Custom Components
 

@@ -1,4 +1,4 @@
-<!-- checked-against: cb92fd5e8d0775fd1402d4ae -->
+<!-- checked-against: cb92fd5e8d0775fdf63757c8 -->
 
 # Slack Connector Guide
 

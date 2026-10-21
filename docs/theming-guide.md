@@ -1,4 +1,4 @@
-<!-- checked-against: b452907d3dd3d6c26f72b629 -->
+<!-- checked-against: 7b268fe8e5e7117b4b069531 -->
 
 # IKON Theming Guide
 
@@ -119,7 +119,7 @@ var theme = new IkonTheme
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
 
-For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
+For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; to apply a saved choice on join, call `theme.SetAsync(Theme.Dark)`: it sets `Current` and pushes the theme, while a direct `ClientFunctions.SetThemeAsync` leaves `Current` stale, so never call it beside `UseTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
 
 <!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp

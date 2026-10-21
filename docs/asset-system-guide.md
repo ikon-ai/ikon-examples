@@ -1,4 +1,4 @@
-<!-- checked-against: 3a8a8845c69eebb803f7fb8d -->
+<!-- checked-against: 8bd77268da942a2203f7fb8d -->
 
 # Asset System Developer Guide
 
@@ -200,7 +200,7 @@ await assets.GetOrUpdateWithMetadataAsync<Settings>(
 
 ## Listing assets
 
-Use `ListAsync` with an `AssetQuery` to enumerate a folder. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`. The folder prefix is the only filter that applies: a non-empty `Tags` throws `NotSupportedException`, `Limit` caps every listing, and listings are not paged (the query's `NextContinuationToken` is always null), so filter by tag and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one never lists its own files, only the unscoped files at the same bare path.
+Use `ListAsync` with an `AssetQuery` to enumerate a folder. Every backend lists except `CloudJson`, which throws `NotSupportedException`. A `CloudFile` or `CloudFilePublic` listing needs a folder URI that names a space (`new AssetUri(AssetClass.CloudFile, "exports/", spaceId)`), takes no user scope, leaves out uploads that never completed, and fetches the list from the platform a hundred files per request; within an app, `app.Files.Data.ListAsync(folder)` does this for the app's own files. The folder prefix is the only filter that applies: a non-empty `Tags` throws `NotSupportedException`, `Limit` caps every listing, and listings are not paged (the query's `NextContinuationToken` is always null), so filter by tag and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one never lists its own files, only the unscoped files at the same bare path.
 
 <!-- ikon-example: asset-guide-list -->
 ```csharp

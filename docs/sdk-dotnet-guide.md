@@ -1,4 +1,4 @@
-<!-- checked-against: 07831566ec7f9c883cfc968f -->
+<!-- checked-against: 90566d5aec7f9c88a6b51957 -->
 
 # IKON C# SDK
 
@@ -213,7 +213,7 @@ under the `UserId` you give it.
 A kiosk, a bot or a script that shows an app's live state or calls its functions is a console
 program with this SDK. Kept with an app, it goes in the app's `devices/<name>/` folder, which is
 kept in the app's repository (the save before a deploy commits it) but is not built or run by the
-deploy or by `ikon run`. Create it with `dotnet new console` and add the package with
+deploy or by `ikon run`. Create it with `dotnet new console -n <Name>`, which puts the project in a `<Name>/` subfolder of `devices/<name>/`, and add the package from inside that subfolder with
 `dotnet add package Ikon.Sdk --version <version>`, taking the `Ikon.Sdk` version the app's csproj
 lists in its `PackageReference`. The SDK is released on its own version line, apart from the app's
 other `Ikon.*` libraries, and is on nuget.org. That published package also works against an app
@@ -239,7 +239,7 @@ Which authentication mode to use depends on where the app runs:
 |---|---|---|
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (8443 unless another run held it), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
 | Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the one with neither `Routes` nor `Host`) must list `guest` or `global` in its `Methods` |
-| Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
+| Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
 ```csharp
