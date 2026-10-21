@@ -161,7 +161,7 @@ public partial class Validation
                 {
                     v.Box(["grid grid-cols-3 gap-2 w-full"], content: g =>
                     {
-                        g.Box(["col-span-2 h-10 rounded bg-brand-solid flex items-center justify-center"], content: c => c.Text([Text.Caption], "col-span-2"));
+                        g.Box(["col-span-2 h-10 rounded bg-brand-solid flex items-center justify-center"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "col-span-2"));
                         g.Box(["h-10 rounded bg-surface border border-secondary"]);
                         g.Box(["h-10 rounded bg-surface border border-secondary"]);
                         g.Box(["h-10 rounded bg-surface border border-secondary"]);
@@ -172,7 +172,7 @@ public partial class Validation
                 {
                     v.Box(["grid grid-cols-3 grid-rows-2 gap-2 w-full h-32"], content: g =>
                     {
-                        g.Box(["row-span-2 rounded bg-brand-solid flex items-center justify-center"], content: c => c.Text([Text.Caption], "row-span-2"));
+                        g.Box(["row-span-2 rounded bg-brand-solid flex items-center justify-center"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "row-span-2"));
                         g.Box(["rounded bg-surface border border-secondary"]);
                         g.Box(["rounded bg-surface border border-secondary"]);
                         g.Box(["rounded bg-surface border border-secondary"]);
@@ -217,10 +217,10 @@ public partial class Validation
                 {
                     v.Box(["relative h-32 w-full bg-surface rounded-md border border-secondary"], content: box =>
                     {
-                        box.Box(["absolute top-2 left-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption], "top-left"));
-                        box.Box(["absolute top-2 right-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption], "top-right"));
-                        box.Box(["absolute bottom-2 left-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption], "bottom-left"));
-                        box.Box(["absolute bottom-2 right-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption], "bottom-right"));
+                        box.Box(["absolute top-2 left-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "top-left"));
+                        box.Box(["absolute top-2 right-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "top-right"));
+                        box.Box(["absolute bottom-2 left-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "bottom-left"));
+                        box.Box(["absolute bottom-2 right-2 px-2 py-1 rounded bg-brand-solid"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "bottom-right"));
                         box.Box(["absolute inset-0 flex items-center justify-center"], content: c => c.Text([Text.Caption], "inset-0 centered"));
                     });
                 });
@@ -238,7 +238,7 @@ public partial class Validation
                 {
                     v.Box(["h-40 w-full overflow-y-auto rounded-md border border-secondary"], content: box =>
                     {
-                        box.Box(["sticky top-0 bg-brand-solid px-3 py-2 z-10"], content: c => c.Text([Text.Caption], "sticky header"));
+                        box.Box(["sticky top-0 bg-brand-solid px-3 py-2 z-10"], content: c => c.Text([Text.Caption, "text-primary-on-brand"], "sticky header"));
                         box.Column(["p-3 gap-2"], content: col =>
                         {
                             for (var i = 1; i <= 12; i++)
