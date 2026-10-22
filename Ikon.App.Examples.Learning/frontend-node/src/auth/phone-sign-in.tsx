@@ -40,7 +40,7 @@ export function PhoneSignIn({ disabled, onAttempt }: PhoneSignInProps) {
   if (phoneSignIn?.status === 'failed' || phoneSignIn?.status === 'denied') {
     return (
       <div className="ikon-auth-phone">
-        {phoneSignIn.status === 'failed' ? <div className="ikon-auth-error">{phoneSignIn.error}</div> : <p className="ikon-auth-phone-hint">{t('auth.phone.denied')}</p>}
+        {phoneSignIn.status === 'failed' ? <div className="ikon-auth-error">{t('auth.phone.failed')}</div> : <p className="ikon-auth-phone-hint">{t('auth.phone.denied')}</p>}
         <button type="button" className="ikon-auth-email-button" onClick={() => setShowing(false)}>
           {t('auth.phone.back')}
         </button>
@@ -101,7 +101,7 @@ export function HandoffPrompt() {
         ) : (
           <>
             <p className="ikon-auth-subtitle">
-              {handoffPrompt.status === 'approved' ? t('auth.handoff.approved') : handoffPrompt.status === 'expired' ? t('auth.handoff.expired') : handoffPrompt.error}
+              {handoffPrompt.status === 'approved' ? t('auth.handoff.approved') : handoffPrompt.status === 'expired' ? t('auth.handoff.expired') : t('auth.handoff.failed')}
             </p>
             <button type="button" className="ikon-auth-email-button" onClick={dismissHandoff}>
               {t('auth.handoff.close')}
