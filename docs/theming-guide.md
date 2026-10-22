@@ -1,4 +1,4 @@
-<!-- checked-against: 7b268fe8e5e7117b4b069531 -->
+<!-- checked-against: f265044f085bb8d24b069531 -->
 
 # IKON Theming Guide
 
@@ -50,7 +50,7 @@ Governing rules:
 2. **Expression is concrete and unlimited.** Decorative styling goes at the use point, with no need for tokens. The app's DESIGN brief is its only contract.
 3. **Coherence is reviewed against the app's DESIGN brief, not enforced by token discipline.** Variation that the brief asks for is correct.
 4. **Add tokens only when they are needed.** Extract a custom variable only when the same concrete value is used again and again, never upfront.
-5. **Decide dark mode explicitly.** Expressive apps usually commit `Mode = ThemeMode.Fixed`: a pirate tavern has no light mode, and a light scheme it was not designed for ships broken contrast. Adaptive apps get dark mode from the structural core without extra work.
+5. **Decide dark mode explicitly.** Expressive apps usually commit `Mode = ThemeMode.Fixed`: a pirate tavern has no light mode, and a light scheme it was not designed for ships broken contrast. Adaptive apps get dark mode from the structural core without extra work. A dark-only app sets three things together: `Mode = ThemeMode.Fixed`, a dark `["background"]`, and `["text-secondary"]` and `["text-tertiary"]` (for example `slate-300` and `slate-400`), because the baseline tiers log a contrast warning on a background far from the baseline's. It does not call `UI.UseTheme()`: its Dark default and the switch only matter to an adaptive theme.
 
 ## How it works
 
@@ -119,7 +119,7 @@ var theme = new IkonTheme
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
 
-For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved or OS scheme and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; to apply a saved choice on join, call `theme.SetAsync(Theme.Dark)`: it sets `Current` and pushes the theme, while a direct `ClientFunctions.SetThemeAsync` leaves `Current` stale, so never call it beside `UseTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
+For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved scheme, starts a client with none on Dark (`UseTheme(Theme.Light)` starts it light), and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; to apply a saved choice on join, call `theme.SetAsync(Theme.Dark)`: it sets `Current` and pushes the theme, while a direct `ClientFunctions.SetThemeAsync` leaves `Current` stale, so never call it beside `UseTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
 
 <!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp

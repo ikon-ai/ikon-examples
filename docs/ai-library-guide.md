@@ -1,4 +1,4 @@
-<!-- checked-against: 207bdcd59d9ce0835f75b9c5 -->
+<!-- checked-against: 098487d1546989f73ec25f7f -->
 
 # Ikon.AI Library Overview
 
@@ -21,6 +21,21 @@ Every service's config has a `Timeout`, and a call that runs past it throws `AIT
 | Mesh generation | 20 minutes |
 | Video enhancement, video segmentation | 30 minutes |
 | Speech generation, file conversion, multi-page scrape | 1 hour |
+
+## Provider keys and fallback
+
+Models run on the platform's provider keys unless the app holds its own. An app secret named after
+the provider's credential, such as `ikon secret set IKON_OPENAI_API_KEY`, makes every model that
+provider serves run on that key, in the app's process, whenever the AI region policy allows that
+provider's route. The provider bills the key, the platform charges its margin, and the call is
+checked against the organisation's credits and spend limits like a call on the platform's keys.
+
+Many models have more than one provider. When the provider serving a call fails on its side (an
+outage, throttling, an empty account, a refused key or a retired model) before any output reaches
+the caller, the call moves once to the model's next provider in the allowed regions. A request the
+provider refused as written does not move, and neither does a call on the app's own key, which is
+never moved onto the platform's key. A request with an option the first provider does not take, such as a
+negative prompt, runs on another provider of the model that takes it. It throws only when none can.
 
 ## Emergence
 
@@ -100,7 +115,7 @@ Log.Instance.Info($"String result: {stringResult}");
 
 ## Custom Model Endpoints
 
-Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted. A custom model declares no region, so under an EU-only AI region policy calling it throws `AIRegionPolicyViolationException`:
+Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted. An endpoint custom model declares no region, so under an EU-only AI region policy calling it throws `AIRegionPolicyViolationException`:
 
 Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
@@ -126,15 +141,73 @@ await foreach (var llmEvent in Emerge.Generate("my-model", new KernelContext()))
 }
 ```
 
-Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), classification (`CustomClassificationModel`), and decisions (`CustomDecisionModel`); each picks one of the category's existing HTTP request formats via its `Api` enum. Other categories (image generation, speech) are not yet supported.
+Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), classification (`CustomClassificationModel`), and decisions (`CustomDecisionModel`); each picks one of the category's existing HTTP request formats via its `Api` enum.
 
-Key behaviors:
+### Your own provider class
+
+When the model speaks none of those formats (a runtime in the app's own process, a private gateway, a vendor's SDK), implement the family's provider interface and register the object under a name with `CustomModels.Instance.Register(name, provider, region)`. The interfaces are `ILLMProvider`, `IEmbeddingProvider`, `IImageGenerationProvider`, `ISpeechGenerationProvider` and `ISpeechRecognitionProvider`. One class may implement several, and the name then works in each of those families (`Emerge`, `new EmbeddingGenerator(name)`, `new ImageGenerator(name)`, `new SpeechGenerator(name)`, `new SpeechRecognizer(name)`).
+
+Needs the `System.Runtime.CompilerServices`, `Ikon.AI.Kernel`, `Ikon.AI.LLM` using directives.
+
+<!-- ikon-example: aid-custom-model-providers -->
+```csharp
+public sealed class MyLlamaProvider : ILLMProvider
+{
+    public LLMCapabilities Capabilities { get; } = new()
+    {
+        ContextWindowSize = 32768,
+        MaxOutputTokens = 4096,
+        SupportsStreaming = true,
+        SupportsSingleToolCalling = true,
+    };
+
+    public async IAsyncEnumerable<LLMProviderOutput> GenerateAsync(KernelContext context, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var prompt = string.Join("\n", context.Messages.Select(message => $"{message.Role}: {message}"));
+        int outputTokens = 0;
+
+        await foreach (var piece in RunMyModelAsync(prompt, context.MaxOutputTokens, cancellationToken))
+        {
+            outputTokens++;
+            yield return new LLMProviderOutput.Text(piece);
+        }
+
+        yield return new LLMProviderOutput.Usage(InputTokens: CountTokens(prompt), OutputTokens: outputTokens);
+    }
+
+    // Your own inference goes here: a local GPU runtime, a private gateway, another vendor's SDK
+    private static async IAsyncEnumerable<string> RunMyModelAsync(string prompt, int maxTokens, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        yield return "Hello from my own model";
+    }
+
+    private static int CountTokens(string text) => text.Length / 4;
+}
+```
+
+Needs the `Ikon.AI`, `Ikon.AI.Emergence` using directives.
+
+<!-- ikon-example: aid-custom-model-providers-register -->
+```csharp
+CustomModels.Instance.Register("my-llama", new MyLlamaProvider(), ModelRegion.EuNorth);
+
+var reply = await Emerge.AskAsync("Hello", "my-llama");
+```
+
+- **The platform does the rest of the call.** An LLM provider streams `LLMProviderOutput.Text`, `Reasoning`, `ToolCall` (name and JSON arguments) and an optional `Usage`; the platform binds the tool calls to the context's functions, emits the usual `LLMEvent`s, and fails a turn that produced nothing. A tool's schema for your request is `FunctionSchema.ToJson(function)`. Image results are measured and watermarked like any provider's, embeddings are split into batches of the provider's `MaxInputCount` and their lengths checked, and speech chunks get their first and last flags.
+- **Declared capabilities are enforced.** What a provider declares is read once at registration. A request the capabilities rule out, such as two images from a provider without `SupportsMultipleOutputs` or word timings from a recognizer that has none, is refused before your code runs. If your code cannot honour a request field, throw `InvalidRequestException` instead of ignoring the field. Speech recognition providers serve batch recognition only.
+- **Region.** The third argument says where the provider serves its calls. Leave it at `ModelRegion.Global` when you don't know. A call to a `Global` model from an organisation whose AI region policy is EU-only throws `AIRegionPolicyViolationException`. A custom model has this one route, so a region list passed to a call does not move it elsewhere.
+- **Mocks.** Under `AIMocks.Use()` or `ikon run --mock-ai`, the family's mock answers instead of your provider.
+- One provider instance serves every call concurrently, so make it thread-safe. The platform never disposes it.
+
+Key behaviors of every custom model:
 
 - **Always in-process.** Calls to custom models execute locally with your API key and never go through the IKON RPC mechanism — the platform never sees your endpoint or key.
 - **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
-- **In an agent.** An `Ikon.Agent` persona names no model: each pass resolves its `Reasoning` to a built-in one. Set `Orchestrator.ModelNameHook` to have a thread's passes use a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to the built-in mapping. That is how an app lets a person use a model they brought their own key for.
+- **In an agent.** An `Ikon.Agent` persona's `Reasoning` names a built-in model (`Model`), or a capability and family each pass resolves to one. Set `Orchestrator.ModelNameHook` to have a thread's passes use a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to its `Reasoning`. That is how an app lets a person use a model they brought their own key for.
 - **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration

@@ -1,4 +1,4 @@
-<!-- checked-against: 90566d5aec7f9c88a6b51957 -->
+<!-- checked-against: 2b265991ec7f9c8854752266 -->
 
 # IKON C# SDK
 
@@ -23,7 +23,7 @@ dotnet add package Ikon.Sdk
 
 ## Quick Start
 
-Add `using Ikon.Sdk;`, then:
+Add `using Ikon.Sdk;` and `using Ikon.Common.Core.Protocol;` (the `UserType` and `ClientType` enums live there), then:
 
 <!-- ikon-example: sdk-quickstart -->
 ```csharp
@@ -230,6 +230,7 @@ keeps the steps out.
 <!-- ikon-example: sdk-console-usings -->
 ```csharp
 using Ikon.Common.Core;
+using Ikon.Common.Core.Protocol;
 using Ikon.Sdk;
 ```
 

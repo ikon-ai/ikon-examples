@@ -1,4 +1,4 @@
-<!-- checked-against: 1bb7b824ac468e15644cf1ec -->
+<!-- checked-against: a367076aac468e15644cf1ec -->
 
 # IKON Platform Events
 
@@ -297,6 +297,12 @@ top-level keys, the completion details, the exception (`class`, `failureKind`,
 `errorType`, `errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For
 LLM calls the completion details carry the token counts (`InputTokens`, `OutputTokens`,
 `InputCachedTokens`, `OutputReasoningTokens`, `FinishReason`, …).
+
+`usagePrefix` names the route that served the call the way its usage events are named
+(`{kind}.{provider}.{model}.{region}`, such as `llm.groq.gpt-oss-120b.global`), so a call and what it
+cost can be matched. When an LLM call moves to another provider after its first one failed,
+`modelName` is the route it started on and `usagePrefix` the one that answered. A `_failed` event
+also carries `statusCode`, the provider's HTTP status as an integer, when there was one.
 
 `failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
 `AccessDenied`, `CreditExhausted`, `Quality` or `Unknown`. It is finer than `class`, and it tells a

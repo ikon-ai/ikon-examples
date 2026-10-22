@@ -1,4 +1,4 @@
-<!-- checked-against: f9909392e0133b05024025a6 -->
+<!-- checked-against: 17bd5cb4e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -227,6 +227,9 @@ in it: keep what the handler records in a database and read it from there. The w
 backend fails to create the event, the message is still stored and readable through `app.Email` but
 the trigger never fires for it, so an app that must not miss mail still reads its inbox now and then.
 
+The next snippet needs `using Ikon.App.Triggers;` (`TriggerContext`) and `using Ikon.Common.Core.Protocol;`
+(`TriggerEventType`), which the scaffold's global usings do not cover.
+
 <!-- ikon-example: email-trigger -->
 ```csharp
 [Trigger(TriggerEventType.EmailReceived, MaxParallelism = 4)]
@@ -252,9 +255,6 @@ and the second insert fails on the primary key. Claim the message in one stateme
 only when that statement inserted a row (`ExecuteAsync` returns 1); the path that gets 0 stops there.
 When that work can fail, keep a `processed` flag on the row and have the sweep and the redelivered
 event finish a row that is stored but not processed.
-`TriggerContext` lives in `Ikon.App.Triggers` and `TriggerEventType` in `Ikon.Common.Core.Protocol`,
-neither of which the scaffold's global usings cover.
-
 The trigger fires only in a deployed app; a local `ikon run` can read the inbox but gets no events.
 A deployed app can send mail to its own inbox, so the whole path can be tested without an outside
 mail account: once `ikon inbox enable` has run, send to any address at a receiving domain, such as

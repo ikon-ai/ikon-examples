@@ -1,4 +1,4 @@
-<!-- checked-against: 82137ab7e8d2c7d5fa9683cb -->
+<!-- checked-against: 76a116e9e8d2c7d5dd294acf -->
 
 # IKON Persistent State Guide
 
@@ -62,7 +62,7 @@ Each scope also has persistent collection variants — the durable counterparts 
 | set | `PersistentReactiveHashSet<T>` | `PersistentSessionReactiveHashSet<T>` | `PersistentUserReactiveHashSet<T>` |
 | dictionary | `PersistentReactiveDictionary<TKey, TValue>` | `PersistentSessionReactiveDictionary<TKey, TValue>` | `PersistentUserReactiveDictionary<TKey, TValue>` |
 
-The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`.
+The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`, and `ValueFor(userId)` returns the user's whole list, set or dictionary.
 
 ## Starting values — pass them to the constructor
 
@@ -256,6 +256,8 @@ Score = "int32"
 [obsolete]
 Nickname = "string"
 ```
+
+An array field (`string[]`, `Note[]`) is declared in C# as a `List<string>` (`List<Note>`), so assign a list or a collection expression, never an array.
 
 Bumping `version` obliges you to say what the old data means — the generated code calls a
 migration you write in your partial class, so forgetting it is a compile error, not a data loss:

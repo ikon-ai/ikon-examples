@@ -1,4 +1,4 @@
-<!-- checked-against: 942c8919a86125dce3b0c442 -->
+<!-- checked-against: 71d8ee35a86125dce3b0c442 -->
 
 # Getting started with IKON
 
@@ -22,7 +22,8 @@ runs:
 
 1. **[Download IKON Desktop](https://studio.ikonai.app/download)**, open it and sign in to IKON.
 2. Under **Your coding agents**, install the ones you have an account for and sign in to each.
-3. Select **Connect Studio**.
+3. Select **Connect Studio**, then **Open Studio**. The first time, Studio asks you to allow this
+   computer: select **Allow**.
 4. In Studio, choose your agent under **Runs on**, below the field where you type.
 
 ## Build on your own
@@ -32,14 +33,17 @@ the same kind of app, and an app can move between Studio and your computer.
 
 ### In a desktop coding app
 
-IKON Desktop installs and opens the desktop coding apps it supports, under **Desktop apps**.
+IKON Desktop installs and opens the coding agents it supports, under **Build without Studio**.
 
-1. Open the app and sign in with your account there.
-2. Choose the `IKON Apps` folder in your home folder as the folder to work in.
-3. Say what you want, for example:
+1. Under **Start a new app**, choose the coding agent and select **Open**. It opens in the
+   `IKON Apps` folder in your home folder. Sign in there if it asks.
+2. Claude Desktop opens with an example prompt in its message box. For the other agents, IKON
+   Desktop copies the prompt for you to paste. It reads:
 
    > Use the ikon tool to create a new IKON app in a new folder inside this one. The app should let
-   > my book club vote on the next book.
+   > my book club suggest books and vote on the next one to read.
+
+3. Change the prompt to describe the app you want, and send it.
 
 ### In a terminal
 
@@ -87,8 +91,8 @@ To put the app online, run `ikon deploy` in the app's folder, or ask your agent 
 ## Work on a Studio app on your computer
 
 In Studio, open the app's **Settings**, then **Code**, choose **Open on your computer**, then **Open
-in IKON Desktop**. Or, in IKON Desktop, open **Desktop apps** and choose **Work on an app you already
-have**. Or run this in a terminal, with your app's id:
+in IKON Desktop**. Or, in IKON Desktop, select **Get an app** under **Build without Studio**, then
+open the app in a coding agent from **Your apps**. Or run this in a terminal, with your app's id:
 
 ```bash
 ikon open <app-id>

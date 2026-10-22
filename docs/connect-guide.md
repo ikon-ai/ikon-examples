@@ -1,4 +1,4 @@
-<!-- checked-against: 5bbecd195d753426e3b0c442 -->
+<!-- checked-against: 7b892cf75d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -94,20 +94,28 @@ ikon connect --studio
 An app that has never been published has nothing for a computer to join, and is refused when you
 connect it rather than retried in the background.
 
-### The code the computer shows
+### Pairing the computer with the app
 
-An app that pairs — Studio and O do — takes a computer only once a person has typed the code the
-computer shows into the app. Once IKON Connect has reached the app, `ikon connect` prints the
-six-digit code, IKON Connect shows it in a notification on macOS, and `ikon connect list` shows it as the
-connection's state until it is typed:
+An app that pairs — Studio and O do — takes a computer only once a person at the app has agreed to
+it, and remembers the computer, so it asks once. Because of this, IKON Connect left running cannot
+connect a computer on its own. Once IKON Connect has reached the app, `ikon connect` prints what the
+app is waiting for, IKON Connect shows it in a notification on macOS, and `ikon connect list` shows
+it as the connection's state until it is done.
+
+Studio asks you to allow the computer. Wherever you are in Studio, a dialog asks whether the
+computer may work for Studio, and the computer is also listed, with Allow, in Studio's "Connect your
+computer" dialog. Only the account that connected the computer can allow it.
 
 ```text
-Studio asks you to pair this computer: type 482 913 into the "Connect your computer" dialog in Studio
+Studio asks you to pair this computer: allow this computer in Studio
 ```
 
-The computer appears in that dialog with a box for the code; the right code pairs it, and the
-app remembers the computer, so it is asked once. Because of this, IKON Connect left running cannot
-connect a computer on its own: nothing is connected until someone at the app types the code.
+O asks for the code the computer shows: the computer appears in O's "Connect a computer" dialog with
+a box for the six-digit code, and the right code pairs it.
+
+```text
+O asks you to pair this computer: type 482 913 into O's "Connect a computer" dialog
+```
 
 What an app may do is a set of **grants**, checked on your computer:
 
@@ -146,8 +154,8 @@ a terminal, which shows you the app and what it asks for and connects only what 
 can only ask for grants, never give them. A link cannot name a repository, so for work in one, run `ikon connect <app>`
 from the repository instead. `ikon connect "<link>"` does the same thing where links do not open.
 
-After connecting, `ikon connect` says where the connection stands: working, waiting for the code to
-be typed into the app, waiting for the app to be opened, or what stops it. `ikon connect list` shows
+After connecting, `ikon connect` says where the connection stands: working, waiting to be allowed in
+the app or for its code to be typed there, waiting for the app to be opened, or what stops it. `ikon connect list` shows
 the same for every connection, and `--format json` gives it as a `phase` — `ready`, `pairing`,
 `standby` (the app is not open; nothing is wrong), `connecting`, `retrying`, `blocked` (needs you),
 `idle` (stopped after a week unused) or `notRunning` (IKON Connect is not running). A connection counts as `ready`

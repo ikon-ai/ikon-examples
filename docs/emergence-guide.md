@@ -1,4 +1,4 @@
-<!-- checked-against: c34cb5f6692fe7dae43fabdd -->
+<!-- checked-against: fd5a6385754de90f97776e49 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -387,7 +387,7 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 // Without s.Model every solver runs on the model passed here; the merger always does
 LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
-var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
+var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.SolverCount = models.Length;
     opt.MaxParallel = models.Length;
@@ -462,11 +462,11 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 **Options:**
 - `Index` - The `TreeIndex` to search
 - `Query` - Search query
-- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps stops the whole search (`MaxIterationsExceeded`, so awaiting it throws `EmergenceStoppedException`) without returning the sections it already marked; a null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
+- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps (or wall time) returns the sections it already marked, with `StoppedReason` set to `MaxIterationsExceeded`; it stops the search (awaiting it throws `EmergenceStoppedException`) only when it marked none. A null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
 - `MaxResults` - Maximum sections to return (default: 5)
 - `Navigator(Action<EmergeScope<NavigationDecision>>)` - Configure navigator
 
-The navigator model is offered three tools: `tree_get_children(nodeId)`, `tree_get_content(nodeId)` and `tree_mark_relevant(nodeId, reason)`. Under `--mock-ai-script`, script a `tool` turn for `tree_mark_relevant` to get a section back (`ai-models` guide).
+The navigator model must support function calling: it is offered three tools: `tree_get_children(nodeId)`, `tree_get_content(nodeId)` and `tree_mark_relevant(nodeId, reason)`. Under `--mock-ai-script`, script a `tool` turn for `tree_mark_relevant` to get a section back (`ai-models` guide).
 
 **Tree indexing types:**
 
