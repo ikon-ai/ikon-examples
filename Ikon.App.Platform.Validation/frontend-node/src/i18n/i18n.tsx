@@ -42,6 +42,20 @@ export interface Translations {
   'auth.sso.placeholder': string;
   'auth.sso.submit': string;
   'auth.sso.submitting': string;
+  'auth.phone.button': string;
+  'auth.phone.hint': string;
+  'auth.phone.qrAlt': string;
+  'auth.phone.denied': string;
+  'auth.phone.failed': string;
+  'auth.phone.back': string;
+  'auth.handoff.title': string;
+  'auth.handoff.hint': string;
+  'auth.handoff.approve': string;
+  'auth.handoff.deny': string;
+  'auth.handoff.approved': string;
+  'auth.handoff.expired': string;
+  'auth.handoff.failed': string;
+  'auth.handoff.close': string;
 }
 
 export type TranslationKey = keyof Translations;
