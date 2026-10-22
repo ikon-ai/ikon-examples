@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/i18n';
 import './auth.css';
 import { EmailLoginForm } from './email-login-form';
 import { LoginButton, RegisterPasskeyButton } from './login-button';
+import { HandoffPrompt, PhoneSignIn } from './phone-sign-in';
 import { SsoSignIn } from './sso-sign-in';
 
 type ErrorScope = 'primary' | 'passkey' | 'email' | 'guest';
@@ -58,7 +59,12 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <HandoffPrompt />
+    </>
+  );
 }
 
 interface AuthScreenProps {
@@ -75,13 +81,13 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   const { state } = useAuth();
 
   const primaryMethods = config.methods.filter(
-    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey' && m !== 'sso',
+    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey' && m !== 'sso' && m !== 'phone',
   );
   const hasSso = config.methods.includes('sso');
+  const hasPhone = config.methods.includes('phone');
   const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
-  const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
-  const hasGuest = guestProvider !== null;
+  const guestProvider = isLoginPrompt ? null : config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
 
   const errorFor = (scope: ErrorScope) =>
     state.error && (errorScope === scope || (errorScope === null && scope === 'primary')) ? (
@@ -126,13 +132,17 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
     sections.push({ key: 'email', content: <EmailLoginForm config={config} onAttempt={() => setErrorScope('email')} /> });
   }
 
+  if (hasPhone) {
+    sections.push({ key: 'phone', content: <PhoneSignIn disabled={state.isLoading} onAttempt={() => setErrorScope('primary')} /> });
+  }
+
   if (guestProvider) {
     sections.push({
       key: 'guest',
       content: (
         <>
           {errorFor('guest')}
-          <LoginButton provider={guestProvider} disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} onClick={isLoginPrompt ? onDismiss : undefined} />
+          <LoginButton provider={guestProvider} disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} />
         </>
       ),
     });
@@ -159,7 +169,7 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
           </Fragment>
         ))}
 
-        {isLoginPrompt && !hasGuest && (
+        {isLoginPrompt && (
           <button type="button" className="ikon-auth-dismiss" onClick={onDismiss}>
             {t('auth.dismiss')}
           </button>
