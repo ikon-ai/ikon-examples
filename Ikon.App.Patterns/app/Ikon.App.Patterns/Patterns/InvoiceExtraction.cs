@@ -60,7 +60,7 @@ internal sealed class InvoiceExtraction : IPatternDemo
                 var clientSessionId = ReactiveScope.ClientId;
                 _ = Task.Run(() => ReadInvoiceAsync(clientSessionId, pdf));
             },
-            content: zone => zone.Text([Text.Body], "Choose an invoice PDF"));
+            label: "Choose an invoice PDF", hint: "PDF, up to 20 MB");
     }
 
     private async Task ReadInvoiceAsync(int clientSessionId, byte[] pdf)

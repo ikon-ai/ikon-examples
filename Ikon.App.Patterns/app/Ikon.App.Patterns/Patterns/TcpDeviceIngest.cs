@@ -158,9 +158,15 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
         view.Column([Card.Default, "gap-2 p-4 w-full max-w-2xl"], content: col =>
         {
             col.Text([Text.H3], "Devices");
-            col.Text([Text.Caption], _tcpAddress.Value is { } address
-                ? $"Listening at {address}. Devices look it up at /api/tcp-address."
-                : "The TCP port opens when the app starts.");
+            if (_tcpAddress.Value is { } address)
+            {
+                col.CopyField(address, label: "Device address");
+                col.Text([Text.Caption], "Devices look it up at /api/tcp-address.");
+            }
+            else
+            {
+                col.Text([Text.Caption], "The TCP port opens when the app starts.");
+            }
 
             if (_devices.Count == 0)
             {

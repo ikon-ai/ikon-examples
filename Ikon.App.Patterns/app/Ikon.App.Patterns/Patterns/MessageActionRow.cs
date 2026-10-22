@@ -48,7 +48,7 @@ internal sealed class MessageActionRow : IPatternDemo
         {
             view.Column([Layout.Column.Xs, "flex-1 min-w-0"], content: v =>
             {
-                v.Text([Text.Caption], text: message.SentAt.ToLocalTime().ToString("HH:mm"));
+                v.Text([Text.Caption], text: v.ViewerTime(message.SentAt, "HH:mm"));
                 v.Text([Text.Body, "whitespace-pre-wrap break-words"], text: message.Text);
             });
 

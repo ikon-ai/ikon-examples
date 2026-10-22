@@ -368,7 +368,7 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
     {
         #region example:px-merge-semantics-the-default-marker-3
         view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] pe-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
+        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] md:data-[overflow-y=true]:px-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
         #endregion
         PatternDemoNote.RenderCaption(view, "An empty gap-4 column and an empty scroll area above: each keeps its base classes (flex flex-col, h-full w-full) under the classes the call adds");
     }

@@ -56,12 +56,11 @@ internal sealed class OverlaySelection : IPatternDemo
             });
 
         // ONE SHORT FOCUSED TASK → Dialog. The leading array styles the panel (as on Sheet), and
-        // showClose adds the corner X, which Dialog leaves off unless asked.
+        // setting a title also adds the corner X.
         view.Dialog([Dialog.Content, "sm:max-w-md"],
             open: _renameDraft.Value is not null,
             onOpenChange: async open => { if (!open) { _renameDraft.Value = null; } },
             overlayStyle: [Dialog.Overlay],
-            showClose: true,
             title: "Rename view",
             content: v => v.TextField([Input.Default, "mt-4"], value: _renameDraft.Value ?? "", ariaLabel: "View name",
                 onValueChange: async text => _renameDraft.Value = text),

@@ -28,6 +28,7 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public BackgroundWork BackgroundWork => throw new NotImplementedException();
     public int MaxMemoryLimitMb => throw new NotImplementedException();
     public int MaxClients { get; set; }
+    public int MaxLightClients { get; set; }
     public bool DynamicMaxClientsEnabled { get; set; }
     public bool UdpEnabled { get; set; }
     // Forwarded when the gallery runs inside the live Patterns app, so an example that routes on

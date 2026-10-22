@@ -12,7 +12,7 @@ internal sealed class PublicEndpointHost : IPatternDemo
         + "tunnel, degrading to the local port when the relay is unreachable. See the source and "
         + "docs/patterns/public-endpoint-host.md.");
 
-    private IAppBase App => throw new NotImplementedException();
+    private IAppBase app => throw new NotImplementedException();
     private Task HandleWebhookAsync(string body) => throw new NotImplementedException();
 
     #region example:pattern-public-endpoint-host
@@ -23,7 +23,7 @@ internal sealed class PublicEndpointHost : IPatternDemo
     {
         // stablePortName keeps the port while this instance's relay connection drops and comes back.
         // A new instance gets a new URL, so a webhook that a third party registers once needs an [HttpPost].
-        _host = new AppEndpointHost(App, secure: true, stablePortName: "payments-webhook");
+        _host = new AppEndpointHost(app, secure: true, stablePortName: "payments-webhook");
 
         _host.MapPost("/hooks/payment", async context =>
         {

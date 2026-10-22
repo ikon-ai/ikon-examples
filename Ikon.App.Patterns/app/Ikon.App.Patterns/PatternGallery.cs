@@ -12,6 +12,7 @@ public static class PatternGallery
     [
         .. ExampleGallery.Create(app),
         new AiPrefillFormFromDescription(),
+        new AppHeaderBar(),
         new AnnotationDrawOverlay(),
         new AudioReactiveVisuals(app),
         new AnimatedRankReorder(),
@@ -176,6 +177,7 @@ public static class PatternGallery
         new VoiceGroupCall(app),
         new VoiceLoop(app),
         new WebResearch(),
+        new WeekGrid(),
         new ZeroResultsState(),
         new AgentGuideExamples(app),
     ];

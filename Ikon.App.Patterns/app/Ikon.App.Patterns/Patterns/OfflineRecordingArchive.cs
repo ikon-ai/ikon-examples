@@ -75,7 +75,7 @@ internal sealed class OfflineRecordingArchive(IAppBase app) : IPatternDemo
             {
                 view.Row([Card.Default, "items-center justify-between gap-3 p-3"], content: v =>
                 {
-                    v.Text([Text.Body], text: $"{outing.FixCount} fixes");
+                    v.Text([Text.Body], text: Plural.Of(outing.FixCount, "fix", "fixes"));
                     v.Text([outing.Repaired ? Badge.SuccessSm : Badge.NeutralSm],
                         text: outing.Repaired ? "Repaired from device" : "Live track only");
                 });

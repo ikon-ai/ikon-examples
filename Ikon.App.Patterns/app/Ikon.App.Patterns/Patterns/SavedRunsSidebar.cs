@@ -103,7 +103,7 @@ internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
                     view.Box([Card.Default, "p-4", cardStyle], content: view =>
                     {
                         view.Text([Text.Body, "font-semibold"], entry.FileName);
-                        view.Text([Text.Caption], entry.CreatedAt.ToLocalTime().ToString("g"));
+                        view.Text([Text.Caption], view.ViewerTime(entry.CreatedAt, "d MMM yyyy HH:mm"));
                         view.Button([Button.OutlineSm, "mt-3"], text: "Load",
                             onClick: async () => await LoadTranscriptAsync(entry));
                     });

@@ -34,10 +34,11 @@ internal sealed class NavAndMenuRows : IPatternDemo
         // Page navigation between peer panels: content-width tabs on a shared rail. Not a
         // segmented control — Tabs.List/Tabs.Trigger would set the labels on a tinted pill row and
         // fill the active one with the brand colour, and the row would read as buttons.
+        // NavListPage lines the first label up with a Layout.PageWidth header; use NavList elsewhere.
         view.Tabs(
             value: _section.Value,
             onValueChange: async value => _section.Value = value,
-            listStyle: [Tabs.NavList],
+            listStyle: [Tabs.NavListPage],
             triggerStyle: [Tabs.NavTriggerMd],
             tabs: Sections.Select(s =>
                 new TabItem(s.Key, s.Label, v => RenderSectionBody(v, s.Label))));

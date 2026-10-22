@@ -93,7 +93,7 @@ internal sealed class TimedGroupSession(IAppBase app) : IPatternDemo
             var clientSessionId = ReactiveScope.ClientId;
             var joined = _joined.Contains(clientSessionId);
 
-            col.Text([Text.Caption], _joined.Count == 1 ? "1 person in the session" : $"{_joined.Count} people in the session");
+            col.Text([Text.Caption], $"{Plural.Of(_joined.Count, "person", "people")} in the session");
 
             switch (_phase.Value)
             {

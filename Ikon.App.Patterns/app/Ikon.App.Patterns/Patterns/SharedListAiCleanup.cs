@@ -50,9 +50,9 @@ internal sealed class SharedListAiCleanup : IPatternDemo
 
     private void Render(IView view)
     {
-        view.Row(["gap-2 p-4"], content: v =>
+        view.Row([Layout.Row.Form, "p-4"], content: v =>
         {
-            v.TextField(["default", "flex-1"], value: _draft.Value, placeholder: "What needs doing?",
+            v.TextField(["default", "sm:flex-1"], value: _draft.Value, placeholder: "What needs doing?",
                 onValueChange: async x => _draft.Value = x, onSubmit: async _ => Add());
             v.Button([Button.Default, "transition-colors duration-150 hover:opacity-90"],
                 onClick: () => Add(), content: c => c.Text(text: "Add"));

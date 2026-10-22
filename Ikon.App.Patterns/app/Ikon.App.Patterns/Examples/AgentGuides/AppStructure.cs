@@ -88,9 +88,16 @@ internal sealed partial class AgentGuideExamples
 
     #region example:client-local-time
     // DateTime.ToLocalTime() and DateTime.Now use the server's zone, which is UTC in a deployed app.
-    // In a render or a handler the viewer's zone is on the current client's context, which is null
-    // outside a client's scope; its Timezone is empty when the client reported none.
-    private string ViewerTime(DateTime utc)
+    // In a render, view.ViewerTime converts a UTC time to the zone of the client the view is drawn for.
+    private void RenderSentAt(UIView view, DateTime sentAtUtc)
+    {
+        view.Text([Text.Caption], view.ViewerTime(sentAtUtc));
+        view.Text([Text.Caption], view.ViewerTime(sentAtUtc, "dddd d MMMM yyyy"));
+    }
+
+    // A handler has no view, so it reads the viewer's zone from the current client's context. The
+    // context is null outside a client's scope, and its Timezone is empty when the client reported none.
+    private string HandlerTime(DateTime utc)
     {
         var zoneId = app.CurrentClientContext?.Timezone;
         var zone = !string.IsNullOrEmpty(zoneId) && TimeZoneInfo.TryFindSystemTimeZoneById(zoneId, out var found)

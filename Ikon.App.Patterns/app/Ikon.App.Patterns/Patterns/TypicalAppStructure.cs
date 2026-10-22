@@ -31,20 +31,39 @@ internal sealed class TypicalAppStructure : IPatternDemo
             UI.Root(["h-screen flex flex-col"], content: view =>
             {
                 // ── Header region ───────────────────────────────────────────────
-                // flex-wrap: on a phone the actions move under the title rather than squeezing their labels onto two lines.
-                view.Row(["shrink-0 px-6 py-4 border-b border-secondary items-center justify-between flex-wrap gap-3"], content: view =>
+                // Header, tabs and content share one left edge: the bar is full width, its inner row
+                // takes Layout.PageWidth, and the page below uses the same max-w-5xl column.
+                view.Box(["shrink-0 w-full border-b border-secondary"], content: view =>
                 {
-                    view.Text([Text.H3, "tracking-wide"], text: "MyApp");
-                    view.Button([Button.OutlineSm], text: "Reset count", onClick: () => _count.Value = 0);
+                    // flex-wrap: on a phone the actions move under the title rather than squeezing their labels onto two lines.
+                    view.Row([Layout.PageWidth, "py-4 items-center justify-between flex-wrap gap-3"], content: view =>
+                    {
+                        view.Text([Text.H3, "tracking-wide"], text: "MyApp");
+                        view.Button([Button.OutlineSm], text: "Reset count", onClick: () => _count.Value = 0);
+                    });
                 });
 
                 // ── Main region ─────────────────────────────────────────────────
-                view.Column([Layout.Page, "flex-1 min-h-0 gap-4 py-8"], content: view =>
-                {
-                    view.Text([Text.H1], text: "Welcome");
-                    view.Text([Text.Body, "text-muted-foreground"], text: $"count: {_count.Value}");
-                    view.Button([Button.PrimaryMd], text: "Increment", onClick: () => _count.Value++);
-                });
+                // Tabs.NavListPage draws the rail full width and starts the first label at the title's left edge.
+                view.Tabs(
+                    defaultValue: "home",
+                    style: ["flex-1 min-h-0 flex flex-col"],
+                    listStyle: [Tabs.NavListPage],
+                    contentStyle: [Tabs.ContentFill],
+                    triggerStyle: [Tabs.NavTriggerMd],
+                    tabs:
+                    [
+                        new TabItem("home", "Home", view =>
+                        {
+                            view.Column([Layout.Page, "gap-4 py-8"], content: view =>
+                            {
+                                // The title with its actions beside it from sm up, stacked on a phone
+                                view.PageHeader("Welcome", subtitle: $"count: {_count.Value}",
+                                    actions: view => view.Button([Button.PrimaryMd], text: "Increment", onClick: () => _count.Value++));
+                            });
+                        }),
+                        new TabItem("about", "About", view => view.Column([Layout.Page], content: view => view.Text([Text.Body], text: "About this app"))),
+                    ]);
             });
         }
     }

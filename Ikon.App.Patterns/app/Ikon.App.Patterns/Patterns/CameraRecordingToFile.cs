@@ -17,6 +17,7 @@ internal sealed class CameraRecordingToFile(IAppBase app) : IPatternDemo
     private Video Video => throw new NotImplementedException();
 
     #region example:pattern-camera-recording-to-file
+    // In the app class: private Video Video { get; } = new(app); Video is an instance property, not a static class
     private sealed record Recording(string Path, DateTime StartedAtUtc, bool Saved);
 
     private readonly ReactiveList<Recording> _recordings = new();

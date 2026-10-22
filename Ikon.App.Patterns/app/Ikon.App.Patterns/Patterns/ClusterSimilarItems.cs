@@ -121,7 +121,7 @@ internal sealed class ClusterSimilarItems : IPatternDemo
                 col.Column([Card.Default, "gap-1 p-4"], key: theme.Id, content: card =>
                 {
                     card.Text([Text.H3], theme.Name);
-                    card.Text([Text.Caption], theme.Items.Count == 1 ? "1 item" : $"{theme.Items.Count} items");
+                    card.Text([Text.Caption], Plural.Of(theme.Items.Count, "item"));
 
                     foreach (var item in theme.Items)
                     {

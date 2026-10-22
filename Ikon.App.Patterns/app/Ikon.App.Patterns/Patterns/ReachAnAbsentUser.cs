@@ -15,7 +15,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
         "Server-side pattern with no UI: notification permission states and the email fallback "
         + "for a user who is not there. See the source and docs/patterns/reach-an-absent-user.md.");
 
-    private IAppBase App => throw new NotImplementedException();
+    private IAppBase app => throw new NotImplementedException();
 
     #region example:pattern-reach-an-absent-user
     /// <summary>
@@ -29,7 +29,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
         // Title is a REQUIRED positional argument; the rest are optional named ones.
         // A Tag is what stops a device that is BOTH connected and pushed showing the same thing
         // twice -- a later notification with the same tag replaces the earlier one.
-        var results = await App.Notifications.SendToUserAsync(
+        var results = await app.Notifications.SendToUserAsync(
             userId, new NotificationContent(title, Body: body, Tag: "invoice-ready"));
 
         foreach (var result in results)
@@ -67,7 +67,7 @@ internal sealed class ReachAnAbsentUser : IPatternDemo
     /// </summary>
     private async Task EmailFallbackAsync(string email, string subject, string body)
     {
-        EmailService emailService = App.Email;
+        EmailService emailService = app.Email;
         // To is an email address -- the backend rejects anything else, so an IKON user id here
         // fails the send. Keep the address from the user's profile alongside their id.
         var request = new EmailSendRequest(

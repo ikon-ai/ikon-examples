@@ -21,7 +21,7 @@ internal sealed class DestructiveConfirmDialog : IPatternDemo
                     row.Column(["flex-1"], content: info =>
                     {
                         info.Text(["text-sm text-slate-100"], bot.Name);
-                        info.Text(["text-xs text-slate-500"], $"{bot.History.Count} saved version(s)");
+                        info.Text(["text-xs text-slate-500"], Plural.Of(bot.History.Count, "saved version"));
                     });
                     RenderDeleteTrigger(row, bot);
                 });
@@ -97,7 +97,7 @@ internal sealed class DestructiveConfirmDialog : IPatternDemo
 
                 dlg.Text([Text.H3, "text-slate-100"], $"Delete {bot.Avatar} {bot.Name}?");
                 dlg.Text(["text-sm text-slate-400"],
-                    $"All {bot.History.Count} saved version(s) will be removed. This can't be undone.");
+                    $"{Plural.Of(bot.History.Count, "saved version")} will be removed. This can't be undone.");
 
                 dlg.Row(["justify-end gap-2 mt-2"], content: r =>
                 {

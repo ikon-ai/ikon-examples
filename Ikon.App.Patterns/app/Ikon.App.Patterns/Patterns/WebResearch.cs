@@ -60,9 +60,9 @@ internal sealed class WebResearch : IPatternDemo
 
     private void Render(IView view)
     {
-        view.Row(["gap-2 p-4"], content: v =>
+        view.Row([Layout.Row.Form, "p-4"], content: v =>
         {
-            v.TextField(["default", "flex-1"], value: _question.Value, placeholder: "What do you want to know?",
+            v.TextField(["default", "sm:flex-1"], value: _question.Value, placeholder: "What do you want to know?",
                 onValueChange: async x => _question.Value = x,
                 onSubmit: async _ => await ResearchAsync());
             v.Button([Button.Default, "transition-colors duration-150 hover:opacity-90", _phase.Value != null ? "opacity-50" : ""],
@@ -94,7 +94,7 @@ internal sealed class WebResearch : IPatternDemo
                 view.Box(["bg-card rounded-lg p-4 gap-3"], content: v =>
                 {
                     v.Text(["text-base font-semibold"], text: ans.Question);
-                    v.Text(["text-sm whitespace-pre-wrap"], text: ans.Synthesis);
+                    v.Markdown(ans.Synthesis);
                     v.Column(["gap-1 pt-2 border-t"], content: vv =>
                     {
                         vv.Text(["text-xs uppercase tracking-wider text-muted-foreground"], text: "Sources");

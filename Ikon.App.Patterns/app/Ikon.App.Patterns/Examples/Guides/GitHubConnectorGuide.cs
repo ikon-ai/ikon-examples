@@ -12,6 +12,8 @@ file sealed class GitHubConnectorGuideExamples
 
     private static Task SaveTokensAsync(GitHubUserToken tokens) => Task.CompletedTask;
 
+    private static Task RecordAsync(string sha, string author, DateTimeOffset? date, int additions, int deletions) => Task.CompletedTask;
+
     public async Task GitHubAsync(string token)
     {
         #region example:connectors-github
@@ -21,6 +23,44 @@ file sealed class GitHubConnectorGuideExamples
         #endregion
 
         Log.Instance.Debug($"{issue} {comment.HtmlUrl}");
+    }
+
+    public async Task GitHubHistoryAsync(GitHub gitHub, DateTimeOffset lastSync)
+    {
+        #region example:connectors-github-history
+        var commits = await gitHub.ListCommitsAsync("ikon-ai/examples", new GitHubCommitQuery(Since: lastSync, IncludeStats: true), maxPages: 40);
+
+        foreach (var commit in commits)
+        {
+            await RecordAsync(commit.Sha, commit.AuthorLogin ?? commit.AuthorEmail, commit.Date, commit.Stats!.Additions, commit.Stats.Deletions);
+        }
+        #endregion
+    }
+
+    public async Task GitHubRateLimitAsync(GitHubTokenProvider tokens, IReadOnlyList<string> repos)
+    {
+        #region example:connectors-github-rate-limit
+        var gitHub = new GitHub(tokens);
+
+        foreach (var repo in repos)
+        {
+            if (tokens.GetLastRateLimit(GitHubRateLimitResource.Core) is { Remaining: < 100 } core)
+            {
+                await ShowAsync($"Paused until {core.ResetAt:t} to keep some of GitHub's hourly limit for other work");
+                break;
+            }
+
+            try
+            {
+                await gitHub.GetRepositoryAsync(repo);
+            }
+            catch (ConnectorException ex) when (ex.RetryAt is { } retryAt)
+            {
+                await ShowAsync($"GitHub is busy. Try again at {retryAt:t}.");
+                break;
+            }
+        }
+        #endregion
     }
 
     public void GitHubShared(GitHubUserToken signedIn, string clientId)
@@ -85,9 +125,12 @@ file sealed class GitHubConnectorGuideExamples
     public async Task GitHubTriageAsync(GitHubIssues issues)
     {
         #region example:connectors-github-triage
+        var newest = await issues.ListPageAsync("ikon-ai/examples", limit: 20);
+        await ShowAsync(string.Join("\n", newest.Items.Select(i => $"#{i.Number} {i.Title}")));
+
         var untriaged = await issues.ListAsync("ikon-ai/examples", new GitHubIssueQuery(Labels: ["needs-triage"], Assignee: "none"));
 
-        foreach (var issue in untriaged.Where(i => !i.IsPullRequest))
+        foreach (var issue in untriaged)
         {
             await issues.SetLabelsAsync("ikon-ai/examples", issue.Number, ["bug"]);
             await issues.UpdateAsync("ikon-ai/examples", issue.Number, assignees: ["octocat"], type: "Bug");

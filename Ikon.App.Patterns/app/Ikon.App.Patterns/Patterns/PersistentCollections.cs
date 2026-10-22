@@ -74,7 +74,7 @@ internal sealed class PersistentCollections : IPatternDemo
             }
 
             col.Text(["text-muted-foreground text-sm"],
-                text: $"You have voted in {_votesByPoll.Count} polls");
+                text: $"You have voted in {Plural.Of(_votesByPoll.Count, "poll")}");
 
             col.Button(onClick: () => CastVote("colours", 1), content: v => v.Text(text: "Vote"));
             col.Button(onClick: () => RecordVoteLater("colours", 2), content: v => v.Text(text: "Vote later"));

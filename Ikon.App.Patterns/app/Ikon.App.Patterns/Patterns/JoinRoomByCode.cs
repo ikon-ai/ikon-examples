@@ -19,7 +19,9 @@ internal sealed class JoinRoomByCode(IApp<SessionIdentity, ClientParameters> app
     // No 0/O or 1/I, so a code read off a screen is typed right
     private const string CodeLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    // One shared instance holds every room; each client's seat says which room it is in
+    // One shared instance holds every room; each client's seat says which room it is in.
+    // A room object that holds a Reactive or ReactiveList does not belong in this dictionary: capture
+    // refuses it and a hot reload resets every room (keep those in a ConcurrentDictionary by code)
     private readonly ReactiveDictionary<string, Room> _rooms = new();
     private readonly ReactiveDictionary<int, Seat> _seats = new();
     private readonly Lock _joinLock = new();

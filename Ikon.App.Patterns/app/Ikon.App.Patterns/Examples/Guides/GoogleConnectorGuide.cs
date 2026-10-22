@@ -436,3 +436,121 @@ file sealed class GoogleConnectorGuideExamples
         #endregion
     }
 }
+
+file sealed class GoogleConnectorGuideTextExamples
+{
+    public async Task<string> DriveFolderForPromptAsync(Drive drive, string folderId)
+    {
+        #region example:connectors-drive-folder-text
+        var options = new DriveTextOptions
+        {
+            MaxChars = 20_000,
+            ExtractText = async (file, bytes, ct) => file.MimeType is "application/pdf" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                ? (await OCR.AnalyzeAsync(bytes, cancellationToken: ct)).Text
+                : null,
+        };
+
+        var budget = 200_000;
+        var prompt = new System.Text.StringBuilder();
+        var newestFirst = (await drive.ListDescendantsAsync(folderId, maxDepth: 2))
+            .Where(file => !file.IsFolder)
+            .OrderByDescending(file => file.ModifiedTime)
+            .Take(50);
+
+        foreach (var file in newestFirst)
+        {
+            try
+            {
+                if (await drive.DownloadTextAsync(file.Id, maxBytes: 10_000_000, options) is { } read && read.Text.Length <= budget)
+                {
+                    prompt.Append($"## {file.Name}\n\n{read.Text}\n\n");
+                    budget -= read.Text.Length;
+                }
+            }
+            catch (ConnectorException ex) when (!ex.IsReconnectRequired)
+            {
+                // A file that is too large or was deleted is skipped, and the rest of the folder is still read.
+                Log.Instance.Debug($"Skipped {file.Name}: {ex.Reason}");
+            }
+        }
+        #endregion
+
+        return prompt.ToString();
+    }
+
+    public async Task DriveAccessReportAsync(Drive drive, GoogleDirectory directory, string folderId, IReadOnlyList<string> partnerEmails)
+    {
+        #region example:connectors-drive-access
+        var permissions = await drive.ListPermissionsAsync(folderId);
+
+        foreach (var email in partnerEmails)
+        {
+            var access = await Drive.GetAccessAsync(permissions, email, DriveRole.Reader, directory);
+
+            if (access.HasAccess)
+            {
+                Log.Instance.Info($"{email} can read the folder as {access.Role}, through a {access.Source} grant");
+            }
+            else if (access.UnresolvedGroups.Count > 0)
+            {
+                Log.Instance.Info($"{email} may read the folder through {string.Join(", ", access.UnresolvedGroups)}");
+            }
+            else
+            {
+                Log.Instance.Info($"{email} cannot read the folder");
+            }
+        }
+        #endregion
+    }
+}
+
+file sealed class GoogleConnectorGuideAppExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private static Task<(string Token, DateTimeOffset ExpiresAt)> FetchFromTokenBrokerAsync(CancellationToken ct) =>
+        Task.FromResult(("ya29.example", DateTimeOffset.UtcNow.AddHours(1)));
+
+    public (Drive Drive, Gmail Gmail) GoogleServiceAccount()
+    {
+        #region example:connectors-google-service-account
+        var key = GoogleServiceAccountCredentials.FromJson(app.Secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]);
+
+        // Acts as the service account: it sees only what was shared with its address.
+        var drive = new Drive(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/drive.readonly"]));
+
+        // Acts as a Workspace account, through domain-wide delegation.
+        var gmail = new Gmail(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/gmail.readonly"], subject: "ada@example.com"));
+        #endregion
+
+        return (drive, gmail);
+    }
+
+    public (Drive Drive, GoogleDirectory Directory) GoogleFolderIdentity()
+    {
+        #region example:connectors-google-folder-identity
+        var key = GoogleServiceAccountCredentials.FromJson(app.Secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]);
+
+        // Sees only the folders customers shared with the service account's address.
+        var drive = new Drive(new GoogleTokenProvider(key, ["https://www.googleapis.com/auth/drive.readonly"]));
+
+        // Delegated, but only to read group membership.
+        var directory = new GoogleDirectory(new GoogleTokenProvider(
+            key, ["https://www.googleapis.com/auth/admin.directory.group.member.readonly"], subject: app.Secrets["GOOGLE_DIRECTORY_ADMIN"]));
+        #endregion
+
+        return (drive, directory);
+    }
+
+    public Drive GoogleTokenCallback()
+    {
+        #region example:connectors-google-callback
+        var tokens = GoogleTokenProvider.FromCallback(async ct =>
+        {
+            var (token, expiresAt) = await FetchFromTokenBrokerAsync(ct);
+            return new GoogleAccessToken(token, expiresAt);
+        });
+        var drive = new Drive(tokens);
+        #endregion
+
+        return drive;
+    }
+}

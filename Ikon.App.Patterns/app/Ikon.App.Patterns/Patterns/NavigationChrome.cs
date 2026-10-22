@@ -58,6 +58,12 @@ internal sealed class NavigationChrome : IPatternDemo
                                 content: v => v.Text(text: "Gadgets"));
                         });
                     });
+                    // A destination with no panel is a link directly in the item, with no trigger
+                    list.NavigationMenuItem(value: "pricing", content: item =>
+                        item.NavigationMenuLink([NavigationMenu.LinkCompact],
+                            active: _path.Count > 0 && _path[^1] == "Pricing",
+                            onSelect: async () => _path.ReplaceAll(["Home", "Pricing"]),
+                            content: v => v.Text(text: "Pricing")));
                 }));
         });
     }

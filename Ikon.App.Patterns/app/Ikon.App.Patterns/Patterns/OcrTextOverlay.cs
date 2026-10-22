@@ -115,7 +115,7 @@ internal sealed class OcrTextOverlay : IPatternDemo
                     var clientId = ReactiveScope.ClientId;
                     _ = Task.Run(() => ReadAsync(clientId, upload));
                 },
-                content: zone => zone.Text([Text.Body], "Choose or take a photo of a comic page"));
+                label: "Choose or take a photo of a comic page", hint: "JPEG or PNG, up to 15 MB");
 
             if (_reading.Value)
             {

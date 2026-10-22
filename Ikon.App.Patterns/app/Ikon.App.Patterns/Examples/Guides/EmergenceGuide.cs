@@ -243,13 +243,13 @@ file static class EmergenceGuideExamples
         #endregion
     }
 
-    public static async Task EnsembleAsync(KernelContext ctx)
+    public static async Task EnsembleAsync()
     {
         #region example:emergence-ensemble
         // Without s.Model every solver runs on the model passed here; the merger always does
         LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
-        var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
+        var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.SolverCount = models.Length;
             opt.MaxParallel = models.Length;

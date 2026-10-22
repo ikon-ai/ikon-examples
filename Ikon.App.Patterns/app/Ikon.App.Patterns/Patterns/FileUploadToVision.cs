@@ -38,7 +38,7 @@ internal sealed class FileUploadToVision : IPatternDemo
                     var clientSessionId = ReactiveScope.ClientId;
                     _ = Task.Run(() => IdentifyAsync(clientSessionId, photo));
                 },
-                content: zone => zone.Text([Text.Body], "Choose or take a photo of the plant"));
+                label: "Choose or take a photo of the plant", hint: "JPEG or PNG, up to 15 MB");
 
             if (_identifying.Value)
             {

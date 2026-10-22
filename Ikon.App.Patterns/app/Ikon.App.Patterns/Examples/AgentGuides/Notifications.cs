@@ -5,11 +5,17 @@ namespace Ikon.App.Patterns.Examples;
 // shows the same line with initializers on it.
 file sealed class NotificationsExamples(IApp<SessionIdentity, ClientParameters> app)
 {
-    private sealed record Profile(string Email = "", string Phone = "", string TelegramChatId = "");
-
     private sealed record Order(string Id, string CustomerUserId);
 
+    #region example:notification-inbox-profiles
+    private sealed record Profile(string Email = "", string Phone = "", string TelegramChatId = "");
+
+    // ValueFor reads another user's value synchronously, which is what a channel's resolver needs
     private readonly PersistentUserReactive<Profile> _profiles = new(new Profile());
+
+    // Call it in the signed-in user's scope, such as OnClientJoined, to keep the address current
+    private void RememberEmail(string email) => _profiles.Value = _profiles.Value with { Email = email };
+    #endregion
 
     #region example:notification-inbox-field
     private readonly NotificationInbox _inbox = new(app);

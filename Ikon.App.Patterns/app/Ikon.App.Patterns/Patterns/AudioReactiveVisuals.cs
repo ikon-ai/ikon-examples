@@ -13,9 +13,10 @@ internal sealed class AudioReactiveVisuals(IAppBase app) : IPatternDemo
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
         "Attaches a viseme analyzer to speech so each audio frame carries mouth-shape values, and a custom client component animates an avatar from them in step with playback. The avatar needs its React component registered in the app's frontend. See the source and docs/patterns/audio-reactive-visuals.md.");
 
+    #region example:pattern-audio-reactive-visuals
+    // An instance member: Audio.CreateSoundAsync or Audio.Speak on the type is CS0120
     private Audio Audio { get; } = new(app);
 
-    #region example:pattern-audio-reactive-visuals
     // One analyzer instance for the app, not one per utterance: it declares the shape set once
     // and the client matches frames to that declaration by SetId.
     private readonly VisemeAnalyzer _visemes = new();

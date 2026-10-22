@@ -165,9 +165,9 @@ file sealed class InputsExamples
         view.Checkbox(bind: _checked, label: "Enable feature");  // label: renders a clickable trailing label
         view.Switch(bind: _enabled, label: "Notifications");
         view.Slider(bind: _slider, min: 0, max: 100, step: 1, label: "Volume");  // scalar single-thumb; pass value: [a, b] lists for multi-thumb
-        view.Select(bind: _selected, ariaLabel: "Plan", placeholder: "Choose...",
+        view.Select(bind: _selected, ariaLabel: "Plan", placeholder: "Choose...", triggerStyle: [Input.DefaultSm, "w-40"],
             options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
-        view.RadioGroup(bind: _radio,
+        view.RadioGroup(label: "Plan", bind: _radio,
             content: view =>
             {
                 // The item is just the radio circle (text in its content overflows it) — wrap item
@@ -260,8 +260,8 @@ file sealed class OverlaysExamples
             });
 
         // The same panel from the built-in parts: title and description draw the header, content goes
-        // under them, and footer holds the buttons
-        view.Dialog(open: _renameOpen.Value, onOpenChange: async o => _renameOpen.Value = o, showClose: true,
+        // under them, footer holds the buttons, and setting a title also adds the X close button
+        view.Dialog(open: _renameOpen.Value, onOpenChange: async o => _renameOpen.Value = o,
             trigger: view => view.Button([Button.OutlineMd], text: "Rename"),
             title: "Rename the board",
             description: "Everyone on the board sees the new name.",
@@ -353,7 +353,7 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
                 await app.Navigation.SetPathAsync($"/{v}");
             },
             listContainerStyle: [Card.Default, "p-2 mb-4"],
-            listStyle: [Tabs.List], triggerStyle: [Tabs.Trigger], contentStyle: [Tabs.Content],
+            listStyle: [Tabs.NavList], triggerStyle: [Tabs.NavTriggerMd], contentStyle: [Tabs.Content],
             tabs: [
                 new TabItem("home", "Home", RenderHome),
                 new TabItem("settings", "Settings", RenderSettings),
@@ -573,7 +573,7 @@ file sealed class EditorsExamples
         // CodeEditor is a monospace textarea with line numbers; language: only labels it, nothing is highlighted
         view.Row(["gap-4 h-80"], content: view =>
         {
-            view.CodeEditor(["default", "flex-1 min-w-0"], value: _shaderSource.Value, language: "glsl",
+            view.CodeEditor(["default", "flex-1 min-w-0"], value: _shaderSource.Value, language: "glsl", ariaLabel: "Shader source",
                 onValueChange: async source => { _shaderSource.Value = source; _compileError.Value = null; });
 
             view.Column(["flex-1 min-w-0 gap-2"], content: view =>
@@ -608,7 +608,7 @@ file sealed class EditorsExamples
             }
             """,
             uniforms: new Dictionary<string, ShaderUniform> { ["uStrength"] = ShaderUniform.Float((float)_strength.Value) });
-        view.Slider(min: 0, max: 1, step: 0.05, bind: _strength, ariaLabel: "Strength");
+        view.Slider(min: 0, max: 1, step: 0.05, bind: _strength, label: "Strength", showValue: true);
         #endregion
     }
 
@@ -702,9 +702,9 @@ internal sealed partial class AgentGuideExamples
         view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From bytes
         view.Skeleton(["w-2/3"], size: SkeletonSize.Lg);   // Loading placeholder; style is added to the pulse
         view.Box([Skeleton.Title]);                        // Or a token: Skeleton.Title, Text, TextSm, Avatar, Card, Button, Input
-        view.Badge("Ready", tone: SemanticTone.Success, size: BadgeSize.Sm);  // Size is a parameter: there is no Badge.Sm
+        view.Badge("Ready", tone: SemanticTone.Success, size: BadgeSize.Sm);  // Size is a parameter: there is no Badge.Sm; tones are Neutral, Brand, Success, Warning, Error, Info (no Danger)
         view.Badge([Badge.BrandSm], "New");                // Or a token that names tone and size
-        view.Alert("Card declined", tone: SemanticTone.Error, description: "Try another card.");  // The first argument is the title
+        view.Alert("Card declined", tone: SemanticTone.Error, description: "Try another card.");  // The first argument is the title; an error is Error, not Danger
         #endregion
     }
 

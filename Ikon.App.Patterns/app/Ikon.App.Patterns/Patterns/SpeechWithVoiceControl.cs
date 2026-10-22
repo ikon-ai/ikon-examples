@@ -12,6 +12,7 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
     private Audio Audio { get; } = new(app);
 
     #region example:pattern-speech-with-voice-control
+    // In the app class: private Audio Audio { get; } = new(app); Audio is an instance property, not a static class
     private readonly ClientReactive<string?> _error = new(null);
 
     /// <summary>

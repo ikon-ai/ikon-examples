@@ -133,7 +133,7 @@ internal sealed class QrCheckIn(IApp<SessionIdentity, ClientParameters> app) : I
                     card.Text([Text.Caption, "break-all"], link);
 
                     var arrived = _checkIns.Where(c => c.ShiftId == shift.Id).ToList();
-                    card.Text([Text.Caption], arrived.Count == 1 ? "1 volunteer checked in" : $"{arrived.Count} volunteers checked in");
+                    card.Text([Text.Caption], $"{Plural.Of(arrived.Count, "volunteer")} checked in");
 
                     foreach (var checkIn in arrived)
                     {

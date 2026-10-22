@@ -10,15 +10,16 @@ internal sealed class GeneratedSoundLibrary(IAppBase app) : IPatternDemo
     public string Category => "Voice & audio";
     public void RenderDemo(IView view) => Render(view);
 
+    #region example:pattern-generated-sound-library
+    // An instance member: Audio.CreateSoundAsync or Audio.Speak on the type is CS0120
     private Audio Audio { get; } = new(app);
 
-    #region example:pattern-generated-sound-library
     // What survives a restart is the stored file and its label. The AudioSound is rebuilt from the
     // file when the app starts, so a restart pays for no generation.
     private sealed record SavedClip(string Id, string Label, string Path, string MimeType);
     private sealed record Clip(SavedClip Saved, AudioSound Sound);
 
-    // App files cannot be listed, so the library keeps its own index of what it stored
+    // The index keeps each clip's label, which the audio file does not hold, and is the file read at start
     private const string IndexPath = "sounds/index.json";
 
     private readonly ReactiveList<Clip> _clips = new();
