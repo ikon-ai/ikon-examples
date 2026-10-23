@@ -18,10 +18,11 @@ internal sealed class ComposerInputBar : IPatternDemo
     private Task SendAsync(string text, IReadOnlyList<string> files) => throw new NotImplementedException();
 
     #region example:pattern-composer-input-bar
-    // The draft is USER-scoped, not client-scoped: a reload mints a new client session, so a
-    // half-typed message in a ClientReactive vanishes with it.
+    // The draft and the chips are USER-scoped, not client-scoped: a reload mints a new client
+    // session, so a half-typed message in a ClientReactive vanishes with it. Give both the same
+    // scope, or a reload keeps the text and drops the chip.
     private readonly UserReactive<string> _draft = new("");
-    private readonly ClientReactiveList<Attached> _attachments = new();
+    private readonly UserReactiveList<Attached> _attachments = new();
     private readonly ClientReactive<bool> _busy = new(false);
 
     // The chip and the file behind it, in ONE list: the upload hook adds while a UI click removes,

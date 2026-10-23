@@ -168,7 +168,8 @@ internal sealed class ScalingLeaderboardExamples(IAppBase app)
         Cells.Instance.Connect<ILeaderboardCell>(new LeaderboardCell.SessionIdentity());
 
     // Run once from app.OnStarting. Publishing here also refills the cell after its host stopped,
-    // because the next instance to start connects to a new, empty cell.
+    // because the next instance to start connects to a new, empty cell. The publish is not awaited:
+    // a local run may not answer the cell until OnStarting returns, so awaiting it there can hang.
     private async Task CreateScoresTableAsync()
     {
         await using var db = await app.DatabaseAsync();
@@ -181,7 +182,7 @@ internal sealed class ScalingLeaderboardExamples(IAppBase app)
                 created_at timestamptz NOT NULL DEFAULT now());
             CREATE SEQUENCE IF NOT EXISTS leaderboard_version;
             """);
-        await PublishTopAsync();
+        _ = Task.Run(PublishTopAsync);
     }
 
     // The database row is the record. The cell only sends the current top ten to every instance.

@@ -376,3 +376,231 @@ file sealed class MicrosoftConnectorGuideExamples
         #endregion
     }
 }
+
+file sealed class MicrosoftTeamsGuideExamples
+{
+    private readonly TeamsBot _bot = new(new MicrosoftAppCredentials("contoso.onmicrosoft.com", "bot-app-id", "bot-secret"));
+    private readonly TeamsBotVerifier _verifier = new("bot-app-id");
+    private GraphResourceDataReader? _reader;
+
+    private static Task SaveConversationAsync(string userId, TeamsBotConversation conversation) => Task.CompletedTask;
+
+    private static Task ApproveAsync(System.Text.Json.JsonElement data) => Task.CompletedTask;
+
+    private static Task RecordVoteAsync(string? activityId, string reaction, string? feedback) => Task.CompletedTask;
+
+    private static Task IndexAsync(TeamsMessage message) => Task.CompletedTask;
+
+    private static Task ForgetAsync(string messageId) => Task.CompletedTask;
+
+    private static Task SaveDeltaLinkAsync(string deltaLink) => Task.CompletedTask;
+
+    private static Task SummariseAsync(string meetingId, byte[] transcript) => Task.CompletedTask;
+
+    private static void QueueRenewal(string subscriptionId)
+    {
+    }
+
+    public async Task<int> TeamsChannelsAsync(Teams teams, OneDrive oneDrive)
+    {
+        #region example:connectors-teams-channels
+        var fileCount = 0;
+
+        foreach (var team in await teams.ListJoinedTeamsAsync("me"))
+        {
+            foreach (var channel in await teams.ListChannelsAsync(team.Id))
+            {
+                // A channel's files are a SharePoint folder, read with OneDrive.
+                var folder = await teams.GetChannelFolderAsync(team.Id, channel.Id);
+                fileCount += (await oneDrive.ListChildrenAsync(folder.DriveId, folder.Id)).Count;
+            }
+        }
+        #endregion
+
+        return fileCount;
+    }
+
+    public async Task TeamsPostAsync(TeamsMessages messages, string teamId, string channelId, string graceUserId)
+    {
+        #region example:connectors-teams-post
+        var channel = TeamsConversation.Channel(teamId, channelId);
+
+        var posted = await messages.PostAsync(channel, new NewTeamsMessage
+        {
+            Html = "The release notes are ready, <at id=\"0\">Grace</at>.",
+            Mentions = [new TeamsMention(0, "Grace", TeamsMentionTarget.User(graceUserId))],
+        });
+
+        // A message's Thread is where its replies go.
+        await messages.PostAsync(posted.Thread!, "Reply here with anything missing.");
+        await messages.AddReactionAsync(channel, posted.Id, "🚀");
+        #endregion
+    }
+
+    public async Task TeamsDeltaAsync(TeamsMessages messages, string teamId, string channelId, string? storedLink)
+    {
+        #region example:connectors-teams-delta
+        var delta = await messages.ChannelMessagesDeltaAsync(teamId, channelId, storedLink, modifiedSince: DateTimeOffset.UtcNow.AddDays(-7));
+
+        foreach (var message in delta.Items)
+        {
+            if (message.Deleted)
+            {
+                await ForgetAsync(message.Id);
+            }
+            else
+            {
+                await IndexAsync(message);
+            }
+        }
+
+        await SaveDeltaLinkAsync(delta.DeltaLink);
+        #endregion
+    }
+
+    public async Task<GraphSubscription> TeamsSubscribeAsync(GraphSubscriptions subscriptions, X509Certificate2 certificate, string clientId, string notificationUrl, string clientState)
+    {
+        #region example:connectors-teams-subscribe
+        var key = new GraphResourceDataKey(certificate, "teams-2026");
+
+        var subscription = await subscriptions.CreateAsync(
+            SubscriptionResource.AllChannelMessages(), notificationUrl, clientState,
+            lifecycleNotificationUrl: notificationUrl, resourceData: key);
+
+        // One reader for the app's lifetime, used by the notification endpoint: it caches Microsoft's signing keys.
+        _reader = new GraphResourceDataReader(clientId, [key]);
+        #endregion
+
+        return subscription;
+    }
+
+    public async Task<HttpResult> TeamsNotificationsAsync(Ikon.App.HttpRequest request, string clientState)
+    {
+        #region example:connectors-teams-notifications
+        if (GraphNotifications.ValidationToken(request.Query) is { } token)
+        {
+            return new HttpResult(200, token, "text/plain");
+        }
+
+        foreach (var notification in await _reader!.ReadAsync(request.Body, clientState))
+        {
+            if (notification.ResourceData is { } resource && TeamsMessages.ParseMessage(resource) is { } message)
+            {
+                await IndexAsync(message);
+            }
+            else if (notification.LifecycleEvent is not null)
+            {
+                QueueRenewal(notification.SubscriptionId);
+            }
+        }
+
+        return new HttpResult(202, "", "text/plain");
+        #endregion
+    }
+
+    public async Task TeamsTranscriptsAsync(TeamsMeetings meetings, string organizerId, string joinUrl)
+    {
+        #region example:connectors-teams-transcripts
+        var meeting = await meetings.FindMeetingByJoinUrlAsync(organizerId, joinUrl)
+            ?? throw new InvalidOperationException("The organizer has no meeting with that link");
+
+        foreach (var transcript in await meetings.ListTranscriptsAsync(organizerId, meeting.Id))
+        {
+            var vtt = await meetings.DownloadTranscriptBytesAsync(organizerId, meeting.Id, transcript.Id, maxBytes: 10_000_000);
+            await SummariseAsync(meeting.Id, vtt);
+        }
+        #endregion
+    }
+
+    public async Task<List<string>> TeamsPresenceAsync(TeamsPresence presence, IReadOnlyList<string> memberIds)
+    {
+        #region example:connectors-teams-presence
+        var people = await presence.GetPresencesAsync(memberIds);
+        var free = people.Where(p => p.Availability == TeamsAvailability.Available && !p.IsOutOfOffice).Select(p => p.UserId).ToList();
+
+        await presence.SetStatusMessageAsync("me", "Reviewing the launch plan", DateTimeOffset.UtcNow.AddHours(2));
+        #endregion
+
+        return free;
+    }
+
+    public string TeamsActivityKinds(string body)
+    {
+        #region example:connectors-teams-activity-kinds
+        var line = TeamsActivities.Parse(body) switch
+        {
+            TeamsMessageActivity message => $"{message.From.Name}: {message.TextWithoutBotMention}",
+            TeamsMessageUpdateActivity edit => $"edited {edit.Id}: {edit.Text}",
+            TeamsMessageDeleteActivity deleted => $"deleted {deleted.Id}",
+            TeamsReactionActivity reaction => $"{(reaction.Added ? "added" : "removed")} {string.Join(" ", reaction.Reactions)} on {reaction.ReplyToId}",
+            TeamsConversationUpdateActivity update => $"{update.EventType}: {update.MembersAdded.Count} joined, {update.MembersRemoved.Count} left",
+            TeamsInstallationActivity installation => installation.Added ? "installed" : "removed",
+            TeamsCardActionActivity action => $"card button {action.Verb}",
+            TeamsFeedbackActivity feedback => $"vote {feedback.Reaction}",
+            TeamsInvokeActivity invoke => $"invoke {invoke.Name}",
+            TeamsUnknownActivity unknown => $"not read: {unknown.Type}",
+            _ => "not an activity",
+        };
+        #endregion
+
+        return line;
+    }
+
+    #region example:connectors-teams-bot-endpoint
+    [HttpPost("/teams/messages", Auth = EndpointAuth.Public)]
+    public async Task<HttpResult> OnTeamsActivityAsync(Ikon.App.HttpRequest request)
+    {
+        if (TeamsActivities.Parse(request.Body) is not { } activity
+            || !await _verifier.VerifyAsync(request.Headers.GetValueOrDefault("Authorization"), activity))
+        {
+            return HttpResult.Unauthorized();
+        }
+
+        switch (activity)
+        {
+            case TeamsMessageActivity message:
+                // Teams wants its answer within 15 seconds, so the reply is sent after it.
+                _ = Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId));
+                break;
+
+            case TeamsInstallationActivity { Added: true } installed:
+                await SaveConversationAsync(installed.From.Id, installed.Conversation);
+                break;
+
+            case TeamsCardActionActivity { Verb: "approve" } action:
+                await ApproveAsync(action.Data);
+                return HttpResult.Json(TeamsInvokeResponse.Message("Approved"));
+
+            case TeamsFeedbackActivity feedback:
+                await RecordVoteAsync(feedback.ReplyToId, feedback.Reaction, feedback.Feedback);
+                return HttpResult.Json(TeamsInvokeResponse.Ok());
+        }
+
+        return HttpResult.Ok();
+    }
+    #endregion
+
+    public async Task TeamsStreamAsync(TeamsMessageActivity message)
+    {
+        #region example:connectors-teams-bot-stream
+        var run = Emerge.Run<string>(LLMModel.Claude55Sonnet, pass => pass.Command = message.TextWithoutBotMention);
+
+        await _bot.StreamAsync(
+            message.Conversation,
+            run.OfType<ModelText<string>>().Select(token => token.Text),
+            final: new TeamsBotMessage { AiGenerated = true, FeedbackButtons = true });
+        #endregion
+    }
+
+    public async Task TeamsProactiveAsync(TeamsBotConversation stored, string serviceUrl, string tenantId, string userId)
+    {
+        #region example:connectors-teams-bot-proactive
+        // A conversation stored from an earlier activity is answered at any time.
+        await _bot.PostAsync(stored, "Your report is ready.");
+
+        // A person the bot has not talked to yet: open the chat first.
+        var chat = await _bot.CreatePersonalConversationAsync(serviceUrl, tenantId, userId, "Welcome aboard!");
+        await SaveConversationAsync(userId, chat);
+        #endregion
+    }
+}

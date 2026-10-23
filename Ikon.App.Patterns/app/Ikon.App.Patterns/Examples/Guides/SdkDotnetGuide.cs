@@ -1,7 +1,7 @@
 using Ikon.App.Patterns.Protocol;
-using Ikon.Common.Core.Protocol;
 #region example:sdk-console-usings
 using Ikon.Common.Core;
+using Ikon.Common.Core.Protocol;
 using Ikon.Sdk;
 #endregion
 

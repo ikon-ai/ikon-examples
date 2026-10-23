@@ -89,4 +89,36 @@ internal sealed class RefineWithValidationLoop : IPatternDemo
         return errors.Count > 0 ? string.Join("\n", errors) : null;
     }
     #endregion
+
+    #region example:pattern-refine-plain-text
+    private async Task<string> TightenTextAsync(string draft, KernelContext context)
+    {
+        var text = draft;
+
+        await foreach (var ev in Emerge.Refine<string>(LLMModel.Claude55Sonnet, context, opt =>
+        {
+            opt.MaxRefinements = 2;
+            opt.Initial(s => s.Command = $"Rewrite this for clarity:\n{draft}");
+            opt.ShouldContinue = (result, _) =>
+            {
+                // The next round's prompt is read after this returns, so it can carry the latest result.
+                opt.RefinementScope.Command = $"Make this shorter and keep its meaning:\n{result}";
+                return Task.FromResult(true);
+            };
+        }))
+        {
+            if (ev is Stage<string> stage)
+            {
+                // The first round is Refinement:0; the initial answer is the stage named Initial.
+                Log.Instance.Debug($"Stage {stage.Name}");
+            }
+            else if (ev is Completed<string> { HasResult: true } done)
+            {
+                text = done.Result ?? text;
+            }
+        }
+
+        return text;
+    }
+    #endregion
 }

@@ -195,7 +195,7 @@ internal sealed class InvoiceExtraction : IPatternDemo
                     _approved.Add(invoice);
                     _draft.Value = null;
                 });
-                row.Button([Button.GhostMd], text: "Discard", onClick: async () => _draft.Value = null);
+                row.Button([Button.OutlineErrorMd], text: "Discard", onClick: async () => _draft.Value = null);
             });
         });
     }

@@ -48,8 +48,9 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
 
     private async Task ReviewAsync(string proposal)
     {
-        // All or nothing: if any solver produces no result the run stops without merging, and
-        // the await throws EmergenceStoppedException.
+        // All or nothing: if any solver produces no result the run stops without merging. The
+        // await throws EmergenceStoppedException when a solver stopped, and the model call's own
+        // exception when a solver's call failed after its retries.
         var merged = await Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
         {
             options.Command = proposal;
@@ -74,8 +75,8 @@ internal sealed class EnsembleOfPerspectives : IPatternDemo
             };
 
             // The merger inherits these options, its own settings on top -- unset, its Command is
-            // the proposal. It decides how the perspectives combine, and without steering it keeps
-            // most of what each one says.
+            // the proposal, answered once from the reviews' best points. Its own Command replaces
+            // that and decides how the perspectives combine.
             options.Merger(merger =>
                 merger.Command = "Combine the reviews. Keep every distinct risk; drop duplicates.");
         });

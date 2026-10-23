@@ -144,7 +144,7 @@ internal sealed class InviteLinkMembership : IPatternDemo
 
                     if (isOwner && !member.IsOwner)
                     {
-                        row.Button([Button.GhostErrorSm], text: "Remove", onClick: async () => await RemoveMemberAsync(userId, member.UserId));
+                        row.Button([Button.OutlineErrorSm], text: "Remove", onClick: async () => await RemoveMemberAsync(userId, member.UserId));
                     }
                 });
             }

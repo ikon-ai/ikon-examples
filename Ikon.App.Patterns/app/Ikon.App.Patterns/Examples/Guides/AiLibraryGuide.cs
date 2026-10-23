@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Ikon.AI.VideoSegmentation;
 
 namespace Ikon.App.Patterns.Examples;
@@ -47,7 +48,52 @@ file static class AiDirectExamples
         }
         #endregion
     }
+
+    public static async Task AidCustomModelProvidersRegister()
+    {
+        #region example:aid-custom-model-providers-register
+        CustomModels.Instance.Register("my-llama", new MyLlamaProvider(), ModelRegion.EuNorth);
+
+        var reply = await Emerge.AskAsync("Hello", "my-llama");
+        #endregion
+    }
 }
+
+#region example:aid-custom-model-providers
+public sealed class MyLlamaProvider : ILLMProvider
+{
+    public LLMCapabilities Capabilities { get; } = new()
+    {
+        ContextWindowSize = 32768,
+        MaxOutputTokens = 4096,
+        SupportsStreaming = true,
+        SupportsSingleToolCalling = true,
+    };
+
+    public async IAsyncEnumerable<LLMProviderOutput> GenerateAsync(KernelContext context, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var prompt = string.Join("\n", context.Messages.Select(message => $"{message.Role}: {message}"));
+        int outputTokens = 0;
+
+        await foreach (var piece in RunMyModelAsync(prompt, context.MaxOutputTokens, cancellationToken))
+        {
+            outputTokens++;
+            yield return new LLMProviderOutput.Text(piece);
+        }
+
+        yield return new LLMProviderOutput.Usage(InputTokens: CountTokens(prompt), OutputTokens: outputTokens);
+    }
+
+    // Your own inference goes here: a local GPU runtime, a private gateway, another vendor's SDK
+    private static async IAsyncEnumerable<string> RunMyModelAsync(string prompt, int maxTokens, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        yield return "Hello from my own model";
+    }
+
+    private static int CountTokens(string text) => text.Length / 4;
+}
+#endregion
 
 // Generated holder for the fences of ai-library-guide.md; each region is one fence, verbatim, so the
 // compiler judges exactly what a reader copies.

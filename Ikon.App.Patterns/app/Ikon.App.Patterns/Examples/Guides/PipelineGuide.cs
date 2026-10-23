@@ -81,8 +81,9 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
         // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
         // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
-        // replays the output computed with the old value. Every lambda step must therefore pass skipCache:
+        // replays the output computed with the old value. Every cached lambda step must therefore pass skipCache:
         // true re-runs it on every run, false keeps that name-only cache and its stale replays
+        // (the stream-to-stream TransformStreamLambda takes none: it is never cached)
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {

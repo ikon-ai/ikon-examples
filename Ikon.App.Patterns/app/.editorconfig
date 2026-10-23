@@ -1,2 +1,7 @@
 [*.cs]
 resharper_variable_hides_outer_variable_highlighting = none
+
+# Demos here show the app-wide form on purpose, next to the session and user forms
+dotnet_diagnostic.IKON040.severity = suggestion
+dotnet_diagnostic.IKON044.severity = warning
+dotnet_diagnostic.IKON026.severity = warning

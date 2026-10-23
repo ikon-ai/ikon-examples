@@ -19,7 +19,7 @@ internal sealed class DeleteAccountAndData(IAppBase app) : IPatternDemo
     private readonly ClientReactive<bool> _confirmingRemoval = new(false);
     private readonly ClientReactive<string?> _removalError = new((string?)null);
 
-    // Call from app.OnClientJoined, so a removal already scheduled shows with its date.
+    // Call from app.OnClientJoined(async ctx => await LoadRemovalAsync()), so a removal already scheduled shows with its date.
     private async Task LoadRemovalAsync()
     {
         var removal = await ClientFunctions.GetAccountRemovalAsync();

@@ -153,6 +153,7 @@ file sealed class InputsExamples
         // takes flex-1, placed after "default" so the field keeps its theme (["flex-1"] alone is a bare input, IKON025):
         view.TextField(["default", "flex-1"], bind: _query, placeholder: "Search", clearOnSubmit: false,
             onSubmit: async query => { await RunSearchAsync(query); });
+        view.TextField(bind: _text, type: "number", min: "0", step: "1", label: "Quantity");  // a number field: the bound value is still a string, so int.TryParse(_text.Value, out var quantity)
         view.TextArea(bind: _text, placeholder: "Notes", maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
         // Checkbox / Switch / Slider auto-render their inner part (the check mark, the switch
         // thumb, the slider track+thumb) AND, like RadioGroup / Toggle, their default styling —
@@ -317,13 +318,10 @@ file sealed class OverlaysExamples
     public void RenderHoverOrTap(UIView view, string explanation)
     {
         #region example:hover-or-tap
-        // The Tooltip shows on hover and keyboard focus; the Popover inside its trigger opens on a tap
-        // (and on a click), so the same text reaches a phone.
-        view.Tooltip(contentStyle: [Tooltip.Content],
-            trigger: tip => tip.Popover(contentStyle: [Popover.Content, "w-72"],
-                trigger: tap => tap.Button([Button.GhostSm], text: "Stroke rate"),
-                contentSlot: panel => panel.Text([Text.BodySm], explanation)),
-            contentSlot: tip => tip.Text(text: explanation));
+        // A Popover opens on a click and on a tap, so one control explains itself on every device.
+        view.Popover(contentStyle: [Popover.Content, "w-72"],
+            trigger: tap => tap.Button([Button.GhostSm], text: "Stroke rate"),
+            contentSlot: panel => panel.Text([Text.BodySm], explanation));
         #endregion
     }
 }
@@ -786,4 +784,64 @@ internal sealed partial class AgentGuideExamples
             content: v => v.Icon([Icon.Default], name: "video"));
         #endregion
     }
+}
+
+file sealed class SortableTableExamples
+{
+    private sealed record Contact(string Name, string City, int Orders);
+
+    private static readonly Contact[] Contacts = [new("Aino", "Oulu", 4), new("Eero", "Turku", 9)];
+
+    #region example:sortable-table
+    private readonly ClientReactive<string> _sortKey = new("name");
+    private readonly ClientReactive<bool> _descending = new(false);
+
+    private void RenderTable(UIView view)
+    {
+        var sortKey = _sortKey.Value;
+        var descending = _descending.Value;
+        var rows = (sortKey switch
+        {
+            "city" => Contacts.OrderBy(c => c.City),
+            "orders" => Contacts.OrderBy(c => c.Orders),
+            _ => Contacts.OrderBy(c => c.Name),
+        }).ToList();
+
+        if (descending)
+        {
+            rows.Reverse();
+        }
+
+        // A header sorts by its button: pressing the active column flips the direction.
+        void sortHead(UIView head, string key, string label) => head.TableHead(content: cell =>
+            cell.Button([Button.GhostSm], text: sortKey == key ? $"{label} {(descending ? "▼" : "▲")}" : label,
+                onClick: async () =>
+                {
+                    _descending.Value = sortKey == key && !descending;
+                    _sortKey.Value = key;
+                }));
+
+        view.Table(content: table =>
+        {
+            table.TableHeader(content: header => header.TableRow(content: row =>
+            {
+                sortHead(row, "name", "Name");
+                sortHead(row, "city", "City");
+                sortHead(row, "orders", "Orders");
+            }));
+            table.TableBody(content: body =>
+            {
+                foreach (var contact in rows)
+                {
+                    body.TableRow(key: contact.Name, content: row =>
+                    {
+                        row.TableCell(contact.Name);
+                        row.TableCell(contact.City);
+                        row.TableCell(contact.Orders.ToString());
+                    });
+                }
+            });
+        });
+    }
+    #endregion
 }
