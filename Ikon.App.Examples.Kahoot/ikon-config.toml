@@ -76,6 +76,11 @@ Fetch = []
 [Target]
 SpaceId = ""
 Name = ""
+# The platform a named target's app lives on, "development" or "production", written by 'ikon link'
+# and 'ikon deploy'. A command given this file's --target runs there, and --dev or --prod naming the
+# other one is refused, except by 'ikon link', which moves the target. Empty in an environment's own
+# file, whose name says which one it is.
+Environment = ""
 
 # The kinds of visitor the app serves, one [[Surface]] each: who may enter, which routes belong to
 # it, when it connects and negotiates media, and whether its clients see each other. With no
