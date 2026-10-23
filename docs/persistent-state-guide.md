@@ -1,4 +1,4 @@
-<!-- checked-against: 76a116e9e8d2c7d5dd294acf -->
+<!-- checked-against: 631b9883f3d0b9d6cab71931 -->
 
 # IKON Persistent State Guide
 
@@ -301,6 +301,13 @@ types names of their own (`DancerMotion`). Put the partial with the
 global namespace is a different class (`CS0426: The type name 'RetiredFields' does not exist`). It
 is the one exception to AGENTS.md's rule against namespaces in app files. A `[nested.Person]` type is a
 class nested in the root class: `FamilyTree.Person`, not `Person`.
+
+```text
+// schema/NoteBook.tp:  Notes = "Note[]"  and  [nested.Note] with Title = "string"
+// A name outside the NoteBook class is CS0246 (the type 'Note' could not be found)
+var note = new NoteBook.Note { Title = "First" };
+_book.Update(book => { book.Notes.Add(note); return book; });
+```
 
 Then use it like any other persisted value — `new PersistentSessionReactive<PlayerProfile>(new())`.
 The generated class is mutable and has no `with` or copy method, so change a stored value inside

@@ -1,4 +1,4 @@
-<!-- checked-against: 7b892cf75d753426e3b0c442 -->
+<!-- checked-against: d4a69c255d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -39,7 +39,8 @@ computer there now, run `ikon connect resume <app>` (`ikon connect resume studio
 every ten seconds for the next two minutes while the app starts. Without an app it makes every connection look at once,
 and then no more often than the platform allows.
 Opening Studio from IKON Desktop does it for Studio, and so does Check now, in IKON Desktop or
-beside Studio's "Waiting for your computer".
+beside Studio's "Waiting for your computer". An app that is redeployed or restarted while people
+have it open does it by itself, so the computer is back in the new session within seconds.
 
 Connecting lets an app start the coding agents installed on the computer, and they run as you.
 What an agent may do there is set by that agent's own permissions and settings, and IKON does not

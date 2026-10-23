@@ -1,4 +1,4 @@
-<!-- checked-against: fd5a6385754de90f97776e49 -->
+<!-- checked-against: be3802708e75d7182b25eaec -->
 
 # Ikon.AI.Emergence Guide
 
@@ -384,7 +384,7 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 
 <!-- ikon-example: emergence-ensemble -->
 ```csharp
-// Without s.Model every solver runs on the model passed here; the merger always does
+// Without s.Model every solver runs on the model passed here; so does the merger, unless opt.Model or m.Model names another
 LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
 var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
@@ -413,7 +413,7 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new K
 - `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`, and every scope setting, including `Model`: `s.Model = models[s.Index]` runs each solver on its own model)
 - `Merger(Action<EmergeScope<T>>)` - Configure the merger. Without a `Command` of its own it gets the ensemble's `Command` as the task to answer once, within the task's limits such as a length; its own `Command` replaces that task
 
-**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
+**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. A solver whose model call still fails after its retries also keeps the merger from running, but awaiting the run then throws that provider exception. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
 
 **`Role` and `Seed`:** both reach the solver's system prompt — `Role` (default `Solver{Index}`) is what differentiates ensemble members, and `Seed` tells a solver to explore a different approach from its siblings. Neither is a sampler seed.
 
@@ -462,7 +462,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 **Options:**
 - `Index` - The `TreeIndex` to search
 - `Query` - Search query
-- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps (or wall time) returns the sections it already marked, with `StoppedReason` set to `MaxIterationsExceeded`; it stops the search (awaiting it throws `EmergenceStoppedException`) only when it marked none. A null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
+- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps (or wall time) returns the sections it already marked, with `TreeSearchResult.StoppedReason` set to `MaxIterationsExceeded`; it stops the search (awaiting it throws `EmergenceStoppedException`) only when it marked none. A null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
 - `MaxResults` - Maximum sections to return (default: 5)
 - `Navigator(Action<EmergeScope<NavigationDecision>>)` - Configure navigator
 

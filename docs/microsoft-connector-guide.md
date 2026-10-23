@@ -1,12 +1,12 @@
-<!-- checked-against: 1d6945446bff59134722c356 -->
+<!-- checked-against: c55e24bddf33e331ce845e9d -->
 
 # Microsoft Connector Guide
 
-This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory and Outlook mail through Microsoft Graph — for app developers wiring Microsoft 365 into an IKON app.
+This guide covers `Ikon.Connectors.Microsoft` — SharePoint, OneDrive, the Entra directory, Outlook mail and Microsoft Teams through Microsoft Graph, and Teams bots through the Bot Connector — for app developers wiring Microsoft 365 into an IKON app.
 
 ## Microsoft: SharePoint and OneDrive
 
-`Ikon.Connectors.Microsoft` reaches Microsoft 365 files and lists through Microsoft Graph. `SharePoint` covers sites, their document libraries and their lists. `OneDrive` covers the files in any drive, and in Graph a SharePoint document library *is* a drive: the same file calls serve a site's libraries and a person's own OneDrive, keyed by the library's `Id`. `EntraDirectory` finds people and their groups, for checking a person against the grants on a file. `Outlook` reads, sends and organises mail.
+`Ikon.Connectors.Microsoft` reaches Microsoft 365 files and lists through Microsoft Graph. `SharePoint` covers sites, their document libraries and their lists. `OneDrive` covers the files in any drive, and in Graph a SharePoint document library *is* a drive: the same file calls serve a site's libraries and a person's own OneDrive, keyed by the library's `Id`. `EntraDirectory` finds people and their groups, for checking a person against the grants on a file. `Outlook` reads, sends and organises mail. `Teams`, `TeamsMessages`, `TeamsMeetings` and `TeamsPresence` reach Microsoft Teams, and `TeamsBot` is a Teams bot that answers as itself.
 
 ### Setting it up
 
@@ -478,12 +478,273 @@ subscription = await subscriptions.RenewAsync(subscription);
 
 `GetMailboxSettingsAsync` reads `OutlookMailboxSettings`: the mailbox's time zone, language, archive folder, purpose (a person's, shared, a room) and `OutlookAutomaticReplies`. `SetAutomaticRepliesAsync` turns the out-of-office reply on, off, or on between two times (`OutlookAutomaticRepliesStatus`), for whom outside the organisation `OutlookExternalAudience` says. `ListCategoriesAsync`, `CreateCategoryAsync`, `UpdateCategoryAsync` and `DeleteCategoryAsync` manage the `OutlookCategory`s messages are tagged with, each in one of Outlook's 25 preset colours (`OutlookCategoryColor`). `ListRulesAsync`, `CreateRuleAsync` (a `NewOutlookRule`), `UpdateRuleAsync` and `DeleteRuleAsync` manage inbox rules: each `OutlookRule`'s `OutlookRuleConditions` (sender, recipient, subject or body words, attachments, importance) choose the mail its `OutlookRuleActions` move, copy, mark read, categorise, forward or delete.
 
+### Teams and channels
+
+`Teams` reads and manages Microsoft Teams: teams, channels, chats and their members. `TeamsMessages` reads and posts messages, `TeamsMeetings` reaches online meetings and their transcripts and recordings, `TeamsPresence` reads and sets presence, and `TeamsBot` is a bot that answers as itself. They take the same credentials and token provider as the other clients. A call that takes a `user` takes an object id or user principal name, or `me` with delegated credentials. The permissions:
+
+| What | Delegated | Application |
+|---|---|---|
+| Reading teams and channels | `Team.ReadBasic.All`, `Channel.ReadBasic.All` | the same |
+| Creating and changing teams and channels | `Team.Create`, `TeamSettings.ReadWrite.All`, `Channel.ReadWrite.All` | the same |
+| Team and channel members | `TeamMember.ReadWrite.All`, `ChannelMember.ReadWrite.All` | the same |
+| Chats and their members | `Chat.ReadWrite`, `ChatMember.ReadWrite` | `Chat.ReadWrite.All`, `ChatMember.ReadWrite.All` |
+| Channel messages | `ChannelMessage.Read.All`; posting `ChannelMessage.Send` | `ChannelMessage.Read.All`; no posting |
+| Chat messages | `Chat.Read`; posting `ChatMessage.Send` | `Chat.Read.All`; no posting |
+| Meetings | `OnlineMeetings.ReadWrite`, `OnlineMeetingArtifact.Read.All`, `OnlineMeetingTranscript.Read.All`, `OnlineMeetingRecording.Read.All` | the same as `.All`, plus an application access policy (see "Meetings, transcripts and recordings") |
+| Presence | `Presence.Read.All`; setting `Presence.ReadWrite` | `Presence.Read.All`, `Presence.ReadWrite.All` |
+
+Teams allows an app to read a resource for changes only once a day. To hear about changes sooner, subscribe (see "Being told when Teams messages arrive") or read a change feed.
+
+`ListJoinedTeamsAsync` lists the teams a person is in, `ListTeamsAsync` every team in the tenant, and `GetTeamAsync` reads one `TeamsTeam`, with its `TeamsVisibility`. `CreateTeamAsync` returns a `TeamsPendingTeam` as soon as Graph accepts it, because Teams sets the team up in the background, which can take minutes. Subscribe to `SubscriptionResource.Teams` to be told when it appears, or read `GetTeamOperationAsync` once when the team is next needed: its `TeamsOperation` has a `TeamsOperationStatus` and, once done, the team's id. With app-only credentials, name an owner in `NewTeamsTeam.OwnerUserIds`, since Graph refuses a team without one. `UpdateTeamAsync` changes only what it is given, `ArchiveTeamAsync` makes a team read-only and `UnarchiveTeamAsync` reverses it, and `DeleteTeamAsync` deletes the team with its group, which can be restored for 30 days. `ListChannelsAsync`, `GetChannelAsync` and `GetPrimaryChannelAsync` (the General channel) read `TeamsChannel`s. `CreateChannelAsync` makes a standard, private or shared channel (`NewTeamsChannel` with its `TeamsChannelMembership`), and `UpdateChannelAsync` and `DeleteChannelAsync` change and remove one. A channel's files are a folder in the team's SharePoint site: `GetChannelFolderAsync` returns it as a `DriveItem`, and `OneDrive` reads and writes the files in it, which needs `Files.Read.All` as well:
+
+<!-- ikon-example: connectors-teams-channels -->
+```csharp
+var fileCount = 0;
+
+foreach (var team in await teams.ListJoinedTeamsAsync("me"))
+{
+    foreach (var channel in await teams.ListChannelsAsync(team.Id))
+    {
+        // A channel's files are a SharePoint folder, read with OneDrive.
+        var folder = await teams.GetChannelFolderAsync(team.Id, channel.Id);
+        fileCount += (await oneDrive.ListChildrenAsync(folder.DriveId, folder.Id)).Count;
+    }
+}
+```
+
+### Chats and members
+
+`ListChatsAsync` lists a person's one-on-one, group and meeting chats as `TeamsChat`s, each with its `TeamsChatType`, and `GetChatAsync` reads one. `CreateChatAsync` takes every member's id, the signed-in person's included with delegated credentials: two members and no topic make a one-on-one chat, which Graph returns as it is when the two already have one, and anything else makes a group chat. `RenameChatAsync` changes a group chat's topic. `HideChatAsync`, `UnhideChatAsync`, `MarkChatReadAsync` and `MarkChatUnreadAsync` act for one person, named by user id and tenant id.
+
+`ListTeamMembersAsync`, `ListChannelMembersAsync` and `ListChatMembersAsync` return `TeamsMember`s. A member's `Id` is the membership's id, which `SetTeamMemberRoleAsync` and the `Remove…MemberAsync` methods take; `UserId` is the person's. `AddTeamMemberAsync` adds one person, as an owner if asked. `AddTeamMembersAsync` adds many, 200 to a request; every one is tried, then any that failed throw one `ConnectorException` naming how many, so the call is safe to repeat. A standard channel's members are the team's, so channel members are for private and shared channels. `AddChatMemberAsync` adds someone to a group chat, with or without the earlier messages (`shareHistory`), and returns the membership id.
+
+### Posting and reading Teams messages
+
+`TeamsMessages` names where messages are with a `TeamsConversation`: `TeamsConversation.Channel(teamId, channelId)` for a channel's own messages, `TeamsConversation.Thread(teamId, channelId, messageId)` for the replies to one of them, and `TeamsConversation.Chat(chatId)` for a chat. It serializes with System.Text.Json, so an app can store one. Every `TeamsMessage` carries its `Conversation`, and its `Thread` is where replies to it go; a chat message has no `Thread`, since chats have no threads.
+
+Posting is done as the signed-in person. Graph lets an app post as itself only to migrate messages from another system, so `PostAsync` and `UpdateAsync` throw `InvalidOperationException` with app-only credentials: a message from the app goes through `TeamsBot`. A `NewTeamsMessage` has `Text` or `Html`, a `Subject` (on a channel's root message only), a `TeamsImportance` (`Urgent` in a chat notifies again every two minutes for 20 minutes), `Mentions`, `Files`, `Cards` and `Images`. A mention is written in the HTML as `<at id="0">Grace</at>` and named in `Mentions` with the same number and a `TeamsMentionTarget`: a user, channel, team or tag (`TeamsMentionKind`). A tag or mention without its partner throws `ArgumentException` before any request. `TeamsFileReference.From` attaches a SharePoint or OneDrive file by link, so the people who open the message need access to it. `TeamsCard.Adaptive` attaches an Adaptive Card, but Graph shows only its `Action.OpenUrl` buttons; a card whose buttons the app answers needs the bot. `TeamsImage` puts an image inside the message, and a message carries at most 4 MB:
+
+<!-- ikon-example: connectors-teams-post -->
+```csharp
+var channel = TeamsConversation.Channel(teamId, channelId);
+
+var posted = await messages.PostAsync(channel, new NewTeamsMessage
+{
+    Html = "The release notes are ready, <at id=\"0\">Grace</at>.",
+    Mentions = [new TeamsMention(0, "Grace", TeamsMentionTarget.User(graceUserId))],
+});
+
+// A message's Thread is where its replies go.
+await messages.PostAsync(posted.Thread!, "Reply here with anything missing.");
+await messages.AddReactionAsync(channel, posted.Id, "🚀");
+```
+
+`GetMessageAsync` reads one message, null when it does not exist. `ListMessagesAsync` reads a channel's root messages, a thread's replies or a chat's messages, newest first; a chat can be narrowed to messages changed between two times (`modifiedSince`, `modifiedBefore`), which Graph does not offer for channels. `ListMessagesPageAsync` reads one `TeamsMessagePage` of up to 50 at a time. Teams stores a message's `Body` as HTML. A message carries who sent it (`TeamsSender`, a person or an app), its `Mentions`, its `Reactions` (`TeamsReaction`s, with who reacted and when), and its `Attachments` (`TeamsAttachment`s): a file is a link, which `OneDrive.ResolveSharingUrlAsync` turns into a `DriveItem` to download, and a card holds its JSON in `Content`. The images inside a message are in `HostedContentUrls`, read with `DownloadHostedContentAsync` or `DownloadHostedContentBytesAsync`. `UpdateAsync` replaces a message the signed-in person posted. `DeleteAsync` deletes one the way Teams does, leaving it in place marked deleted, and `RestoreAsync` brings it back. `AddReactionAsync` and `RemoveReactionAsync` take any emoji. `ListPinsAsync`, `PinAsync` and `UnpinAsync` manage a chat's pinned messages; Graph pins only in chats, and `UnpinAsync` takes the pin's own `TeamsPin.Id`.
+
+### Reading only what changed in Teams
+
+`ChannelMessagesDeltaAsync(teamId, channelId)` works like `OneDrive.DeltaAsync`: the channel's root messages on the first call, then only the ones new or changed since the `DeltaLink` of the `TeamsMessageDelta` it hands back, each in its latest state, with `Deleted` set on a deleted one. It does not report replies, so read a thread with `ListMessagesAsync` on the message's `Thread`. `ChatMessagesDeltaAsync(user)` reads every chat a person is in as one feed, with application permissions only, and each message names its chat in `Conversation`. Both reach eight months back. Graph cannot start these feeds from now, so `modifiedSince` starts one from a recent time instead of the beginning. A link Graph no longer honours throws with `IsResyncRequired` (a `410`): start again without one. A feed past its `maxPages` throws `ConnectorPageCapException<TeamsMessage>` whose `ResumeFrom` is the link to read on with:
+
+<!-- ikon-example: connectors-teams-delta -->
+```csharp
+var delta = await messages.ChannelMessagesDeltaAsync(teamId, channelId, storedLink, modifiedSince: DateTimeOffset.UtcNow.AddDays(-7));
+
+foreach (var message in delta.Items)
+{
+    if (message.Deleted)
+    {
+        await ForgetAsync(message.Id);
+    }
+    else
+    {
+        await IndexAsync(message);
+    }
+}
+
+await SaveDeltaLinkAsync(delta.DeltaLink);
+```
+
+### Being told when Teams messages arrive
+
+`GraphSubscriptions` subscribes to Teams the same way as to a drive (see "Being told when something changed"). `SubscriptionResource.ChannelMessages`, `ChatMessages` and `UserChatMessages` watch one channel, one chat or every chat a person is in, and `AllChannelMessages` and `AllChatMessages` watch the whole tenant with application permissions. `SubscriptionResource.Teams`, `Channels`, `TeamMembers` and `ChatMembers` report teams, channels and members coming and going, `Presences` reports changes to up to 650 people's presence, and `MeetingTranscripts` and `MeetingRecordings` report new transcripts and recordings. A Teams subscription lives at most three days and a presence one an hour, so renew one from its record with `RenewAsync(subscription)`, which keeps within its maximum. Graph allows a Teams subscription without a `lifecycleNotificationUrl` to live an hour at most, so `CreateAsync` and `RenewAsync` keep one within that; give it a lifecycle URL for the three days.
+
+A Teams notification names the message or member that changed in `ResourceId`, to read with `GetMessageAsync`. It can also carry the message itself: give `CreateAsync` a `GraphResourceDataKey`, a certificate with its private key and a name of your choosing, and Graph encrypts each message to the certificate. `GraphResourceDataReader` reads such a delivery: it checks that Microsoft signed the delivery's validation tokens for your app and for each notification's tenant, decrypts each message, and returns it in `GraphNotification.ResourceData`, for `TeamsMessages.ParseMessage`. A delivery that fails those checks reads as nothing. To change certificates, subscribe with the new one and give the reader both until the old subscriptions end:
+
+<!-- ikon-example: connectors-teams-subscribe -->
+```csharp
+var key = new GraphResourceDataKey(certificate, "teams-2026");
+
+var subscription = await subscriptions.CreateAsync(
+    SubscriptionResource.AllChannelMessages(), notificationUrl, clientState,
+    lifecycleNotificationUrl: notificationUrl, resourceData: key);
+
+// One reader for the app's lifetime, used by the notification endpoint: it caches Microsoft's signing keys.
+_reader = new GraphResourceDataReader(clientId, [key]);
+```
+
+<!-- ikon-example: connectors-teams-notifications -->
+```csharp
+if (GraphNotifications.ValidationToken(request.Query) is { } token)
+{
+    return new HttpResult(200, token, "text/plain");
+}
+
+foreach (var notification in await _reader!.ReadAsync(request.Body, clientState))
+{
+    if (notification.ResourceData is { } resource && TeamsMessages.ParseMessage(resource) is { } message)
+    {
+        await IndexAsync(message);
+    }
+    else if (notification.LifecycleEvent is not null)
+    {
+        QueueRenewal(notification.SubscriptionId);
+    }
+}
+
+return new HttpResult(202, "", "text/plain");
+```
+
+### Meetings, transcripts and recordings
+
+`TeamsMeetings` takes the meeting's organizer first. `CreateMeetingAsync` makes an online meeting from a `NewTeamsMeeting`, with who skips the lobby (`TeamsLobbyBypass`), and returns its `TeamsMeeting` with the `JoinUrl` to share; Graph does not put it in anyone's calendar. `GetMeetingAsync` reads one, `FindMeetingByJoinUrlAsync` finds the meeting a join link opens, such as one in a calendar invitation, and `UpdateMeetingAsync` and `DeleteMeetingAsync` change and remove one. A meeting's chat is `TeamsMeeting.ChatId`, for `TeamsMessages`. `ListAttendanceReportsAsync` lists a `TeamsAttendanceReport` for each time the meeting ran, and `ListAttendanceRecordsAsync` a `TeamsAttendanceRecord` for each person who attended, with how long they stayed and a `TeamsAttendanceInterval` for each time they joined and left. `ListTranscriptsAsync` lists a meeting's `TeamsTranscript`s, and `DownloadTranscriptAsync` and `DownloadTranscriptBytesAsync` read one as WebVTT, with each caption's speaker in a `<v>` tag. `ListRecordingsAsync` lists its `TeamsRecording`s, and `DownloadRecordingAsync` streams one as MP4. To hear about new ones, subscribe to `SubscriptionResource.MeetingTranscripts` or `MeetingRecordings`.
+
+With app-only credentials, a tenant administrator also has to let the app act for the organizers it reaches, with an application access policy in Teams PowerShell: `New-CsApplicationAccessPolicy` naming the app's client id, then `Grant-CsApplicationAccessPolicy` for the people or the whole tenant. Until then Graph answers `403`:
+
+<!-- ikon-example: connectors-teams-transcripts -->
+```csharp
+var meeting = await meetings.FindMeetingByJoinUrlAsync(organizerId, joinUrl)
+    ?? throw new InvalidOperationException("The organizer has no meeting with that link");
+
+foreach (var transcript in await meetings.ListTranscriptsAsync(organizerId, meeting.Id))
+{
+    var vtt = await meetings.DownloadTranscriptBytesAsync(organizerId, meeting.Id, transcript.Id, maxBytes: 10_000_000);
+    await SummariseAsync(meeting.Id, vtt);
+}
+```
+
+### Presence
+
+`TeamsPresence.GetPresenceAsync` reads a person's `TeamsPresenceInfo`: their `TeamsAvailability`, what they are doing (`Activity`), their status message and whether they are out of office. `GetPresencesAsync` reads many people's at once, 650 to a request. `SetPresenceAsync` sets the presence the app reports for a person, such as busy while it is on a call with them, and `ClearPresenceAsync` removes it. Teams combines it with the person's other sessions, and the app's session is its client id. `SetPreferredPresenceAsync` sets the presence the person chose, which wins over every session's, and `ClearPreferredPresenceAsync` removes it. `SetStatusMessageAsync` sets or clears the note others see. To follow changes, subscribe to `SubscriptionResource.Presences` rather than reading again and again:
+
+<!-- ikon-example: connectors-teams-presence -->
+```csharp
+var people = await presence.GetPresencesAsync(memberIds);
+var free = people.Where(p => p.Availability == TeamsAvailability.Available && !p.IsOutOfOffice).Select(p => p.UserId).ToList();
+
+await presence.SetStatusMessageAsync("me", "Reviewing the launch plan", DateTimeOffset.UtcNow.AddHours(2));
+```
+
+### A Teams bot: setting it up
+
+A bot is the app's own identity in Teams: people message it, mention it in channels, press its card buttons, and it answers as itself. Setting one up is done once:
+
+1. **Register the bot.** In the Azure portal, create an Azure Bot resource for an app registration, single-tenant, and give it a client secret or certificate. Set its messaging endpoint to the public URL of your app's `[HttpPost]` bot endpoint, such as `/teams/messages`, and turn on the Microsoft Teams channel.
+2. **Make the Teams app.** A Teams app package is a `manifest.json` naming the bot's client id, the scopes it works in (`personal`, `team`, `groupChat`), and two icons, zipped together. Upload it in the Teams admin center for the organisation, or in Teams itself to try it.
+3. **Give the app the credential.** `TeamsBot` takes `MicrosoftAppCredentials` or `MicrosoftCertificateCredentials` for the bot's app registration, in the bot's own tenant. A bot registered before Microsoft stopped making multi-tenant bots uses `botframework.com` as its tenant, so its credential is separate from the one the Graph clients share. The bot needs no Graph permission to answer.
+
+### Answering in Teams
+
+Teams posts an activity to the bot's endpoint for each thing that happens. `TeamsActivities.Parse` reads it as a `TeamsActivity`, and `TeamsBotVerifier.VerifyAsync` checks the request's bearer token: that the Bot Connector signed it for this bot, for the activity's service URL and for Teams. Answer one that fails with `401`. Keep one verifier for the app's lifetime, since it caches the signing keys. The activities are:
+
+- `TeamsMessageActivity`: a person messaged the bot, or mentioned it in a channel or group chat. `TextWithoutBotMention` is the text without the bot's own mention, and `Value` holds what an Adaptive Card's `Action.Submit` button sent.
+- `TeamsMessageUpdateActivity`, `TeamsMessageDeleteActivity` and `TeamsReactionActivity`: a message edited, deleted, or reacted to.
+- `TeamsConversationUpdateActivity`: members joining or leaving, the bot among them, or a channel or team changing (`EventType`).
+- `TeamsInstallationActivity`: the bot installed or removed.
+- `TeamsCardActionActivity`: a person pressed an Adaptive Card's `Action.Execute` button.
+- `TeamsFeedbackActivity`: a thumbs up or down from the bot's feedback buttons.
+- `TeamsInvokeActivity` and `TeamsUnknownActivity`: anything else, with Teams' JSON in `Raw`.
+
+<!-- ikon-example: connectors-teams-activity-kinds -->
+```csharp
+var line = TeamsActivities.Parse(body) switch
+{
+    TeamsMessageActivity message => $"{message.From.Name}: {message.TextWithoutBotMention}",
+    TeamsMessageUpdateActivity edit => $"edited {edit.Id}: {edit.Text}",
+    TeamsMessageDeleteActivity deleted => $"deleted {deleted.Id}",
+    TeamsReactionActivity reaction => $"{(reaction.Added ? "added" : "removed")} {string.Join(" ", reaction.Reactions)} on {reaction.ReplyToId}",
+    TeamsConversationUpdateActivity update => $"{update.EventType}: {update.MembersAdded.Count} joined, {update.MembersRemoved.Count} left",
+    TeamsInstallationActivity installation => installation.Added ? "installed" : "removed",
+    TeamsCardActionActivity action => $"card button {action.Verb}",
+    TeamsFeedbackActivity feedback => $"vote {feedback.Reaction}",
+    TeamsInvokeActivity invoke => $"invoke {invoke.Name}",
+    TeamsUnknownActivity unknown => $"not read: {unknown.Type}",
+    _ => "not an activity",
+};
+```
+
+Answer every activity with `200` within 15 seconds and do slow work after answering. An invoke, such as a card action or a vote, is answered in the same response with a body from `TeamsInvokeResponse`. Every activity names its `Conversation`, a `TeamsBotConversation` to answer it in, whose `TeamsBotConversationType` says whether it is a one-on-one chat, a group chat or a channel. `PostAsync` sends a `TeamsBotMessage` and returns its activity id. In a channel thread, pass the activity's `ReplyToId` to keep the answer in the thread. `UpdateAsync` and `DeleteAsync` change the bot's own messages, and `SendTypingAsync` shows it writing. A `TeamsBotMessage` has `Text` in markdown by default (`TeamsBotTextFormat`), `Cards` (`TeamsCard.Adaptive`, laid out by `TeamsCardLayout` as a list or a carousel), `Mentions` (`TeamsBotMention`s, written in the text as `<at>Name</at>`), `SuggestedActions` offered as buttons in a one-on-one chat, a `Summary` for notifications, and for an AI agent `AiGenerated`, `Citations` (`TeamsCitation`s, shown where the text names `[1]`) and `FeedbackButtons`. `ListMembersAsync` and `GetMemberAsync` read the people in a conversation as `TeamsBotUser`s, whose `AadObjectId` is the id the Graph clients take, and `GetTeamAsync` and `ListTeamChannelsAsync` read the team a channel belongs to as a `TeamsBotTeam` and its `TeamsBotChannel`s. A conversation the bot cannot reach, because it was removed, never installed or blocked, throws with `StatusCode` 404:
+
+<!-- ikon-example: connectors-teams-bot-endpoint -->
+```csharp
+[HttpPost("/teams/messages", Auth = EndpointAuth.Public)]
+public async Task<HttpResult> OnTeamsActivityAsync(Ikon.App.HttpRequest request)
+{
+    if (TeamsActivities.Parse(request.Body) is not { } activity
+        || !await _verifier.VerifyAsync(request.Headers.GetValueOrDefault("Authorization"), activity))
+    {
+        return HttpResult.Unauthorized();
+    }
+
+    switch (activity)
+    {
+        case TeamsMessageActivity message:
+            // Teams wants its answer within 15 seconds, so the reply is sent after it.
+            _ = Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId));
+            break;
+
+        case TeamsInstallationActivity { Added: true } installed:
+            await SaveConversationAsync(installed.From.Id, installed.Conversation);
+            break;
+
+        case TeamsCardActionActivity { Verb: "approve" } action:
+            await ApproveAsync(action.Data);
+            return HttpResult.Json(TeamsInvokeResponse.Message("Approved"));
+
+        case TeamsFeedbackActivity feedback:
+            await RecordVoteAsync(feedback.ReplyToId, feedback.Reaction, feedback.Feedback);
+            return HttpResult.Json(TeamsInvokeResponse.Ok());
+    }
+
+    return HttpResult.Ok();
+}
+```
+
+### Streaming a bot's reply
+
+`StreamAsync` streams a sequence of text, such as an AI model's, as one reply that Teams shows growing as it is written. `StartStream` returns a `TeamsBotMessageStream` to drive by hand: `InformAsync` says what the bot is doing until the text starts, `AppendAsync` adds text, and `StopAsync` finishes the message, adding a final `TeamsBotMessage`'s cards, citations, AI label and feedback buttons. Text is sent as it arrives. An append goes out at once when no request is under way and a second has passed since the last, which is Teams' limit; otherwise it goes with the next request, so a quiet stream sends nothing. Teams ends a stream at two minutes, so the stream finishes its message by `TeamsBotStreamOptions.MaxDuration` and posts any later text as a message of its own. When the person presses Stop, `StoppedByUser` is set, later text is dropped, and `StreamAsync` stops reading. Teams streams in one-on-one chats only; in a group chat or channel the stream shows the bot typing and posts the reply once it stops:
+
+<!-- ikon-example: connectors-teams-bot-stream -->
+```csharp
+var run = Emerge.Run<string>(LLMModel.Claude55Sonnet, pass => pass.Command = message.TextWithoutBotMention);
+
+await _bot.StreamAsync(
+    message.Conversation,
+    run.OfType<ModelText<string>>().Select(token => token.Text),
+    final: new TeamsBotMessage { AiGenerated = true, FeedbackButtons = true });
+```
+
+### Messaging people first
+
+A bot can message a conversation it was part of at any time: store the `TeamsBotConversation` from an activity, such as `TeamsInstallationActivity`, and post to it later. `CreatePersonalConversationAsync` opens the one-on-one chat with a person the bot has not talked to yet, and can send a first message with it; the bot must already be installed for the person, or it throws with `StatusCode` 404. `CreateChannelThreadAsync` starts a new thread in a channel the bot was added to and returns a `TeamsBotThread`:
+
+<!-- ikon-example: connectors-teams-bot-proactive -->
+```csharp
+// A conversation stored from an earlier activity is answered at any time.
+await _bot.PostAsync(stored, "Your report is ready.");
+
+// A person the bot has not talked to yet: open the chat first.
+var chat = await _bot.CreatePersonalConversationAsync(serviceUrl, tenantId, userId, "Welcome aboard!");
+await SaveConversationAsync(userId, chat);
+```
+
 ### Rate limits
 
-Graph and SharePoint throttle per app and per tenant, and a throttled call is retried before it surfaces: a `429` or `503` on any method and a `504` on a read (a gateway timeout on a write may hide a write that happened, so it is never repeated) are sent again up to three times, each after the `Retry-After` the service named, bounded at two minutes. A throttled answer that names a longer wait surfaces at once, since every retry inside it would be refused again. The one retry with a fresh token after a `401` does not count among the three. A call that still fails throws with `IsTransient` set: back off and try later rather than at once. Every request carries the `User-Agent` SharePoint's throttling guidance asks integrations to send, which it favours over anonymous traffic when it throttles. Outlook allows one app at most four requests at a time and 10,000 every ten minutes against one mailbox, so sync a mailbox's folders one after another rather than all at once; a request in a `$batch` is throttled on its own, and the bulk methods send a throttled one again after its `Retry-After`. `CopyAsync` polls SharePoint every two seconds while it works, or as its `Retry-After` asks, and `CreateSiteAsync` every three, each until its `maxWait`.
+Graph and SharePoint throttle per app and per tenant, and a throttled call is retried before it surfaces: a `429` or `503` on any method and a `504` on a read (a gateway timeout on a write may hide a write that happened, so it is never repeated) are sent again up to three times, each after the `Retry-After` the service named, bounded at two minutes. A throttled answer that names a longer wait surfaces at once, since every retry inside it would be refused again. The one retry with a fresh token after a `401` does not count among the three. A call that still fails throws with `IsTransient` set: back off and try later rather than at once. Every request carries the `User-Agent` SharePoint's throttling guidance asks integrations to send, which it favours over anonymous traffic when it throttles. Outlook allows one app at most four requests at a time and 10,000 every ten minutes against one mailbox, so sync a mailbox's folders one after another rather than all at once; a request in a `$batch` is throttled on its own, and the bulk methods send a throttled one again after its `Retry-After`. `CopyAsync` polls SharePoint every two seconds while it works, or as its `Retry-After` asks, and `CreateSiteAsync` every three, each until its `maxWait`. Teams has its own limits per app and tenant on top of Graph's, and allows reading a resource for changes only once a day. A bot may send about seven messages a second to one conversation, and the Bot Connector throttles with `429` alone, so a bot's message is never sent twice after a `503`. A streamed reply sends at most one request a second.
 
 ### What it does not reach
 
 The library uses Graph v1.0 and nothing from Graph's beta, so creating a site through `POST /sites`, the site recycle bin in Graph, page templates and archiving sites are not here (`CreateSiteAsync` and `ListRecycleBinAsync` reach the first two through SharePoint's own API). SharePoint Embedded containers, hub sites, site designs and scripts, list views and tenant administration settings are not covered, and change notifications arrive only by webhook, not over Graph's socket.io channel.
 
-Mail reaches a mailbox's primary folders: the in-place archive mailbox, which Graph's v1.0 mail API does not open, is not reached, nor are mail signatures, which Graph does not expose, MailTips, Focused Inbox overrides, or notifications that carry the message itself (encrypted resource data). A sent or received message's subject and body cannot be changed, only a draft's. Nor are Calendar, Contacts, Teams, To Do, Planner, OneNote or Excel workbooks. `EntraDirectory` finds one person and a person's groups; it does not list the directory's users or groups, a group's members, photos or presence. Only Microsoft's global cloud is reached — not the national clouds (US Government, China) — and SharePoint only on `*.sharepoint.com` hosts, not a vanity domain.
+Mail reaches a mailbox's primary folders: the in-place archive mailbox, which Graph's v1.0 mail API does not open, is not reached, nor are mail signatures, which Graph does not expose, MailTips, Focused Inbox overrides, or mail notifications that carry the message itself (resource data is for Teams subscriptions only). A sent or received message's subject and body cannot be changed, only a draft's. Nor are Calendar, Contacts, To Do, Planner, OneNote or Excel workbooks. `EntraDirectory` finds one person and a person's groups; it does not list the directory's users or groups, a group's members, or photos. Only Microsoft's global cloud is reached — not the national clouds (US Government, China), nor Teams bots in them — and SharePoint only on `*.sharepoint.com` hosts, not a vanity domain.
+
+Teams is reached for teams, channels, chats, members, messages, meetings, presence and bots. Calls and their real-time media, Shifts, tabs and app installation, tags, the activity feed, channel email addresses beyond reading them, the export and retained-message APIs, and importing messages from another system are not covered. A bot does not cover message extensions, task modules, meeting apps or file uploads that ask the person's consent.

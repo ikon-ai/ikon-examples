@@ -1,4 +1,4 @@
-<!-- checked-against: a367076aac468e15644cf1ec -->
+<!-- checked-against: 1d18cedfac468e15644cf1ec -->
 
 # IKON Platform Events
 
@@ -103,7 +103,7 @@ Log.Instance.Event("invoice_export_failed", new
 | `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `firstSessionOfUser` (no other live session of this user existed), `clientContext` (see below) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
 | `client_soft_disconnected` | A session is soft-disconnected on transport loss (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
-| `client_left` | A client/session departs definitively — every `client_joined` eventually pairs with exactly one `client_left` | `user`, `clientSessionId`, `lastSessionOfUser` (no other live or soft-disconnected session of this user remains), `reason` (`explicit` / `beacon` / `graceTimeout` / `serverStopped` / `replaced`, when a local run replaces its app instance on a hot reload or a session-identity change) |
+| `client_left` | A client/session departs definitively — every `client_joined` eventually pairs with exactly one `client_left` | `user`, `clientSessionId`, `lastSessionOfUser` (no other live or soft-disconnected session of this user remains), `reason` (`explicit` / `beacon` / `graceTimeout` / `serverStopped` / `replaced`, when a local run replaces its app instance on a hot reload or a session-identity change / `sessionReplaced`, when the client started a new session in place of this one) |
 
 `clientContext` is a PascalCase projection of the connecting client's `Context`: `AuthSessionId`,
 `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `Timezone`, `ContextType`,

@@ -1,4 +1,4 @@
-<!-- checked-against: d06597d96cd85509c3b0bc44 -->
+<!-- checked-against: 12937210985cb888c3b0bc44 -->
 
 # IKON Connectors Developer Guide
 
@@ -16,7 +16,7 @@ An app references the package of each service it uses, and its docs then carry t
 | `Ikon.Connectors.GitHub` | GitHub | `github-connector-guide` |
 | `Ikon.Connectors.Procountor` | Procountor (Finago) | `procountor-connector-guide` |
 | `Ikon.Connectors.Google` | Google Workspace: Drive, Gmail, Calendar, Docs, Sheets, Slides, Contacts, Tasks, Meet, Chat, Forms | `google-connector-guide` |
-| `Ikon.Connectors.Microsoft` | SharePoint, OneDrive, the Entra directory, Outlook mail | `microsoft-connector-guide` |
+| `Ikon.Connectors.Microsoft` | SharePoint, OneDrive, the Entra directory, Outlook mail, Microsoft Teams and Teams bots | `microsoft-connector-guide` |
 | `Ikon.Connectors.Imap` | any mailbox reached over IMAP and SMTP | `imap-connector-guide` |
 | `Ikon.Connectors.Browser` | agentic and scripted web automation | `browser-connector-guide` |
 

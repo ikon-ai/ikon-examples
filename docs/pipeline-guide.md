@@ -1,4 +1,4 @@
-<!-- checked-against: 75db130e136e752316327970 -->
+<!-- checked-against: c3423ef16dac4d07be314ded -->
 
 # IKON Pipeline Guide
 
@@ -56,7 +56,7 @@ internal class SimplePipeline
 ### Running the Pipeline
 
 Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
-(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache. The items `Run` and `RunAsEnumerable` return are hashes whose content the runner serves, so read their content before the runner is disposed and from the async flow that ran it; otherwise `GetContentAsString` and its siblings throw `PipelineException`. The same holds for input items: create them after `Initialize`, on that flow, or `Item.CreateInitial` throws `PipelineException` too.
+(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too). `Initialize<TPipeline>` keeps state and cache in memory unless you pass `usePersistentCache: true`, so a runner set up this way re-processes everything on every run; `Initialize(PipelineRunner.Config)` defaults to a persistent cache. The items `Run` and `RunAsEnumerable` return are hashes whose content the runner serves, so read their content before the runner is disposed and from the async flow that ran it; otherwise `GetContentAsString` and its siblings throw `PipelineException`. The same holds for input items: create them after `Initialize`, on that flow. With no live runner on the flow `Item.CreateInitial` throws `PipelineException` too, and on a runner constructed but not yet initialized it throws `NullReferenceException`.
 
 <!-- ikon-example: pipeline-run -->
 ```csharp
@@ -440,8 +440,9 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
         // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
         // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
-        // replays the output computed with the old value. Every lambda step must therefore pass skipCache:
+        // replays the output computed with the old value. Every cached lambda step must therefore pass skipCache:
         // true re-runs it on every run, false keeps that name-only cache and its stale replays
+        // (the stream-to-stream TransformStreamLambda takes none: it is never cached)
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {

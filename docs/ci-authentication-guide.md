@@ -1,4 +1,4 @@
-<!-- checked-against: 885ea1bb59a1df1ae3b0c442 -->
+<!-- checked-against: 25bb252459a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -74,11 +74,11 @@ Set two environment variables in your CI configuration, and a third only for com
 
 `ikon deploy` and `ikon bundle` do not read `IKON_SPACE_ID` or take `--app-id`: they act only on the app the project's `ikon-config` file for the environment is linked to, so commit that linked file and the variable is not needed for them. For commands that resolve an app outside a project, `IKON_SPACE_ID` stands in for the organisation and app defaults that `ikon default set` sets, which live in the sign-in file on your own machine that a CI runner does not have; you can pass `--app-id` on each such command instead. A command run inside an app project that is linked to a cloud app acts on that app whatever `IKON_SPACE_ID` says; the variable names the app for commands run outside one. Inside a project that is not linked on the environment the command runs against, a command that acts on an app refuses rather than use the variable: link the project with `ikon link`, or pass `--app-id`. `ikon release` and `ikon pipeline --dll-path` are the exceptions: in an unlinked project they fall back to `IKON_SPACE_ID`, then the saved default, and act on that app.
 
-`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. Without the variable or a flag, the tool first looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present; only then does it use the default your sign-in or `ikon default set` saved on your own machine. A CI runner has neither, so there the tool uses production. You can pass `--dev` / `--prod` on each command instead.
+`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. Without the variable or a flag, the tool first looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present; only then does it use the default your sign-in or `ikon default set` saved on your own machine. A CI runner has neither, so there the tool uses production. You can pass `--dev` / `--prod` on each command instead. A command's `--target` outranks the variable: `--target prod` is the same as `--prod`, and a named target such as `staging` runs on the platform it was linked on.
 
 Every command then works as usual — `ikon deploy`, `ikon bundle`, and so on — with no browser and no prompts.
 
-The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV` must name that same environment.
+The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV`, and any `--target` a command passes, must name that same environment.
 
 Do not also set `IKON_BACKEND_URL` or `IKON_BACKEND_TOKEN`. That pair takes an access token from a sign-in, and the tool refuses to run when `IKON_BACKEND_TOKEN` holds a service token or is set without `IKON_BACKEND_URL`.
 

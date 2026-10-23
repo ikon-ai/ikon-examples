@@ -1,4 +1,4 @@
-<!-- checked-against: 21595a452a4b0073af0c6253 -->
+<!-- checked-against: e8908893ffebb4c754e71224 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -103,7 +103,7 @@ Crosswind supports three ways to style a component, and you can mix them freely 
 view.Box(style: ["rounded-2xl bg-card border border-card p-6 text-foreground"], content: view => { });
 ```
 
-Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
+Legacy note: `bg-primary` and `text-primary` are older tier names for the page surface and body text, and `border-primary` is an older name for a neutral border one step heavier than the default hairline. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` instead, and `border-secondary` for the default hairline.
 
 **2. `Ikon.Parallax.Theming` token shortcuts**. Named constants that bundle layer 1 classes per role and size. Use them as shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
 
@@ -297,7 +297,7 @@ Crosswind extends Tailwind with a motion system for declarative animations. Moti
 
 ### Keyframe Timelines
 
-Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs; a step without a time is dropped (build warning IKON022). A track also needs a `motion-duration-*`: without one it compiles to `animation-duration: 0s` and plays nothing visible.
+Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs, where the time is a bare number (`50`, not `50%`) or a duration (`300ms`, `1.5s`; when any step uses a duration, the times are rescaled to percentages of the largest one); a step without a valid time is dropped (build warning IKON022). A track also needs a `motion-duration-*`: without one it compiles to `animation-duration: 0s` and plays nothing visible.
 
 Within `motion-[...]`, keyframe steps are comma-separated. Within each step, multiple utilities are separated by underscores (`_`). Underscores outside of brackets and parentheses are converted to spaces during parsing, so `opacity-0_translate-y-[12px]` is equivalent to `opacity-0 translate-y-[12px]`.
 
@@ -438,7 +438,7 @@ string[] Classes =
 
 ### 3D Transforms in Keyframes
 
-Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates a single category, or a composed `transform` function list when categories are mixed — so they interpolate smoothly on the compositor.
+Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates only translation, only scale, or rotation around one axis, or a composed `transform` function list otherwise (mixed categories, rotation around two axes, `rotate` together with `rotate-z`, skew, or a `transform-none` step) — so they interpolate smoothly on the compositor.
 
 <!-- ikon-example: cw-3d-transforms-in-keyframes -->
 ```csharp
@@ -645,7 +645,7 @@ string[] Classes =
 ];
 ```
 
-Values: `replace` (default, except `add` for a track that compiles to a `transform` function list — mixed transform categories, skew, or `rotate-x` with `rotate-y`), `add`, `accumulate`.
+Values: `replace` (default, except `add` for a track that compiles to a `transform` function list — mixed transform categories, rotation around two axes, `rotate` together with `rotate-z`, skew, or a `transform-none` step), `add`, `accumulate`.
 
 #### Play State Control
 

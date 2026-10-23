@@ -1,4 +1,4 @@
-<!-- checked-against: 3f98ddf428cc97181e03f5af -->
+<!-- checked-against: 54704ceb28cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -19,8 +19,9 @@ A Tailwind-inspired, class-based DSL to describe visual motion timelines and aud
 * **Identifiers:** `[a-z][a-z0-9_-]*`.
 * **Negative utilities:** Tailwind-style minus prefix is allowed: `-translate-x-1`.
 * **Transform emission:** transform utilities inside `motion-[...]` steps compile to direct CSS in the emitted keyframes —
-  the individual `translate`, `rotate`, or `scale` property when a track animates a single transform category, or a canonical
-  `transform` function-list when categories are mixed. A step that leaves out a component another step sets gets the value
+  the individual `translate`, `rotate`, or `scale` property when a track animates translation alone, scale alone, or rotation
+  around exactly one axis, with no `transform-none` step, or a canonical `transform` function-list otherwise (mixed categories,
+  rotation around two axes, `rotate` together with `rotate-z`, skew, or a `transform-none` step). A step that leaves out a component another step sets gets the value
   interpolated from the nearest steps that set it (the identity before the first and after the last), as CSS does with a
   property a keyframe omits. Tracks animating
   different individual properties compose on the same element without colliding.
@@ -154,7 +155,7 @@ title:motion-per-letter title:motion-letter-delay-60ms
 
 **Per-track semantics.** Each Level 2 utility stores its value on the addressed track. During compilation Crosswind emits
 comma-separated longhands only when a track overrides that property and fills in defaults (`auto`, `replace`, `running`,
-`normal`) for tracks that omit them (`animation-composition` is also emitted when any track animates a mixed `transform` function list, and such a track defaults to `add`), so you can pause or retarget one layer without affecting the others.
+`normal`) for tracks that omit them (`animation-composition` is also emitted when any track compiles to a `transform` function list, and such a track defaults to `add`), so you can pause or retarget one layer without affecting the others.
 
 Concrete patterns:
 

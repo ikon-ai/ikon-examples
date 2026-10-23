@@ -1,4 +1,4 @@
-<!-- checked-against: 098487d1546989f73ec25f7f -->
+<!-- checked-against: 999cd1f385070f6e5191ee7b -->
 
 # Ikon.AI Library Overview
 
@@ -6,11 +6,13 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 
 ## Timeouts
 
-Every service's config has a `Timeout`, and a call that runs past it throws `AITimeoutException`. A static one-shot such as `DepthEstimator.EstimateAsync` uses the default; for another value, use the constructor and the config form. `AITimeoutException` is retryable, so a retry loop multiplies the wait. The defaults:
+Every service's config has a `Timeout`, and a call that runs past it throws `AITimeoutException`. A static one-shot such as `DepthEstimator.EstimateAsync` uses the default; for another value, use the constructor and the config form. `AITimeoutException` is retryable, so a retry loop multiplies the wait.
+
+A service that submits a job to its provider and waits for it (video, mesh, music, image segmentation, depth, upscaling, video enhancement and segmentation, OCR, and some image models) throws `ProviderJobAbandonedException` instead once the provider has accepted the job. It is not retryable: the provider usually still finishes the job and charges for it, so the platform keeps reading the job and bills it once it ends, and a retry would pay for a second one. A result the provider charged for that could not be used throws `ProviderChargedException`, also not retryable. The defaults:
 
 | Service | Default `Timeout` |
 |---|---|
-| LLM calls (`KernelContext`) | 60 seconds |
+| LLM calls (`KernelContext`) | 60 seconds; 10 minutes for a reasoning model when `Timeout` is not set |
 | Embeddings, reranking | 10 seconds per request, scaled up with the batch size |
 | Speech recognition | 1 minute |
 | Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds; the SerpApi models (Google, Bing, Amazon, YouTube) retry a timed-out request once, so up to 40 |
@@ -32,9 +34,9 @@ checked against the organisation's credits and spend limits like a call on the p
 
 Many models have more than one provider. When the provider serving a call fails on its side (an
 outage, throttling, an empty account, a refused key or a retired model) before any output reaches
-the caller, the call moves once to the model's next provider in the allowed regions. A request the
-provider refused as written does not move, and neither does a call on the app's own key, which is
-never moved onto the platform's key. A request with an option the first provider does not take, such as a
+the caller, the call moves once to the model's next provider in the allowed regions. These do not
+move: a request the provider refused as written, a job the provider accepted, a result it charged
+for, and a call on the app's own key, which is never moved onto the platform's key. A request with an option the first provider does not take, such as a
 negative prompt, runs on another provider of the model that takes it. It throws only when none can.
 
 ## Emergence
@@ -573,9 +575,11 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 Log.Instance.Info($"Video URL: {result.Url}");
 ```
 
-Each model takes only some aspect ratios, listed in `SupportedAspectRatios` on the generator and on
-`VideoGenerator.GetCapabilities(model)`. A ratio the model does not list throws
-`NonRetryableAIException` before anything is generated. With an input image, most models frame the
+Most models take only some aspect ratios, listed in `SupportedAspectRatios` on the generator and on
+`VideoGenerator.GetCapabilities(model)`. A ratio missing from a non-empty list throws
+`NonRetryableAIException` before anything is generated. An empty list means either that the model
+takes no ratio, so every ratio but `ModelDefault` throws, or that the platform has no list for it,
+so the ratio is passed to the provider unchecked. With an input image, most models frame the
 clip like the image and throw if `AspectRatio` is set; `SupportsImageToVideoAspectRatio` is true for
 the ones that take a ratio there. For the others, crop the image to the ratio you want.
 
