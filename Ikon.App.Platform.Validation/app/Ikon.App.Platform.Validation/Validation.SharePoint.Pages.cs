@@ -48,7 +48,7 @@ public partial class Validation
 
                         if (page.Name.StartsWith(SpTestPagePrefix, StringComparison.Ordinal))
                         {
-                            view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                            view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                                 onClick: async () => await SpRunAsync($"delete {page.Name}", () => DeleteSharePointPageAsync(page)));
                         }
                     });

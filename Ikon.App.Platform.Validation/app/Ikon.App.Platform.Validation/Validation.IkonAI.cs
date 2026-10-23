@@ -376,6 +376,7 @@
             view.Text([Text.H2], "Ikon.AI Library");
 
             RenderChatCard(view);
+            RenderAIProvidersCard(view);
             RenderClassifierCard(view);
             RenderDeciderCard(view);
             RenderDepthEstimatorCard(view);

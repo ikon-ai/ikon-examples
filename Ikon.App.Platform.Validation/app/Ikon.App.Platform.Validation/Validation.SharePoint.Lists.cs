@@ -61,7 +61,7 @@ public partial class Validation
                     onClick: async () => await SpRunAsync("start list changes from now", () => ReadSharePointListChangesAsync(fromNow: true)));
 
                 var deletable = current.DisplayName.StartsWith(SpTestListPrefix, StringComparison.Ordinal);
-                view.Button([Button.GhostErrorSm], text: "Delete list", disabled: _spBusy.Value || !deletable, props: new Dictionary<string, object>
+                view.Button([Button.OutlineErrorSm], text: "Delete list", disabled: _spBusy.Value || !deletable, props: new Dictionary<string, object>
                 {
                     ["data-testid"] = "sp-list-delete",
                     ["title"] = deletable ? "Moves the list to the site's recycle bin" : "Only lists this tab created can be deleted here",
@@ -116,7 +116,7 @@ public partial class Validation
                         view.Button([Button.GhostSm], text: "Attachments", disabled: _spBusy.Value, props: TestId("sp-item-attachments"),
                             onClick: async () => await SpRunAsync("list attachments", () => LoadSharePointAttachmentsAsync(item)));
                     }
-                    view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                         props: new Dictionary<string, object> { ["aria-label"] = $"Delete item {item.Id}", ["title"] = "Moves it to the site's recycle bin" },
                         onClick: async () => await SpRunAsync("delete the item", () => DeleteSharePointListItemAsync(item)));
                 });
@@ -132,7 +132,7 @@ public partial class Validation
                                 view.Text([Text.Caption, "flex-1"], attachment.FileName, props: TestId("sp-item-attachment"));
                                 view.Button([Button.GhostSm], text: "Read", disabled: _spBusy.Value,
                                     onClick: async () => await SpRunAsync($"read {attachment.FileName}", () => ReadSharePointAttachmentAsync(item, attachment)));
-                                view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                                view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                                     onClick: async () => await SpRunAsync($"delete {attachment.FileName}", () => DeleteSharePointAttachmentAsync(item, attachment)));
                             });
                         }

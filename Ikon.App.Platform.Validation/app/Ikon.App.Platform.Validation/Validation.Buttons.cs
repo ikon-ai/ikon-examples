@@ -374,7 +374,7 @@ public partial class Validation
                     view.Button([Button.GhostErrorSm], text: "Ghost Error Sm");
                     view.Button([Button.GhostErrorMd], text: "Ghost Error Md");
                     view.Button([Button.GhostErrorLg], text: "Ghost Error Lg");
-                    view.Button([Button.GhostErrorMd, Button.Icon], text: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
+                    view.Button([Button.OutlineErrorMd, Button.Icon], text: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
                 });
             });
         });

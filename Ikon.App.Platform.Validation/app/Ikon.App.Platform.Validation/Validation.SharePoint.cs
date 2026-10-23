@@ -278,7 +278,7 @@ public partial class Validation
                         props: new Dictionary<string, object> { ["aria-label"] = $"More actions for {item.Name}", ["data-testid"] = "sp-file-more" },
                         onClick: async () => SpToggleActiveItem(item));
 
-                    view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                         props: new Dictionary<string, object> { ["aria-label"] = $"Delete {item.Name}", ["title"] = "Moves it to the site's recycle bin" },
                         onClick: async () => await SpRunAsync($"delete {item.Name}", () => DeleteSharePointItemAsync(item)));
                 });

@@ -4,24 +4,25 @@
 
 ## Quick start
 
-1. Converting an existing app? Its screens become C#: read the `convert` playbook first. Else read the `product-design` guide first (what the product needs, undo, controls that work or say why not), then `docs/Ikon.Agent.Docs/patterns/_start.md` (a row per kind of app) and your row's patterns; `ikon docs --search <feature>` finds any other feature.
-2. Pick a visual direction (below) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (it shares every plain reactive; per-visitor ones: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`, 200 clients each (more: `[Sharded]`).
+1. Converting an existing app? Its screens become C#: read the `convert` playbook first (`ikon docs convert`, `convert/lovable`). Else read the `product-design` guide first (what the product needs, undo, working controls), then `docs/Ikon.Agent.Docs/patterns/_start.md` (a row per kind of app) and your row's patterns; `ikon docs --search <feature>` finds any other feature.
+2. Pick a visual direction (below) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (it shares every plain reactive; per-visitor ones: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`, 200 clients each.
    Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; any account signs in; staff-only screens check a role, and no one holds `admin` by default (`ikon profile role add admin --me`, or `first-user-becomes-admin`).
 3. Each instance holds its own copy of every reactive, `Persistent*` too; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless the URL was minted with an identity. Shared data goes in a database.
 4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (its own data, the only one `app.Seed` runs on): `ikon link --target staging --new-app`. Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
-5. The scaffold runs as is: `ikon run --target staging --mock-ai --detach` compiles it, then `ikon browse --steps "observe"` ("Running and checking the app"). `--mock-ai`: speech recognition gives one fixed sentence (browse speech needs `--fake-media-file x.wav`), `Emerge.Run<T>` gets one item per array (`ai-models`), no tool is called unless `--mock-ai-script turns.json` scripts it; a deployed copy spends credits. `browse` without `--target` drives the local run. Fix every warning in `build/ikon-run.log`. `ikon feedback set --audience everyone` shows the feedback button.
+5. The scaffold runs as is: `ikon run --target staging --mock-ai --detach` compiles it, then `ikon browse --steps "observe"` (a repeated label: `tap 'Save >> nth=1'`). `browse` without `--target` drives the local run; a deployed copy spends credits. `dev warning:` lines reach `build/ikon-run.log` only after a client renders the view: browse every screen. `ikon db query` acts on the live app unless `--target` names one.
+   `--mock-ai`: speech recognition gives one fixed sentence (browse speech needs `--fake-media-file x.wav`). An `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on the property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
 
 ## Architecture
 
-An IKON app is a C# app in the cloud that streams reactive UI to browsers; an instance keeps running when every client disconnects. `frontend-node` is only for custom React components (`frontend-fundamentals`). Packages: `dotnet add app/<Project>/<Project>.csproj package <Id>`; `npm install` in `frontend-node`.
+An IKON app is a C# app in the cloud that streams reactive UI to browsers; an instance keeps running when every client disconnects. `frontend-node` is only for custom React components (`frontend-fundamentals`).
 
-A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Python or extra fonts (`app-container`). Its databases and files stay in the EU (AI: `region-pinned-ai` pattern); music, video, segmentation, depth and mesh models are global only (`ikon model list --eu`).
+A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Python or extra fonts (`app-container`). Databases and files stay in the EU (AI: `region-pinned-ai`); music, video, segmentation, depth and mesh models are global only (`ikon model list --eu`).
 
-**AI services** (platform-held keys, except Rodin's): `Emerge.Run<T>()` for LLM text and typed output, `Emerge.Refine` for a draft improved in rounds; `ImageGenerator`, `SpeechGenerator`, `SpeechRecognizer`, `VideoGenerator`, `MusicGenerator`, `EmbeddingGenerator`, `WebSearcher`, `Classifier` (moderation, free), `DepthEstimator`, `ImageSegmenter`, `VideoSegmenter`, `MeshGenerator`. Each has a static one-shot (`ImageGenerator.GenerateAsync(prompt)`, bytes: `GetDataAsync()`) and `new Xxx(model)` with `XxxConfig` for options (the `ai-*` guides).
+**AI services** (platform-held keys, except Rodin's): `Emerge.Run<T>()` for LLM text and typed output; `ImageGenerator`, `SpeechGenerator`, `SpeechRecognizer`, `VideoGenerator`, `MusicGenerator`, `EmbeddingGenerator`, `WebSearcher`, `Classifier`, `DepthEstimator`, `ImageSegmenter`, `VideoSegmenter`, `MeshGenerator`. Each has a static one-shot (`ImageGenerator.GenerateAsync(prompt)`, bytes: `GetDataAsync()`) and `new Xxx(model)` with `XxxConfig` (`ai-*` guides).
 
-**UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`; no `ViewContext`, CS0246); nested lambdas get their own.
+**UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`; no `ViewContext`, CS0246).
 
-**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders: with one, only those classes (`"default"` first keeps the themed default). A missing colour is a theme role (IKON013), set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`); a pinned dark palette needs `Mode = ThemeMode.Fixed`.
+**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders (`"default"` first keeps the themed default). A missing colour is a theme role (IKON013), set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`); a pinned dark palette needs `Mode = ThemeMode.Fixed`.
 
 ## Running and checking the app
 
@@ -31,7 +32,7 @@ has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit 
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
 `ikon status --wait` returns once the reload has applied or failed); a `.csproj`
-or `ikon-config.toml` change needs `ikon stop` and a new run. Check the app as text first (`--text-only` needs no browser, runs anywhere):
+or `ikon-config.toml` change needs `ikon stop` and a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
 ikon browse --text-only --steps "observe"  # text + [id] handles
@@ -84,24 +85,26 @@ scripts, not `/tmp`), `reference/`, `test/`, `release-notes/`, `.ikon/gates/`, g
 
 ## What the app must contain
 
-Build what the KIND of product's ordinary workflow needs from the first build, nothing unrequested (records get search, sort, filters, export).
+Build what the KIND of product's ordinary workflow needs from the first build, nothing more (records get search, sort, filters, export).
 Every control works or is disabled with a visible reason; changes, AI-made too, can be undone; a filter never loses records; and anything reaching outside the app (`app.Payments`, `app.Email`, `app.Telephony`, `app.Notifications`, a publish, a permanent delete) happens only when a person presses a control or turns on a setting naming it, never as a side effect of an AI turn.
 
 ## How the app must look
 
 Before the first `view.*` call pick a visual direction in one sentence (feel, palette, type, radius, density) and set it with `new IkonTheme { … }`, `["primary"]` included (IKON015).
-Then: one primary action per screen in the brand colour; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page`, but no `p-*` in a `view.Card` array (IKON026); a `Column` with a `Card.*` token needs `p-5` (IKON034); empty, loading and error states; every viewport: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, touch targets ≥ 44px; tabs: `view.Tabs` (a `defaultValue`), `Tabs.NavList`, `triggerStyle: [Tabs.NavTriggerMd]` (IKON039).
+Then: one primary action per screen, brand colour; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page`; `view.Card` pads itself: no `p-*` on it or its only child (IKON026). Outside `view.Card`, a `Column` with a `Card.*` token pads nothing and needs `p-5` (IKON034);
+empty (`view.EmptyState`), loading and error states; action buttons beside a title in `Layout.Row.Actions`; every viewport: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, touch targets ≥ 44px; tabs: `view.Tabs` (a `defaultValue`), `Tabs.NavList`, `triggerStyle: [Tabs.NavTriggerMd]` (IKON039).
 
 ## Common Pitfalls
 
-These fail the first build or the first run. The `pitfalls` guide has each rule in full, with the rarer ones; read its section for an area before writing that kind of code.
+The `pitfalls` guide has each rule in full, with the rarer ones; read its section for an area first.
 
-- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503/CS7036). Lists are `ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (`Reactive<List<T>>` is IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render that reads `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031). Outside a handler, name the client: `_x.SetFor(cid, v)`.
-- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })` (positional prompt: CS1660); `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw instead of returning null: catch them and show a sentence and a retry.
-- **View calls**: the leading style array is positional and everything else is named, lambdas too (CS1744, CS8323, IKON003). The display string is `text:`; Dialog and Alert take `title:`/`description:`. Form controls take `bind:` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `TableRow` and `ToolbarButton` take `onClick:`. Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`. Never name an app type like a style class (`Page`, `Text`, `Card`; IKON030).
+- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503/CS7036). Lists are `ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (`Reactive<List<T>>` is IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031). Outside a handler, name the client: `_x.SetFor(cid, v)`.
+- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })` (positional prompt: CS1660); `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch them and show a sentence and a retry.
+- **View calls**: the leading style array is positional and everything else is named, lambdas too (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange:` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `TableRow` and `ToolbarButton` take `onClick:`.
+  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; one with `disabled:` needs a `disabled:` class too (`[Button.PrimaryMd, "disabled:opacity-50"]`, `ui-components`).
+  Tones: `SemanticTone.Neutral/Brand/Success/Warning/Error/Info`.
 - **Colours**: `bg-primary` is the page surface, not the brand: brand fill is `bg-brand-solid`, brand text `text-brand-secondary`. Crosswind classes in a `.tsx` file do nothing.
-- **Structure**: keep the scaffold's `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). `Main()` returns after `UI.Root(...)`. Don't invent a `using Ikon.*;` (CS0234); `QueryAsync` (CS1061) needs package `Dapper` and `global using Dapper;`. Open a database connection per operation. Leave the `__IKON_APP_NAME__` marker in `index.html` and the manifest: the build writes `[Target] Name` there.
-- **C#**: escape inner quotes in `$"…"` (`\"`); one unescaped `"` causes CS1002/CS1010/CS1026 across the file.
+- **Structure**: keep the scaffold's `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Log via `Log.Instance`; no invented `using Ikon.*;` (CS0234); `QueryAsync` (CS1061) needs `dotnet add app/<Project> package Dapper --version 2.1.89` (the build adds the `global using`); a `snake_case` column needs an alias (`client_id AS ClientId`). Open a connection per operation. Leave the `__IKON_APP_NAME__` marker in `index.html` and the manifest: the build writes `[Target] Name` there.
 
 ## API Reference Guides
 
@@ -192,8 +195,8 @@ line that starts with `PASS` or `FAIL`, and a step in `validation/validate_platf
 
 | Tier | When | What |
 |---|---|---|
-| free | hourly | every tab rendered by the smoke sweep; Self-Test's in-process battery; the one-click checks on the Typography, Buttons, Inputs, Advanced Inputs, Forms, Overlays, Navigation, Layout, Drawing, Pan & Zoom, Actions, Device, Notifications, Session Identity, Account (the legal page links, reading the account's scheduled removal), Consent (Require gating), React SDK (server functions from the browser, consent both ways between C# and the hook, sibling client), Costs and Telephony (status) tabs; the older phases (assets, files, the upload lifecycle lab, database, custom messages, media, MCP, cron, payments, connection transports, SEO) |
-| ai | six-hourly | the Ikon.AI Library cards, including Decider, direct model access, the mesh animation library, word timings and provenance; a spend budget tripping |
+| free | hourly | every tab rendered by the smoke sweep; Self-Test's in-process battery; the one-click checks on the Typography, Buttons, Inputs, Advanced Inputs, Forms, Overlays, Navigation, Layout, Drawing, Pan & Zoom, Actions, Device, Notifications, Session Identity, Account (the legal page links, reading the account's scheduled removal), Consent (Require gating), React SDK (server functions from the browser, consent both ways between C# and the hook, sibling client), Costs and Telephony (status) tabs; on the Ikon.AI tab, the model catalog the backend serves this organisation and an app provider class called by name; the older phases (assets, files, the upload lifecycle lab, database, custom messages, media, MCP, cron, payments, connection transports, SEO) |
+| ai | six-hourly | the Ikon.AI Library cards, including Decider, direct model access, the mesh animation library, word timings and provenance; a call on the space's own provider key; a spend budget tripping |
 | daily | the 00:00 UTC six-hourly run, or a dispatch with `run_daily` | an SMS and a call each way between the space's two numbers, a signature order reaching the Signicat ceremony, SAM 3 video segmentation |
 | manual | a person, often on a phone | Motion, Recordings and Live Activity (native clients only), background location, completing a signature, answering calls, the capture hooks, account deletion, browsing and changing a SharePoint site on the SharePoint tab, signing in to Google and working a Drive on the Google Drive tab, the upload lab's app stop mid-upload, the upload lab through the Dart client (`platform-dart/ikon_sdk/test/upload_lab_live_test.dart` against a local run) |
 
@@ -204,8 +207,17 @@ a hosted app's LocalFile store is its read-only bundle. There the scenarios that
 its temp-file half and names its LocalFile half as skipped; complete-throws expects a new CloudFile
 asset to be deleted, which needs a backend that reports `created`; a local run uses LocalFile, and CloudFile beside it in the scenarios that cover both. Each
 result line names the store it used. `resume` drops its session's connection on purpose, so the quiet
-check accepts the web SDK's reconnect warning from the files page during the uploads phase, and only
-there.
+check accepts the web SDK's reconnect warning from the files page during the uploads phase.
+
+The Ikon.AI tab's own-key check runs one GPT-OSS 120B call on a Groq key the space holds as its own,
+and reports `SKIP own key` until a person stores one, from this folder:
+`ikon secret set IKON_GROQ_API_KEY --stdin --description "Validation own-key route check" < groq-key.txt`.
+It passes when the call ran in the app (`isRemote` false) on that key (`isUserCredential` true), was
+served by the Groq route and was billed only under `.user` usage names. Every GPT-OSS 120B call of the
+app then runs on that key, and the sessions running when the secret is set keep the values they started
+with until the next deploy. Under an EU-only AI region policy the check reports `SKIP`, since Groq
+serves the model globally only. The provider class check registers an in-process provider, so under
+`ikon run --mock-ai` it reports `SKIP`, because the mocks answer before any provider is called.
 
 Telephony needs a 46elks and a Twilio number on the space (`ikon phone buy`). SharePoint needs an
 Entra app registration with admin-consented Graph application permissions, given to the space as the
