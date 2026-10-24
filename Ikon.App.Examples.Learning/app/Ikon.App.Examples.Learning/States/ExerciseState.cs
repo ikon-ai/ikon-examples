@@ -974,7 +974,9 @@ public class ExerciseState(LearningApp outer) : ILearningState
                         disabled: _hasConversationEnded,
                         onValueChange: value =>
                         {
+#pragma warning disable IKON019 // the tutoring session, its chat and its state machine are one per user instance, so the draft is too
                             outer.InputText.Value = value;
+#pragma warning restore IKON019
                             return Task.CompletedTask;
                         },
                         onSubmit: async submitted =>

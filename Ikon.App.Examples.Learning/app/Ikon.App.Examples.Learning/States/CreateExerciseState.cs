@@ -119,7 +119,9 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                         placeholder: "Describe the scenario you want to practice...\n\nFor example:\n• Ordering food at a restaurant\n• Asking for directions in Helsinki\n• A job interview in Finnish",
                         onValueChange: value =>
                         {
+#pragma warning disable IKON019 // voice transcription appends to this draft from the audio callback, which has no client scope
                             _scenarioDescription.Value = value;
+#pragma warning restore IKON019
                             return Task.CompletedTask;
                         });
 

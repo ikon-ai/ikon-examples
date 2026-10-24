@@ -105,6 +105,7 @@ public partial class LearningApp
                                 await States.StateMachine.FireAsync(Trigger.ReturnToMainMenu);
                             }
                         },
+                        ariaLabel: "Back",
                         content: btnView =>
                         {
                             btnView.Icon([Icon.Default, "w-5 h-5 md:w-6 md:h-6"], name: "chevron-left");

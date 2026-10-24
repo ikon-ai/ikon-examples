@@ -92,18 +92,7 @@ public class YourProgressState(LearningApp outer) : ILearningState
 
                     if (achievements.Count == 0)
                     {
-                        col.Box(["p-6 bg-white/50 rounded-2xl text-center"], content: emptyView =>
-                        {
-                            emptyView.Column(["items-center gap-3"], content: emptyCol =>
-                            {
-                                emptyCol.Box(["w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center"], content: iconWrapper =>
-                                {
-                                    iconWrapper.Icon([Icon.Default, "w-8 h-8 text-gray-300"], name: "trophy");
-                                });
-                                emptyCol.Text(["text-sm text-[#6b7280]"], "No achievements yet");
-                                emptyCol.Text(["text-xs text-[#9ca3af]"], "Keep learning to earn badges!");
-                            });
-                        });
+                        col.EmptyState([EmptyState.RootSm, "bg-white/50 rounded-2xl"], title: "No achievements yet", description: "Keep learning to earn badges!", icon: "trophy");
                     }
                     else
                     {
