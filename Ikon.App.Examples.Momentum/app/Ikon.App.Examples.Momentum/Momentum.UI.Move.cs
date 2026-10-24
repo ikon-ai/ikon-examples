@@ -291,10 +291,12 @@ public partial class MomentumApp
                     view.Column(["gap-2"], content: view =>
                     {
                         Kicker(view, "Title");
+#pragma warning disable IKON019 // the title of the instance's one pending outing, which the background curation also writes
                         view.TextField([Input.Default, "text-[15px]"],
                             value: _titleDraft.Value,
                             onValueChange: async value => _titleDraft.Value = value,
                             placeholder: activity.Title);
+#pragma warning restore IKON019
                     });
 
                     if (activity.Story.Length > 0)
