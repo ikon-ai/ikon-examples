@@ -26,7 +26,7 @@ public class AmbientApp
     private readonly Reactive<string?> _currentVideoPrompt = new(null);
     private readonly ReactiveList<CustomExperienceData> _customExperiences = new();
     private readonly Reactive<bool> _showCreateForm = new(false);
-    private readonly Reactive<string> _createDescription = new("");
+    private readonly ClientReactive<string> _createDescription = new("");
     private readonly Reactive<bool> _isCreating = new(false);
     private readonly ReactiveDictionary<string, string> _thumbnailUrls = new();
     private readonly Reactive<int> _featuredIndex = new(0);
@@ -712,6 +712,7 @@ public class AmbientApp
                                     : "w-1.5 h-[3px] rounded-full bg-white/30 hover:bg-white/60 transition-all duration-300";
                                 dots.Box(
                                     [dotStyle, "cursor-pointer"],
+                                    ariaLabel: $"Show scene {capturedIdx + 1}",
                                     onClick: async () => { _featuredIndex.Value = capturedIdx; });
                             }
                         });
@@ -893,6 +894,7 @@ public class AmbientApp
 
     private void RenderCreateCard(UIView parent)
     {
+#pragma warning disable IKON036 // a card in a horizontally scrolling carousel, as wide as the scene cards beside it; the row scrolls on a phone
         parent.Button(
             [
                 "group relative w-[560px] min-w-[560px] h-[316px] rounded-2xl overflow-hidden cursor-pointer",
@@ -919,6 +921,7 @@ public class AmbientApp
                 });
             }
         );
+#pragma warning restore IKON036
     }
 
     private void RenderCreateForm(UIView view)
