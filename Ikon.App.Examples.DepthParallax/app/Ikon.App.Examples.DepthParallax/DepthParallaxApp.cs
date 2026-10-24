@@ -18,17 +18,17 @@ public partial class DepthParallaxApp(IApp<SessionIdentity, ClientParameters> ap
 
     private UI UI { get; } = new(app, new IkonTheme());
 
-    private readonly Reactive<string> _prompt = new(DefaultPrompt);
+    private readonly ClientReactive<string> _prompt = new(DefaultPrompt);
     private readonly Reactive<string?> _imageDataUri = new(null);
     private readonly Reactive<string?> _depthDataUri = new(null);
     private readonly Reactive<Stage> _stage = new(Stage.Idle);
     private readonly Reactive<string?> _error = new(null);
-    private readonly Reactive<bool> _showDepth = new(false);
+    private readonly ClientReactive<bool> _showDepth = new(false);
     private readonly Reactive<float> _parallaxStrength = new(0.025f);
     private readonly Reactive<int> _steps = new(16);
-    private readonly Reactive<ParallaxAlgorithm> _algorithm = new(ParallaxAlgorithm.OcclusionMapping);
-    private readonly Reactive<ImageGeneratorModel> _imageModel = new(ImageGeneratorModel.Gemini31FlashImage);
-    private readonly Reactive<DepthEstimatorModel> _depthModel = new(DepthEstimatorModel.DepthAnythingV2);
+    private readonly ClientReactive<ParallaxAlgorithm> _algorithm = new(ParallaxAlgorithm.OcclusionMapping);
+    private readonly ClientReactive<ImageGeneratorModel> _imageModel = new(ImageGeneratorModel.Gemini31FlashImage);
+    private readonly ClientReactive<DepthEstimatorModel> _depthModel = new(DepthEstimatorModel.DepthAnythingV2);
 
     private bool IsGenerating => _stage.Value is Stage.GeneratingImage or Stage.EstimatingDepth;
 
@@ -177,6 +177,7 @@ public partial class DepthParallaxApp(IApp<SessionIdentity, ClientParameters> ap
                     view.Switch([Switch.Root],
                         value: _showDepth.Value,
                         onValueChange: async c => { _showDepth.Value = c; },
+                        ariaLabel: "Show depth map",
                         content: v => v.SwitchThumb([Switch.Thumb]));
                     view.Text(["text-white/70 text-sm"], "Show depth map");
                 });
