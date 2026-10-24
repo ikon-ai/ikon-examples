@@ -3,6 +3,8 @@ using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+#pragma warning disable IKON019 // each signed-in user's instance is their own transcription workspace, and upload, recording and transcription write this state from background work with no client scope
+
 return await App.Run(args);
 
 public record SessionIdentity(string? UserId);
@@ -232,6 +234,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                     [Switch.Default],
                                     value: _generateSummary.Value,
                                     onValueChange: async value => _generateSummary.Value = value,
+                                    ariaLabel: "Generate summary and action items",
                                     content: view => view.SwitchThumb([Switch.Thumb]));
                                 view.Text([Text.Caption], "Generate summary and action items");
                             });
@@ -319,7 +322,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 
                             if (_transcripts.Value.Count == 0)
                             {
-                                view.Text([Text.Caption, "text-muted-foreground"], "No transcripts yet");
+                                view.EmptyState([EmptyState.RootSm], title: "No transcripts yet", icon: "file-text");
                             }
                             else
                             {
