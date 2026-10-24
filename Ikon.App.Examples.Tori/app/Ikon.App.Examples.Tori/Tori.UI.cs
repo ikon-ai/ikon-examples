@@ -50,6 +50,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
+                        ariaLabel: isDark ? "Light mode" : "Dark mode",
                         onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -135,6 +136,7 @@ public partial class Tori
                         row.Text([Text.H3], "Meeting link created");
                         row.Button(
                             [Button.GhostMd, Button.Icon],
+                            ariaLabel: "Close",
                             onClick: async () => _meetLinkDialogOpen.Value = false,
                             content: v => v.Icon([Icon.Default], name: "x"));
                     });
@@ -150,6 +152,7 @@ public partial class Tori
                             contentStyle: [Tooltip.Content, "z-[100]"],
                             trigger: v => v.ActionButton(
                                 [Button.GhostMd, Button.Icon],
+                                ariaLabel: "Copy link",
                                 action: ActionKind.CopyToClipboard,
                                 options: new CopyToClipboardActionOptions { Text = meetLink },
                                 content: vv => vv.Icon([Icon.Default], name: "clipboard-copy")),
@@ -158,6 +161,7 @@ public partial class Tori
                             contentStyle: [Tooltip.Content, "z-[100]"],
                             trigger: v => v.ActionButton(
                                 [Button.GhostMd, Button.Icon],
+                                ariaLabel: "Share link",
                                 action: ActionKind.Share,
                                 options: new ShareActionOptions { Title = "Join my meeting", Text = meetLink },
                                 content: vv => vv.Icon([Icon.Default], name: "share")),
@@ -191,6 +195,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
+                        ariaLabel: isDark ? "Light mode" : "Dark mode",
                         onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -231,6 +236,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.PrimaryMd, Button.Icon],
+                        ariaLabel: "Join meeting",
                         disabled: !hasValidName,
                         onClick: async () => JoinMeeting(nameValue),
                         content: vv => vv.Icon([Icon.Default], name: "arrow-right")),
@@ -258,6 +264,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
+                        ariaLabel: isDark ? "Light mode" : "Dark mode",
                         onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -360,18 +367,21 @@ public partial class Tori
         // Panel toggle button
         view.Button(
             [Button.OutlineMd, Button.Icon, "w-11 h-11"],
+            ariaLabel: "Open chat and people",
             onClick: async () => _mobilePanelOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "message-square"));
 
         // Leave meeting button
         view.Button(
             [Button.ErrorMd, Button.Icon, "w-11 h-11"],
+            ariaLabel: "Leave meeting",
             onClick: async () => _leaveConfirmDialogOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "phone-off"));
 
         // Settings button
         view.Button(
             [Button.GhostMd, Button.Icon, "w-10 h-10"],
+            ariaLabel: "Settings",
             onClick: async () => _settingsOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "settings"));
     }
@@ -393,6 +403,7 @@ public partial class Tori
             // Close button in top right corner
             drawer.Button(
                 [Button.GhostMd, Button.Icon, "absolute top-1 right-1 h-8 w-8 z-10"],
+                ariaLabel: "Close",
                 onClick: async () => _mobilePanelOpen.Value = false,
                 content: v => v.Icon([Icon.Xs], name: "x"));
 
@@ -403,7 +414,7 @@ public partial class Tori
             });
 
             // Tab buttons
-            drawer.Row(["px-3 py-1 gap-1 bg-muted/50 rounded-lg mx-3 mt-3"], content: tabs =>
+            drawer.Row(["flex-wrap px-3 py-1 gap-1 bg-muted/50 rounded-lg mx-3 mt-3"], content: tabs =>
             {
                 RenderMobilePanelTabButton(tabs, "chat", "Chat");
                 RenderMobilePanelTabButton(tabs, "people", "People");
@@ -466,7 +477,7 @@ public partial class Tori
                         {
                             if (_chatMessages.Value.Count == 0)
                             {
-                                msgs.Text([Text.Muted, "text-center py-4"], "No messages yet");
+                                msgs.EmptyState([EmptyState.RootSm], title: "No messages yet", icon: "message-square");
                             }
                             else
                             {
@@ -493,6 +504,7 @@ public partial class Tori
 
                 row.Button(
                     [Button.PrimaryMd, Button.Icon, "h-9 w-9"],
+                    ariaLabel: "Send message",
                     disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
                     onClick: async () => await SendChatMessage(),
                     content: vv => vv.Icon([Icon.Xs], name: "send"));
@@ -752,6 +764,7 @@ public partial class Tori
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
                     [Button.ErrorMd, Button.Icon, "w-14 h-14 ml-3"],
+                    ariaLabel: "Leave meeting",
                     onClick: async () => _leaveConfirmDialogOpen.Value = true,
                     content: vv => vv.Icon([Icon.Md], name: "phone-off")),
                 contentSlot: v => v.Text([Text.Caption], "Leave meeting"));
@@ -765,6 +778,7 @@ public partial class Tori
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
                     [Button.GhostMd, Button.Icon, "w-10 h-10"],
+                    ariaLabel: isDark ? "Light mode" : "Dark mode",
                     onClick: _theme.ToggleAsync,
                     content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                 contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -774,6 +788,7 @@ public partial class Tori
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
                     [Button.GhostMd, Button.Icon, "w-10 h-10"],
+                    ariaLabel: "Settings",
                     onClick: async () => _settingsOpen.Value = true,
                     content: vv => vv.Icon([Icon.Default], name: "settings")),
                 contentSlot: v => v.Text([Text.Caption], "Settings"));
@@ -825,7 +840,7 @@ public partial class Tori
                         {
                             if (_chatMessages.Value.Count == 0)
                             {
-                                msgs.Text([Text.Muted, "text-center py-8"], "No messages yet");
+                                msgs.EmptyState([EmptyState.RootSm], title: "No messages yet", icon: "message-square");
                             }
                             else
                             {
@@ -853,6 +868,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.PrimaryMd, Button.Icon],
+                        ariaLabel: "Send message",
                         disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
                         onClick: async () => await SendChatMessage(),
                         content: vv => vv.Icon([Icon.Default], name: "send")),
@@ -876,11 +892,7 @@ public partial class Tori
                     {
                         if (participants.Count == 0)
                         {
-                            list.Box(["flex-1 flex flex-col items-center justify-center py-8 gap-3"], content: empty =>
-                            {
-                                empty.Icon([Text.Muted, Icon.Lg], name: "users");
-                                empty.Text([Text.Muted, "text-center"], "No participants yet");
-                            });
+                            list.EmptyState([EmptyState.RootSm], title: "No participants yet", icon: "users");
                         }
                         else
                         {
@@ -996,6 +1008,7 @@ public partial class Tori
                             contentStyle: [Tooltip.Content],
                             trigger: v => v.Button(
                                 [extractBtnStyle],
+                                ariaLabel: "Generate summary",
                                 disabled: isExtracting,
                                 onClick: async () => _ = ExtractSummaryAsync(force: true),
                                 content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "sparkles")),
@@ -1009,6 +1022,7 @@ public partial class Tori
                             trigger: v => v.ActionButton(
                                 ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                                 action: ActionKind.CopyToClipboard,
+                                ariaLabel: "Copy summary",
                                 options: new CopyToClipboardActionOptions { Text = _summary.Value },
                                 content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "clipboard-copy")),
                             contentSlot: v => v.Text([Text.Caption], "Copy summary"));
@@ -1018,6 +1032,7 @@ public partial class Tori
                             trigger: v => v.ActionButton(
                                 ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                                 action: ActionKind.Share,
+                                ariaLabel: "Share summary",
                                 options: new ShareActionOptions { Title = "Meeting Summary", Text = _summary.Value },
                                 content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "share")),
                             contentSlot: v => v.Text([Text.Caption], "Share summary"));
@@ -1079,6 +1094,7 @@ public partial class Tori
                         trigger: v => v.ActionButton(
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.CopyToClipboard,
+                            ariaLabel: "Copy transcript",
                             options: new CopyToClipboardActionOptions { Text = transcriptText },
                             content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "clipboard-copy")),
                         contentSlot: v => v.Text([Text.Caption], "Copy transcript"));
@@ -1088,6 +1104,7 @@ public partial class Tori
                         trigger: v => v.ActionButton(
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.Share,
+                            ariaLabel: "Share transcript",
                             options: new ShareActionOptions { Title = "Transcript", Text = transcriptText },
                             content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "share")),
                         contentSlot: v => v.Text([Text.Caption], "Share transcript"));

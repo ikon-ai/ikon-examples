@@ -115,6 +115,7 @@ public partial class Tori
                         row.Text([Text.H3], "Settings");
                         row.Button(
                             [Button.GhostMd, Button.Icon],
+                            ariaLabel: "Close",
                             onClick: async () => _settingsOpen.Value = false,
                             content: v => v.Icon([Icon.Default], name: "x"));
                     });
@@ -171,10 +172,13 @@ public partial class Tori
                         r.Text([Text.Body], "Enable transcription");
                         r.Switch(
                             [Switch.Default],
+                            ariaLabel: "Enable transcription",
                             value: _speechEnabled.Value,
                             onValueChange: async value =>
                             {
+#pragma warning disable IKON019 // one recognizer transcribes the whole meeting, so every participant shares the setting
                                 _speechEnabled.Value = value;
+#pragma warning restore IKON019
 
                                 if (value)
                                 {
@@ -200,6 +204,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Transcription model",
                         options: SpeechModelOptions,
                         value: _speechModel.Value.ToString(),
                         disabled: !_speechEnabled.Value,
@@ -219,6 +224,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Language",
                         options: LanguageOptions,
                         value: _speechLanguage.Value,
                         disabled: !_speechEnabled.Value,
@@ -226,7 +232,9 @@ public partial class Tori
                         {
                             if (value != _speechLanguage.Value)
                             {
+#pragma warning disable IKON019 // one recognizer transcribes the whole meeting, so every participant shares its language
                                 _speechLanguage.Value = value;
+#pragma warning restore IKON019
                                 RestartSpeechRecognition();
                             }
                         });
@@ -248,10 +256,13 @@ public partial class Tori
                         r.Text([Text.Body], "Enable summary");
                         r.Switch(
                             [Switch.Default],
+                            ariaLabel: "Enable summary",
                             value: _summaryEnabled.Value,
                             onValueChange: async value =>
                             {
+#pragma warning disable IKON019 // the meeting has one summary that every participant sees
                                 _summaryEnabled.Value = value;
+#pragma warning restore IKON019
                             },
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
@@ -268,6 +279,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Summary model",
                         options: SummaryModelOptions,
                         value: _summaryModel.Value.ToString(),
                         disabled: !_summaryEnabled.Value,
@@ -303,6 +315,7 @@ public partial class Tori
                         contentStyle: [Tooltip.Content, "z-[100]"],
                         trigger: v => v.Button(
                             [Button.GhostMd, Button.Icon, "h-6 w-6"],
+                            ariaLabel: "Refresh devices",
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -325,6 +338,7 @@ public partial class Tori
                     triggerStyle: [Select.Trigger, "w-full"],
                     contentStyle: [Select.Content],
                     itemStyle: [Select.Item],
+                    ariaLabel: "Microphone",
                     options: microphoneOptions,
                     value: _selectedMicrophoneId.Value,
                     disabled: _devicesLoading.Value,
@@ -340,6 +354,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Microphone quality",
                         options: QualityOptions,
                         value: _audioQuality.Value,
                         onValueChange: async value => _audioQuality.Value = value);
@@ -356,6 +371,7 @@ public partial class Tori
                         r.Text([Text.Body], "Echo cancellation");
                         r.Switch(
                             [Switch.Default],
+                            ariaLabel: "Echo cancellation",
                             value: _audioEchoCancellation.Value,
                             onValueChange: async value => _audioEchoCancellation.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
@@ -373,6 +389,7 @@ public partial class Tori
                         r.Text([Text.Body], "Noise suppression");
                         r.Switch(
                             [Switch.Default],
+                            ariaLabel: "Noise suppression",
                             value: _audioNoiseSuppression.Value,
                             onValueChange: async value => _audioNoiseSuppression.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
@@ -390,6 +407,7 @@ public partial class Tori
                         r.Text([Text.Body], "Auto gain control");
                         r.Switch(
                             [Switch.Default],
+                            ariaLabel: "Auto gain control",
                             value: _audioAutoGainControl.Value,
                             onValueChange: async value => _audioAutoGainControl.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
@@ -419,6 +437,7 @@ public partial class Tori
                         contentStyle: [Tooltip.Content, "z-[100]"],
                         trigger: v => v.Button(
                             [Button.GhostMd, Button.Icon, "h-6 w-6"],
+                            ariaLabel: "Refresh devices",
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -441,6 +460,7 @@ public partial class Tori
                     triggerStyle: [Select.Trigger, "w-full"],
                     contentStyle: [Select.Content],
                     itemStyle: [Select.Item],
+                    ariaLabel: "Camera",
                     options: cameraOptions,
                     value: _selectedCameraId.Value,
                     disabled: _devicesLoading.Value,
@@ -456,6 +476,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Camera resolution",
                         options: CameraResolutionOptions,
                         value: _cameraResolution.Value,
                         onValueChange: async value => _cameraResolution.Value = value);
@@ -467,6 +488,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Camera framerate",
                         options: FramerateOptions,
                         value: _cameraFramerate.Value,
                         onValueChange: async value => _cameraFramerate.Value = value);
@@ -482,6 +504,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Camera quality",
                         options: QualityOptions,
                         value: _cameraQuality.Value,
                         onValueChange: async value => _cameraQuality.Value = value);
@@ -493,6 +516,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Camera codec",
                         options: CodecOptions,
                         value: _cameraCodec.Value,
                         onValueChange: async value => _cameraCodec.Value = value);
@@ -514,6 +538,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Screen share framerate",
                         options: FramerateOptions,
                         value: _screenFramerate.Value,
                         onValueChange: async value => _screenFramerate.Value = value);
@@ -525,6 +550,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Screen share quality",
                         options: QualityOptions,
                         value: _screenQuality.Value,
                         onValueChange: async value => _screenQuality.Value = value);
@@ -540,6 +566,7 @@ public partial class Tori
                         triggerStyle: [Select.Trigger, "w-full"],
                         contentStyle: [Select.Content],
                         itemStyle: [Select.Item],
+                        ariaLabel: "Screen share codec",
                         options: CodecOptions,
                         value: _screenCodec.Value,
                         onValueChange: async value => _screenCodec.Value = value);
