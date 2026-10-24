@@ -17,7 +17,7 @@ public partial class Emergence
     }
 
     // Run<T> tab configuration
-    private readonly Reactive<string> _researchTopic = new("quantum computing in medicine");
+    private readonly UserReactive<string> _researchTopic = new("quantum computing in medicine");
     private readonly Reactive<double> _temperature = new(0.7);
     private readonly Reactive<int> _maxIterations = new(5);
 
@@ -153,14 +153,14 @@ public partial class Emergence
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Temperature: {_temperature.Value:F1}");
-                                    RenderSlider(view, _temperature.Value, 0.0, 1.0, 0.1, v => _temperature.Value = v);
+                                    RenderSlider(view, "Temperature", _temperature.Value, 0.0, 1.0, 0.1, v => _temperature.Value = v);
                                 });
 
                                 // Max iterations
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Max Iterations: {_maxIterations.Value}");
-                                    RenderSlider(view, _maxIterations.Value, 1, 10, 1, v => _maxIterations.Value = (int)v);
+                                    RenderSlider(view, "Max iterations", _maxIterations.Value, 1, 10, 1, v => _maxIterations.Value = (int)v);
                                 });
                             });
                         });

@@ -9,7 +9,7 @@ public partial class Emergence
         public string TopPick { get; set; } = "";
     }
 
-    private readonly Reactive<string> _ensembleTopic = new("a subscription app that turns your grocery receipts into recipes");
+    private readonly UserReactive<string> _ensembleTopic = new("a subscription app that turns your grocery receipts into recipes");
     private readonly Reactive<int> _ensembleSolvers = new(3);
 
     private void RenderEnsembleMergeSection(UIView view)

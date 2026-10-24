@@ -41,7 +41,7 @@ public partial class Emergence
     private readonly Reactive<double> _mapTemperature = new(0.3);
     private readonly Reactive<double> _reduceTemperature = new(0.2);
 
-    private readonly Reactive<string> _documentText = new("""
+    private readonly UserReactive<string> _documentText = new("""
 Chapter 1: The Rise of Artificial Intelligence
 The field of artificial intelligence has seen remarkable growth in the past decade.
 Machine learning algorithms have become increasingly sophisticated, enabling computers
@@ -58,7 +58,7 @@ Quantum computing may accelerate machine learning, while new architectures
 continue to push the boundaries of what's possible.
 """);
 
-    private readonly Reactive<string> _reviewsText = new("""
+    private readonly UserReactive<string> _reviewsText = new("""
 Great product! Battery life is amazing and the camera quality exceeded my expectations.
 ---
 Decent phone but the software has some bugs. Customer support was helpful though.
@@ -161,21 +161,21 @@ Disappointed with the battery - doesn't last a full day for me.
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Parallel Workers: {_mapReduceParallel.Value}");
-                                    RenderSlider(view, _mapReduceParallel.Value, 1, 5, 1, v => _mapReduceParallel.Value = (int)v);
+                                    RenderSlider(view, "Parallel workers", _mapReduceParallel.Value, 1, 5, 1, v => _mapReduceParallel.Value = (int)v);
                                 });
 
                                 // Map temperature
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Map Temp: {_mapTemperature.Value:F1}");
-                                    RenderSlider(view, _mapTemperature.Value, 0.0, 1.0, 0.1, v => _mapTemperature.Value = v);
+                                    RenderSlider(view, "Map temperature", _mapTemperature.Value, 0.0, 1.0, 0.1, v => _mapTemperature.Value = v);
                                 });
 
                                 // Reduce temperature
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Reduce Temp: {_reduceTemperature.Value:F1}");
-                                    RenderSlider(view, _reduceTemperature.Value, 0.0, 1.0, 0.1, v => _reduceTemperature.Value = v);
+                                    RenderSlider(view, "Reduce temperature", _reduceTemperature.Value, 0.0, 1.0, 0.1, v => _reduceTemperature.Value = v);
                                 });
                             });
                         });
@@ -316,21 +316,21 @@ Disappointed with the battery - doesn't last a full day for me.
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Parallel Workers: {_mapReduceParallel.Value}");
-                                    RenderSlider(view, _mapReduceParallel.Value, 1, 5, 1, v => _mapReduceParallel.Value = (int)v);
+                                    RenderSlider(view, "Parallel workers", _mapReduceParallel.Value, 1, 5, 1, v => _mapReduceParallel.Value = (int)v);
                                 });
 
                                 // Map temperature
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Map Temp: {_mapTemperature.Value:F1}");
-                                    RenderSlider(view, _mapTemperature.Value, 0.0, 1.0, 0.1, v => _mapTemperature.Value = v);
+                                    RenderSlider(view, "Map temperature", _mapTemperature.Value, 0.0, 1.0, 0.1, v => _mapTemperature.Value = v);
                                 });
 
                                 // Reduce temperature
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Reduce Temp: {_reduceTemperature.Value:F1}");
-                                    RenderSlider(view, _reduceTemperature.Value, 0.0, 1.0, 0.1, v => _reduceTemperature.Value = v);
+                                    RenderSlider(view, "Reduce temperature", _reduceTemperature.Value, 0.0, 1.0, 0.1, v => _reduceTemperature.Value = v);
                                 });
                             });
                         });

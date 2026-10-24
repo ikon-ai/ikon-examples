@@ -18,7 +18,7 @@ public partial class Emergence
     private readonly List<string> _coderLogs = [];
 
     // Coder configuration
-    private readonly Reactive<string> _coderTask = new("Create a simple calculator class in C# with Add, Subtract, Multiply, and Divide methods. Include XML documentation and unit tests.");
+    private readonly UserReactive<string> _coderTask = new("Create a simple calculator class in C# with Add, Subtract, Multiply, and Divide methods. Include XML documentation and unit tests.");
     private readonly Reactive<int> _coderMaxIterations = new(10);
     private readonly Reactive<double> _coderTemperature = new(0.3);
 
@@ -71,13 +71,13 @@ public partial class Emergence
                         view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                         {
                             view.Text([Text.Caption, "text-muted-foreground"], $"Max Iterations: {_coderMaxIterations.Value}");
-                            RenderSlider(view, _coderMaxIterations.Value, 3, 15, 1, v => _coderMaxIterations.Value = (int)v);
+                            RenderSlider(view, "Max iterations", _coderMaxIterations.Value, 3, 15, 1, v => _coderMaxIterations.Value = (int)v);
                         });
 
                         view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                         {
                             view.Text([Text.Caption, "text-muted-foreground"], $"Temperature: {_coderTemperature.Value:F1}");
-                            RenderSlider(view, _coderTemperature.Value, 0.0, 1.0, 0.1, v => _coderTemperature.Value = v);
+                            RenderSlider(view, "Temperature", _coderTemperature.Value, 0.0, 1.0, 0.1, v => _coderTemperature.Value = v);
                         });
                     });
 

@@ -4,7 +4,7 @@ using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
 {
-    private readonly Reactive<string> _tagsExampleContent = new(SampleTagContent);
+    private readonly UserReactive<string> _tagsExampleContent = new(SampleTagContent);
     private readonly Reactive<bool> _tagsShowParsed = new(true);
 
     private const string SampleTagContent = """
@@ -76,6 +76,7 @@ public partial class Emergence
                     view.Text([Text.H3, "mb-2"], "Input Content");
                     view.TextArea(
                         [Textarea.Default, "h-[400px] font-mono text-sm"],
+                        ariaLabel: "Input content",
                         value: _tagsExampleContent.Value,
                         onValueChange: async value => _tagsExampleContent.Value = value ?? "");
                 });

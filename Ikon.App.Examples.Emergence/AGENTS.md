@@ -49,7 +49,7 @@ and plays the whole flow in one run. Where the shell strips quotes (PowerShell),
 `--steps-file scratch/steps.txt` (one step per line). `hold`, `mic` and `--fake-media-file` (a .wav loops into
 the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app.
 `look`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
-gets a page of its own, signed in as bob.
+gets its own page once a step acts in it.
 
 A script worth keeping is a **check gate**, `.ikon/gates/<name>.toml`: `ikon test` runs it against
 the local run or the deployed app, and

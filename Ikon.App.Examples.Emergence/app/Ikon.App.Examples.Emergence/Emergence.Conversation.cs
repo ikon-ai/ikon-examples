@@ -12,7 +12,7 @@ public partial class Emergence
     // A single KernelContext carried across turns is what gives the model its memory of the conversation.
     private KernelContext _chatContext = new();
     private readonly ReactiveList<ChatTurn> _chatMessages = new();
-    private readonly Reactive<string> _chatInput = new("");
+    private readonly UserReactive<string> _chatInput = new("");
     private readonly Reactive<bool> _chatBusy = new(false);
 
     private void RenderConversationExample(UIView view)

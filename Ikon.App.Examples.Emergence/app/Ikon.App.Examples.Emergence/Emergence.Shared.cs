@@ -142,7 +142,7 @@ public partial class Emergence
         view.Column([Layout.Column.Sm, "flex-1"], content: view =>
         {
             view.Text([Text.Caption, "text-muted-foreground"], label);
-            RenderSlider(view, value, min, max, step, onChange, file: file, line: line);
+            RenderSlider(view, label, value, min, max, step, onChange, file: file, line: line);
         });
     }
 

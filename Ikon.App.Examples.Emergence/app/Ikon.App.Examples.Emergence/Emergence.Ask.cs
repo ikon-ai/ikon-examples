@@ -12,8 +12,8 @@ public partial class Emergence
     }
 
     private readonly Reactive<string> _selectedAskExample = new("string");
-    private readonly Reactive<string> _askPrompt = new("Summarize the theory of relativity for a curious 12-year-old, in two sentences.");
-    private readonly Reactive<string> _askTicket = new("My laptop screen flickers and goes black randomly, and I have a client demo in an hour!");
+    private readonly UserReactive<string> _askPrompt = new("Summarize the theory of relativity for a curious 12-year-old, in two sentences.");
+    private readonly UserReactive<string> _askTicket = new("My laptop screen flickers and goes black randomly, and I have a client demo in an hour!");
 
     private void RenderAskSection(UIView view)
     {

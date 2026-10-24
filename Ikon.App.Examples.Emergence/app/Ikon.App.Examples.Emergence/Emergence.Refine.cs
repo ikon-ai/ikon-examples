@@ -8,7 +8,7 @@ public partial class Emergence
         public string Notes { get; set; } = "";
     }
 
-    private readonly Reactive<string> _refineProduct = new("A stainless-steel insulated water bottle that keeps drinks cold for 24 hours");
+    private readonly UserReactive<string> _refineProduct = new("A stainless-steel insulated water bottle that keeps drinks cold for 24 hours");
     private readonly Reactive<int> _refineMaxRefinements = new(3);
     private readonly Reactive<int> _refineTargetLength = new(140);
 

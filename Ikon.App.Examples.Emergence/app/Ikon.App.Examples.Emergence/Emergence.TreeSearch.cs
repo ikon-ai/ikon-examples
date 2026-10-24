@@ -5,10 +5,10 @@ public partial class Emergence
 {
     // TreeSearch tab state
     private readonly Reactive<string> _selectedTreeSearchExample = new("search");
-    private readonly Reactive<string> _treeSearchQuery = new("What are the key features?");
+    private readonly UserReactive<string> _treeSearchQuery = new("What are the key features?");
     private readonly Reactive<bool> _showSourceDocument = new(false);
     private readonly Reactive<bool> _useCustomDocument = new(false);
-    private readonly Reactive<string> _customDocument = new("");
+    private readonly UserReactive<string> _customDocument = new("");
 
     // Sample document content for demos
     private const string SampleMarkdownDocument = """

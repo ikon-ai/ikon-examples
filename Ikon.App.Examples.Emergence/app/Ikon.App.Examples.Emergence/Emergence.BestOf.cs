@@ -19,7 +19,7 @@ public partial class Emergence
     }
 
     // BestOf configuration
-    private readonly Reactive<string> _bestOfPrompt = new("Write a tagline for a sustainable coffee brand");
+    private readonly UserReactive<string> _bestOfPrompt = new("Write a tagline for a sustainable coffee brand");
     private readonly Reactive<int> _candidateCount = new(3);
     private readonly Reactive<double> _temperatureVariance = new(0.4);
 
@@ -84,14 +84,14 @@ public partial class Emergence
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Candidates: {_candidateCount.Value}");
-                                    RenderSlider(view, _candidateCount.Value, 2, 5, 1, v => _candidateCount.Value = (int)v);
+                                    RenderSlider(view, "Candidates", _candidateCount.Value, 2, 5, 1, v => _candidateCount.Value = (int)v);
                                 });
 
                                 // Temperature variance
                                 view.Column([Layout.Column.Sm, "flex-1"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-muted-foreground"], $"Temp Variance: {_temperatureVariance.Value:F1}");
-                                    RenderSlider(view, _temperatureVariance.Value, 0.0, 0.5, 0.1, v => _temperatureVariance.Value = v);
+                                    RenderSlider(view, "Temperature variance", _temperatureVariance.Value, 0.0, 0.5, 0.1, v => _temperatureVariance.Value = v);
                                 });
                             });
                         });

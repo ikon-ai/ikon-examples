@@ -12,7 +12,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
     private UI UI { get; } = new(app, new IkonTheme());
 
     // Tab state
-    private readonly Reactive<string> _activeTab = new("ask");
+    private readonly ClientReactive<string> _activeTab = new("ask");
 
     // Per-example execution state - keyed by example ID
     private readonly Dictionary<string, ExampleState> _exampleStates = new();
@@ -273,6 +273,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
 
     private static void RenderSlider(
         UIView view,
+        string ariaLabel,
         double value,
         double min,
         double max,
@@ -287,6 +288,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
             min: min,
             max: max,
             step: step,
+            ariaLabel: ariaLabel,
             onValueChange: values =>
             {
                 if (values.Count > 0)
