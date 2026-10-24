@@ -55,7 +55,7 @@ internal sealed class ToastNotifications : IPatternDemo
                 view.Row(["items-center justify-between gap-2"], content: row =>
                 {
                     row.Text([Text.Body], _tasks[index]);
-                    row.Button([Button.OutlineErrorSm], "Remove", onClick: () => Remove(index));
+                    row.Button([Button.GhostSm], "Remove", onClick: () => Remove(index));
                 });
             }
 

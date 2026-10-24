@@ -19,7 +19,9 @@ internal sealed class FileUploadWithProgress : IPatternDemo
     }
 
     private static string T(string key) => throw new NotImplementedException();
-    private static Task SaveEvidenceAsync(Guid caseId, string fileName, string hash, string localPath) => throw new NotImplementedException();
+    private Task<FileUploadResult> OnFileUploadStartAsync(Guid caseId, FileUploadStartArgs args) => throw new NotImplementedException();
+    private Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args) => throw new NotImplementedException();
+    private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args) => throw new NotImplementedException();
 
     #region example:pattern-file-upload-with-progress
     private sealed class UploadTracker
@@ -75,51 +77,6 @@ internal sealed class FileUploadWithProgress : IPatternDemo
             tracker.Progress = args.ProgressPercentage;
             _activeUploads.NotifyUpdate();
         }
-        return Task.CompletedTask;
-    }
-    private Task<FileUploadResult> OnFileUploadStartAsync(Guid caseId, FileUploadStartArgs args)
-    {
-        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
-        if (tracker == null)
-        {
-            return Task.FromResult<FileUploadResult>(false);
-        }
-
-        if (_activeUploads.Any(u => u.UploadId != args.UploadId && u.Hash == args.Hash))
-        {
-            // A rejected Start fires neither Complete nor Error, so the PreStart row goes here.
-            _activeUploads.Remove(tracker);
-            _fileUploadError.Value = T("That file is already uploading");
-            return Task.FromResult<FileUploadResult>(false);
-        }
-
-        tracker.Hash = args.Hash;
-        _activeUploads.NotifyUpdate();
-
-        // No AssetUri: the bytes land in args.LocalTempFilePath of the Complete callback.
-        return Task.FromResult<FileUploadResult>(true);
-    }
-
-    private async Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args)
-    {
-        await SaveEvidenceAsync(caseId, args.FileName, args.Hash, args.LocalTempFilePath!);
-
-        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
-        if (tracker != null)
-        {
-            _activeUploads.Remove(tracker);
-        }
-    }
-
-    private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args)
-    {
-        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
-        if (tracker != null)
-        {
-            _activeUploads.Remove(tracker);
-        }
-
-        _fileUploadError.Value = T("Upload failed");
         return Task.CompletedTask;
     }
     #endregion
