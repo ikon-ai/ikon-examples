@@ -67,6 +67,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                 var isDark = _theme.Current.Value == Theme.Dark;
                 view.Button([Button.GhostMd, Button.Icon],
                     onClick: _theme.ToggleAsync,
+                    ariaLabel: isDark ? "Switch to light theme" : "Switch to dark theme",
                     content: v => v.Icon([Icon.Default], name: isDark ? "sun" : "moon"));
             });
 
@@ -220,12 +221,11 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
             {
                 view.Box(["flex-1 flex items-center justify-center"], content: view =>
                 {
-                    view.Column([Layout.Column.Md, "items-center text-center max-w-md"], content: view =>
-                    {
-                        view.Icon(["text-6xl text-muted-foreground/30"], name: "wand-2");
-                        view.Text([Text.H3, "text-muted-foreground"], "No UI Generated Yet");
-                        view.Text([Text.Muted], "Describe a UI in the chat and I'll generate it for you");
-                    });
+                    view.EmptyState(
+                        [EmptyState.Root, "max-w-md"],
+                        title: "No UI Generated Yet",
+                        description: "Describe a UI in the chat and I'll generate it for you",
+                        icon: "wand-2");
                 });
             }
         });
