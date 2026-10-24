@@ -286,7 +286,7 @@ public partial class Validation
                     view.Link([Button.GhostSm], href: link, text: "Open in Drive", target: "_blank");
                 }
 
-                view.Button([Button.OutlineErrorSm], text: "Delete permanently", disabled: _gdBusy.Value, props: TestId("gd-permanent-delete"),
+                view.Button([Button.GhostErrorSm], text: "Delete permanently", disabled: _gdBusy.Value, props: TestId("gd-permanent-delete"),
                     onClick: async () => _gdPermanentDeleteTarget.Value = file);
             });
 
@@ -366,7 +366,7 @@ public partial class Validation
 
                 if (_gdPermissionsCreatedHere.Contains(permission.Id))
                 {
-                    view.Button([Button.OutlineErrorSm], text: "Remove", disabled: _gdBusy.Value, props: TestId("gd-permission-remove"),
+                    view.Button([Button.GhostErrorSm], text: "Remove", disabled: _gdBusy.Value, props: TestId("gd-permission-remove"),
                         onClick: async () => await GdRunAsync("remove the permission", () => GdRemovePermissionAsync(file, permission)));
                 }
             });
@@ -409,7 +409,7 @@ public partial class Validation
                         onClick: async () => await GdRunAsync("reply", () => GdReplyAsync(file, comment)));
                     view.Button([Button.GhostSm], text: comment.Resolved ? "Reopen" : "Resolve", disabled: _gdBusy.Value, props: TestId("gd-comment-resolve"),
                         onClick: async () => await GdRunAsync(comment.Resolved ? "reopen the comment" : "resolve the comment", () => GdResolveAsync(file, comment)));
-                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _gdBusy.Value,
+                    view.Button([Button.GhostErrorSm], text: "Delete", disabled: _gdBusy.Value,
                         onClick: async () => await GdRunAsync("delete the comment", () => GdDeleteCommentAsync(file, comment)));
                 });
 
@@ -504,7 +504,7 @@ public partial class Validation
                     view.Text([Text.Caption], GdDescribe(file));
                     view.Button([Button.OutlineSm], text: "Restore", disabled: _gdBusy.Value, props: TestId("gd-restore"),
                         onClick: async () => await GdRunAsync($"restore {file.Name}", () => GdRestoreAsync(file)));
-                    view.Button([Button.OutlineErrorSm], text: "Delete permanently", disabled: _gdBusy.Value,
+                    view.Button([Button.GhostErrorSm], text: "Delete permanently", disabled: _gdBusy.Value,
                         onClick: async () => _gdPermanentDeleteTarget.Value = file);
                 });
 

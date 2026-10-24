@@ -4,8 +4,10 @@ ConfigVersion = 8
 
 # The space database that backs PersistentReactive state. Empty: the platform picks the built-in
 # "app" database, or the space's only platform-managed one, and records the choice so it stays put.
-# Set it only to override; it must be a name 'ikon db list' shows. An unknown name logs a warning and
-# state falls back to asset storage.
+# Set it only to override; it must be a name 'ikon db list' shows. A deploy records it as the space's
+# state store. State saved in the store it replaces is not copied over, and clearing the setting later
+# does not move state back. A name the space has no database for leaves the store as it is, with a
+# deploy warning. A local run with an unknown name logs a warning and keeps state in asset storage.
 StateDatabase = ""
 
 # Which email domains may become members of the space (e.g. ["mycompany.com"]). Empty admits every
@@ -142,3 +144,9 @@ Methods = ["google", "apple", "microsoft", "signicat", "email", "passkey", "sso"
 # Roles a signed-in person must hold to enter (e.g. ["admin"]), checked when they connect and on every
 # function call from the surface. Empty admits every signed-in person.
 Roles = []
+# The surface that draws this surface's sign-in page in the app's own UI, with the view.SignInButton
+# controls, instead of the frontend's sign-in screen. A visitor who is not signed in enters it at the
+# same path, and the sign-in prompt (LoginShowAsync) opens it. It must admit anonymous visitors and
+# have no Host, and it does not count as the surface that serves what no route selects. Empty keeps the
+# frontend's sign-in screen.
+SignIn = ""
