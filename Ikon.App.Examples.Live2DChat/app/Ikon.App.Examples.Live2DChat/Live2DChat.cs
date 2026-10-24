@@ -91,7 +91,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
     ];
 
     // Text-to-Speech state
-    private readonly Reactive<string> _ttsText = new("");
+    private readonly UserReactive<string> _ttsText = new("");
     private readonly Reactive<SpeechGeneratorModel> _ttsModel = new(SpeechGeneratorModel.Eleven3);
     private readonly Reactive<string> _ttsVoice = new("");
     private readonly Reactive<bool> _ttsSpeaking = new(false);
@@ -537,9 +537,12 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     view.Switch(
                         style: ["w-10 h-5 rounded-full bg-gray-300 data-[state=checked]:bg-blue-500"],
                         value: _sttContinuousMode.Value,
+                        ariaLabel: "Continuous recognition",
                         onValueChange: value =>
                         {
+#pragma warning disable IKON019 // the audio frame handler reads this outside any client scope, like the other recognition settings
                             _sttContinuousMode.Value = value;
+#pragma warning restore IKON019
                             return Task.CompletedTask;
                         },
                         content: view =>
