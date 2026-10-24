@@ -11,13 +11,13 @@ public partial class Globe(IApp<SessionIdentity, ClientParams> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());
 
-    private readonly Reactive<string> _queryText = new("");
+    private readonly UserReactive<string> _queryText = new("");
     private readonly Reactive<bool> _isProcessing = new(false);
     private readonly Reactive<GlobeDataSet?> _currentData = new(null);
     private readonly Reactive<string> _currentDataLabel = new("");
     private readonly Reactive<string> _errorMessage = new("");
     private readonly ReactiveList<QueryHistoryItem> _queryHistory = new();
-    private readonly Reactive<SelectedSpikeData?> _selectedSpike = new(null);
+    private readonly ClientReactive<SelectedSpikeData?> _selectedSpike = new(null);
 
     public Task Main()
     {
