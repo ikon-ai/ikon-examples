@@ -1,4 +1,4 @@
-<!-- checked-against: 40351f41accaabe6d7d8ee68 -->
+<!-- checked-against: 80f0dbbe5d0e65f796e4f24c -->
 
 # Custom Map Component Guide
 
@@ -499,8 +499,8 @@ On the app class:
 <!-- ikon-example: custom-map-usage -->
 ```csharp
 private readonly ReactiveList<MapPin> _pins = new();
-private readonly Reactive<string?> _selectedPinId = new(null);
-private readonly Reactive<string?> _lastClickInfo = new(null);
+private readonly ClientReactive<string?> _selectedPinId = new(null);
+private readonly ClientReactive<string?> _lastClickInfo = new(null);
 
 public async Task Main()
 {
@@ -515,7 +515,7 @@ public async Task Main()
     {
         view.Column(["flex-1"], content: view =>
         {
-            view.Row(["flex-1"], content: view =>
+            view.Column(["flex-1 md:flex-row"], content: view =>
             {
                 // The map takes up most of the space
                 view.MyMap(
@@ -547,7 +547,7 @@ public async Task Main()
                     style: ["flex-1"]);
 
                 // Side panel
-                view.Column(["w-64 p-4 border-l border-gray-700 bg-gray-900"], content: view =>
+                view.Column(["w-full md:w-64 p-4 border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900"], content: view =>
                 {
                     view.Text(["text-sm font-bold text-gray-300"], "MAP INFO");
 

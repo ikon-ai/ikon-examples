@@ -1,4 +1,4 @@
-<!-- checked-against: e8908893ffebb4c754e71224 -->
+<!-- checked-against: 74a5e217f0dac0ad08cb0449 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -163,7 +163,7 @@ public async Task Main()
    `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client. With `followClient: true`, a client that reports a theme keeps it and clients without one get `defaultTheme`; a browser client always reports one (its saved theme, else its OS `prefers-color-scheme`). With `followClient: false`, every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (a read-only `IReadOnlyReactive<Theme>` of the calling client's theme) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
 <!-- ikon-example: cw-theme-activation-2 -->
 ```csharp
-view.Button([Button.GhostMd, Button.Icon],
+view.Button([Button.GhostMd, Button.Icon], text: "Toggle theme",
     onClick: _theme.ToggleAsync,
     content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
 ```

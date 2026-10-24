@@ -1,4 +1,4 @@
-<!-- checked-against: 53d773eeeab7f284e3b0c442 -->
+<!-- checked-against: fca13935eab7f284e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -93,8 +93,9 @@ guest, and a client without one gets a new device id each time it cannot store o
 Node program). The connect fails with 403 "Anonymous users not allowed" when none of the app's surfaces
 lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' requires sign-in with one of: …"
 when the surface the client enters does not list one. `guest` listed on another surface does not let the
-client in. The client enters the surface with neither `Routes` nor `Host`, or the first declared if every
-surface has routes or a host, unless `surface` in the config names another. A program connects to such a private app with an API key. The app must have been deployed once
+client in. Leaving out sign-in pages (surfaces another surface names as its sign-in page), the client
+enters the only surface left, else the one with neither `Routes` nor `Host`, else the first declared,
+unless `surface` in the config names another. A program connects to such a private app with an API key. The app must have been deployed once
 (`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
 ever local is reached with the `local` mode below.
 
@@ -593,7 +594,10 @@ unsubscribe();
 `Ikon.Reactive.GetStableIdByName` finds a reactive field or auto-property of the app's `[App]`
 class by its name in the source; for a reactive kept anywhere else, return its `StableId` from an
 `External` function. The program sees the instance its identity joins, so state that the app shares
-with everyone belongs in an app with one instance (`public record SessionIdentity();`). The value arrives as
+with everyone belongs in an app with one instance (`public record SessionIdentity();`) or in a
+`GlobalReactive` or `PersistentGlobalReactive` field, which every instance shares. The program
+usually sees another instance's write within seconds. A counter there uses `Update(v => v + 1)`,
+because an assignment is last-writer-wins. The value arrives as
 parsed JSON with the C# property names. Any client that joins, a guest included, can subscribe to
 every reactive of the `[App]` class, so keep what a guest must not see out of shared reactives.
 After a reconnect the client subscribes to each of them again, and `client.disconnect()` ends them.

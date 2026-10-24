@@ -1,4 +1,4 @@
-<!-- checked-against: 2b265991ec7f9c8854752266 -->
+<!-- checked-against: aabc05851fd4ce34acef8128 -->
 
 # IKON C# SDK
 
@@ -200,7 +200,8 @@ browser SDK connects a user who has not signed in. It needs no sign-in. The plat
 user by `IkonClientConfig.DeviceId`: two clients with the same device id are the same guest, and a new
 device id is a new guest. If the app's guest entries include "global", the device id is ignored and
 all guests share one user. If the app lets no guests in, or the surface the program enters
-(`IkonClientConfig.Surface`, else the one with neither `Routes` nor `Host`) does not, the connect
+(`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left or the one with
+neither `Routes` nor `Host`, else the first declared) does not, the connect
 fails with a 403. `Environment` (`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the
 platform the app is on, Development or Production. Null uses the platform this process signed in to.
 A standalone program has not signed in, so it must set `Environment`; otherwise `ConnectAsync` throws
@@ -239,7 +240,7 @@ Which authentication mode to use depends on where the app runs:
 | The app | Mode | What it needs |
 |---|---|---|
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (8443 unless another run held it), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
-| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the one with neither `Routes` nor `Host`) must list `guest` or `global` in its `Methods` |
+| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods` |
 | Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
@@ -247,12 +248,14 @@ Which authentication mode to use depends on where the app runs:
 // The app id: [Target] SpaceId in the app's ikon-config.<environment>.toml
 const string appId = "your-app-id";
 
-// For a local `ikon run`, use Local with the port of the Server URL that the run prints; with SpaceId
-// set, a port that serves another app makes the connect throw. For the deployed app, join as a guest,
-// which needs no key; Environment is required.
-var local = args.Contains("--local");
+// For a local `ikon run`, use Local with the port of the Server URL that the run prints (pass it as
+// `--local 8443`); with SpaceId set, a port that serves another app makes the connect throw. For the
+// deployed app, join as a guest, which needs no key; Environment is required.
+var localIndex = Array.IndexOf(args, "--local");
+var local = localIndex >= 0;
+var localPort = local && localIndex + 1 < args.Length ? int.Parse(args[localIndex + 1]) : 8443;
 var config = local
-    ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = 8443, UserId = "door-kiosk", SpaceId = appId } }
+    ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = localPort, UserId = "door-kiosk", SpaceId = appId } }
     : new IkonClientConfig
     {
         Guest = new GuestConfig { SpaceId = appId, Environment = IkonBackend.EnvironmentType.Development },
@@ -306,8 +309,12 @@ public string RecordVisit(string key, string door)
 - **Which instance.** The program joins the instance its identity maps to. With the scaffold's
   per-user `SessionIdentity(string? UserId)` that is an instance of its own, for its own guest or
   local user, so it does not see what other people's instances hold. To share state with everyone,
-  keep it in an app with one instance for everyone (`public record SessionIdentity();`) or in the
-  database.
+  keep it in an app with one instance for everyone (`public record SessionIdentity();`), in a
+  `GlobalReactive` or `PersistentGlobalReactive` field, which every instance shares (a program
+  subscribed to it usually sees another instance's write within seconds), or in the database. Count
+  in a global value with `Update(v => v + 1)`, which runs again over a newer value another instance
+  wrote. An assignment such as `Value++` is last-writer-wins, so two instances counting at once lose
+  a visit.
 - **Values.** `SubscribeAsync<T>` reads the value as JSON into `T`: `int` for a `Reactive<int>`, a
   `List<T>` for a `ReactiveList<T>`, `JsonElement` to look at any of them. A `ClientReactive` gives
   the program its own copy, not a browser's.

@@ -1,4 +1,4 @@
-<!-- checked-against: 756a6a8b081544c9e3b0c442 -->
+<!-- checked-against: e276407dd48d43cfe3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -85,7 +85,9 @@ Some web-only styling has no Flutter equivalent and is dropped on Flutter today:
 rings, `hover:` / `focus:` / `data-[state]` variants, and arbitrary CSS. Light and dark
 theme token variants and responsive breakpoints are both resolved on Flutter. A `Switch` or
 `Checkbox` still takes its checked colours from the `data-[state=checked]:` classes in its
-style, which the server sends to Flutter separately from the other styles.
+style, which the server sends to Flutter separately from the other styles. On a phone, a
+`Checkbox` or `Switch` keeps the size its style gives it, and a tap on empty space within 48
+pixels of it also reaches it, so a 16px web checkbox needs no Flutter-only size.
 
 Theme fonts are the exception to "no Flutter-specific work": a family the theme names
 (`["font-heading"] = "Barlow Condensed"`) renders on Flutter only when the Flutter app bundles
@@ -255,6 +257,22 @@ that platform, and boot one only when neither is there (`xcrun simctl boot` on i
 the right server host for the device — the Android emulator reaches the host machine at `10.0.2.2`,
 not `localhost`. A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
 skips opening the web frontend in a browser tab; the web frontend still serves.
+
+### From Studio's Devices tab
+
+Studio's Devices tab runs the frontend on a phone or simulator of a connected computer without a
+local run: the computer brings its checkout of the app up to date, runs `flutter run -d <device>`
+in `frontend-flutter/`, and passes the dart-define `IKON_CONNECT_URL` through a defines file
+(`--dart-define-from-file`, so the URL's query string survives every shell). The value is a
+connect URL Studio minted for the preview it is running. `IkonClient.connectLocal` sees that
+define and calls `IkonClient.connectWithUrl` instead of looking for a local server, so a
+`main.dart` written for `ikon run` needs no change; the `parameters` and `userId` it passes do
+not apply then, because the URL already carries the identity and parameters it was minted with.
+The device joins with the same credential the tab's "Open in browser" link carries. A self-signed
+certificate is trusted only when the URL names this machine or one on its network
+(`isLocalNetworkHost`). The computer needs Flutter (`ikon install flutter`) and the app's git
+needs the `frontend-flutter/` folder, so a frontend added by a task reaches the device after the
+task's work is saved to the app.
 
 ## Running on Different Platforms
 
@@ -441,8 +459,8 @@ client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 `surface:` on `IkonClient.connectWithToken` and `IkonClient.connectGuest` names the `[[Surface]]` of the
 app's `ikon-config.toml` the client enters. The backend checks the person against that surface's
 `Methods` and `Roles` before it provisions anything, and refuses the connect otherwise. A guest enters
-only a surface listing `guest` or `global`. Without `surface:` the client enters the surface with neither
-routes nor host. The app reads which surface a client entered from its `Context` (the `Surface` field).
+only a surface listing `guest` or `global`. Without `surface:` the client enters, leaving out sign-in pages,
+the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. The app reads which surface a client entered from its `Context` (the `Surface` field).
 
 ### Joining only a running session
 
@@ -463,6 +481,37 @@ the connect token because it was issued for a server that has since been replace
 expired, the connect stops retrying and asks `/init` for a new token once. If that one is refused
 too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
 connect again later.
+
+## Responsiveness
+
+A Flutter app reacts to a tap before the server answers, with no app code:
+
+- Value controls (tabs, selects, radio groups, toggle groups, switches, checkboxes, sliders) show
+  the picked value at once and keep it until the server has handled the tap, as on the web.
+- A tap the server has not answered after 150 ms runs a thin bar along the top of
+  `IkonParallaxView` until the server's update arrives (`showPendingBar`, `pendingBarColor`).
+  `IkonClient.actionTracker` reports how long each tap took to reach the screen.
+- `view.NavBar` and `view.NavOutlet` switch a whole page the same way: the tapped item turns
+  selected and the outlet shows a skeleton of the page until the server sends it.
+
+An app can also start on the screen it showed last time instead of a blank one. Give the view a
+`liveSnapshotKey`, one per app and environment such as its space id, and while connecting show
+what `IkonLiveSnapshot.load` returns. A screen saved over 5 minutes ago is drawn as a skeleton.
+When the phone has none, the boot snapshot the deploy captured for the route stands in: the view
+downloads it after it connects. Call `IkonLiveSnapshot.clear` when the person signs out. The
+template's `main.dart` does all of this.
+
+<!-- ikon-example: flutter-sdk-start-screen -->
+```dart
+// While connecting: what IkonLiveSnapshot.load('my-space-id') found, the screen this phone
+// showed last time or else the deploy's skeleton
+if (uiCore == null) {
+  return startScreen == null ? const Scaffold() : Scaffold(body: SafeArea(child: IkonSnapshotView(snapshot: startScreen)));
+}
+
+// Connected: the view keeps its screen for the next start, under the same key
+return IkonParallaxView(uiCore: uiCore, client: client, liveSnapshotKey: 'my-space-id');
+```
 
 ## Keyboard
 

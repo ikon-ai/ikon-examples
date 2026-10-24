@@ -1,4 +1,4 @@
-<!-- checked-against: 1d18cedfac468e15644cf1ec -->
+<!-- checked-against: e9b8cd31ce6d6ff8644cf1ec -->
 
 # IKON Platform Events
 
@@ -441,7 +441,8 @@ failed and with what code, because its output holds local paths. The distinct co
 MSBuild, TypeScript and npm error codes in that output are kept as `errorCodes` (for example
 `["CS0103"]`), which is enough to tell a broken app from a broken package. When Windows refused to
 open a file the command needed, `tool_failed` carries `blockedBy`: `app-control` (Smart App Control),
-`antivirus` (Microsoft Defender) or `policy` (an App Control or group policy an administrator set).
+`antivirus` (Microsoft Defender), `policy` (an App Control or group policy an administrator set) or
+`controlled-folder` (a write in a folder Controlled Folder Access protects, such as Documents).
 
 ### Deploys
 
@@ -458,10 +459,10 @@ Only a process killed outright (closing the terminal, running out of memory) wri
 | `spaceId` | The app deployed to, once it is known |
 | `bundleId`, `sizeMb` | The deployment, once the backend registered it, and the package size |
 | `fromPackage`, `noActivate` | The deploy uploaded a package `ikon bundle` made (`--bundle`), or did not activate it (`--no-activate`) |
-| `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED`, `APP_START_FAILED` (the app did not start in the boot snapshot capture and `--ignore-start-failure` deployed it anyway), `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment), `NOT_SAVED` (saving to version control failed) and `LOW_CREDITS` (the organisation had under 10 credits left once the deployment was active) |
+| `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED` (`--no-boot-snapshots` deployed without capturing), `APP_START_FAILED` (the app did not start in the boot snapshot capture and `--ignore-start-failure` deployed it anyway), `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment), `NOT_SAVED` (saving to version control failed) and `LOW_CREDITS` (the organisation had under 10 credits left once the deployment was active) |
 | `activationErrors` | The backend's codes when activation refused the deployment, such as `INSUFFICIENT_CREDITS` |
 | `snapshotSkipReason`, `snapshotAppError` | When the boot snapshot capture fell short: what it missed, and the first error the app logged during the capture |
-| `failureType`, `failureMessage`, `errorCodes` | On a failed deploy: the exception, its message (for a failed program only which program and its exit code), and the program's error codes. A deploy refused because the app did not start in the boot snapshot capture has `errorCodes` `["APP_START_FAILED"]` |
+| `failureType`, `failureMessage`, `errorCodes` | On a failed deploy: the exception, its message (for a failed program only which program and its exit code), and the program's error codes. A deploy refused because the app did not start in the boot snapshot capture has `errorCodes` `["APP_START_FAILED"]`, and one refused because the capture or the prerender fell short of what the surfaces declare has `["BOOT_SNAPSHOT_FAILED"]` |
 | `toolVersion`, `isCi`, `isInteractive` | The run context. A deploy Studio ran is not interactive, and its row's own space column is Studio's app |
 
 ## Metered usage is not an event

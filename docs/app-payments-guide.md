@@ -1,4 +1,4 @@
-<!-- checked-against: 4705dc5ded578d1ecdc20431 -->
+<!-- checked-against: 53576f5eed578d1ecdc20431 -->
 
 # Ikon.App.Payments Guide
 
@@ -31,6 +31,9 @@ merchant contact email (your account email unless `--contact-email` names anothe
 opening it creates the Mollie account, and the browser then continues straight to Mollie's onboarding for the
 business details, bank account and identity. Charges are enabled once Mollie has reviewed them —
 `ikon payments status` says whether details are still due (with the link), under review, or done.
+If the provider rejects the merchant account, `status` says so with the provider's reason
+(`rejected` and `rejectionReason` in `--format json`). A rejection is final, so no onboarding link is
+offered; contact the provider's support from the dashboard.
 
 Onboarding links are **single-use and short-lived**. Always use the newest one, because requesting a new
 link can invalidate older ones. If a link has stopped working (it redirects to an explanatory page instead of the
