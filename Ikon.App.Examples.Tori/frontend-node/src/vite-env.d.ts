@@ -15,6 +15,7 @@ interface ImportMetaEnv {
   readonly VITE_IKON_APP_NAME?: string;
   readonly VITE_IKON_SPACE_ID?: string;
   readonly VITE_IKON_SURFACES?: string;
+  readonly VITE_IKON_SIGN_IN?: string;
   readonly VITE_IKON_SURFACE?: string;
   readonly VITE_IKON_DEV_LOGIN_TOKEN?: string;
   readonly VITE_IKON_DEV_LOGIN_RUN_ID?: string;
