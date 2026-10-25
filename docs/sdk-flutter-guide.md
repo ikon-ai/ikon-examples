@@ -1,4 +1,4 @@
-<!-- checked-against: e276407dd48d43cfe3b0c442 -->
+<!-- checked-against: 1d56488c498b7345e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -82,8 +82,18 @@ the theme's semantic colours (`bg-background`, `text-secondary`, …), which Flu
 resolves to concrete values. So the common case needs no Flutter-specific work.
 
 Some web-only styling has no Flutter equivalent and is dropped on Flutter today: focus
-rings, `hover:` / `focus:` / `data-[state]` variants, and arbitrary CSS. Light and dark
-theme token variants and responsive breakpoints are both resolved on Flutter. A `Switch` or
+rings, `hover:` / `focus:` / `data-[state]` variants, `motion-*` animations, and arbitrary CSS. Light and dark
+theme token variants and responsive breakpoints are both resolved on Flutter, and so is `active:`:
+while a finger is down on an element, its `active:` classes apply (`active:scale-95`,
+`active:brightness-[0.97]`, `active:bg-*`, `active:opacity-*`, `active:shadow-*`,
+`active:translate-*`), animated by its `transition-*`, `duration-*`, `ease-*` and `delay-*`
+classes as on the web. A finger that moves off to scroll releases it. `disabled:` classes apply
+while a control is disabled, so `disabled:opacity-100 disabled:bg-*` keeps a disabled button
+opaque and gives it that fill; a disabled control whose classes have no `disabled:` look is drawn
+at half opacity. Linear gradients draw too:
+`bg-linear-to-*` / `bg-gradient-to-*` and `bg-linear-<angle>` with `from-`/`via-`/`to-` colours
+(opacity and `transparent` included) and stop positions such as `from-10%`; an arbitrary
+`bg-[linear-gradient(...)]`, radial and conic gradients are web only. A `Switch` or
 `Checkbox` still takes its checked colours from the `data-[state=checked]:` classes in its
 style, which the server sends to Flutter separately from the other styles. On a phone, a
 `Checkbox` or `Switch` keeps the size its style gives it, and a tap on empty space within 48
@@ -111,6 +121,11 @@ view.Box(
 
 See the **Crosswind Styling and Motion Guide** for the full variant and variant-group
 syntax.
+
+Flutter has no CSS `env()`, so a length containing one, such as
+`pb-[calc(24px+env(safe-area-inset-bottom))]`, is dropped there. Give such a class the
+`web:` prefix and let `IkonPageScaffold` (below) keep Flutter content out of the status bar
+and the home indicator.
 
 ## Quick Start
 
@@ -399,14 +414,49 @@ signIn.register(client);               // answers login, loginShow and logout
 An app that requires sign-in shows `IkonSignInChooser(methods: signIn.supportedMethods, canClose: false, onChosen: signIn.signInWith)`
 before connecting when `signIn.storedToken()` is null.
 
+The reason the app passes to `LoginShowAsync` appears under the heading of the chooser, and of the email
+page that opens directly when email is the only method. `Title`, `Subtitle` and `EmailHint` in the
+app's `[SignIn]` replace the stock heading, the line under it (a reason still takes its place) and the
+email field's hint, on the web sign-in screen and here alike. `ikon bundle` and `ikon run` pass them in as
+`IKON_SIGN_IN_TITLE`, `IKON_SIGN_IN_SUBTITLE` and `IKON_SIGN_IN_EMAIL_HINT`, which
+`IkonSignInText.fromEnvironment` holds; pass an `IkonSignInText` as `text:` to set them in code. Text left
+empty keeps the stock wording, English or Finnish, in the app's language: the `locale` of its
+`MaterialApp` when set, else its only language when `supportedLocales` holds one (the default, English),
+else the phone's language among the ones it lists. A Finnish phone sees an English-only app's sign-in in
+English.
+
 An app can draw that first screen itself instead, in its own branding. It still passes OAuth
 providers to `signIn.signInWith(method)`, so they return to the https origin. If it asks for the email
-code on its own screen, it exchanges the code with `IkonAuthenticator.verifyEmailCode` and passes the
-token to `signIn.signInWithToken(token)`. The SDK stores that token like any other and the app
-reconnects. It returns false when the phone's secure storage refuses the token, so the screen can
-say so and let the user try again. Codes are nine letters and digits, so give the code field
+code on its own screen, it exchanges the code with `IkonAuthenticator.verifyEmailCode`, passing the
+address and space the code was sent for, and passes the token to `signIn.signInWithToken(token)`.
+The SDK stores that token like any other and the app reconnects. It returns false when the phone's
+secure storage refuses the token, so the screen can say so and let the user try again. Codes are nine
+letters and digits unless the app's `[SignIn]` says otherwise, so give the code field
 `emailCodeInputFormatters` and a text keyboard, and pass the typed code through `normalizeEmailCode`
-before verifying it.
+before verifying it. `ikon bundle` passes the code's format and length as `IKON_AUTH_CODE_FORMAT` and
+`IKON_AUTH_CODE_LENGTH`, and with `CodeFormat = "digits"` the SDK's own email screen opens a number
+keyboard.
+
+A person the app already knows can be signed in without typing anything: the app's server issues a
+sign-in ticket with `app.SignIn.IssueTicketAsync(subject)`, the app gets its `Ticket` to the phone, and
+`signIn.signInWithTicket(ticket)` redeems it, stores the session and reconnects. The ticket lasts two
+minutes, works once, and signs in only the app's own user for that subject. `signInWithTicket` returns
+false when the ticket is refused, and always in a local run, which signs in by email.
+
+### Signing In on a Local Run
+
+`IkonNativeSignIn.local(host:, port:, methods:, devUserId:, navigatorKey:, onIdentityChanged:)` runs the
+same flow against a local `ikon run`, and the app template builds it whenever no space is injected, so
+a local run tests the same sign-in code a deployed build ships. `ikon run --flutter` passes
+the same `[SignIn]` and methods defines a bundle gets. Every method opens the email page; no mail is
+sent and any code is accepted, and the address entered becomes the run's test user with that email (the
+users `ikon browse --as-user` keeps in `browse-users.json`), whose profile lookups answer with that
+email. After sign-in the app reconnects as that user, and a sign-out reconnects as a guest. With the
+run's automatic sign-in the app starts as the developer (`IKON_DEV_USER_ID`); start it with
+`ikon run --flutter --no-auto-frontend-login` to begin as a guest. The run refuses a test user when another
+machine can reach it (`--host-lan`, `--host-public`, `--host`). A browser keeps the local sign-in only
+until the page reloads; a simulator keeps it in secure storage. A launch from Studio's Devices tab
+connects with the URL Studio passed and offers no sign-in.
 
 ### Deployed Apps — Signing the Web Page In from the Phone
 
@@ -482,6 +532,99 @@ expired, the connect stops retrying and asks `/init` for a new token once. If th
 too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
 connect again later.
 
+## Links and Notification Taps
+
+On the web the browser opens the app at the address that was followed, and the app reads that path as
+`Context.InitialPath`. A native app gets the same from `IkonNavigation`: every connect sends its
+current entry as the session's initial path, and that entry is `/` unless something set it first.
+
+- `IkonNavigation.open(path)` sets the path (with its query, such as `/events/42?tab=info`) that the
+  next connection opens at. Once a connection is up it navigates there instead, which the server
+  raises as `Navigation.PathChangedAsync`, the same as a link tapped inside the app.
+- After a dropped connection, the new session opens at the screen the app was showing, as a reloaded
+  browser tab does.
+- `IkonDeepLinks` reads the link or the tapped notification that launched the app and opens its
+  path before the first connect, so the app starts on that screen and `/` is never shown first. It
+  then follows the links and notification taps that arrive while the app runs. It handles a link only
+  when it is an https (or http) link to one of the app's hosts, which `ikon bundle` passes in. The SDK's own `ikon-`
+  query parameters are dropped from the path.
+
+The frontend that `ikon new --flutter` creates already does this. An older frontend adds an
+`IkonDeepLinks` to the state of the widget that connects, starts it before the first connect and
+stops it on dispose:
+
+<!-- ikon-example: flutter-sdk-deep-links -->
+```dart
+final IkonDeepLinks _deepLinks = IkonDeepLinks();
+
+@override
+void initState() {
+  super.initState();
+  // In place of a direct _connect(): the launch link's path becomes the first connect's path
+  _deepLinks.start().whenComplete(() {
+    if (mounted) _connect();
+  });
+}
+
+@override
+void dispose() {
+  _deepLinks.stop();
+  super.dispose();
+}
+```
+
+A push notification delivered through Firebase while the app was closed is not seen by the SDK. Pass
+its path to `IkonNavigation.open` before connecting, for example from
+`FirebaseMessaging.instance.getInitialMessage()`.
+
+For a phone to open https links in the app rather than in the browser, the app's domain must serve
+files that name the app. See [Store identity and app links](#store-identity-and-app-links).
+
+## Store Identity and App Links
+
+By default `ikon bundle`, `ikon distribute` and `ikon device install` give the native app the bundle
+id `app.ikon.s<space id>` on iOS and Android, with `.dev` added for the development platform. An app
+that already exists in the App Store or Google Play keeps its listing, its users' data and its
+updates only when the new build has the same ids and is signed by the same Apple team and Play app
+signing key. Name them under `[Flutter]` in `ikon-config.toml`:
+
+```toml
+[Flutter]
+IosBundleId = "com.example.events"
+# Only when it differs from IosBundleId
+AndroidApplicationId = "com.example.events"
+AppleTeamId = "ABCDE12345"
+# The upload key's and the Play App Signing key's SHA-256, from the Play Console
+AndroidCertFingerprints = ["AB:CD:...:EF"]
+# Hosts besides the app's own whose links open it
+AssociatedDomains = []
+```
+
+- A declared id is the production id as written. A development build adds `.dev`, so a test build
+  installs beside the store app instead of replacing it.
+- One id stands for both platforms when only one is given. An id that one platform refuses (`-` is
+  valid only on iOS, `_` only on Android) is refused when the config loads, with a message that asks
+  for the other one.
+- `AppleTeamId` is also the team `ikon bundle --signing self` signs with when `--apple-team` is not given.
+  Keystores and passwords never go in the config; pass them to `ikon bundle --signing self`.
+
+The same section turns on universal links (iOS) and app links (Android) for the app's hosts: its
+platform hostname, each custom hostname that serves the app (`www.` of one that serves at www), and
+`AssociatedDomains`.
+
+- With `AppleTeamId`, the iOS build gets the `com.apple.developer.associated-domains` entitlement with
+  `applinks:<host>` for each host, and every deploy serves `/.well-known/apple-app-site-association`
+  on the app's domain, naming `<team>.<bundle id>` for all paths except `/api`, `/ikon`, `/__ikon` and `/.well-known`.
+  The App ID needs the Associated Domains capability, which Xcode's automatic signing adds; a free
+  personal team cannot sign it.
+- With `AndroidCertFingerprints`, the Android build gets an `android:autoVerify` intent filter for
+  https on each host, and every deploy serves `/.well-known/assetlinks.json`.
+- A host in `AssociatedDomains` is served by someone else, so copy the two files to it from the app's
+  own domain.
+- A file the app's frontend ships itself under `public/.well-known/` is kept, and the deploy says so.
+- A build signed with IKON's identities (`ikon distribute`) is not the app the files name, so its
+  links open in the browser.
+
 ## Responsiveness
 
 A Flutter app reacts to a tap before the server answers, with no app code:
@@ -491,8 +634,10 @@ A Flutter app reacts to a tap before the server answers, with no app code:
 - A tap the server has not answered after 150 ms runs a thin bar along the top of
   `IkonParallaxView` until the server's update arrives (`showPendingBar`, `pendingBarColor`).
   `IkonClient.actionTracker` reports how long each tap took to reach the screen.
-- `view.NavBar` and `view.NavOutlet` switch a whole page the same way: the tapped item turns
-  selected and the outlet shows a skeleton of the page until the server sends it.
+- A press on a control with a `path:` moves the app to that path at once: a `view.NavBar` item
+  turns selected and, until the server sends the page, `view.NavOutlet` shows the page as the phone
+  last showed it, without taking taps. A page the phone has not shown yet appears as a skeleton
+  drawn from the deploy's boot snapshot of the route, or as placeholder bars.
 
 An app can also start on the screen it showed last time instead of a blank one. Give the view a
 `liveSnapshotKey`, one per app and environment such as its space id, and while connecting show
@@ -583,6 +728,7 @@ Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and 
 - `ikon.client.keepScreenAwake` — wakelock; returns false when the platform refuses it, as a browser does without a user gesture
 - `ikon.client.scrollTo` — a no-op that returns true
 - `ikon.client.getUrl` / `setUrl` — a URL stack that `setUrl` pushes or replaces; the back gesture pops it and reports the path underneath
+- `ikon.client.goBack` — the server's `Navigation.BackAsync`: `IkonNavigation.goBackOr(fallbackPath)` pops one entry as the back gesture does, or, with nothing to pop, replaces the current entry with the fallback path; either way the new path is reported, except that a client already on the fallback path reports nothing and returns true
 - `ikon.client.getLocation` — geolocation (via `geolocator`)
 - `ikon.client.getNotificationPermission` / `showNotification` — local notifications (via `flutter_local_notifications`, permission requested lazily on first send)
 - `ikon.client.getPushSubscription` — FCM token for offline push (returns null unless the app wires `ikonFcmTokenProvider`; Firebase stays opt-in)
@@ -605,6 +751,15 @@ final result = await uploader.upload(
 The file-upload and file-picker nodes the server sends open the phone's own picker. To offer other
 sources, such as recording with an in-app camera, implement `IkonFilePicker` and pass it as
 `IkonParallaxView(filePicker: ...)`. The view reads it once, when it first appears.
+
+When the server node sets `maxImageDimension`, `imageQuality` or `imageFormat`, the view shrinks a
+picked JPEG, PNG, WebP or HEIC photo before it checks `maxFileSize` and uploads: it decodes with
+`dart:ui` (HEIC on iOS and on Android 9 and later) and encodes PNG with `dart:ui` and JPEG with the
+`image` package. Flutter has no WebP encoder, so a photo that would be encoded as WebP uploads as
+JPEG; a WebP photo that needs no resize uploads as it is unless `imageFormat` asks for JPEG or PNG. A picker
+that implements `IkonScalingFilePicker`, as `NativeFilePicker` does, also gets the options, and
+`NativeFilePicker` passes them to `image_picker` as `maxWidth`, `maxHeight` and `imageQuality`, so a
+gallery photo arrives already scaled (and on iOS a HEIC photo as JPEG).
 
 ## Media
 
@@ -642,13 +797,26 @@ share/clipboard actions through `IkonShare`) and can be passed to
 
 The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 
-**Layout:** padding, margin, width/height/min/max (including the `3xs`–`7xl` container widths), flex (direction/wrap/gap/align/justify), overflow, aspect ratio, position (absolute/relative), z-index. Logical sides (`ps`, `pe`, `ms`, `me`, `start`, `end`) resolve left-to-right
+**Layout:** padding, margin (including `auto`), width/height/min/max (including the `3xs`–`7xl` container widths), flex (direction/wrap/gap/align/justify/shrink), `gap-x`/`gap-y` apart, grid (`grid-cols-N`, and `grid-flow-col` with `grid-rows-N`), overflow, aspect ratio (`aspect-square`, `aspect-video`, `aspect-[20/9]`, `aspect-[2.5]`), position (absolute/relative), z-index. Logical sides (`ps`, `pe`, `ms`, `me`, `start`, `end`) resolve left-to-right. Layout follows CSS where Flutter's defaults differ:
+- A row with no `items-*` stretches its children to its height; a child with its own height (`h-24`, an image) stays at the top.
+- A stretching column leaves a child with its own width (`w-[56px]`, `w-1/2`, `w-fit`) at that width. In a container without `flex`, a button or an image is as wide as its content.
+- A negative margin gives up its space, so the element overlaps its neighbour and the content after it moves up.
+- `shrink-0` keeps a `truncate` child at its full width.
+- `text-align` on a container reaches the texts inside it.
+- An absolute child keeps its own height inside a smaller `overflow-hidden` box, which crops it.
+- An `overflow-hidden` box with a border clips its content inside the border, to the padding box, with the corner radius less the border width, so a `rounded-full border-[3px]` ring stays visible around an image.
+- Children paint and take taps in CSS stacking order: a `relative z-10` child is above an `absolute z-0` sibling, a negative `z-*` is below the in-flow content, and a `relative` child is above a later sibling that overlaps it (a `-mt-7` logo pulled up into a `relative` cover), in a div and in the content of a `ScrollArea` or `InfiniteScrollView` alike.
+- A percent height (`min-h-full`, `h-full`) on the content of a scroll view resolves against the scroll view's height inside its padding, when the scroll view has a height of its own or fills a flex column; a `max-h-*` one is as tall as its content, so there it does not resolve. A `flex-1` child of a `min-h-*` column takes what is left of the min-height, so a footer after a `flex-1` spacer sits at the bottom of a short list.
+- Auto margins take the free space: `mx-auto` centres a child of a flex column (and a block child with a width), `ml-auto` pushes a row child to the end, and `mt-auto` puts a child at the bottom of a flex column with a height. A growing (`flex-1`) child in the same line leaves them none.
+- `grid-flow-col` fills each of `grid-rows-N` rows before starting the next column. With `grid-cols-N` the columns share the width; without it each column is as wide as its widest cell.
+- The padding of an `overflow-*-auto` box scrolls with its content.
+- A `backdrop-blur-*` box keeps the width its parent or its insets (`absolute inset-x-0`) give it.
 
-**Visual:** background color, border (all sides), border radius, opacity, shadow (`2xs` through `2xl`, arbitrary outer shadows, and a shadow color on the same element; inset shadows are not drawn), gradient (linear, 8 directions)
+**Visual:** background color, border (all sides), border radius, opacity, shadow (`2xs` through `2xl`, arbitrary outer shadows, and a shadow color on the same element; inset shadows are not drawn), gradient (linear: the 8 directions and `bg-linear-<angle>`, with `via-` and stop positions)
 
 **Typography:** font size/weight/family, line height, letter spacing, text align, text color, italic, text decoration (underline/line-through), text overflow (ellipsis/clip), truncate, max lines, text transform (uppercase/lowercase/capitalize). `whitespace-*` classes have no effect on Flutter; `truncate` works through max lines and ellipsis
 
-**Interactive:** cursor, visibility (hidden/invisible/visible)
+**Interactive:** cursor, visibility (hidden/invisible/visible), `pointer-events-none` (taps go through the element and everything in it; a `pointer-events-auto` child inside it does not take them back)
 
 **Transform:** rotate, scale (uniform + x/y), translate (x/y), skew (x/y)
 
@@ -658,13 +826,13 @@ The Flutter SDK renders 160+ registered component types including:
 
 - **Layout:** div (auto Row/Column from flex direction), scroll area, separator, aspect ratio
 - **Text:** text, heading, label, markdown (full rendering)
-- **Input:** text field (with echo suppression), text area, checkbox, switch, slider, radio group, toggle, select
+- **Input:** text field (with echo suppression), text area, checkbox, switch, slider, radio group, toggle, select. A text area always takes line breaks. One with `rows: 1` grows with its text, because Flutter has no one-line multi-line field
 - **Buttons:** button, action button, icon button, form submit
 - **Display:** avatar (image + fallback), image (network), progress bar
 - **Disclosure:** accordion, collapsible, tabs
-- **Overlays:** dialog, alert dialog, tooltip, popover, toast
+- **Overlays:** dialog, alert dialog, tooltip, popover, toast. A Sheet or Drawer is placed by its panel's classes, as on the web. `fixed inset-x-0 bottom-0` makes it a bottom sheet: full width, sized by its height classes (`h-[80vh]`, `max-h-[85vh]`), padded inside for the safe area, kept above the keyboard and closed by a downward drag when it has `onOpenChange`. A `flex-1 min-h-0` scroll area in it scrolls between the header and a footer that stays in view. With `snapPoints`, that scroll area scrolls at every snap point, as vaul's drawer does on the web; a pull down that starts with it at its top moves the sheet down (a pull that starts with it scrolled stops at its top and leaves the sheet), and a drag on the handle or anywhere else on the panel moves the sheet between snap points. A release settles on the next snap point in the direction of a flick, or on the nearest after a slow drag; a release below the lowest closes a sheet that has `onOpenChange`
 - **Media:** charts (bar/line/pie via fl_chart)
-- **Structure:** form, file upload zone, drag & drop containers, keyboard listener
+- **Structure:** form, file upload zone, keyboard listener, sortable lists (column, sideways row, wrapping grid and `rows:` shelf, with handles and `longPressDelay:`; a `rows:` shelf spaces its columns by `gap-x` and its rows by `gap-y`, each column as wide as its widest item); a standalone `Draggable`/`Droppable` draws its content but does not drag
 
 ## CI/CD
 

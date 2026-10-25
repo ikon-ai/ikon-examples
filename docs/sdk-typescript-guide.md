@@ -1,4 +1,4 @@
-<!-- checked-against: fca13935eab7f284e3b0c442 -->
+<!-- checked-against: 8759f1da29903e15e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -965,6 +965,14 @@ gesture sends. The app switches route without reloading the document, dropping t
 creating a new client session. On the server this arrives as `app.Navigation.PathChangedAsync`, so
 one router handles both link clicks and history gestures. A cold load or reload raises no event; its
 path is in `app.Navigation.CurrentPath`.
+
+Each history entry the SDK adds (a link click, the server's `Navigation.SetPathAsync`) records in
+`history.state` how many in-app entries lie behind it. The server's `Navigation.BackAsync` uses that
+count. When the entry behind is the app's own, the client calls `history.back()`. On the entry the
+visit started on, it replaces the address with the fallback path and fires `popstate` instead, and
+when it is already on the fallback path it does nothing. So the browser never leaves the app, and the
+server receives either move as a back gesture. A frontend that writes its own history entries with
+`pushState` leaves them out of that count, so a Back from one of them goes to the fallback.
 
 The `href` stays in the DOM, so new-tab, copy-link, the status-bar preview and crawlers are
 unaffected. These always navigate natively: modified and middle clicks, `target` links, `download`

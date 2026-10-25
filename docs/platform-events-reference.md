@@ -1,4 +1,4 @@
-<!-- checked-against: e9b8cd31ce6d6ff8644cf1ec -->
+<!-- checked-against: 3a29acccce6d6ff8644cf1ec -->
 
 # IKON Platform Events
 
@@ -57,7 +57,7 @@ of an event tells you what happened; `class` tells you whose problem it is.
 **Count `defect`, `dependency` and `provider_credit`; ignore the rest.** A dashboard built on event
 *names* alone counts a missing `--yes` flag the same as a crash.
 
-A few failure events carry no `class` — `client_rejected_limit`, `client_rejected_memory` and
+A few failure events carry no `class` — `client_rejected_limit` and
 `client_authentication_failed` — so count those by name.
 
 `provider_credit` is separate from `dependency` because the two need different people: a dependency
@@ -98,7 +98,6 @@ Log.Instance.Event("invoice_export_failed", new
 | Event | When | Payload |
 |---|---|---|
 | `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `pending`, `limit` |
-| `client_rejected_memory` | An external client connect was rejected (HTTP 429) because admitting it would exceed the memory budget for clients | `clientMb`, `clientBudgetMb`, `settlingClients`, `usedMb`, `baselineMb`, `limitMb`, `thresholdPercent` |
 | `client_authentication_failed` | The connect token was valid but the server's `OnAuthenticateAsync` refused the client (a rejected token gets a 401, or a 503 while the server is still starting, and no event) | `user`, `clientSessionId` |
 | `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `firstSessionOfUser` (no other live session of this user existed), `clientContext` (see below) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
@@ -459,6 +458,7 @@ Only a process killed outright (closing the terminal, running out of memory) wri
 | `spaceId` | The app deployed to, once it is known |
 | `bundleId`, `sizeMb` | The deployment, once the backend registered it, and the package size |
 | `fromPackage`, `noActivate` | The deploy uploaded a package `ikon bundle` made (`--bundle`), or did not activate it (`--no-activate`) |
+| `wsl` | The package was built in WSL (`--wsl`, Windows only) |
 | `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED` (`--no-boot-snapshots` deployed without capturing), `APP_START_FAILED` (the app did not start in the boot snapshot capture and `--ignore-start-failure` deployed it anyway), `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment), `NOT_SAVED` (saving to version control failed) and `LOW_CREDITS` (the organisation had under 10 credits left once the deployment was active) |
 | `activationErrors` | The backend's codes when activation refused the deployment, such as `INSUFFICIENT_CREDITS` |
 | `snapshotSkipReason`, `snapshotAppError` | When the boot snapshot capture fell short: what it missed, and the first error the app logged during the capture |

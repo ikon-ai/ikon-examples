@@ -1,4 +1,4 @@
-<!-- checked-against: 74a5e217f0dac0ad08cb0449 -->
+<!-- checked-against: d0c1d3cce0b7aab508cb0449 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -103,7 +103,7 @@ Crosswind supports three ways to style a component, and you can mix them freely 
 view.Box(style: ["rounded-2xl bg-card border border-card p-6 text-foreground"], content: view => { });
 ```
 
-Legacy note: `bg-primary` and `text-primary` are older tier names for the page surface and body text, and `border-primary` is an older name for a neutral border one step heavier than the default hairline. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` instead, and `border-secondary` for the default hairline.
+Legacy note: `bg-primary` and `text-primary` are older tier names for the page surface and body text, and `border-primary` is an older name for a neutral border, one step heavier than the default hairline in light mode and the same as it in dark mode. They keep rendering as before, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` instead, and `border-secondary` for the default hairline.
 
 **2. `Ikon.Parallax.Theming` token shortcuts**. Named constants that bundle layer 1 classes per role and size. Use them as shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
 
@@ -270,7 +270,25 @@ these where the renderers differ — e.g. browser-only effects (focus rings,
 `hover:`, `data-[state]`) that Flutter doesn't render, or concrete colours you want on
 Flutter instead of theme semantic colours. Unprefixed classes (including the theme's
 semantic colours like `bg-background`) already resolve on both, so most styling needs no
-target prefix at all.
+target prefix at all. That includes `active:` press feedback (`active:scale-95`,
+`active:brightness-[0.97]`, animated by `transition` and `duration-*`) and linear gradients
+(`bg-gradient-to-b from-black/20`, `from-10%`); radial, conic and arbitrary
+`bg-[linear-gradient(...)]` gradients are web only, and so is every `motion-*` class: Flutter
+draws no motion.
+
+### Haptics
+
+`haptic-light`, `haptic-medium`, `haptic-heavy` and `haptic-selection` make the phone vibrate
+briefly when a control is pressed, and `haptic-none` turns this off for one element. The Flutter
+renderer plays the vibration on the device itself, so the user feels it at the moment of the press
+and not after a round trip to the server. Browsers ignore these classes.
+
+<!-- ikon-example: cw-haptics -->
+```csharp
+// The main action gets a firmer tap, and a filter chip the light click a picker makes.
+view.Button(["h-14 rounded-2xl bg-amber-400 haptic-medium"], text: "Save", onClick: SaveAsync);
+view.Button(["h-11 rounded-full haptic-selection"], text: "Today", onClick: ShowTodayAsync);
+```
 
 ### Arbitrary Values
 
@@ -290,6 +308,16 @@ string[] Classes =
     "shadow-[0_0_20px_rgba(0,255,65,0.3)]",
 ];
 ```
+
+Inside brackets an underscore is a space. Inside `calc()`, `min()`, `max()` and `clamp()`
+you can also leave the spaces out: `h-[calc(100vh-4rem)]` emits `calc(100vh - 4rem)`.
+The arguments of other functions, such as `env()` and `var()`, are left exactly as written.
+So a web safe-area inset is `web:pb-[calc(24px+env(safe-area-inset-bottom))]` or
+`web:pb-[max(16px,env(safe-area-inset-bottom))]`. The frontend template's viewport meta
+has `viewport-fit=cover`; without it iOS returns zero for every
+`env(safe-area-inset-*)`. Flutter has no `env()`: it drops any length containing one, so write safe-area
+padding with the `web:` prefix and let `IkonPageScaffold` keep Flutter content out of the
+system areas.
 
 ## Motion Language
 
@@ -376,6 +404,8 @@ Base modes split text (or children) into individually animated segments:
 - `motion-per-line` — each line (split on `\n`)
 - `motion-per-paragraph` — each paragraph
 - `motion-per-children` — each child element
+
+Text longer than 16,384 characters is not split and animates as one piece.
 
 The letter, word and line modes support compound suffixes that combine the split with a playback modifier:
 

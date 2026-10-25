@@ -1,4 +1,4 @@
-<!-- checked-against: 585bc82eeaa8dafadd3de343 -->
+<!-- checked-against: fcfff8f9eaa8dafadd3de343 -->
 
 # Crosswind Tailwind Spec
 
@@ -186,6 +186,7 @@ This is an exhaustive list of Tailwind CSS v4.x utility families, organized acco
 * **Appearance**: `appearance-{none|auto}`
 * **Color scheme**: `color-scheme-{light|dark|only-light|only-dark|normal}` (alias `scheme-{...}`)
 * **Field sizing**: `field-sizing-{content|fixed}`
+* **Haptics** (Crosswind extension): `haptic`, `haptic-{light|medium|heavy|selection|none}` — the short vibration a phone plays when the element is pressed. The Flutter renderer plays it on the device at the moment of the press, without a round trip to the server. Buttons, menu items and nav bar items play it when the tap is recognised (a nav item without its own class plays its bar's), a hold button when the finger goes down, push-to-talk when recording starts and when it stops, and checkboxes, switches, toggles, toggle groups and radio groups when their value changes. A scroll that starts on a button or menu item plays nothing. A hold button or push-to-talk plays even when the touch turns into a scroll, because it plays before a scroll can be told apart. Bare `haptic` is `haptic-light`; responsive variants work. Browsers emit only the custom property `--ikon-haptic`.
 * **Pointer & cursor**: `pointer-events-{none|auto}`, `cursor-{pointer|wait|text|move|help|not-allowed|...}`
 * **Resize**: `resize`, `resize-{x|y|none}`
 * **Scroll**: `scroll-{auto|smooth}`, `scroll-m-{value}`, `scroll-m{t|r|b|l|x|y|s|e}-{value}`, `scroll-p-{value}`, `scroll-p{t|r|b|l|x|y|s|e}-{value}`

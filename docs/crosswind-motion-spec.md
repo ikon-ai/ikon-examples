@@ -1,4 +1,4 @@
-<!-- checked-against: 54704ceb28cc97181e03f5af -->
+<!-- checked-against: e0cdc5f828cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -49,7 +49,7 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
   Zero or more track prefixes are allowed; the innermost (closest to the directive) owns that directive.
-  On a `motion-*` directive the track is only the animation track's name: the compiler drops it when composing the selector, so `md:motion-[...]` names a track `md` and applies at every width. The media, scope and parent-selector meanings apply to the other utilities. The exception is `dark`/`not-dark` under the default dark-mode strategy: `dark:motion-[...]` is scoped to the dark theme and runs on the `default` track. It is scoped only to an explicit theme (`[data-theme="dark"]` or `.dark`), so unlike the element's other `dark:` styles it does not play when dark comes only from the OS `prefers-color-scheme` with no theme set.
+  On a `motion-*` directive, a media, feature, theme or direction context (`md`, `min-*`, `motion-reduce`, `supports-[...]`, `dark`, `rtl`, ...) limits where the rule applies, as on any other utility, and the other track prefixes name the animation track; with no name left, the directive runs on the `default` track. `md:motion-[...]` plays from the `md` width up, and `motion-reduce:glow:motion-duration-2s` retimes the `glow` track only when reduced motion is on. A media-gated motion rule replaces the base tracks it names and keeps the rest: `md:motion-duration-500ms` retimes the base `default` animation at that width, and an `md:` track plays alongside the base tracks it does not name. `dark:motion-[...]` plays under an explicit dark theme (`[data-theme="dark"]` or `.dark`) and, with no theme set, under the OS `prefers-color-scheme: dark`, like the element's other `dark:` styles.
   A variant-scoped block (`dark:`, `hover:`, ...) keeps the element's base animations as separate layers before its own, and unprefixed timing utilities do not reach its track, which defaults to `0s`: give them the same variant (`dark:motion-duration-200ms`).
 
 Examples:
@@ -568,7 +568,7 @@ These are minimal rules code generators MAY enforce during parse; they do not pr
 3. **Easing function text** inside `[...]` MUST be fully contained (balanced parentheses) and may include commas and spaces.
 4. **Bracket payloads** MUST close; a balanced nested `[...]` needs no escaping, and `\]` includes an unbalanced literal `]`.
 5. **Variant collisions:** multiple variants are allowed; order is preserved as written (left-to-right).
-6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes are not inert: an outer media context (`md`, `print`, `min-*`, …) is folded into the track name rather than gating the rule (`md:glitch:motion-loop` is track `glitch|md`, a different track from `glitch:`, and applies at every width), and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`); a bare word that is not a known variant also logs a warning, so write `.outer:glitch:motion-loop` to scope under a parent class on purpose.
+6. **Track labeling:** the **nearest** track prefix to a directive labels that directive. Outer prefixes still have an effect: an outer media or feature context (`md`, `print`, `min-*`, …) limits where the rule applies (`md:glitch:motion-loop` is the `glitch` track from the `md` width up), and any other outer identifier scopes the directive under a parent class (`outer:glitch:motion-loop` matches only under `.outer`); a bare word that is not a known variant also logs a warning, so write `.outer:glitch:motion-loop` to scope under a parent class on purpose.
 7. **Alias `sound-[...]`:** purely syntactic; parsers MAY normalize it to `sfx:source-[...] <same-prefixes>:sfx:play`.
 
 ---

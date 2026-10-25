@@ -1,4 +1,4 @@
-<!-- checked-against: a425332cd56e60ba517aa33e -->
+<!-- checked-against: a425332c845776b0d4e39898 -->
 
 # GitHub Connector Guide
 

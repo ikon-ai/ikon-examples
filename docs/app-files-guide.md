@@ -1,4 +1,4 @@
-<!-- checked-against: f76b97a0ce9f063f4e0f467b -->
+<!-- checked-against: 610f06c70528314316e186d3 -->
 
 # App Files Guide
 
@@ -139,6 +139,18 @@ The `view.FileUpload` component streams a user's file wherever you point it — 
 with an `AssetUri` from `onUploadStart` to store it in asset storage (see the
 [asset system guide](asset-system-guide.md)), then serve or process it from there. For
 files that should become part of the app's own tree, write them through `app.Files`.
+
+Photos are made smaller on the user's device, not on the server. Set `maxImageDimension:` (the
+longest side in pixels), `imageQuality:` (0 to 1, default 0.85) or `imageFormat:`
+(`UploadImageFormat.Original`, `Jpeg`, `Png` or `Webp`) on `view.FileUpload`, `view.FileUploadZone`
+or `view.FilePicker`, and the browser or Flutter client re-encodes a JPEG, PNG, WebP or HEIC photo
+that is larger or in another format before it uploads. `maxFileSize:` is checked against the
+result, and the file name's extension and MIME type follow the output format. WebP becomes JPEG
+where the client cannot encode it: Safari before 17, and every Flutter platform. HEIC photos are
+converted to JPEG, or to the `imageFormat:` given, and an image `accept:` list then offers them too; a browser that cannot decode
+HEIC (Chrome, Firefox) uploads the original when `accept:` allows HEIC (`image/*`) and refuses it
+otherwise. The server has no HEIC decoder, so an app that must display every photo should set one of
+these options.
 
 ## Under the hood
 

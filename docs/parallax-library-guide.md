@@ -1,4 +1,4 @@
-<!-- checked-against: 56525cec26087ad987337412 -->
+<!-- checked-against: 98651f7c6fc1b935443cb3bf -->
 
 # Ikon.Parallax Library Overview
 
@@ -258,7 +258,7 @@ private async Task RefreshAsync()
 The `UIView` class provides extension methods for UI components. One shape for most calls: the leading `string[]` style array is the only positional argument, everything else is named. Components built around required data take that first and the style after it (`view.DataTable(columns, rows, …)`, `view.CommandPalette(groups, …)` and the like — check the signature). `view.Badge`, `view.Alert`, `view.StatCard` and `view.EmptyState` take either: the data first (`view.Badge(text, tone, …)`) or the style first like the rest (`view.Badge([Badge.SuccessSm], text: "Live")`). `view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first.
 
 **Layout:**
-- `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers
+- `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers. A Box also takes `onDoubleTap:`, which makes a single tap wait 300 ms before `onClick` fires, and `onLongPress:`, which fires after a 500 ms hold. A tap on a control inside a clickable Box (a button, a link, a field, or a Box or Image with its own `onClick:`) runs only that control's handler, on the web as on Flutter; a tap elsewhere in the Box runs the Box's. `onResize:` reports the Box's own size (`ResizeArgs`) and `onVisibilityChange:` reports it coming on screen and going off it (`VisibilityArgs`, against `visibilityThreshold:`, default 0.5), each at most once per frame and as a round-trip to the server
 - `view.ScrollArea()` - Scrollable container with optional smart auto-scroll
 - `view.ScrollColumn()` - Header/body/footer column where the body scrolls
 - `view.VirtualList()` / `view.VirtualGrid()` - Long lists whose rows the browser mounts only near the viewport. The server still builds and sends every row, unless given a `scrollIndex` (a `ClientReactive<int>`), with which a VirtualList builds about 200 rows around the first visible one and a VirtualGrid about 480 items around the first visible item
@@ -266,14 +266,14 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.PanZoom()` - Viewport the user pans and zooms by wheel, pinch and drag; the offset stays client-side
 
 **Display:**
-- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content; `view.Heading(level: 2)` renders `<h2>` (1 to 6); without `level:` a `Text.H1`…`Text.H6` token in the style sets it, else `<h1>`
-- `view.Image()` - Images from URL or bytes
+- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content; `view.Heading(level: 2)` renders `<h2>` (1 to 6); without `level:` a `Text.H1`…`Text.H6` token in the style sets it, else `<h1>`. Texts nested in a Text's `content:` are inline runs of one paragraph, each with its own classes. `view.Text(..., fit: TextFit.Shrink)` shrinks the font from its class size in 0.5 px steps until the text fits its bounded width in `maxLines:` lines (default 1), down to `minFontSize:` (default 10 px), then ends in an ellipsis. `view.Markdown` takes `paragraphStyle:`, `headingStyle:` and `linkStyle:` classes for those elements; they, and `[&_p]:`-style classes on `style:`, win over the body's defaults without `!important`, except that the first child's top margin and the last child's bottom margin stay 0
+- `view.Image()` - Images from URL or bytes; `tint: true` paints the picture in the text colour, `blurhash:` shows a placeholder until it loads (a hash that is not valid is dropped with a dev warning), `fallback:` is drawn when it fails to load
 - `view.Icon()` - Icon library glyphs
 - `view.Spinner()` / `view.Skeleton()` - Loading states
 
 **Inputs:**
 - `view.Button()` - Clickable button
-- `view.TextField()` / `view.TextArea()` - Text input
+- `view.TextField()` / `view.TextArea()` - Text input. `onFocus:` and `onBlur:` fire once per real change of focus, `autoFocus:` included; a re-render or a switch to another window or app fires neither, and removing a focused field fires no `onBlur:`
 - `view.Checkbox()` / `view.Switch()` / `view.Toggle()` - Toggles
 - `view.Select()` / `view.RadioGroup()` - Choice inputs
 - `view.Slider()` - Range slider
@@ -282,7 +282,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 **Overlays:**
 - `view.Dialog()` / `view.AlertDialog()` - Modal dialogs
 - `view.Popover()` / `view.Tooltip()` / `view.HoverCard()` - Anchored overlays
-- `view.Sheet()` / `view.Drawer()` - Edge panels
+- `view.Sheet()` / `view.Drawer()` - Edge panels; `snapPoints:` (ascending fractions of the screen height, each above 0 and at most 1) turns a bottom one into a sheet dragged between those heights. A Sheet on another side, or `initialSnap:` / `onSnapChange:` without `snapPoints:`, throws `ArgumentException`
 
 **Navigation:**
 - `view.Tabs()` - Tabbed interface
@@ -326,7 +326,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.PasswordToggleField()` with `view.PasswordToggleFieldInput()` / `view.PasswordToggleFieldToggle()` / `view.PasswordToggleFieldIcon()` - Password field with a reveal toggle
 
 **Drag and drop:**
-- `view.SortableList()` - Reorderable list; `SortStrategy` picks the axis and reorders arrive as `SortableReorderArgs` in `onReorder`
+- `view.SortableList()` - Reorderable list; `SortStrategy` picks a column, a sideways-scrolling row or wrapping rows, `rows:` lays the items out in that many rows that scroll sideways and then overrides `SortStrategy`, `longPressDelay:` makes a touch hold before it drags, and reorders arrive as `SortableReorderArgs` in `onReorder`
 - `view.SortableContext()` with `view.SortableItem()` and `view.SortableHandle()` - The raw primitives, inside a `view.DndContext()`; reorders arrive as `DragEndArgs` in the context's `onDragEnd`
 
 **Structure:**
@@ -345,7 +345,7 @@ view.TextField(["flex-1"], label: "Name", bind: _name);
 view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
 ```
 
-Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written. A `value:` with no `bind:` and no handler that writes a change back (`onValueChange:`, or `onSubmit:` on a text field) renders the control read-only and logs a dev warning; `readOnly: true` on a TextField or TextArea renders the value read-only without the warning. A Select whose value, bound or passed, matches none of its options shows no selection and logs a dev warning, unless the value is empty and a `placeholder:` is set. When the value is certainly set and no `disabled:` (or, on TextField, TextArea, `CodeEditor` and `RichTextEditor`, `readOnly: true`) is passed, the build reports it too, as warning IKON027. An overlay's or picker's `open:` (Dialog, AlertDialog, Popover, Select, DatePicker and the rest) is controlled the same way: with no `onOpenChange:` its trigger, Esc and its own buttons cannot open or close it, which logs a dev warning and, when `open:` is certainly set, is warning IKON032 at build time.
+Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins over `value:`, and `onValueChange:` still fires after the bound reactive is written. Once the handler has run for every change typed into a controlled TextField, TextArea or CodeEditor, the field shows the value the server holds, even when the handler left it unchanged: a handler that takes pasted text and keeps the value `""` clears the field. Text typed while a change is still on its way to the server stays. A `value:` with no `bind:` and no handler that writes a change back (`onValueChange:`, or `onSubmit:` on a text field) renders the control read-only and logs a dev warning; `readOnly: true` on a TextField or TextArea renders the value read-only without the warning. A Select whose value, bound or passed, matches none of its options shows no selection and logs a dev warning, unless the value is empty and a `placeholder:` is set. When the value is certainly set and no `disabled:` (or, on TextField, TextArea, `CodeEditor` and `RichTextEditor`, `readOnly: true`) is passed, the build reports it too, as warning IKON027. An overlay's or picker's `open:` (Dialog, AlertDialog, Popover, Select, DatePicker and the rest) is controlled the same way: with no `onOpenChange:` its trigger, Esc and its own buttons cannot open or close it, which logs a dev warning and, when `open:` is certainly set, is warning IKON032 at build time.
 
 ### App Chrome and SemanticTone
 
@@ -602,6 +602,8 @@ view.ScrollArea(
 
 The scrollbars float over the content, so the viewport adds a gutter on each axis that overflows (`px-3` beside a vertical bar from the `md` breakpoint up, `pb-3` under a horizontal one) and nothing slides under a scrollbar. On a phone the vertical bar overlays the content with no gutter. Content that fits keeps the full width. Padding of your own in `viewportStyle:` replaces the gutter on that side.
 
+The content of a `ScrollArea` or `InfiniteScrollView` is at least as tall as its viewport, so a percent height on it resolves as it does in a CSS `overflow-auto` box of fixed height. A `Column(["min-h-full"])` with a `Box(["flex-1"])` spacer before its last child keeps that child at the bottom of a short list, and a long list still grows and scrolls past it.
+
 **Auto-scroll behavior (Polite priority):**
 - At bottom: new content auto-scrolls into view
 - Scrolled away: auto-scroll is suppressed, a floating indicator appears to notify the user
@@ -614,6 +616,10 @@ For forced scrolling (always scroll regardless of position), use `FocusHint` wit
 anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
     key: $"scroll-{version}");
 ```
+
+### Keeping the Scroll Position
+
+`ScrollArea`, `ScrollColumn`, `InfiniteScrollView`, `VirtualList`, `VirtualGrid` and `FeedScroller` take a `scrollKey:`. The client remembers the container's offset under that key while it is shown, and a container with the same key that mounts again, such as a list the person returns to with Back from a detail page, opens at that offset once its content is tall enough. The client retries for about a second while content arrives, then scrolls as far as the content allows, and gives up if the person scrolls first. A horizontal container keeps its horizontal offset. The positions live in the client's memory for the session and are keyed by `scrollKey` alone, so give each list its own key. A remembered position wins over `scrollToIndex:` when a virtual list mounts; a `FeedScroller` with a controlled `activeIndex:` ignores it.
 
 ### Scrolling Inside a Flex Parent
 
@@ -857,7 +863,9 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
    Routes = ["/", "/pricing", "/about"]
    ```
 
-3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, the static routes first. The first 50 routes are captured. The rest get no prerendered page, but they are still listed in `sitemap.xml` (up to 50,000 URLs in all), and the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names them, so an archive of thousands of pages returns all of them. Each captured route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. List the routes that matter most for search first:
+3. **Publish content pages while the app runs.** For pages generated from data — one per listing, article, event or profile — call `app.PublicRoutes.PublishAsync(path, lastModified, expiresAt)` (`PublicRouteService`) after the data is written, and `app.PublicRoutes.UnpublishAsync(path)` when the page goes. The deployed app's own server captures the route as a guest sees it then, prerenders it with the app's frontend, and the platform serves that page to crawlers and lists it in `sitemap.xml` with its `lastmod`, with no redeploy and without starting the app for a crawler. Published pages are not capped like the deploy's 50 routes, they survive deploys, and a page past its `expiresAt` is no longer served or listed. Calls for one path within two seconds are sent as one, so an app can call it for every row it writes; each published change costs the app one guest render. The returned task completes when the change reaches the app's server, not when the page is live. A path that does not start with `/` or carries a query string, or an `expiresAt` not later than `lastModified`, throws `ArgumentException`. The server publishes only routes of a surface that admits guests, and only from a bundle built by an ikon tool that includes the prerender build; otherwise the publish fails with an error in the server log. A local run publishes nothing. The `public-seo-routes` pattern shows it in full.
+
+   `OnSnapshotRoutes` adds routes to the deploy's own capture instead, which ships their pages inside the bundle. List the routes that matter most for search first:
 
 <!-- ikon-example: px-how-to-use-it -->
 ```csharp
@@ -865,7 +873,7 @@ app.OnSnapshotRoutes(async () =>
     (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
 ```
 
-   The provider runs on the machine doing the bundle/deploy, so the captured set is as fresh as your last deploy — re-deploy to pick up new content.
+   Those routes are unioned with the static list and de-duplicated, the static routes first. The first 50 routes are captured. The rest get no prerendered page, but they are still listed in `sitemap.xml` (up to 50,000 URLs in all), and the deploy's `BOOT_SNAPSHOT_ROUTES_CAPPED` warning names them. Each captured route adds capture time to every deploy, and all routes share one 10-minute capture budget, so a route still waiting when it runs out is skipped and the bundle ships without snapshots. The provider runs on the machine doing the bundle/deploy, so the captured set is as fresh as your last deploy.
 
 4. **Decide what's public per route.** Capture skeletonizes everything by default. Wrap the parts that are safe and meaningful for a crawler — the headline, body copy, product name/price, hero image — in `SnapshotReveal` so they render as real HTML. Anything left unrevealed ships as a skeleton and contributes nothing to SEO. Use `SnapshotHide` for controls that are dead before the socket connects, and `SnapshotOnly` for snapshot-specific filler. Sensitive or per-user content should stay skeletonized — never `SnapshotReveal` it.
 
@@ -877,9 +885,11 @@ app.OnSnapshotRoutes(async () =>
 
    When a page exists in several languages, pass `alternates:` as well: a dictionary from a language tag (`"fi"`, `"en-GB"`, or `"x-default"` for the version to show when none matches) to that version's route (`"/fi/hinnat"`) or an absolute http(s) URL. The deploy turns them into `<link rel="alternate" hreflang="…">` tags with absolute URLs in the route's prerendered page and into `xhtml:link` entries under the route in `sitemap.xml`. Give every version the same set: search engines ignore an alternate that the other page does not name back. When the set leaves out the route itself and `language` is set, the route is added under that language. Each call replaces the alternates the call before it set, and a call without them removes them, so a route with no other versions does not keep the links of the route the user came from. A tag that is not a language tag, or a value that is neither a route nor an absolute URL, throws `ArgumentException`.
 
+   The same overload takes structured data: `jsonLd:` is a schema.org JSON object or array (an `Event`, `Article`, `Product`), written into the page as `<script type="application/ld+json">`, which search engines show as a rich result; `type:` is the Open Graph type (`article`; `website` when unset); `canonical:` names the page's address, a route or an absolute URL, when it is not the route itself. The page's canonical link and `og:url` are written on the app's own domain, and `twitter:title` and `twitter:description` repeat the title and description. JSON-LD that is not a JSON object or array or is over 64K characters, a `canonical:` that is neither a route nor an absolute http(s) URL, and a `type:` that is not an Open Graph type name (up to 64 lowercase letters, digits, `.`, `_`, `:` and `-`, starting with a letter) throw `ArgumentException`.
+
 7. **Bundle and verify.** Run `ikon bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
 
-8. **Deploy.** `ikon deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins.
+8. **Deploy.** `ikon deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml`; an app-provided file wins over the generated one. Once the app has published pages, `/sitemap.xml` is always a sitemap index: the deploy's sitemap, or the app's own file, is served as `/sitemap-deploy.xml` beside one sitemap of published pages per shard, and search engines that support IndexNow are told about each published or withdrawn page.
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
 
