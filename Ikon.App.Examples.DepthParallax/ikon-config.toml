@@ -1,6 +1,6 @@
 # Schema version. The ikon tool upgrades older files and saves at its current version; a file newer
 # than the tool refuses to load (update the tool).
-ConfigVersion = 8
+ConfigVersion = 9
 
 # The space database that backs PersistentReactive state. Empty: the platform picks the built-in
 # "app" database, or the space's only platform-managed one, and records the choice so it stays put.
@@ -15,6 +15,33 @@ StateDatabase = ""
 # who was invited at a verified email address, still gets in from any domain. Anonymous visitors are
 # not members, so a surface that admits them is unaffected.
 DomainAllowlist = []
+
+# How many clients one instance admits before it refuses more with 429. 0 fits the limit to the memory
+# of the container the instance runs in, at what a client of an ordinary app costs, fewer on a surface
+# with media or presence. Set a number when your app's clients cost much more or less than that, or
+# for a reason of your own, such as a game for four players. IApp.MaxClients in code overrides it.
+MaxClients = 0
+
+# How the app's people sign in: the code the email sign-in sends, how long a browser stays signed in,
+# and the sign-in screen's own text
+[SignIn]
+# What the emailed sign-in code is made of: "alphanumeric" (letters and digits no reader confuses
+# with each other) or "digits", which the stock sign-in form takes on a numeric keypad.
+CodeFormat = "alphanumeric"
+# How many characters the code has: 8-12 for "alphanumeric", 6-10 for "digits". 0 takes the
+# format's default, 9 or 6. A code allows five wrong tries and an address gets five codes an hour.
+CodeLength = 0
+# How many days a browser stays signed in after it was last used, 1-400. Every visit renews it,
+# so a person who keeps coming back is never signed out. The same for every sign-in method.
+SessionDays = 7
+# The sign-in screen's heading, on the web and on the Flutter frontend. Empty keeps the stock
+# heading in the visitor's language.
+Title = ""
+# The line under the heading. A reason the app passes to ClientFunctions.LoginShowAsync is shown in
+# its place. Empty keeps the stock line.
+Subtitle = ""
+# The hint in the email field (e.g. "Use your company address"). Empty keeps the stock hint.
+EmailHint = ""
 
 # What happens when a version of the app is activated (activation is separate from deployment)
 [Activation]
@@ -74,6 +101,33 @@ PrePackage = []
 # folder out of git.
 Fetch = []
 
+# The native app the Flutter frontend builds into: its store identity and the links that open it. Read
+# by 'ikon bundle', 'ikon deploy', 'ikon distribute' and 'ikon device install'. Leave it empty for a new
+# app; set it to ship as an update of an app already in the App Store or Google Play.
+[Flutter]
+# The iOS bundle identifier (e.g. "com.example.events"): letters, digits, "-" and ".", two segments
+# or more. Empty takes app.ikon.s<space id>. Used as it is in production; a development build adds
+# ".dev", so both can be installed side by side. Empty takes AndroidApplicationId when that is set.
+IosBundleId = ""
+# The Android applicationId (e.g. "com.example.events"): two segments or more, each a letter then
+# letters, digits or "_", and no Java keyword. Empty takes IosBundleId, then app.ikon.s<space id>.
+# Development builds add ".dev" as on iOS.
+AndroidApplicationId = ""
+# The Apple Developer team that signs the iOS app: 10 capital letters and digits. Turns on iOS
+# universal links (the associated-domains entitlement and the domain's
+# /.well-known/apple-app-site-association), and is the team 'ikon bundle --signing self' signs with
+# when --apple-team is not given.
+AppleTeamId = ""
+# SHA-256 fingerprints of the certificates that sign the Android app ("AB:CD:…", 32 bytes): the
+# upload key's and, with Play App Signing, the app signing key's from the Play Console. Turns on
+# Android app links (a verified intent filter and the domain's /.well-known/assetlinks.json). Not
+# secret: these identify a certificate, they cannot sign anything.
+AndroidCertFingerprints = []
+# Hostnames besides the app's own whose https links open the app, such as a domain served by another
+# system. The app's platform hostname and its custom hostnames with web serving are always included.
+# Each one must serve the same two /.well-known files the app's own domain serves.
+AssociatedDomains = []
+
 # Target information for deployment (automatically configured with 'ikon link')
 [Target]
 SpaceId = ""
@@ -109,11 +163,6 @@ Host = ""
 # snapshot and connects on the visitor's first action, for pages many read and few act on; "none"
 # never connects, for a page with no server-handled control at all.
 Connect = "atLoad"
-# How the connection is carried: "full", a channel through the server's web endpoints; "light", a
-# WebSocket on the server's own light port, where an idle client costs only its socket, TLS session
-# and channel, for a surface many people watch at once. Media = "none" and Presence = false keep
-# a light surface's clients cheapest.
-Transport = "full"
 # Whether the client opens a WebRTC connection for audio and video: "atConnect" opens it with the
 # connection; "none" never does, for a surface without media.
 Media = "atConnect"
@@ -124,8 +173,9 @@ Presence = true
 # What a route of this surface paints while it connects, as ordered "pattern:variantId" rules, first
 # match wins. A segment is a literal, "*" (one segment) or a final "**" (the rest), so "/**:shell"
 # matches every path. Each variant id is captured once as a skeleton the app renders by branching on
-# view.SnapshotVariant == "id". Variants are never prerendered or listed in the sitemap. A route
-# without a matching rule paints its own snapshot.
+# view.SnapshotVariant == "id". Variants are never prerendered or listed in the sitemap. A route the
+# build captured paints its own snapshot even when a rule matches it, so the rules decide only what
+# a path without one paints.
 Seeds = []
 # Which process serves the surface: "shared", the app instance its visitors' identity selects; "own",
 # an instance of its own with its own capacity and idle budget, which admits no other surface's
@@ -150,3 +200,14 @@ Roles = []
 # have no Host, and it does not count as the surface that serves what no route selects. Empty keeps the
 # frontend's sign-in screen.
 SignIn = ""
+
+# Raw public ports the app serves, one [[Port]] each. 'ikon deploy' reserves a number for each, and the
+# address (ports-<region>.ikon-relay.ikonai.app:<number>) stays the same across deploys, restarts and
+# idle stops until the [[Port]] is removed. The app reads it from app.Ports and listens on its
+# LocalPort; the first connection or datagram starts a stopped app.
+
+# Fixed answers or redirects that the platform's frontend router sends on chosen paths of the app's
+# domain, for any method, without starting the app. Each is one [[PathResponse]]. They are meant for a
+# site the app took over from another system: a 503 with Retry-After so that system's open tabs keep
+# their sessions, or a redirect that sends its public URLs to the app's own endpoints. The router
+# checks them before every page, file and route of the app.
