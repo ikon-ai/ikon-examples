@@ -65,6 +65,7 @@ const ikonBootTable = (env) => {
     waitForExternalConnectUrl: value('VITE_WAIT_FOR_EXTERNAL_CONNECT_URL') === 'true' || undefined,
     surface: value('VITE_IKON_SURFACE') || undefined,
     surfaces: JSON.parse(surfaces),
+    signIn: value('VITE_IKON_SIGN_IN') ? JSON.parse(value('VITE_IKON_SIGN_IN')) : undefined,
   };
 };
 
