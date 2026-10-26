@@ -32,20 +32,72 @@ struct IkonLiveActivity: Widget {
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Text(context.state.status)
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(context.state.muted ? Color.white.opacity(0.5) : accentColor)
+          VStack(alignment: .leading, spacing: 8) {
+            Text(context.state.status)
+              .font(.system(size: 13, weight: .medium))
+              .foregroundStyle(context.state.muted ? Color.white.opacity(0.5) : accentColor)
+            ActionButtons(actions: context.state.actions ?? [], accent: accentColor)
+          }
         }
       } compactLeading: {
-        Circle().fill(context.state.muted ? Color.white.opacity(0.4) : accentColor).frame(width: 8, height: 8)
+        StateMark(icon: context.state.icon, color: context.state.muted ? Color.white.opacity(0.4) : accentColor)
       } compactTrailing: {
         Text(context.state.metrics.first?.value ?? "")
           .font(.system(size: 13, weight: .semibold))
           .monospacedDigit()
       } minimal: {
-        Circle().fill(context.state.muted ? Color.white.opacity(0.4) : accentColor).frame(width: 8, height: 8)
+        StateMark(icon: context.state.icon, color: context.state.muted ? Color.white.opacity(0.4) : accentColor)
       }
     }
+  }
+}
+
+/// The app's state at a glance: its icon when it sent one, else the accent dot.
+@available(iOS 16.1, *)
+private struct StateMark: View {
+  let icon: String?
+  let color: Color
+
+  var body: some View {
+    if let icon {
+      Image(systemName: icon)
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(color)
+    } else {
+      Circle().fill(color).frame(width: 8, height: 8)
+    }
+  }
+}
+
+/// The banner's buttons. Below iOS 17 a press cannot reach the app without opening it, so none show.
+@available(iOS 16.1, *)
+private struct ActionButtons: View {
+  let actions: [IkonActivityAttributes.Action]
+  let accent: Color
+
+  var body: some View {
+    #if canImport(AppIntents)
+    if #available(iOS 17.0, *), !actions.isEmpty {
+      HStack(spacing: 8) {
+        ForEach(actions, id: \.id) { action in
+          Button(intent: IkonActivityActionIntent(actionId: action.id)) {
+            HStack(spacing: 6) {
+              if let icon = action.icon {
+                Image(systemName: icon)
+              }
+              Text(action.label)
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+          }
+          .buttonStyle(.plain)
+          .foregroundStyle(.white)
+          .background(accent.opacity(0.25), in: Capsule())
+        }
+      }
+    }
+    #endif
   }
 }
 
@@ -77,7 +129,7 @@ private struct LockScreenView: View {
 
     return VStack(alignment: .leading, spacing: 14) {
       HStack(spacing: 8) {
-        Circle().fill(liveColor).frame(width: 8, height: 8)
+        StateMark(icon: state.icon, color: liveColor)
         Text(state.status.uppercased())
           .font(.system(size: 11, weight: .bold))
           .tracking(1.8)
@@ -125,7 +177,8 @@ private struct LockScreenView: View {
       }
       .frame(height: 3)
 
-      if metrics.count > 1 {
+      // iOS gives the banner a fixed height, so with buttons the secondary metrics make way for them
+      if metrics.count > 1 && (state.actions ?? []).isEmpty {
         HStack(spacing: 0) {
           ForEach(Array(metrics.dropFirst().enumerated()), id: \.offset) { index, metric in
             VStack(alignment: .leading, spacing: 3) {
@@ -151,6 +204,8 @@ private struct LockScreenView: View {
           }
         }
       }
+
+      ActionButtons(actions: state.actions ?? [], accent: liveColor)
     }
     .padding(.horizontal, 18)
     .padding(.vertical, 16)

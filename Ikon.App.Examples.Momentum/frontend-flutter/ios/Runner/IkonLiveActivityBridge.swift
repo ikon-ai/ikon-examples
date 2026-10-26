@@ -17,16 +17,35 @@ public final class IkonLiveActivityBridge: NSObject {
   private static let channelName = "ikon/live_activity"
 
   #if canImport(ActivityKit)
+  // An activity the person swiped away, or one iOS ended at its time limit, takes no updates, so it
+  // counts as gone and the next start puts a new banner up. A stale one, past its stale date because
+  // nothing updated it, is still on the lock screen and takes updates, so it is still the banner.
   @available(iOS 16.2, *)
   private static var current: Activity<IkonActivityAttributes>? {
-    get { _current as? Activity<IkonActivityAttributes> }
+    get {
+      guard let activity = _current as? Activity<IkonActivityAttributes>, isShowing(activity) else {
+        return nil
+      }
+      return activity
+    }
     set { _current = newValue }
   }
   private static var _current: Any?
   #endif
 
+  private static var channel: FlutterMethodChannel?
+
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: registrar.messenger())
+    self.channel = channel
+
+    // A press on the banner, which IkonActivityActionIntent posts in this process, goes to the Dart
+    // client, which tells the server
+    NotificationCenter.default.addObserver(forName: .ikonLiveActivityAction, object: nil, queue: .main) { note in
+      if let actionId = note.object as? String {
+        IkonLiveActivityBridge.channel?.invokeMethod("action", arguments: actionId)
+      }
+    }
 
     channel.setMethodCallHandler { call, result in
       #if canImport(ActivityKit)
@@ -64,10 +83,22 @@ public final class IkonLiveActivityBridge: NSObject {
       metrics = decoded
     }
 
+    var actions: [IkonActivityAttributes.Action] = []
+
+    if let json = args["actions"] as? String,
+       let data = json.data(using: .utf8),
+       let decoded = try? JSONDecoder().decode([IkonActivityAttributes.Action].self, from: data) {
+      actions = Array(decoded.prefix(2))
+    }
+
+    let icon = args["icon"] as? String ?? ""
+
     return .init(
       metrics: metrics,
       status: args["status"] as? String ?? "",
-      muted: args["muted"] as? Bool ?? false)
+      muted: args["muted"] as? Bool ?? false,
+      icon: icon.isEmpty ? nil : icon,
+      actions: actions.isEmpty ? nil : actions)
   }
 
   @available(iOS 16.2, *)
@@ -81,7 +112,7 @@ public final class IkonLiveActivityBridge: NSObject {
     // An activity outlives the process that started it, so a relaunched app finds `current` nil while
     // its banner is still on the lock screen. Adopting the running one keeps a restart from stacking
     // a second banner beside the first.
-    if let running = Activity<IkonActivityAttributes>.activities.first {
+    if let running = Activity<IkonActivityAttributes>.activities.first(where: { isShowing($0) }) {
       current = running
       return update(args)
     }
@@ -99,6 +130,11 @@ public final class IkonLiveActivityBridge: NSObject {
       NSLog("[IkonLiveActivity] start failed: \(error)")
       return false
     }
+  }
+
+  @available(iOS 16.2, *)
+  private static func isShowing(_ activity: Activity<IkonActivityAttributes>) -> Bool {
+    activity.activityState == .active || activity.activityState == .stale
   }
 
   /// When the readout stops being believable if nothing refreshes it.
