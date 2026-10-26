@@ -908,7 +908,7 @@ public partial class Kahoot
                     }
 
                     view.Button(
-                        style: ["w-full max-w-sm py-3 rounded-full bg-purple-600 text-white text-lg font-bold border-none mt-4"],
+                        style: ["w-full max-w-sm py-3 rounded-full bg-purple-600 text-white text-lg font-bold border-none mt-4", "disabled:opacity-50 disabled:pointer-events-none"],
                         text: "Play Again",
                         disabled: _gameStage.Value != GameStage.GameOver,
                         onClick: async () =>
