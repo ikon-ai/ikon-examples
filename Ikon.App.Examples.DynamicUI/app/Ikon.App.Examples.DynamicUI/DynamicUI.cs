@@ -147,7 +147,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
             {
                 view.Text([Text.H3], "Preview");
 
-                view.Row([Layout.Row.Sm], content: view =>
+                view.Row([Layout.Row.Actions], content: view =>
                 {
                     view.Button(
                         [_showCode.Value ? Button.NeutralMd : Button.OutlineMd],
