@@ -1,4 +1,4 @@
-<!-- checked-against: be380270b45c2ce62b25eaec -->
+<!-- checked-against: 616798d8b45c2ce62b25eaec -->
 
 # Ikon.AI.Emergence Guide
 
@@ -423,7 +423,7 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new K
 
 Navigate a hierarchical document index to find relevant sections without vector embeddings.
 
-The tree types live in `Ikon.AI.Emergence.Tree`, which the scaffold's global usings do not carry — add `using Ikon.AI.Emergence.Tree;`.
+The tree types live in `Ikon.AI.Emergence.Tree`, which the scaffold's global usings carry, so a new app needs no `using` for them.
 
 <!-- ikon-example: emergence-tree-search -->
 ```csharp

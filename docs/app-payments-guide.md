@@ -1,4 +1,4 @@
-<!-- checked-against: 53576f5e82017cc0cdc20431 -->
+<!-- checked-against: 7df852673a8d3136cdc20431 -->
 
 # Ikon.App.Payments Guide
 
@@ -156,6 +156,10 @@ ikon offer create pro --name Pro --amount 999 --currency eur --interval month
 ikon offer list
 ikon offer delete pro
 ```
+
+Stripe has a minimum charge per currency (€0.50, $0.50, £0.30 — [the full table](https://docs.stripe.com/currencies#minimum-and-maximum-charge-amounts)).
+A Stripe offer priced under the minimum for its currency is rejected when it is created, and so is a
+payment link for such an amount, because Stripe would refuse the checkout.
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
 (Mollie) the platform stores the offer definition. Either way you reference the offer by its

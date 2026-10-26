@@ -1,4 +1,4 @@
-<!-- checked-against: 2c7086d72610e4715311ae1b -->
+<!-- checked-against: 9c13a5d5e37ec526fdf9a36a -->
 
 # IKON Device Capture Guide
 
@@ -113,6 +113,14 @@ It carries **values, never layout**. One widget draws every app's banner, so the
 - **Three metrics maximum.** Anything past the third is not shown.
 - `title` is fixed for the life of the activity, usually the app's name; `status` is the tracked line above the metrics — a phase, a state, a kind.
 - `muted: true` is the paused or held look, which desaturates the accent.
+- **Buttons and an icon** come with the `StartAsync` and `UpdateAsync` overloads that take a
+  `LiveActivityControls`: up to two `LiveActivityAction(Id, Label, Icon)` buttons, and an SF Symbol
+  `Icon` that the Dynamic Island shows in place of the accent dot, so a state such as listening reads
+  at a glance. A press reaches `app.LiveActivity.OnAction`, which hands the handler a
+  `LiveActivityPress` with the button's `ActionId` and the pressing `SessionId`, without opening the
+  app. That works on iOS 17 and later, while the app is running; an app that records or plays audio
+  in the background keeps running with the screen locked. Below iOS 17 the banner shows no buttons.
+  The buttons need the current `IkonActivityAttributes.swift`, bridge and widget from Momentum.
 - Prefer `UpdateAsync` to a repeated `StartAsync`. A second start would orphan the first banner with numbers that never move again; the client folds a repeat start into an update, but calling the right one says what you meant.
 - `StartAsync`, `UpdateAsync` and `EndAsync` aim at the calling client unless given a `sessionId`. A background tracking loop or timer has no calling client, so pass the `sessionId` there — without one the call throws `InvalidOperationException` instead of answering `false`.
 - **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said on a screen the person cannot dismiss it from. `EndAsync(sessionId)` is for clearing one client on purpose.

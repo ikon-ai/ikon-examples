@@ -1,4 +1,4 @@
-<!-- checked-against: 1d56488c498b7345e3b0c442 -->
+<!-- checked-against: ac140c36d098cb2be3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -789,6 +789,11 @@ final webRtcMedia = enableIkonWebRtcMedia(client);
 await webRtcMedia.startCameraCapture();
 ```
 
+The capture `enableIkonAudioCapture` returns can also be started and stopped by the server, with
+`ClientFunctions.StartAudioCaptureAsync` and `StopCaptureAsync`, as on the web, for a microphone an
+app keeps open across pages. It is one microphone: a start while it captures, or while another
+start waits for the permission prompt, fails on the server and does nothing from a button.
+
 `IkonMediaManager` combines audio capture, playback, and WebRTC media (and routes
 share/clipboard actions through `IkonShare`) and can be passed to
 `IkonParallaxView(mediaManager: ...)`.
@@ -804,6 +809,7 @@ The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 - `shrink-0` keeps a `truncate` child at its full width.
 - `text-align` on a container reaches the texts inside it.
 - An absolute child keeps its own height inside a smaller `overflow-hidden` box, which crops it.
+- An absolute child with no width of its own is as wide as its content, up to its containing block, so a badge in a card's corner (`absolute top-3 left-3`) hugs its label; one pinned to both sides (`inset-x-0`, `left-0 right-0`) spans between them.
 - An `overflow-hidden` box with a border clips its content inside the border, to the padding box, with the corner radius less the border width, so a `rounded-full border-[3px]` ring stays visible around an image.
 - Children paint and take taps in CSS stacking order: a `relative z-10` child is above an `absolute z-0` sibling, a negative `z-*` is below the in-flow content, and a `relative` child is above a later sibling that overlaps it (a `-mt-7` logo pulled up into a `relative` cover), in a div and in the content of a `ScrollArea` or `InfiniteScrollView` alike.
 - A percent height (`min-h-full`, `h-full`) on the content of a scroll view resolves against the scroll view's height inside its padding, when the scroll view has a height of its own or fills a flex column; a `max-h-*` one is as tall as its content, so there it does not resolve. A `flex-1` child of a `min-h-*` column takes what is left of the min-height, so a footer after a `flex-1` spacer sits at the bottom of a short list.
