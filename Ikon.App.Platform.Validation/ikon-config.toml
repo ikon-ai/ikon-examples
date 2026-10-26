@@ -181,6 +181,11 @@ Seeds = []
 # an instance of its own with its own capacity and idle budget, which admits no other surface's
 # client. A local run serves every surface from its one process.
 Placement = "shared"
+# What a browser page on this surface does once its connection is lost for good and the offline
+# overlay shows: "attended" waits for a person to tap it; "unattended" tries again by itself, at
+# growing intervals, and reloads the page, which starts a new server. For wall displays, kiosks and
+# all-day tablets nobody touches. An ended session or a refused visitor still waits for a person.
+Recovery = "attended"
 
 # Who may enter the surface
 [Surface.Auth]
