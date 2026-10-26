@@ -421,7 +421,7 @@ public partial class Emergence
             view.Row(["justify-between items-center mb-3"], content: view =>
             {
                 view.Text([Text.Caption, "font-semibold"], "Document Source");
-                view.Row([Layout.Row.Sm], content: view =>
+                view.Row([Layout.Row.Actions], content: view =>
                 {
                     view.Button(
                         [!_useCustomDocument.Value ? Button.PrimarySm : Button.OutlineSm],

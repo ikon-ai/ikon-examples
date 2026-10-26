@@ -55,14 +55,17 @@ public partial class Emergence
                     view.Row([Layout.Row.Md, "items-center"], content: view =>
                     {
                         view.Text([Text.Body], "View mode:");
-                        view.Button(
-                            [_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
-                            text: "Parsed",
-                            onClick: async () => _tagsShowParsed.Value = true);
-                        view.Button(
-                            [!_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
-                            text: "Raw",
-                            onClick: async () => _tagsShowParsed.Value = false);
+                        view.Row([Layout.Row.Actions], content: actions =>
+                        {
+                            actions.Button(
+                                [_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
+                                text: "Parsed",
+                                onClick: async () => _tagsShowParsed.Value = true);
+                            actions.Button(
+                                [!_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
+                                text: "Raw",
+                                onClick: async () => _tagsShowParsed.Value = false);
+                        });
                     });
                 });
             });
