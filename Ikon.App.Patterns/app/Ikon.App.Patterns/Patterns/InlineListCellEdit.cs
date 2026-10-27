@@ -158,7 +158,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
                         disabled: !canGenerate,
                         onClick: async () => { _ = GenerateLoopVideoAsync(stateId); });
 
-                    view.Button([Button.GhostMd, Button.Icon, "text-destructive"],
+                    view.Button([Button.GhostMd, Button.Icon, "text-destructive"], ariaLabel: "Remove state",
                         onClick: async () => { RemoveState(stateId); },
                         content: v => v.Icon([Icon.Default], name: "trash-2"));
                 });

@@ -26,8 +26,9 @@ internal static class ScalingShardedRoomExamples
 // The cell's surface is an interface: on a cloud run Connect returns a proxy that implements it.
 public interface IScoreboardCell
 {
-    // Exactly Reactive<T>: the proxy mirrors only that type, so a ReactiveList here would not update.
-    Reactive<int> Total { get; }
+    // Read-only: on a cloud run the caller holds a mirror, so a write there would change only its own
+    // copy. The value changes through the cell's methods.
+    IReadOnlyReactive<int> Total { get; }
 
     Task AddAsync(int points);
 }
@@ -42,9 +43,11 @@ public sealed class ScoreboardCell(ICell<ScoreboardCell.SessionIdentity> cell) :
 
     public string GameId => cell.Identity.GameId;
 
-    public Reactive<int> Total { get; } = new(0);
+    public IReadOnlyReactive<int> Total => _total;
 
-    public async Task AddAsync(int points) => Total.Update(total => total + points);
+    private readonly Reactive<int> _total = new(0);
+
+    public async Task AddAsync(int points) => _total.Update(total => total + points);
 }
 #endregion
 
@@ -52,7 +55,7 @@ public sealed class ScoreboardCell(ICell<ScoreboardCell.SessionIdentity> cell) :
 // A cell that updates a value on a timer: one wave position for every screen in the stadium.
 public interface IWaveCell
 {
-    Reactive<int> Stand { get; }
+    IReadOnlyReactive<int> Stand { get; }
 }
 
 [RegisterAll]
@@ -61,6 +64,9 @@ public sealed class WaveCell : IWaveCell, IAsyncDisposable
 {
     public record SessionIdentity();
 
+    public IReadOnlyReactive<int> Stand => _stand;
+
+    private readonly Reactive<int> _stand = new(0);
     private readonly CancellationTokenSource _stopping = new();
     private readonly Task _loop;
 
@@ -68,8 +74,6 @@ public sealed class WaveCell : IWaveCell, IAsyncDisposable
     {
         _loop = RunAsync(_stopping.Token);
     }
-
-    public Reactive<int> Stand { get; } = new(0);
 
     // The platform calls this when the cell goes away: a hot reload, or its process stopping.
     public async ValueTask DisposeAsync()
@@ -94,7 +98,7 @@ public sealed class WaveCell : IWaveCell, IAsyncDisposable
 
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
-            Stand.Update(stand => (stand + 1) % 12);
+            _stand.Update(stand => (stand + 1) % 12);
         }
     }
 }
@@ -134,7 +138,7 @@ public sealed record Leaderboard(long Version, IReadOnlyList<LeaderboardEntry> E
 
 public interface ILeaderboardCell
 {
-    Reactive<Leaderboard> Top { get; }
+    IReadOnlyReactive<Leaderboard> Top { get; }
 
     Task PublishAsync(Leaderboard top);
 }
@@ -145,17 +149,19 @@ public sealed class LeaderboardCell : ILeaderboardCell
 {
     public record SessionIdentity();
 
+    public IReadOnlyReactive<Leaderboard> Top => _top;
+
+    // Empty until an app instance publishes, because a cell has no database of its own.
+    private readonly Reactive<Leaderboard> _top = new(new Leaderboard(0, []));
+
     public LeaderboardCell(ICell<SessionIdentity> cell)
     {
     }
 
-    // Empty until an app instance publishes, because a cell has no database of its own.
-    public Reactive<Leaderboard> Top { get; } = new(new Leaderboard(0, []));
-
     // Two instances can publish at once. The one that read the table later wins.
     public Task PublishAsync(Leaderboard top)
     {
-        Top.Update(current => top.Version > current.Version ? top : current);
+        _top.Update(current => top.Version > current.Version ? top : current);
         return Task.CompletedTask;
     }
 }

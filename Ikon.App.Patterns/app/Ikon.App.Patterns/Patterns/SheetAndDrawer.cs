@@ -12,6 +12,8 @@ internal sealed class SheetAndDrawer : IPatternDemo
     #region example:pattern-sheet-and-drawer
     private readonly ClientReactive<bool> _filtersOpen = new(false);
     private readonly ClientReactive<bool> _actionsOpen = new(false);
+    private readonly ClientReactive<bool> _detailOpen = new(false);
+    private readonly ClientReactive<bool> _detailExpanded = new(false);
 
     private void Render(IView view)
     {
@@ -46,6 +48,17 @@ internal sealed class SheetAndDrawer : IPatternDemo
                     list.Button(onClick: () => _actionsOpen.Value = false, content: v => v.Text(text: "Share"));
                     list.Button(onClick: () => _actionsOpen.Value = false, content: v => v.Text(text: "Duplicate"));
                 }));
+
+            // snapPoints: makes a bottom panel draggable: it opens at 60% of the screen height and
+            // drags up into a full page, where its content scrolls; dragged below 60% it closes.
+            row.Drawer(
+                open: _detailOpen.Value,
+                onOpenChange: async open => _detailOpen.Value = open,
+                title: "Details",
+                snapPoints: [0.6, 1],
+                onSnapChange: async snap => _detailExpanded.Value = snap.Index == 1,
+                trigger: t => t.Button(content: v => v.Text(text: "Details")),
+                content: panel => panel.Text(text: _detailExpanded.Value ? "Full page" : "Drag up for more"));
 
             // modal: false lets the page behind stay interactive -- right for an inspector the
             // user consults while working, wrong for anything that must be answered.

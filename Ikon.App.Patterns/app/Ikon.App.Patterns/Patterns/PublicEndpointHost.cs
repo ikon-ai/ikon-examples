@@ -15,6 +15,7 @@ internal sealed class PublicEndpointHost : IPatternDemo
     private IAppBase app => throw new NotImplementedException();
     private Task HandleWebhookAsync(string body) => throw new NotImplementedException();
 
+#pragma warning disable IKON005 // the pattern is the raw AppEndpointHost over the relay; the [HttpPost] alternative is named in its comments
     #region example:pattern-public-endpoint-host
     private readonly Reactive<string?> _publicUrl = new(null);
     private AppEndpointHost? _host;
@@ -66,4 +67,5 @@ internal sealed class PublicEndpointHost : IPatternDemo
         }
     }
     #endregion
+#pragma warning restore IKON005
 }

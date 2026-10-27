@@ -12,9 +12,10 @@ internal sealed class MultiUserGame : IPatternDemo
         "Multi-user pattern with no standalone demo surface: shared vs per-client reactive state driven by a host client that advances the stage for everyone. See the source and docs/patterns/multi-user-game.md.");
 
     #region example:pattern-multi-user-game
-    // Host detection lives in ClientParams. The host client connects with `?host=true` query param.
+    // The host's link carries a generated host code; the first client to join with one claims the host
+    // role on the server, so a player cannot become host by adding a query parameter.
     public record SessionIdentity(string Id);
-    public record ClientParams(string Id = "", bool Host = false);
+    public record ClientParams(string Id = "", string HostCode = "");
 
     public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
     {
@@ -25,6 +26,7 @@ internal sealed class MultiUserGame : IPatternDemo
         private readonly Reactive<int> _questionIndex = new(0);
         private readonly ReactiveList<Question> _questions = new();
         private readonly ReactiveList<Player> _players = new();
+        private readonly Reactive<string?> _hostCode = new(null);
 
         // ── Per-client state (each player has their own copy) ───────────────────
         // Per client, not per user, because each tab is a player. In a local run every tab is signed
@@ -38,7 +40,7 @@ internal sealed class MultiUserGame : IPatternDemo
 
         public async Task Main()
         {
-            app.OnClientJoined(OnClientJoinedAsync);   // friendly extension — Func<Context, Task>
+            app.OnClientJoined((ctx, parameters) => OnClientJoinedAsync(ctx, parameters));   // friendly extension
             app.OnClientLeft(OnClientLeftAsync);       // never raw `app.ClientJoinedAsync += ...`
 
             UI.Root([Page.Default], content: RenderUI);
@@ -49,8 +51,19 @@ internal sealed class MultiUserGame : IPatternDemo
         private void RenderUI(UIView view) =>
             view.Text([Text.H1], text: $"Stage: {_stage.Value}");
 
-        private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx)
+        private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx, ClientParams parameters)
         {
+            // The deploy's boot snapshot client (ctx.IsSnapshot, user id "snapshot-0") joins too and is no player
+            if (ctx.IsSnapshot)
+            {
+                return;
+            }
+
+            if (_hostCode.Value is null && parameters.HostCode.Length > 0)
+            {
+                _hostCode.Value = parameters.HostCode;
+            }
+
             // The platform raises this handler inside the joining client's UserScope and ClientScope,
             // so ClientReactive<T>.Value already reads/writes for THIS client — no ReactiveScope.Use needed.
             // ctx.ClientSessionId is the int identity for this client.
@@ -62,12 +75,12 @@ internal sealed class MultiUserGame : IPatternDemo
             _playerAnswers.TryRemove(ctx.ClientSessionId, out _);
         }
 
-        // Host detection — read parameters of the CURRENT client through the indexer.
+        // Host detection — compare the CURRENT client's code with the one the server stored.
         // ReactiveScope.ClientId is int (not string).
         private bool IsHost()
         {
-            var client = app.Clients[ReactiveScope.ClientId];
-            return client?.Parameters.Host == true;
+            var code = app.Clients[ReactiveScope.ClientId]?.Parameters.HostCode;
+            return !string.IsNullOrEmpty(code) && code == _hostCode.Value;
         }
 
         private Player? CurrentPlayer() =>

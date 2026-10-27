@@ -19,7 +19,7 @@ internal sealed class AppHeaderBar : IPatternDemo
         });
     }
 
-    private readonly Reactive<bool> _menuOpen = new(false);
+    private readonly ClientReactive<bool> _menuOpen = new(false);
     private readonly Reactive<string> _page = new("Projects");
 
     #region example:pattern-app-header-bar

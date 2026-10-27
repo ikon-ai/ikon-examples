@@ -376,9 +376,9 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
 
 file sealed class PxDefaultStylingAndAutoComposedIndicatorsExamples(IApp<SessionIdentity, ClientParameters> app)
 {
-    private readonly Reactive<bool> _done = new(false);
-    private readonly Reactive<bool> _on = new(false);
-    private readonly Reactive<string> _text = new("");
+    private readonly ClientReactive<bool> _done = new(false);
+    private readonly ClientReactive<bool> _on = new(false);
+    private readonly UserReactive<string> _text = new("");
 
     public async Task PxDefaultStylingAndAutoComposedIndicators(UIView view)
     {
@@ -513,7 +513,7 @@ file sealed class PxScrollingInsideAFlexParentExamples(IApp<SessionIdentity, Cli
 
 file sealed class PxPanzoomViewingSomethingLargerThanTheScreenExamples(IApp<SessionIdentity, ClientParameters> app)
 {
-    private readonly Reactive<double> _scale = new(1);
+    private readonly ClientReactive<double> _scale = new(1);
 
     public async Task PxPanzoomViewingSomethingLargerThanTheScreen(UIView view)
     {

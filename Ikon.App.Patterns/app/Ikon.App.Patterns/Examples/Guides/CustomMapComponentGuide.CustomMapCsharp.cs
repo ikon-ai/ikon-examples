@@ -125,8 +125,8 @@ file sealed class DocMapApp(IApp<SessionIdentity, ClientParameters> app)
 
     #region example:custom-map-usage
     private readonly ReactiveList<MapPin> _pins = new();
-    private readonly Reactive<string?> _selectedPinId = new(null);
-    private readonly Reactive<string?> _lastClickInfo = new(null);
+    private readonly ClientReactive<string?> _selectedPinId = new(null);
+    private readonly ClientReactive<string?> _lastClickInfo = new(null);
 
     public async Task Main()
     {
@@ -141,7 +141,7 @@ file sealed class DocMapApp(IApp<SessionIdentity, ClientParameters> app)
         {
             view.Column(["flex-1"], content: view =>
             {
-                view.Row(["flex-1"], content: view =>
+                view.Column(["flex-1 md:flex-row"], content: view =>
                 {
                     // The map takes up most of the space
                     view.MyMap(
@@ -173,7 +173,7 @@ file sealed class DocMapApp(IApp<SessionIdentity, ClientParameters> app)
                         style: ["flex-1"]);
 
                     // Side panel
-                    view.Column(["w-64 p-4 border-l border-gray-700 bg-gray-900"], content: view =>
+                    view.Column(["w-full md:w-64 p-4 border-t md:border-t-0 md:border-l border-gray-700 bg-gray-900"], content: view =>
                     {
                         view.Text(["text-sm font-bold text-gray-300"], "MAP INFO");
 

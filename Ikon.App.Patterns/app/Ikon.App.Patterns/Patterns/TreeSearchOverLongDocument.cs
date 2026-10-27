@@ -1,7 +1,3 @@
-// Ikon.AI.Emergence.Tree is NOT in an app's GlobalUsings — a nested namespace is not imported by
-// its parent, so this is one of the few `using Ikon.*` lines an app legitimately adds.
-using Ikon.AI.Emergence.Tree;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tree-search-over-long-document — see docs/patterns/tree-search-over-long-document.md.

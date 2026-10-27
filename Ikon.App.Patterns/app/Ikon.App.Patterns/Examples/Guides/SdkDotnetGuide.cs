@@ -611,12 +611,14 @@ file static class SdkConsoleClientExamples
         // The app id: [Target] SpaceId in the app's ikon-config.<environment>.toml
         const string appId = "your-app-id";
 
-        // For a local `ikon run`, use Local with the port of the Server URL that the run prints; with SpaceId
-        // set, a port that serves another app makes the connect throw. For the deployed app, join as a guest,
-        // which needs no key; Environment is required.
-        var local = args.Contains("--local");
+        // For a local `ikon run`, use Local with the port of the Server URL that the run prints (pass it as
+        // `--local 8443`); with SpaceId set, a port that serves another app makes the connect throw. For the
+        // deployed app, join as a guest, which needs no key; Environment is required.
+        var localIndex = Array.IndexOf(args, "--local");
+        var local = localIndex >= 0;
+        var localPort = local && localIndex + 1 < args.Length ? int.Parse(args[localIndex + 1]) : 8443;
         var config = local
-            ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = 8443, UserId = "door-kiosk", SpaceId = appId } }
+            ? new IkonClientConfig { Local = new LocalConfig { Host = "localhost", HttpsPort = localPort, UserId = "door-kiosk", SpaceId = appId } }
             : new IkonClientConfig
             {
                 Guest = new GuestConfig { SpaceId = appId, Environment = IkonBackend.EnvironmentType.Development },

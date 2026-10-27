@@ -1,7 +1,3 @@
-using Dapper;
-using ServerRunType = Ikon.Common.Core.Protocol.ServerRunType;
-using TriggerEventType = Ikon.Common.Core.Protocol.TriggerEventType;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: delete-account-and-data — see docs/patterns/delete-account-and-data.md.
@@ -74,7 +70,7 @@ internal sealed class DeleteAccountAndData(IAppBase app) : IPatternDemo
 
         var removal = await ClientFunctions.RequestAccountRemovalAsync();
 
-        // Null: this client cannot remove accounts. Not Succeeded: a guest, or the request failed.
+        // Not Succeeded: a guest, a client with no page, or the request failed; Error says which.
         if (removal is not { Succeeded: true })
         {
             _removalError.Value = "Couldn't schedule the deletion. Sign in and try again.";

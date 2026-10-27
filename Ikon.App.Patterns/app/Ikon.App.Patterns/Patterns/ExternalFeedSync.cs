@@ -34,7 +34,8 @@ file abstract class ExternalFeedSyncExample
     }
 
     // Call from app.OnClientJoined, which runs in the joining user's scope, so the writes below land
-    // in that user's reactives. A [Cron] job cannot do this per user (see daily-reminder-per-user).
+    // in that user's reactives. Under a per-user SessionIdentity a [Cron] job cannot do this (see
+    // daily-reminder-per-user).
     private async Task SyncFeedAsync(Context ctx)
     {
         if (ctx.IsSnapshot || string.IsNullOrEmpty(_feedUrl.Value))

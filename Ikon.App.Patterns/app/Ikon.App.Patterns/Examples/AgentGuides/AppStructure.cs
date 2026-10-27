@@ -178,7 +178,7 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.LogoutAsync();
 
         // The signed-in user's own right to erasure, made with their client's own sign-in. Each returns a
-        // ClientAccountRemoval (Succeeded, ScheduledFor, Error), or null when the client's SDK lacks it.
+        // ClientAccountRemoval (Succeeded, ScheduledFor, Error); a client with no page gets Succeeded = false.
         await ClientFunctions.GetAccountRemovalAsync();
         await ClientFunctions.RequestAccountRemovalAsync();       // erased after the grace period
         await ClientFunctions.CancelAccountRemovalAsync();
@@ -303,6 +303,12 @@ internal sealed partial class AgentGuideExamples
         // keeps the instance running while nobody is connected ("BackgroundWork" below).
         app.OnStarting(async () =>
         {
+            // The boot snapshot capture runs OnStarting too, so it starts no loop
+            if (SnapshotCapture.IsCaptureProcess)
+            {
+                return;
+            }
+
             _ = Task.Run(async () =>
             {
                 while (!app.StoppingToken.IsCancellationRequested)

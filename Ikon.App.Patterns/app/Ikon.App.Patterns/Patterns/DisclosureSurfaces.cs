@@ -58,7 +58,7 @@ internal sealed class DisclosureSurfaces : IPatternDemo
                 content: disclosure =>
                 {
                     disclosure.CollapsibleTrigger(content: t => t.Text(text: "Advanced settings"));
-                    disclosure.CollapsibleContent(content: body => body.Text(text: "Nothing to see yet."));
+                    disclosure.CollapsibleContent(content: body => body.Text(text: "Cache size, debug logging and beta features."));
                 });
 
             // HoverCard previews on hover and focus and is NOT a tooltip: it holds real content,

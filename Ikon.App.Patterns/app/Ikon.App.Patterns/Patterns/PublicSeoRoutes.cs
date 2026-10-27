@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: public-seo-routes — see docs/patterns/public-seo-routes.md.
@@ -11,11 +13,11 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
 
     public void RenderDemo(IView view)
     {
-        var sample = new Article("tide-pools", "en", "Reading a tide pool", "What lives between the tides, and when to look.", "Low tide uncovers a few square metres of rock that hold more life than the beach around them.", "articles/tide-pools.jpg", 1200);
+        var sample = new Article("tide-pools", "en", "Reading a tide pool", "What lives between the tides, and when to look.", "Low tide uncovers a few square metres of rock that hold more life than the beach around them.", "articles/tide-pools.jpg", new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
         RenderArticle(view, sample);
     }
 
-    private sealed record Article(string Slug, string Language, string Title, string Summary, string Body, string ImagePath, int Views);
+    private sealed record Article(string Slug, string Language, string Title, string Summary, string Body, string ImagePath, DateTimeOffset UpdatedAt);
 
     private Task<IReadOnlyList<Article>> LoadPublishedArticlesAsync() => throw new NotImplementedException();
 
@@ -36,17 +38,26 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
             }
         });
 
-        // Runs on the deploying machine during the capture. The first SnapshotCapture.MaxRoutes routes
-        // are prerendered and the rest are only listed in sitemap.xml, so the most important come first.
-        app.OnSnapshotRoutes(async () =>
-            (await LoadPublishedArticlesAsync()).OrderByDescending(article => article.Views).Select(PathOf));
-
         app.OnClientJoined(async _ => await DescribePageAsync(app.Navigation.CurrentPath ?? "/"));
         app.Navigation.PathChangedAsync += async args => await DescribePageAsync(args.Path);
     }
 
-    // The capture records these for the route's prerendered page; in a browser they set the tab
-    // title and the share tags as the visitor moves between routes.
+    // Called by whatever writes articles: an editor's save, an import job. The platform captures the
+    // page as a guest sees it now and serves it to crawlers, with this lastmod in sitemap.xml.
+    private async Task OnArticleSavedAsync(Article article)
+    {
+        _articlesByPath[PathOf(article)] = article;
+        await app.PublicRoutes.PublishAsync(PathOf(article), lastModified: article.UpdatedAt);
+    }
+
+    private async Task OnArticleWithdrawnAsync(Article article)
+    {
+        _articlesByPath.Remove(PathOf(article));
+        await app.PublicRoutes.UnpublishAsync(PathOf(article));
+    }
+
+    // The capture records these for the route's crawler page; in a browser they set the tab title and
+    // the share tags as the visitor moves between routes.
     private async Task DescribePageAsync(string path)
     {
         if (!_articlesByPath.TryGetValue(path, out var article))
@@ -64,18 +75,33 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
             .ToDictionary(version => version.Language, PathOf);
         alternates["x-default"] = alternates.GetValueOrDefault("en", path);
 
+        string imageUrl = await app.Files.Public.GetAbsoluteUrlAsync(article.ImagePath);
+
+        // schema.org structured data: search engines show it as a rich result
+        string jsonLd = JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "Article",
+            ["headline"] = article.Title,
+            ["description"] = article.Summary,
+            ["image"] = imageUrl,
+            ["dateModified"] = article.UpdatedAt.ToString("O"),
+            ["inLanguage"] = article.Language,
+        });
+
         await ClientFunctions.SetPageMetadataAsync(
             title: article.Title,
             description: article.Summary,
-            imageUrl: await app.Files.Public.GetAbsoluteUrlAsync(article.ImagePath),
+            imageUrl: imageUrl,
             language: article.Language,
-            alternates: alternates);
+            alternates: alternates,
+            jsonLd: jsonLd,
+            type: "article");
     }
 
     private static void RenderArticle(IView view, Article article)
     {
         // Revealed: what a crawler indexes. Everything else ships as a skeleton in the snapshot.
-        // view.Heading renders an <h1>; view.Text with Text.H1 only looks like one.
         view.SnapshotReveal(content: view =>
         {
             view.Heading(article.Title, style: [Text.H1]);

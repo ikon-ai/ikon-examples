@@ -38,6 +38,7 @@ file sealed class AudioExamples(IApp<SessionIdentity, ClientParameters> app)
         Audio.Play(MediaTargets.Everyone, clip);
 
         // 2a. Music or a long recording from a URL: decoded as it plays, looped by decoding it again.
+        //     A hot reload stops this music, so start looped music again in app.OnStarting.
         Audio.Play(MediaTargets.Everyone, new Uri("https://cdn.example.com/theme.mp3"),
             new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music", Loop = true });
 

@@ -125,7 +125,7 @@ file sealed class CwThemeActivationExamples(IApp<SessionIdentity, ClientParamete
     public async Task CwThemeActivation2(UIView view)
     {
         #region example:cw-theme-activation-2
-        view.Button([Button.GhostMd, Button.Icon],
+        view.Button([Button.GhostMd, Button.Icon], text: "Toggle theme",
             onClick: _theme.ToggleAsync,
             content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
         #endregion
@@ -203,6 +203,23 @@ file sealed class CwTargetVariantsWebVsFlutterExamples(IApp<SessionIdentity, Cli
         ];
         #endregion
         ExampleSwatches.Render(view, Classes);
+    }
+}
+
+file sealed class CwHapticsExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private static Task SaveAsync() => Task.CompletedTask;
+
+    private static Task ShowTodayAsync() => Task.CompletedTask;
+
+    public async Task CwHaptics(UIView view)
+    {
+        #region example:cw-haptics
+        // The main action gets a firmer tap, and a filter chip the light click a picker makes.
+        view.Button(["h-14 rounded-2xl bg-amber-400 haptic-medium"], text: "Save", onClick: SaveAsync);
+        view.Button(["h-11 rounded-full haptic-selection"], text: "Today", onClick: ShowTodayAsync);
+        #endregion
+        PatternDemoNote.RenderCaption(view, "On a phone running the Flutter client, pressing these buttons vibrates; a browser shows them without vibration");
     }
 }
 

@@ -13,15 +13,8 @@ internal sealed class FileUploadWithProgress : IPatternDemo
 
     private const long MaxFileSizeBytes = 2_000_000_000;
 
-    private static class SentrixStyles
-    {
-        public static readonly string[] UploadZone = ["p-6 border border-dashed rounded-xl"];
-    }
-
     private static string T(string key) => throw new NotImplementedException();
-    private Task<FileUploadResult> OnFileUploadStartAsync(Guid caseId, FileUploadStartArgs args) => throw new NotImplementedException();
-    private Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args) => throw new NotImplementedException();
-    private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args) => throw new NotImplementedException();
+    private static Task SaveUploadAsync(Guid ownerId, string fileName, string hash, string localPath) => throw new NotImplementedException();
 
     #region example:pattern-file-upload-with-progress
     private sealed class UploadTracker
@@ -39,7 +32,7 @@ internal sealed class FileUploadWithProgress : IPatternDemo
     private void RenderFileUploadArea(UIView view, Guid caseId)
     {
         view.FileUpload(
-            SentrixStyles.UploadZone,
+            ["default", "p-6 border border-dashed rounded-xl"],
             multiple: true,
             onUploadPreStart: args => OnFileUploadPreStartAsync(args),
             onUploadStart: args => OnFileUploadStartAsync(caseId, args),
@@ -77,6 +70,51 @@ internal sealed class FileUploadWithProgress : IPatternDemo
             tracker.Progress = args.ProgressPercentage;
             _activeUploads.NotifyUpdate();
         }
+        return Task.CompletedTask;
+    }
+    private Task<FileUploadResult> OnFileUploadStartAsync(Guid caseId, FileUploadStartArgs args)
+    {
+        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
+        if (tracker == null)
+        {
+            return Task.FromResult<FileUploadResult>(false);
+        }
+
+        if (_activeUploads.Any(u => u.UploadId != args.UploadId && u.Hash == args.Hash))
+        {
+            // A rejected Start fires neither Complete nor Error, so the PreStart row goes here.
+            _activeUploads.Remove(tracker);
+            _fileUploadError.Value = T("That file is already uploading");
+            return Task.FromResult<FileUploadResult>(false);
+        }
+
+        tracker.Hash = args.Hash;
+        _activeUploads.NotifyUpdate();
+
+        // No AssetUri: the bytes land in args.LocalTempFilePath of the Complete callback.
+        return Task.FromResult<FileUploadResult>(true);
+    }
+
+    private async Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args)
+    {
+        await SaveUploadAsync(caseId, args.FileName, args.Hash, args.LocalTempFilePath!);
+
+        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
+        if (tracker != null)
+        {
+            _activeUploads.Remove(tracker);
+        }
+    }
+
+    private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args)
+    {
+        var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
+        if (tracker != null)
+        {
+            _activeUploads.Remove(tracker);
+        }
+
+        _fileUploadError.Value = T("Upload failed");
         return Task.CompletedTask;
     }
     #endregion

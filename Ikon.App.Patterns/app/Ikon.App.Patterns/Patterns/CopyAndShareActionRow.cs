@@ -67,6 +67,7 @@ internal sealed class CopyAndShareActionRow : IPatternDemo
                         trigger: v => v.ActionButton(
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.CopyToClipboard,
+                            ariaLabel: "Copy transcript",
                             options: new CopyToClipboardActionOptions { Text = transcriptText },
                             content: vv => vv.Icon([Icon.Sm], name: "clipboard-copy")),
                         contentSlot: v => v.Text([Text.Caption], "Copy transcript"));
@@ -76,6 +77,7 @@ internal sealed class CopyAndShareActionRow : IPatternDemo
                         trigger: v => v.ActionButton(
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.Share,
+                            ariaLabel: "Share transcript",
                             options: new ShareActionOptions { Title = "Transcript", Text = transcriptText },
                             content: vv => vv.Icon([Icon.Sm], name: "share")),
                         contentSlot: v => v.Text([Text.Caption], "Share transcript"));

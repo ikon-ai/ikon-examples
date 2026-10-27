@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
 
@@ -112,6 +113,7 @@ internal sealed partial class AgentGuideExamples
 
     private static void DocEndpointMapGet(AppEndpointHost endpoint)
     {
+#pragma warning disable IKON005 // the guide teaches the raw host's catch-all MapGet, which an [HttpGet] method cannot replace
         #region example:endpoint-mapget
         // Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
         // — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
@@ -122,15 +124,17 @@ internal sealed partial class AgentGuideExamples
             await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
         });
         #endregion
+#pragma warning restore IKON005
     }
 
-    private async Task DocRawEndpointAsync()
+    private void DocRawEndpoint()
     {
         #region example:raw-endpoint
-        await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
-        var udp = new UdpClient(endpoint.LocalPort);
-        Log.Instance.Info($"Game server listening at udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
-        // `await using` above releases the endpoint when it goes out of scope.
+        // ikon-config.toml declares [[Port]] Name = "game", Protocol = "udp"
+        var game = app.Ports["game"];
+        var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, game.LocalPort));
+        // The port is opened after Main returns, so the address arrives through AddressChanged
+        game.AddressChanged += port => Log.Instance.Info($"Game server listening at udp://{port.Address}");
         #endregion
 
         udp.Dispose();

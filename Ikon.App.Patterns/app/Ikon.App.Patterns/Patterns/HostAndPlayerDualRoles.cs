@@ -21,6 +21,7 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
     private static void RenderHostView(UIView view) => throw new NotImplementedException();
     private static void RenderPlayerView(UIView view) => throw new NotImplementedException();
 
+#pragma warning disable IKON019 // the host code is the session's one value that every client is checked against
     #region example:pattern-host-and-player-dual-roles
     public record ClientParams(string Id = "", string HostCode = "");
 
@@ -86,4 +87,5 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
         }
     }
     #endregion
+#pragma warning restore IKON019
 }

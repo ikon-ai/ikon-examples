@@ -10,8 +10,9 @@ file sealed class NotificationsExamples(IApp<SessionIdentity, ClientParameters> 
     #region example:notification-inbox-profiles
     private sealed record Profile(string Email = "", string Phone = "", string TelegramChatId = "");
 
+    // Global, so every instance reads the same value, including the one that runs [Cron] jobs.
     // ValueFor reads another user's value synchronously, which is what a channel's resolver needs
-    private readonly PersistentUserReactive<Profile> _profiles = new(new Profile());
+    private readonly PersistentGlobalUserReactive<Profile> _profiles = new(new Profile());
 
     // Call it in the signed-in user's scope, such as OnClientJoined, to keep the address current
     private void RememberEmail(string email) => _profiles.Value = _profiles.Value with { Email = email };
@@ -31,6 +32,9 @@ file sealed class NotificationsExamples(IApp<SessionIdentity, ClientParameters> 
         // WhatsApp delivers free text only within 24 h of the user's last message; with templateName set,
         // every notification goes as that approved Meta template (one body parameter), which reaches everyone.
         _inbox.Channels.Add(new WhatsAppNotificationChannel(accessToken, phoneNumberId, userId => _profiles.ValueFor(userId).Phone, templateName: "order_update"));
+
+        // Until the user's profile has loaded, ValueFor returns the empty one and the channels have no address
+        await _profiles.LoadForAsync(order.CustomerUserId);
 
         // One call. The route says where it goes.
         var outcome = await _inbox.NotifyAsync(order.CustomerUserId,
@@ -64,7 +68,8 @@ file sealed class InboxUiExamples(IApp<SessionIdentity, ClientParameters> app)
         view.Badge($"{_inbox.UnreadCount}");              // signed-in user
         foreach (var item in _inbox.Items)                // newest first
         {
-            view.Box([Card.Default, "p-3 mb-2"], onClick: async () => { _inbox.MarkRead(item.Id); await NavigateAsync(item.LaunchUrl); });
+            view.Box([Card.Default, "p-3 mb-2"], onClick: async () => { _inbox.MarkRead(item.Id); await NavigateAsync(item.LaunchUrl); },
+                content: row => row.Text([item.Read ? Text.Body : Text.BodyStrong], item.Title));
         }
         #endregion
     }

@@ -37,7 +37,9 @@ internal sealed class OcrTextOverlay : IPatternDemo
             var (jpeg, _, _) = ImageUtils.EncodeJpeg(upload, maxDimension: 2000);
             _photo.SetFor(clientId, jpeg);
 
-            var boxes = ToBoxes(await OCR.AnalyzeAsync(jpeg));
+            // IncludeLines is what gives each paragraph its polygon on Azure
+            using var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
+            var boxes = ToBoxes(await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = jpeg, IncludeLines = true }));
 
             if (boxes.Count == 0)
             {

@@ -26,8 +26,8 @@ internal sealed class PersistentUserPreferences : IPatternDemo
         private readonly PersistentUserReactive<string> _settingsSubTab = new("general");
 
         // Per-session, persists for the multi-user session — shared facts
-        private readonly PersistentSessionReactiveList<ThreatEvent> _events = new();
-        private readonly PersistentSessionReactive<SentinelPreferences?> _persistedPrefs = new(null);
+        private readonly PersistentReactiveList<ThreatEvent> _events = new();
+        private readonly PersistentReactive<SentinelPreferences?> _persistedPrefs = new(null);
 
         // Per-client only, no persistence — open dialogs, current selection
         private readonly ClientReactive<bool> _addCameraOpen = new(initialValue: false);
@@ -38,6 +38,7 @@ internal sealed class PersistentUserPreferences : IPatternDemo
             var collapsed = _sidebarCollapsed.Value;
             view.Button(
                 ["px-2 py-1.5 hover:bg-zinc-800/60"],
+                ariaLabel: collapsed ? "Expand sidebar" : "Collapse sidebar",
                 onClick: async () => _sidebarCollapsed.Value = !collapsed,
                 content: btn => btn.Icon(["w-3.5 h-3.5"], name: collapsed ? "chevrons-right" : "chevrons-left"));
         }
@@ -47,10 +48,10 @@ internal sealed class PersistentUserPreferences : IPatternDemo
             var mode = _camerasViewMode.Value;
             view.Row(["gap-1"], content: row =>
             {
-                row.Button([mode == "grid" ? "bg-zinc-800" : ""],
+                row.Button([mode == "grid" ? "bg-zinc-800" : ""], ariaLabel: "Grid view",
                     onClick: async () => _camerasViewMode.Value = "grid",
                     content: btn => btn.Icon([], name: "grid"));
-                row.Button([mode == "list" ? "bg-zinc-800" : ""],
+                row.Button([mode == "list" ? "bg-zinc-800" : ""], ariaLabel: "List view",
                     onClick: async () => _camerasViewMode.Value = "list",
                     content: btn => btn.Icon([], name: "list"));
             });

@@ -1,9 +1,3 @@
-using Dapper;
-#region example:pattern-durable-agent-run-usings
-using Ikon.Agent.Skills;
-using Ikon.Agent.Storage.Postgres;
-#endregion
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: durable-agent-run — see docs/patterns/durable-agent-run.md.
@@ -48,7 +42,15 @@ file abstract class DurableAgentRunExample(IAppBase app)
             """);
 
         // Not awaited: OnStarting must return for the instance to finish starting
-        app.OnStarting(async () => _ = DriveUnfinishedRunsAsync());
+        app.OnStarting(async () =>
+        {
+            if (SnapshotCapture.IsCaptureProcess)
+            {
+                return;
+            }
+
+            _ = DriveUnfinishedRunsAsync();
+        });
     }
 
     private async Task StartRunAsync(string task)

@@ -14,7 +14,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     private Video Video { get; } = new(app);
     #endregion
 
-    private readonly Reactive<bool> _micBlocked = new(false);
+    private readonly ClientReactive<bool> _micBlocked = new(false);
     private long _bytesReceived;
     private long _keyFramesReceived;
 

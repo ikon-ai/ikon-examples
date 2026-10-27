@@ -56,7 +56,7 @@ internal sealed class MessageActionRow : IPatternDemo
             // reachable by keyboard (focus-within:). Without those two, this row does not exist
             // on a phone.
             view.Row([
-                "absolute right-2 top-1 items-center gap-0.5 rounded-md border border-secondary bg-card p-0.5 shadow-sm",
+                "absolute right-2 top-1 flex-wrap items-center gap-0.5 rounded-md border border-secondary bg-card p-0.5 shadow-sm",
                 "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100",
             ], content: v =>
             {

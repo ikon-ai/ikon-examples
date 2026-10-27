@@ -30,8 +30,9 @@ internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
 
     public async Task Main()
     {
-        // PathChangedAsync fires only for a move the client makes on its own -- a link click or
-        // back/forward. The path a client lands on (deep link, reload) raises nothing: the factory
+        // PathChangedAsync fires only for a move the client makes on its own -- a link click,
+        // back/forward, or a press on a control with path:, after its onClick. The path a client
+        // lands on (deep link, reload) raises nothing: the factory
         // above routes it, and the joined handler only loads the data that page needs. The app's
         // own SetPathAsync is not echoed back either, which is why NavigateToDashboardAsync routes
         // itself.

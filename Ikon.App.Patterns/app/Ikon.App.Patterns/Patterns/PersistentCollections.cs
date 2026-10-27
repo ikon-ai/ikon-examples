@@ -15,10 +15,11 @@ internal sealed class PersistentCollections : IPatternDemo
     // error in codegen's sandbox build and in in-repo apps, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
     // helpers exist for legacy code that already has such a wrapper, not for new declarations.
     //
-    // Scope is the first choice, and it is three-way:
-    //   Persistent*            shared by everyone, survives restart
-    //   PersistentSession*     per session, survives restart
-    //   PersistentUser*        per user, follows them across devices
+    // Scope is the first choice:
+    //   Persistent*               everyone in this instance, survives its restart
+    //   PersistentUser*           one user in this instance, across their devices
+    //   PersistentGlobal*         every instance of the app, survives a deploy
+    //   PersistentGlobalUser*     one user in every instance of the app
     private readonly PersistentReactiveHashSet<string> _publishedTags = new();
     private readonly PersistentUserReactiveDictionary<string, int> _votesByPoll = new();
     // Constructor items are what every user starts with until they have state of their own.

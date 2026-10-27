@@ -114,18 +114,19 @@ file sealed class ChatLayoutExamples
 
 file sealed class InputsExamples
 {
-    private readonly Reactive<string> _text = new("");
-    private readonly Reactive<string> _query = new("");
-    private readonly Reactive<bool> _checked = new(false);
-    private readonly Reactive<bool> _enabled = new(false);
-    private readonly Reactive<double> _slider = new(0);
-    private readonly Reactive<string> _selected = new("");
-    private readonly Reactive<string> _radio = new("");
-    private readonly Reactive<bool> _isDragging = new(false);
-    private readonly Reactive<string> _layout = new("list");
-    private readonly Reactive<string> _date = new("");
-    private readonly Reactive<string> _time = new("09:00");
-    private readonly Reactive<string> _day = new("");
+    private readonly UserReactive<string> _text = new("");
+    private readonly ClientReactive<string> _query = new("");
+    private readonly ClientReactive<bool> _suggestionsOpen = new(false);
+    private readonly ClientReactive<bool> _checked = new(false);
+    private readonly ClientReactive<bool> _enabled = new(false);
+    private readonly ClientReactive<double> _slider = new(0);
+    private readonly ClientReactive<string> _selected = new("");
+    private readonly ClientReactive<string> _radio = new("");
+    private readonly ClientReactive<bool> _isDragging = new(false);
+    private readonly ClientReactive<string> _layout = new("list");
+    private readonly ClientReactive<string> _date = new("");
+    private readonly ClientReactive<string> _time = new("09:00");
+    private readonly ClientReactive<string> _day = new("");
     private readonly List<string> _fullDays = ["2026-12-24", "2026-12-25"];
 
     private static Task HandleSubmit(string submitted) => Task.CompletedTask;
@@ -136,7 +137,7 @@ file sealed class InputsExamples
         #region example:input-components
         view.Button([Button.PrimaryMd], text: "Click", onClick: async () => { /* ... */ });
         view.Button([Button.OutlineMd], text: "Secondary", disabled: isLoading, onClick: async () => { /* ... */ });
-        view.Button([Button.GhostMd, Button.Icon], onClick: async () => { /* ... */ },
+        view.Button([Button.GhostMd, Button.Icon], text: "Settings", onClick: async () => { /* ... */ },
             content: v => v.Icon([Icon.Default], name: "settings"));
         // icon: draws an icon next to the text: label. A content: lambda is drawn in place of the text, and text: then only names the button.
         view.Button([Button.OutlineMd], text: "Listen", icon: "headphones", onClick: async () => { /* ... */ });
@@ -155,6 +156,10 @@ file sealed class InputsExamples
             onSubmit: async query => { await RunSearchAsync(query); });
         view.TextField(bind: _text, type: "number", min: "0", step: "1", label: "Quantity");  // a number field: the bound value is still a string, so int.TryParse(_text.Value, out var quantity)
         view.TextArea(bind: _text, placeholder: "Notes", maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
+        // onFocus/onBlur (TextField and TextArea) fire once per real change of focus, autoFocus included;
+        // a re-render or switching to another app fires neither. A combobox opens its list on focus:
+        view.TextField(bind: _query, placeholder: "City", ariaLabel: "City",
+            onFocus: () => { _suggestionsOpen.Value = true; }, onBlur: () => { _suggestionsOpen.Value = false; });
         // Checkbox / Switch / Slider auto-render their inner part (the check mark, the switch
         // thumb, the slider track+thumb) AND, like RadioGroup / Toggle, their default styling —
         // the bare call below is all you need (a RadioGroupItem's checked fill is the whole dot, so
@@ -184,7 +189,7 @@ file sealed class InputsExamples
                     view.Text(text: "Option 2");
                 });
             });
-        // ToggleGroupSingle holds one value, ToggleGroupMultiple a list. A toggle group has no theme styling of its own. Its tokens are ToggleGroup.Root (the group) and ToggleGroup.Item
+        // ToggleGroupSingle holds one value, ToggleGroupMultiple a list. With no style a group takes the theme's Toggle.Group and each item Toggle.Default; ToggleGroup.Root and ToggleGroup.Item are the same tokens
         view.ToggleGroupSingle([ToggleGroup.Root, "w-full"], value: _layout.Value, ariaLabel: "Layout",
             onValueChange: async v => { _layout.Value = v; },
             content: group =>
@@ -198,6 +203,14 @@ file sealed class InputsExamples
             accept: [".jpg", ".png", ".pdf"],  // optional file type filter
             multiple: true,                     // without it, one file per pick; each file is a separate upload with its own onUploadComplete
             maxFileSize: 10 * 1024 * 1024);    // optional max size in bytes, per file
+
+        // A phone photo is shrunk on the device before maxFileSize is checked: longest side 1600 px, as
+        // UploadImageFormat.Webp (JPEG where the client cannot encode it). The file name and MIME type follow, and HEIC photos are converted.
+        view.FileUpload(
+            onUploadComplete: async args => { /* args.FileName is "IMG_0001.webp", args.MimeType "image/webp" */ },
+            accept: ["image/*"],
+            maxFileSize: 2 * 1024 * 1024,
+            maxImageDimension: 1600, imageQuality: 0.8, imageFormat: UploadImageFormat.Webp);
 
         // directory: true picks or drops a whole folder; each file's args.RelativePath is its path inside it ("Photos/2024/a.jpg")
         view.FileUpload(
@@ -230,12 +243,12 @@ file sealed class InputsExamples
 
 file sealed class OverlaysExamples
 {
-    private readonly Reactive<bool> _open = new(false);
-    private readonly Reactive<bool> _alertOpen = new(false);
-    private readonly Reactive<bool> _popOpen = new(false);
-    private readonly Reactive<bool> _renameOpen = new(false);
-    private readonly Reactive<bool> _toastOpen = new(false);
-    private readonly Reactive<bool> _menuOpen = new(false);
+    private readonly ClientReactive<bool> _open = new(false);
+    private readonly ClientReactive<bool> _alertOpen = new(false);
+    private readonly ClientReactive<bool> _popOpen = new(false);
+    private readonly ClientReactive<bool> _renameOpen = new(false);
+    private readonly ClientReactive<bool> _toastOpen = new(false);
+    private readonly ClientReactive<bool> _menuOpen = new(false);
     private readonly Reactive<string> _sort = new("Newest");
 
     public void Render(UIView view)
@@ -328,9 +341,11 @@ file sealed class OverlaysExamples
 
 file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app)
 {
-    private readonly Reactive<string> _tab = new("home");
-    private readonly Reactive<string> _accordionValue = new("");
-    private readonly Reactive<bool> _open = new(false);
+    private readonly ClientReactive<string> _tab = new("home");
+    // The path is one client's, so the page it selects is too.
+    private readonly ClientReactive<string> _page = new("/");
+    private readonly ClientReactive<string> _accordionValue = new("");
+    private readonly ClientReactive<bool> _open = new(false);
     private readonly Reactive<bool> _hasMore = new(true);
     private readonly Reactive<bool> _loading = new(false);
     private readonly ReactiveList<string> _items = new();
@@ -389,19 +404,78 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
             onNearEnd: async args => { await LoadMoreItems(); },
             content: view => { foreach (var item in _items) { view.Text(text: item); } });
         #endregion
+
+        #region example:bottom-nav
+        // The page scrolls above the menu; the outlet holds the page for the client's path
+        view.Column(["h-[480px]"], content: shell =>
+        {
+            shell.ScrollArea(["flex-1 min-h-0"], content: body =>
+                body.NavOutlet(path: _page.Value, content: page =>
+                {
+                    if (_page.Value == "/settings")
+                    {
+                        RenderSettings(page);
+                    }
+                    else
+                    {
+                        RenderHome(page);
+                    }
+                }));
+            shell.NavBar(content: bar =>
+            {
+                bar.NavItem("/", label: "Home", icon: "house");
+                bar.NavItem("/settings", label: "Settings", icon: "settings", badge: 2);
+            });
+        });
+        #endregion
+    }
+
+    public void Route()
+    {
+        #region example:bottom-nav-routing
+        // A press on an item, an in-app link and a back gesture all arrive here
+        app.Navigation.PathChangedAsync += args =>
+        {
+            _page.Value = args.Path;
+            return Task.CompletedTask;
+        };
+        #endregion
     }
 
     private static void DocFeedInTab(UIView view, IReadOnlyList<FeedSlide> slides)
     {
         #region example:feed-in-tab
-        // The root and the panel are flex children down to the feed, so each has a definite height
+        // The root and the panel are flex children down to the feed, so each has a definite height;
+        // the absolute box gives the feed a height it cannot collapse from
         view.Tabs(
             defaultValue: "feed",
             rootStyle: ["flex h-dvh flex-col"],
-            contentStyle: [Tabs.Content, "min-h-0 flex-1"],
+            contentStyle: [Tabs.ContentFill],
             tabs: [
-                new TabItem("feed", "Feed", panel => panel.FeedScroller(slides, style: [FeedScroller.Root, "h-full"])),
+                new TabItem("feed", "Feed", panel => panel.Box(["relative min-h-0 flex-1"], content: frame =>
+                    frame.Box(["absolute inset-0"], content: fill =>
+                        fill.FeedScroller(slides, style: [FeedScroller.Root, "h-full"])))),
                 new TabItem("about", "About", panel => panel.Text(text: "About this feed")),
+            ]);
+        #endregion
+    }
+
+    private static void DocBottomTabBar(UIView view)
+    {
+        #region example:bottom-tab-bar
+        // Root and panel are a flex column with a definite height; the list container comes last in
+        // the column (order-last) and scrolls sideways, so five tabs still fit a 390px phone;
+        // md:max-w-md md:mx-auto keeps the bar from spanning a wide desktop window
+        view.Tabs(
+            defaultValue: "home",
+            rootStyle: ["flex h-dvh flex-col"],
+            contentStyle: [Tabs.ContentFill],
+            listContainerStyle: ["order-last shrink-0 overflow-x-auto border-t border-secondary md:mx-auto md:w-full md:max-w-md"],
+            listStyle: [Tabs.List, "w-full min-w-max"],
+            triggerStyle: [Tabs.Trigger, "flex-1"],
+            tabs: [
+                new TabItem("home", "Home", panel => panel.ScrollArea(["h-full"], content: list => list.Text(text: "Home"))),
+                new TabItem("search", "Search", panel => panel.ScrollArea(["h-full"], content: list => list.Text(text: "Search"))),
             ]);
         #endregion
     }
@@ -670,6 +744,34 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private void DocSortableShelf(UIView view)
+    {
+        #region example:sortable-shelf
+        // Two rows that scroll sideways; a held touch picks an item up, so a swipe still scrolls.
+        // A tap opens the item, a double tap favourites it.
+        view.SortableList(
+            items: _items.Value,
+            rows: 2,
+            longPressDelay: 400,
+            onReorder: async args => _items.ReplaceAll(args.NewOrder),
+            itemStyle: ["w-40"],
+            itemContent: (v, id) => v.Box(["flex flex-col gap-1"], ariaLabel: id,
+                onClick: () => _openedItem.Value = id,
+                onDoubleTap: () =>
+                {
+                    if (!_favourites.Remove(id))
+                    {
+                        _favourites.Add(id);
+                    }
+                },
+                content: card =>
+                {
+                    card.Text([Text.Body], id);
+                    card.Text([Text.Caption], _favourites.Contains(id) ? "Favourite" : _openedItem.Value == id ? "Open" : "");
+                }));
+        #endregion
+    }
+
     private static void DocTextAndContent(UIView view)
     {
         #region example:text-and-content
@@ -679,6 +781,10 @@ internal sealed partial class AgentGuideExamples
         view.Text([Text.Caption, "text-muted-foreground"], "Small caption");
         view.Heading([Text.H3], text: "Heading component");   // or positional: view.Heading("Title")
         view.Markdown("**Bold** and `code`");
+        // Element classes win over Markdown's own spacing and link look, no !important needed
+        view.Markdown("One paragraph.\n\nAnother, with a [link](/docs).", paragraphStyle: ["my-2"], linkStyle: ["text-brand-secondary"]);
+        // Shrinks from Text.Display down to 16px to stay on one line in its width, then ends in an ellipsis
+        view.Text([Text.Display, "w-full"], "A title too long for a phone", fit: TextFit.Shrink, minFontSize: 16);
 
         // Text is an inline span, so Texts nested in one Text flow as one sentence
         view.Text([Text.Body], content: sentence =>
@@ -698,6 +804,10 @@ internal sealed partial class AgentGuideExamples
         view.Icon([Icon.Xs, "animate-spin"], name: "loader-2");  // Spinning Lucide icon (Icon.Spinner would also draw its bordered ring)
         view.Image(["max-w-full h-auto"], src: imageUrl);   // From URL
         view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From bytes
+        view.Image(["w-8 h-8 text-brand-secondary"], src: imageUrl, tint: true);  // Monochrome art painted in the text colour, alpha kept
+        view.Image(["w-full aspect-video object-cover rounded-lg"], src: imageUrl, alt: "Cover",
+            blurhash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj",   // Drawn until the picture loads, which then fades in
+            fallback: f => f.Box(["w-full h-full flex items-center justify-center bg-secondary text-3xl"], content: b => b.Text("🚲")));  // When the source fails to load
         view.Skeleton(["w-2/3"], size: SkeletonSize.Lg);   // Loading placeholder; style is added to the pulse
         view.Box([Skeleton.Title]);                        // Or a token: Skeleton.Title, Text, TextSm, Avatar, Card, Button, Input
         view.Badge("Ready", tone: SemanticTone.Success, size: BadgeSize.Sm);  // Size is a parameter: there is no Badge.Sm; tones are Neutral, Brand, Success, Warning, Error, Info (no Danger)
@@ -844,4 +954,46 @@ file sealed class SortableTableExamples
         });
     }
     #endregion
+}
+
+file sealed class BoxObserverExamples
+{
+    private sealed record Message(string Id, string Text);
+
+    private readonly ClientReactive<int> _columns = new(2);
+    private readonly ReactiveList<string> _cards = new(["Revenue", "Orders", "Customers", "Returns"]);
+    private readonly ReactiveList<Message> _messages = new([new("m1", "Welcome to the team"), new("m2", "Your report is ready")]);
+    private readonly ReactiveList<string> _readIds = new();
+
+    public void Render(UIView view)
+    {
+        #region example:box-resize-and-visibility
+        // Three columns once the panel itself is 720 px wide, whatever the screen width. Storing the
+        // column count, not the width, re-renders only when the count changes.
+        view.Box(["grid gap-4", _columns.Value == 3 ? "grid-cols-3" : "grid-cols-2"],
+            onResize: async e => _columns.Value = e.Width >= 720 ? 3 : 2,
+            content: grid =>
+            {
+                foreach (var card in _cards)
+                {
+                    grid.Text([Text.Body], card);
+                }
+            });
+
+        // Mark a message read once half of it has been on screen.
+        foreach (var message in _messages)
+        {
+            view.Box(["p-3"], key: message.Id,
+                onVisibilityChange: async e =>
+                {
+                    if (e.Visible && !_readIds.Contains(message.Id))
+                    {
+                        _readIds.Add(message.Id);
+                    }
+                },
+                visibilityOnce: true,
+                content: row => row.Text([Text.Body], message.Text));
+        }
+        #endregion
+    }
 }

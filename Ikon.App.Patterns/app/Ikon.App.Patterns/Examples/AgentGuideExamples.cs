@@ -69,6 +69,8 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
 
             ExampleGallery.RenderMethodLabel(view, nameof(DocSortableList));
             DocSortableList(view);
+            ExampleGallery.RenderMethodLabel(view, nameof(DocSortableShelf));
+            DocSortableShelf(view);
             ExampleGallery.RenderMethodLabel(view, nameof(DocVirtualList));
             DocVirtualList(view);
             ExampleGallery.RenderMethodLabel(view, nameof(DocJoinUrlAndQr));
@@ -206,6 +208,8 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
 
     // Seeded so the sortable-list example draws rows a person can reorder.
     private readonly ReactiveList<string> _items = new(["Write the brief", "Review the draft", "Ship it"]);
+    private readonly ReactiveList<string> _favourites = new([]);
+    private readonly ClientReactive<string?> _openedItem = new(null);
 
     // Created on first use, like Audio: the render smoke-test's stand-in app throws on the
     // notification service an inbox binds to.
@@ -295,7 +299,7 @@ internal sealed partial class AgentGuideExamples(IApp<SessionIdentity, ClientPar
         public static Settings Default => new("light");
     }
 
-    private readonly Reactive<string?> _streamId = new(null);
+    private readonly ClientReactive<string?> _streamId = new(null);
 
     private sealed record CreativeResponse(string Tagline);
 

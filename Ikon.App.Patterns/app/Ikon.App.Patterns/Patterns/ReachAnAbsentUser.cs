@@ -1,7 +1,3 @@
-// EmailSendRequest lives in Ikon.Common.Core.Email — a nested namespace GlobalUsings does not
-// cover, and one the API reference never declares the type under either.
-using Ikon.Common.Core.Email;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: reach-an-absent-user — see docs/patterns/reach-an-absent-user.md.

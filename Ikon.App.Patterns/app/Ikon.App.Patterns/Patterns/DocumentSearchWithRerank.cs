@@ -1,9 +1,3 @@
-// Ikon.AI.OCR is in GlobalUsings; Ikon.AI.Reranking and Ikon.AI.Retrieving are not — nested
-// namespaces are not imported by their parent, so an app doing retrieval adds these itself.
-using Ikon.AI.Reranking;
-using Ikon.AI.Retrieving;
-using System.Globalization;
-using Dapper;
 using Ikon.Pipelines.Public.Processors.Pdf;
 
 namespace Ikon.App.Patterns.Patterns;

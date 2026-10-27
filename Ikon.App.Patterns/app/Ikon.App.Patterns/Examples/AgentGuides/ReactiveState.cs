@@ -106,6 +106,8 @@ file sealed class ChatExamples(IApp<SessionIdentity, ClientParameters> app)
 }
 
 // The scope contrast is the same method written two ways, so each way needs a class of its own.
+// The wrong way is the one IKON050 exists to flag
+#pragma warning disable IKON050
 file sealed class ScopeWrongExamples
 {
     private readonly UserReactive<bool> _hasJoined = new(false);
@@ -121,6 +123,7 @@ file sealed class ScopeWrongExamples
     }
     #endregion
 }
+#pragma warning restore IKON050
 
 file sealed class ScopeRightExamples(IApp<SessionIdentity, ClientParameters> app)
 {
@@ -242,22 +245,67 @@ file sealed class ClockExamples(IApp<SessionIdentity, ClientParameters> app)
     #endregion
 }
 
+// Abstract so neither the bundle scan nor the Patterns app registers its [Cron] job, and so the
+// gallery declares none of its global values in the Patterns app's space.
+file abstract class GlobalValuesExamples
+{
+    private static Task<IReadOnlyList<string>> LoadLapsedUserIdsAsync() => Task.FromResult<IReadOnlyList<string>>(["user-1"]);
+
+    #region example:global-reactive-values
+    // One flag for every instance of the app: each room shows the banner, and the staff screen sets it.
+    private readonly PersistentGlobalReactive<bool> _maintenance = new(false, key: "maintenance");
+
+    // A count every instance adds to, kept across deploys.
+    private readonly PersistentGlobalReactive<int> _gamesPlayed = new(0, key: "games-played");
+
+    // Players waiting for a match in any room. It starts empty again after a deploy or 7 days without a write.
+    private readonly GlobalReactiveList<string> _lobby = new(key: "lobby");
+
+    // One value per user, the same in every instance, so a [Cron] job can write it for the user's own instance.
+    private readonly PersistentGlobalUserReactive<int> _streak = new(0, key: "streak");
+
+    // An assignment: the last write the backend accepts wins.
+    private void SetMaintenance(bool on) => _maintenance.Value = on;
+
+    // Update and the collection operations run again over a newer value when another instance wrote
+    // first, so no game and no player is lost. Keep the function free of side effects.
+    private void FinishGame() => _gamesPlayed.Update(count => count + 1);
+
+    private void JoinLobby(string playerName) => _lobby.Add(playerName);
+
+    // The job runs in the instance with an empty identity, where no user scope is active, so it names the user.
+    [Cron("0 3 * * *")]
+    public async Task ResetLapsedStreaksAsync()
+    {
+        foreach (var userId in await LoadLapsedUserIdsAsync())
+        {
+            _streak.SetFor(userId, 0);
+        }
+    }
+    #endregion
+
+    public string Describe() => $"{_maintenance.Value} {_lobby.Count}";
+}
+
 internal sealed partial class AgentGuideExamples
 {
 
     #region example:persistent-reactive-scopes
-    // DEFAULT for app state — one bucket per SessionIdentity (the app's routing key)
-    private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+    // Everyone in this instance, kept across restarts and deploys: the default for app state
+    private readonly PersistentReactive<MyState> _state = new(new MyState());
 
-    // App-wide (rare) — same value for everyone in the space
-    private readonly PersistentReactive<int> _totalVisits = new(0);
-
-    // Follows a user across all of their client sessions
+    // One user in this instance, across all of their client sessions
     private readonly PersistentUserReactive<Prefs> _prefs = new(new Prefs());
 
-    // Persisted lists — same mutation-notifies contract as ReactiveList<T>
-    private readonly PersistentReactiveList<TodoItem> _todos = new();        // app-wide
-    private readonly PersistentUserReactiveList<Bookmark> _bookmarks = new(); // per-user
+    // Every instance of the app, kept across deploys: a setting, a flag, a counter
+    private readonly PersistentGlobalReactive<int> _totalVisits = new(0);
+
+    // One user in every instance of the app: a preference that follows them into every room
+    private readonly PersistentGlobalUserReactive<Prefs> _sharedPrefs = new(new Prefs());
+
+    // Collections come in the same scopes. As with ReactiveList<T>, a change to one reruns the renders that read it
+    private readonly PersistentReactiveList<TodoItem> _todos = new();
+    private readonly PersistentUserReactiveList<Bookmark> _bookmarks = new();
     #endregion
 
     // Never instantiated: as a field of a class the gallery builds, the Postgres example would register
@@ -267,16 +315,16 @@ internal sealed partial class AgentGuideExamples
         #region example:persistent-reactive-backends
         // Default — the app's built-in database when the session has one; binary payloads and
         // sessions without a database land on private asset storage
-        private readonly PersistentSessionReactive<Prefs> _defaultBackend = new(new Prefs());
+        private readonly PersistentReactive<Prefs> _defaultBackend = new(new Prefs());
 
         // Public asset URL needed (never sensitive data) — the URL serves the stored JSON wrapper,
         // not the raw bytes, so it is no image src; serve media through app.Files.Public
-        private readonly PersistentSessionReactive<byte[]> _logo
+        private readonly PersistentReactive<byte[]> _logo
             = new([], backend: PersistenceBackend.Public);
 
         // Small, frequently-mutated value (counters, status flags). Requires a postgres DB declared
         // created with 'ikon db create --name main'. Omit postgresDatabase if there is only one.
-        private readonly PersistentSessionReactive<long> _counter
+        private readonly PersistentReactive<long> _counter
             = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
         #endregion
 
@@ -292,7 +340,7 @@ internal sealed partial class AgentGuideExamples
     private sealed class DocReactiveTypes
     {
         #region example:basic-reactive-types
-        // Shared across all clients (global state)
+        // Shared by every client of this instance
         private readonly Reactive<int> _count = new(0);
 
         // Per-client state (each connected client sees their own value)

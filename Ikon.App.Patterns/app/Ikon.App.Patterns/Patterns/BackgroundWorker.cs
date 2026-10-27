@@ -23,7 +23,16 @@ file abstract class BackgroundWorkerExample(IAppBase app)
     private void StartWorker()
     {
         // Not awaited: OnStarting must return for the instance to finish starting
-        app.OnStarting(async () => _ = RunWorkerAsync(app.StoppingToken));
+        app.OnStarting(async () =>
+        {
+            // ikon bundle and ikon deploy run OnStarting once to capture the boot snapshot
+            if (SnapshotCapture.IsCaptureProcess)
+            {
+                return;
+            }
+
+            _ = RunWorkerAsync(app.StoppingToken);
+        });
     }
 
     private async Task RunWorkerAsync(CancellationToken stopping)

@@ -1,7 +1,3 @@
-// Ikon.AI.Emergence.Structured is NOT in an app's GlobalUsings — a nested namespace is not
-// imported by its parent, so an app parsing tagged output adds this itself.
-using Ikon.AI.Emergence.Structured;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: tagged-model-output — see docs/patterns/tagged-model-output.md.

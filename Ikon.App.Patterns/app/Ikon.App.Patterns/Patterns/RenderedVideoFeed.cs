@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;
 using SkiaSharp;
 
 namespace Ikon.App.Patterns.Patterns;

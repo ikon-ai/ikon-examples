@@ -1,7 +1,3 @@
-using System.Buffers.Binary;
-using System.Diagnostics;
-using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;
-
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: camera-recording-to-file — see docs/patterns/camera-recording-to-file.md.

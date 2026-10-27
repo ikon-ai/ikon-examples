@@ -23,58 +23,26 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
     #region example:pattern-tcp-device-ingest
     private sealed record DeviceStatus(string DeviceId, string Status, DateTime LastSeen);
 
-    // A device that sends nothing for this long is disconnected, and its hold on the instance ends
+    // A device that sends nothing for this long is disconnected
     private static readonly TimeSpan SilenceLimit = TimeSpan.FromMinutes(5);
 
     private readonly Reactive<string?> _tcpAddress = new(null);
     private readonly ReactiveDictionary<string, DeviceStatus> _devices = new();
-    private readonly Lock _listenLock = new();
-    private Task<RelayEndpoint>? _listening;
 
     /// <summary>Call once from Main.</summary>
     private void StartTcpIngest()
     {
-        // Not awaited: OnStarting must return for the instance to finish starting
-        app.OnStarting(async () => _ = EnsureListeningAsync());
-    }
-
-    // GET https://{app}.ikonai.app/api/tcp-address answers "host:port". A device asks here before it
-    // connects and again whenever a connection fails or is refused, because the call starts the app
-    // when it is stopped, and every new instance of the app listens on a different port.
-    [HttpGet("/tcp-address", Auth = EndpointAuth.Public)]
-    public async Task<string> GetTcpAddress()
-    {
-        var endpoint = await EnsureListeningAsync();
-        return $"{endpoint.PublicHost}:{endpoint.PublicPort}";
-    }
-
-    private Task<RelayEndpoint> EnsureListeningAsync()
-    {
-        lock (_listenLock)
-        {
-            // A failed attempt (the relay was unreachable) is tried again on the next call
-            if (_listening is null || _listening.IsFaulted)
-            {
-                _listening = ListenAsync();
-            }
-
-            return _listening;
-        }
-    }
-
-    private async Task<RelayEndpoint> ListenAsync()
-    {
-        // The name keeps the port while this instance's relay connection drops and comes back. Every
-        // new instance (a restart, a deploy, a start after an idle stop, a local run) gets another one.
-        var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Tcp, stablePortName: "devices", ct: app.StoppingToken);
-        _tcpAddress.Value = $"{endpoint.PublicHost}:{endpoint.PublicPort}";
-        endpoint.Rebound += moved => _tcpAddress.Value = $"{moved.PublicHost}:{moved.PublicPort}";
+        // ikon-config.toml declares [[Port]] Name = "devices". Its address stays the same across deploys,
+        // restarts and idle stops, so each device keeps it in its own configuration, and a connection
+        // to it starts a stopped app.
+        var devices = app.Ports["devices"];
+        _tcpAddress.Value = devices.Address;
+        devices.AddressChanged += port => _tcpAddress.Value = port.Address;
 
         // The relay hands each connection to this port on the loopback address
-        var listener = new TcpListener(IPAddress.Loopback, endpoint.LocalPort);
+        var listener = new TcpListener(IPAddress.Loopback, devices.LocalPort);
         listener.Start();
         _ = AcceptAsync(listener, app.StoppingToken);
-        return endpoint;
     }
 
     private async Task AcceptAsync(TcpListener listener, CancellationToken stopping)
@@ -89,7 +57,7 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
         }
         catch (OperationCanceledException)
         {
-            // The instance is stopping; the devices reconnect to the next one through /api/tcp-address
+            // The instance is stopping; the devices connect again, which starts the next one
         }
         finally
         {
@@ -116,15 +84,12 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
                 return;
             }
 
-            // An open connection does not count as activity. With nobody in the app, the instance is stopped
-            // as idle unless something holds it. Each line extends the hold, and closing the connection releases it.
-            await using var hold = await app.BackgroundWork.StartAsync(SilenceLimit, "TCP devices connected");
             await writer.WriteLineAsync("OK");
 
+            // Traffic on a port counts as activity, so the instance keeps running while devices send
             while (await reader.ReadLineAsync(silence.Token) is { } line)
             {
                 silence.CancelAfter(SilenceLimit);
-                await hold.ExtendAsync(SilenceLimit);
                 await writer.WriteLineAsync(HandleLine(line));
             }
         }
@@ -158,10 +123,9 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
         view.Column([Card.Default, "gap-2 p-4 w-full max-w-2xl"], content: col =>
         {
             col.Text([Text.H3], "Devices");
-            if (_tcpAddress.Value is { } address)
+            if (_tcpAddress.Value is { Length: > 0 } address)
             {
                 col.CopyField(address, label: "Device address");
-                col.Text([Text.Caption], "Devices look it up at /api/tcp-address.");
             }
             else
             {

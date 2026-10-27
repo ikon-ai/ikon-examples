@@ -20,7 +20,6 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public GlobalState GlobalState { get; } = new();
     public ReactiveGlobalState ReactiveGlobalState { get; } = WithSpaceUrl(new ReactiveGlobalState());
     private readonly Reactive<IReadOnlyList<string>> _mounts = new(["ikon-ui"]);
-    public Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default) => throw new NotImplementedException();
     public IReadOnlyList<EndpointInfo> Endpoints => throw new NotImplementedException();
     public IReadOnlyList<DatabaseConnectionInfo> Databases => throw new NotImplementedException();
     public string DataDirectory => throw new NotImplementedException();
@@ -28,8 +27,6 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public BackgroundWork BackgroundWork => throw new NotImplementedException();
     public int MaxMemoryLimitMb => throw new NotImplementedException();
     public int MaxClients { get; set; }
-    public int MaxLightClients { get; set; }
-    public bool DynamicMaxClientsEnabled { get; set; }
     public bool UdpEnabled { get; set; }
     // Forwarded when the gallery runs inside the live Patterns app, so an example that routes on
     // interaction (tabs that set the path) reaches the URL; Navigation cannot be built here, its
