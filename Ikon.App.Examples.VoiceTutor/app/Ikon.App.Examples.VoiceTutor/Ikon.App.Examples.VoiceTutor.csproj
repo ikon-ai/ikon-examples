@@ -18,28 +18,29 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.17.1" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.17.1" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.17.1" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.17.1" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.17.1" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.17.1" />
-    <PackageReference Include="Ikon.App" Version="3.17.1" />
-    <PackageReference Include="Ikon.Common" Version="3.17.1" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.17.1" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.17.1" />
-    <PackageReference Include="Ikon.Parallax" Version="3.17.1" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.17.1" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.17.1" />
-    <PackageReference Include="Ikon.Resonance" Version="3.17.1" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.17.1" />
-    <PackageReference Include="Ikon.Server" Version="3.17.1" />
-    <PackageReference Include="Ikon.Teleport" Version="3.17.1" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.63" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.17.1" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.17.1" />
-    <PackageReference Include="Ikon.Agent" Version="3.17.1" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.17.1" />
+    <PackageReference Include="Ikon.AI" Version="3.17.4" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.17.4" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.17.4" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.17.4" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.17.4" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.17.4" />
+    <PackageReference Include="Ikon.App" Version="3.17.4" />
+    <PackageReference Include="Ikon.Common" Version="3.17.4" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.17.4" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.17.4" />
+    <PackageReference Include="Ikon.Parallax" Version="3.17.4" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.17.4" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.17.4" />
+    <PackageReference Include="Ikon.Resonance" Version="3.17.4" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.17.4" />
+    <PackageReference Include="Ikon.Server" Version="3.17.4" />
+    <PackageReference Include="Ikon.Teleport" Version="3.17.4" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.66" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.17.4" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.17.4" />
+    <PackageReference Include="Ikon.Agent" Version="3.17.4" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.17.4" />
+    <PackageReference Include="Ikon.Agent.Storage.Postgres" Version="3.17.4" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
@@ -64,12 +65,18 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.Server.HotReload\Ikon.Server.HotReload.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Agent\Ikon.Agent.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Agent.Docs\Ikon.Agent.Docs.csproj" />
+    <ProjectReference Include="$(IkonRoot)\Ikon.Agent.Storage.Postgres\Ikon.Agent.Storage.Postgres.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.89" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/../../schema')">
     <IkonTeleportSchemaFile Include="$(MSBuildProjectDirectory)/../../schema/**/*" />
   </ItemGroup>
   <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile);$(IkonRoot)/artifacts/bin/BuildUtil/$(Configuration.ToLowerInvariant())/build-util.dll" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
-    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
+    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath;RuntimeIdentifier;SelfContained">
       <Output TaskParameter="TargetOutputs" ItemName="_BuildUtilOutput" />
     </MSBuild>
     <Exec Command="dotnet &quot;@(_BuildUtilOutput)&quot; --generate-app-teleport --app-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" />
