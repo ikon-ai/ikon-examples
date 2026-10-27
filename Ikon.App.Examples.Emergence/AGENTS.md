@@ -4,30 +4,30 @@
 
 ## Quick start
 
-1. Converting an existing app? Its screens become C#: read the `convert` playbook first (`ikon docs convert`, `convert/lovable`). Else read the `product-design` guide first (what the product needs, undo, working controls), then `docs/Ikon.Agent.Docs/patterns/_start.md` (a row per kind of app) and your row's patterns; `ikon docs --search <feature>` finds any other feature.
-2. Pick a visual direction (below) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (it shares every plain reactive; per-visitor ones: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`, 200 clients each.
-   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; any account signs in; staff-only screens check a role, and no one holds `admin` by default (`ikon profile role add admin --me`, or `first-user-becomes-admin`).
-3. Each instance holds its own copy of every reactive, `Persistent*` too; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless the URL was minted with an identity. Shared data goes in a database.
+1. Converting an existing app? Its screens become C#: read the `convert` playbook first (`ikon docs convert`, `convert/lovable`). Else read the `product-design` guide first, then `docs/Ikon.Agent.Docs/patterns/_start.md` (table "Words in the request", then a row per kind of app) and your row's patterns; `ikon docs --search <feature>` finds any other feature.
+2. Pick a visual direction (below), the language (not English: first set `<html lang>` and the I18n default language; `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (shares every plain reactive; per-visitor: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`.
+   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; no one holds `admin` by default (`first-user-becomes-admin`).
+3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless the URL was minted with an identity. Records go in a database, and an open screen shows another instance's new row only when told (`reactive-state`).
 4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (its own data, the only one `app.Seed` runs on): `ikon link --target staging --new-app`. Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
-5. The scaffold runs as is: `ikon run --target staging --mock-ai --detach` compiles it, then `ikon browse --steps "observe"` (a repeated label: `tap 'Save >> nth=1'`). `browse` without `--target` drives the local run; a deployed copy spends credits. `dev warning:` lines reach `build/ikon-run.log` only after a client renders the view: browse every screen. `ikon db query` acts on the live app unless `--target` names one.
-   `--mock-ai`: speech recognition gives one fixed sentence (browse speech needs `--fake-media-file x.wav`). An `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on the property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
+5. The scaffold runs: `ikon run --target staging --mock-ai --detach`, then `ikon browse --steps "observe"`. `browse` without `--target` drives the local run; a deployed copy spends credits. `dev warning:` lines reach `build/ikon-run.log` only once a client renders the view. `ikon db query` acts on the live app unless `--target` names one.
+   `--mock-ai`: speech recognition gives one fixed sentence. An `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on each list property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
 
 ## Architecture
 
-An IKON app is a C# app in the cloud that streams reactive UI to browsers; an instance keeps running when every client disconnects. `frontend-node` is only for custom React components (`frontend-fundamentals`).
+An IKON app is a C# app in the cloud that streams reactive UI to browsers; an instance keeps running when every client disconnects.
 
-A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Python or extra fonts (`app-container`). Databases and files stay in the EU (AI: `region-pinned-ai`); music, video, segmentation, depth and mesh models are global only (`ikon model list --eu`).
+A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Python or extra fonts (`app-container`). Databases and files stay in the EU (AI: `region-pinned-ai`); music, sound effect, video, segmentation, upscaling, reranking, depth and mesh models are global only (`ikon model list --eu`).
 
-**AI services** (platform-held keys, except Rodin's): `Emerge.Run<T>()` for LLM text and typed output; `ImageGenerator`, `SpeechGenerator`, `SpeechRecognizer`, `VideoGenerator`, `MusicGenerator`, `EmbeddingGenerator`, `WebSearcher`, `Classifier`, `DepthEstimator`, `ImageSegmenter`, `VideoSegmenter`, `MeshGenerator`. Each has a static one-shot (`ImageGenerator.GenerateAsync(prompt)`, bytes: `GetDataAsync()`) and `new Xxx(model)` with `XxxConfig` (`ai-*` guides).
+**AI services** (platform-held keys, except Rodin's): `Emerge.Run<T>()` for LLM text and typed output; `ImageGenerator`, `SpeechGenerator`, `SpeechRecognizer`, `VideoGenerator`, `MusicGenerator`, `EmbeddingGenerator`, `WebSearcher`, `Classifier`, `DepthEstimator`, `ImageSegmenter`, `VideoSegmenter`, `MeshGenerator`. Each has a static one-shot (`ImageGenerator.GenerateAsync(prompt)`) and `new Xxx(model)`.
 
 **UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`; no `ViewContext`, CS0246).
 
-**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders (`"default"` first keeps the themed default). A missing colour is a theme role (IKON013), set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`); a pinned dark palette needs `Mode = ThemeMode.Fixed`.
+**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders (`"default"` first keeps the themed default). A missing colour is a theme role (IKON013), set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`).
 
 ## Running and checking the app
 
 From the app root, `ikon run --detach` starts the app, returns when ready; a plain
-`ikon run` blocks. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+`ikon run` blocks. A first build takes minutes: no short `timeout` on `ikon build` or `run --detach`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
@@ -48,7 +48,7 @@ client (new ids, empty `ClientReactive` state) that ends with the run, and so do
 and plays the whole flow in one run. Where the shell strips quotes (PowerShell), use
 `--steps-file scratch/steps.txt` (one step per line). `hold`, `mic` and `--fake-media-file` (a .wav loops into
 the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app.
-`look`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
+`look`, `click`, `drag`, `pointer`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
 gets its own page once a step acts in it.
 
 A script worth keeping is a **check gate**, `.ikon/gates/<name>.toml`: `ikon test` runs it against
@@ -72,7 +72,7 @@ join: use `--text-only` there, a local run for `look`, or list "guest". `click <
 `ikon help --json` covers every command, how the app and environment are chosen, and
 the shape of `--format json` output (`ikon help <command> --json`: one). An unknown command a doc names
 was renamed. `ikon deploy` commits and pushes first (`--no-save`: neither). Settings are in `ikon-config.toml`,
-each explained by the comment above it: `ikon-config.development.toml` for an app on the development
+each explained by its comment: `ikon-config.development.toml` for an app on the development
 platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
 On Windows, read and edit files with your file tools: PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII text.
 
@@ -85,26 +85,28 @@ scripts, not `/tmp`), `reference/`, `test/`, `release-notes/`, `.ikon/gates/`, g
 
 ## What the app must contain
 
-Build what the KIND of product's ordinary workflow needs from the first build, nothing more (records get search, sort, filters, export).
+Build what the KIND of product's ordinary workflow needs from the first build, nothing more.
 Every control works or is disabled with a visible reason; changes, AI-made too, can be undone; a filter never loses records; and anything reaching outside the app (`app.Payments`, `app.Email`, `app.Telephony`, `app.Notifications`, a publish, a permanent delete) happens only when a person presses a control or turns on a setting naming it, never as a side effect of an AI turn.
 
 ## How the app must look
 
-Before the first `view.*` call pick a visual direction in one sentence (feel, palette, type, radius, density) and set it with `new IkonTheme { … }`, `["primary"]` included (IKON015).
-Then: one primary action per screen, brand colour; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page`; `view.Card` pads itself: no `p-*` on it or its only child (IKON026). Outside `view.Card`, a `Column` with a `Card.*` token pads nothing and needs `p-5` (IKON034);
-empty (`view.EmptyState`), loading and error states; action buttons beside a title in `Layout.Row.Actions`; every viewport: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, touch targets ≥ 44px; tabs: `view.Tabs` (a `defaultValue`), `Tabs.NavList`, `triggerStyle: [Tabs.NavTriggerMd]` (IKON039).
+Before the first `view.*` call pick a visual direction, set it with `new IkonTheme { … }`, `["primary"]` included (IKON015), and write it to `branding/brand.md`, the brand book, which later builds follow (`product-design`).
+Then one primary action per screen; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page`; `view.Card` pads itself: no `p-*` on it or its only child (IKON026). Outside `view.Card`, a `Column` with a `Card.*` token pads nothing and needs `p-5` (IKON034);
+empty (`view.EmptyState`), loading and error states; action buttons beside a title in `Layout.Row.Actions`; every viewport: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, touch targets ≥ 44px; tabs: `view.Tabs` + `Tabs.NavList` (IKON039); pages: `view.NavOutlet` + `path:` (`app-structure`).
 
 ## Common Pitfalls
 
-The `pitfalls` guide has each rule in full, with the rarer ones; read its section for an area first.
+`pitfalls` has each rule in full.
 
-- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503/CS7036). Lists are `ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (`Reactive<List<T>>` is IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031). Outside a handler, name the client: `_x.SetFor(cid, v)`.
-- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })` (positional prompt: CS1660); `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch them and show a sentence and a retry.
-- **View calls**: the leading style array is positional and everything else is named, lambdas too (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange:` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `TableRow` and `ToolbarButton` take `onClick:`.
+- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031) and cannot `await` (CS4034): load in the handler. Outside a handler, name the client: `_x.SetFor(cid, v)`.
+- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`; `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch them and show a sentence and a retry.
+- **View calls**: the leading style array is positional and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange:` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
   Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; one with `disabled:` needs a `disabled:` class too (`[Button.PrimaryMd, "disabled:opacity-50"]`, `ui-components`).
-  Tones: `SemanticTone.Neutral/Brand/Success/Warning/Error/Info`.
-- **Colours**: `bg-primary` is the page surface, not the brand: brand fill is `bg-brand-solid`, brand text `text-brand-secondary`. Crosswind classes in a `.tsx` file do nothing.
-- **Structure**: keep the scaffold's `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Log via `Log.Instance`; no invented `using Ikon.*;` (CS0234); `QueryAsync` (CS1061) needs `dotnet add app/<Project> package Dapper --version 2.1.89` (the build adds the `global using`); a `snake_case` column needs an alias (`client_id AS ClientId`). Open a connection per operation. Leave the `__IKON_APP_NAME__` marker in `index.html` and the manifest: the build writes `[Target] Name` there.
+- **Databases**: Dapper and EF Core are in the scaffold, packages and usings both; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`).
+- **Logging**: `Log.Instance.Info/Warning/Error/Debug($"…")`, not `app.Logger`/`Information` (CS1061).
+- **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(options: [new SelectOption(v, l)])`, not `items:`.
+- **Colours**: `bg-primary` is the page surface, not the brand: brand fill is `bg-brand-solid`, brand text `text-brand-secondary`.
+- **Structure**: keep the scaffold's `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Every extra .cs file wraps its code in `public partial class <App>`; members outside a class give CS0106/CS8803. Keep the `__IKON_APP_NAME__` marker in `index.html` and the manifest (the build writes `[Target] Name`) unless one place needs another name.
 
 ## API Reference Guides
 
@@ -150,7 +152,7 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 - **platform-runtime-types**: TOML, run type, name conversions, exceptions
 - **product-design**: what each kind of app must contain and how it must look
 - **profiles-and-roles**: user profiles, roles and custom attributes
-- **reactive-state**: shared, per-client, per-user and persistent state; scopes
+- **reactive-state**: shared, per-client, per-user, persistent and global state; scopes
 - **scaling**: instances, shards and cells for many users
 - **secrets**: secrets and credentials
 - **sso**: enterprise single sign-on
