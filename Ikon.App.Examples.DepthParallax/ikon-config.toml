@@ -1,218 +1,85 @@
-# Schema version. The ikon tool upgrades older files and saves at its current version; a file newer
-# than the tool refuses to load (update the tool).
-ConfigVersion = 9
+ConfigVersion = 10  # Schema version: the ikon tool upgrades an older file and refuses a newer one
+StateDatabase = ""  # The database PersistentReactive state lives in; empty picks the "app" database (databases guide)
+DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any (sso guide)
+MaxClients = 0  # Clients an instance admits before refusing with 429; 0 fits it to the container's memory (scaling guide)
 
-# The space database that backs PersistentReactive state. Empty: the platform picks the built-in
-# "app" database, or the space's only platform-managed one, and records the choice so it stays put.
-# Set it only to override; it must be a name 'ikon db list' shows. A deploy records it as the space's
-# state store. State saved in the store it replaces is not copied over, and clearing the setting later
-# does not move state back. A name the space has no database for leaves the store as it is, with a
-# deploy warning. A local run with an unknown name logs a warning and keeps state in asset storage.
-StateDatabase = ""
-
-# Which email domains may become members of the space (e.g. ["mycompany.com"]). Empty admits every
-# domain. It is checked when a person's profile is created, so anyone who already has a profile, or
-# who was invited at a verified email address, still gets in from any domain. Anonymous visitors are
-# not members, so a surface that admits them is unaffected.
-DomainAllowlist = []
-
-# How many clients one instance admits before it refuses more with 429. 0 fits the limit to the memory
-# of the container the instance runs in, at what a client of an ordinary app costs, fewer on a surface
-# with media or presence. Set a number when your app's clients cost much more or less than that, or
-# for a reason of your own, such as a game for four players. IApp.MaxClients in code overrides it.
-MaxClients = 0
-
-# How the app's people sign in: the code the email sign-in sends, how long a browser stays signed in,
-# and the sign-in screen's own text
-[SignIn]
-# What the emailed sign-in code is made of: "alphanumeric" (letters and digits no reader confuses
-# with each other) or "digits", which the stock sign-in form takes on a numeric keypad.
-CodeFormat = "alphanumeric"
-# How many characters the code has: 8-12 for "alphanumeric", 6-10 for "digits". 0 takes the
-# format's default, 9 or 6. A code allows five wrong tries and an address gets five codes an hour.
-CodeLength = 0
-# How many days a browser stays signed in after it was last used, 1-400. Every visit renews it,
-# so a person who keeps coming back is never signed out. The same for every sign-in method.
-SessionDays = 7
-# The sign-in screen's heading, on the web and on the Flutter frontend. Empty keeps the stock
-# heading in the visitor's language.
-Title = ""
-# The line under the heading. A reason the app passes to ClientFunctions.LoginShowAsync is shown in
-# its place. Empty keeps the stock line.
-Subtitle = ""
-# The hint in the email field (e.g. "Use your company address"). Empty keeps the stock hint.
-EmailHint = ""
-
-# What happens when a version of the app is activated (activation is separate from deployment)
-[Activation]
-# Stop all active sessions of the app on activation
-StopSessions = true
-
-# The platform's feedback sheet: report a problem or an idea by text, voice, files and screenshot.
-# Reports go to the app's space ('ikon issue list --source person', Studio). Who is offered it is the
-# space's setting, which is off for a new app: turn it on with 'ikon feedback set --audience signed-in'
-# or in Studio (Settings > Sharing), and 'ikon feedback status' shows it. A deployed app follows a
-# change at once, a local run when it next starts. The platform draws its own button;
-# ClientFunctions.OpenFeedbackAsync is only for an app that wants a control of its own.
-[Feedback]
-# "overlay": a floating feedback button the platform draws for everyone offered feedback, so the
-# app needs no control of its own. Feedback starts off, so it
-# shows only after 'ikon feedback set --audience'. "none": no button.
-Button = "overlay"
-
-# Usage measurement. An event names the feature and the control, never what anyone typed, picked or sent.
-[Analytics]
-# Record an event per action a person runs: feature, control, success and duration. A report filed
-# from the app then carries the last few actions that led to it. Records only users who granted
-# ConsentPurposes.UsageMeasurement.
-UiActions = false
-
-# The app's privacy notice and terms. Write legal/privacy.md and legal/terms.md in the app root (beside
-# public/ and data/) and each is served as a page at its path below, or set a URL to redirect that
-# path to your own page. With neither, the path stays the app's own route.
-[Legal]
-# Absolute https:// URL of a privacy notice published elsewhere. Empty serves legal/privacy.md.
-PrivacyUrl = ""
-# Absolute https:// URL of terms published elsewhere. Empty serves legal/terms.md.
-TermsUrl = ""
-# Path the privacy notice is served at: absolute, no file extension, not under /ikon or /api. Link to
-# it with rel="external" so the browser loads the page instead of the app routing it.
-PrivacyPath = "/legal/privacy"
-# Path the terms are served at, with the same rules as PrivacyPath
-TermsPath = "/legal/terms"
-
-# Custom packaging steps for 'ikon bundle' and 'ikon deploy'
-[Package]
-# Commands run in the app root after the build, before zipping (e.g. ["python app-scripts/pack_assets.py"]).
-# IKON_BUNDLE_APP_DIR becomes the app's folder on the server (its Data/ is app.Files.Data; binaries and
-# #! scripts keep their execute bit); programs written to IKON_BUNDLE_TOOLS_DIR are on the deployed
-# app's PATH; IKON_BUNDLE_FRONTEND_DIR is the frontend build. Anything else under IKON_BUNDLE_DIR is
-# zipped but never reaches the server.
-PrePackage = []
-
-# Programs the app starts that are downloaded rather than committed to its tools/ folder
-[Tools]
-# Commands run in the app root that fill IKON_TOOLS_DIR (tools/<runtime>/) for IKON_TOOLS_RUNTIME (e.g.
-# ["python app-scripts/fetch_tools.py"]): before 'ikon run' for this machine, before 'ikon run --container'
-# for linux-x64 (linux-arm64 on Arm), and before 'ikon bundle'/'ikon deploy' for linux-x64; 'ikon build'
-# does not run them. A command starts its program directly, without a shell, with the PATH the ikon tool
-# has, and a program it starts by name is the first one on that PATH. They run every time, so return
-# quickly when the folder is complete and do nothing for a runtime you have no programs for. Keep the
-# folder out of git.
-Fetch = []
-
-# The native app the Flutter frontend builds into: its store identity and the links that open it. Read
-# by 'ikon bundle', 'ikon deploy', 'ikon distribute' and 'ikon device install'. Leave it empty for a new
-# app; set it to ship as an update of an app already in the App Store or Google Play.
-[Flutter]
-# The iOS bundle identifier (e.g. "com.example.events"): letters, digits, "-" and ".", two segments
-# or more. Empty takes app.ikon.s<space id>. Used as it is in production; a development build adds
-# ".dev", so both can be installed side by side. Empty takes AndroidApplicationId when that is set.
-IosBundleId = ""
-# The Android applicationId (e.g. "com.example.events"): two segments or more, each a letter then
-# letters, digits or "_", and no Java keyword. Empty takes IosBundleId, then app.ikon.s<space id>.
-# Development builds add ".dev" as on iOS.
-AndroidApplicationId = ""
-# The Apple Developer team that signs the iOS app: 10 capital letters and digits. Turns on iOS
-# universal links (the associated-domains entitlement and the domain's
-# /.well-known/apple-app-site-association), and is the team 'ikon bundle --signing self' signs with
-# when --apple-team is not given.
-AppleTeamId = ""
-# SHA-256 fingerprints of the certificates that sign the Android app ("AB:CD:…", 32 bytes): the
-# upload key's and, with Play App Signing, the app signing key's from the Play Console. Turns on
-# Android app links (a verified intent filter and the domain's /.well-known/assetlinks.json). Not
-# secret: these identify a certificate, they cannot sign anything.
-AndroidCertFingerprints = []
-# Hostnames besides the app's own whose https links open the app, such as a domain served by another
-# system. The app's platform hostname and its custom hostnames with web serving are always included.
-# Each one must serve the same two /.well-known files the app's own domain serves.
-AssociatedDomains = []
-
-# Target information for deployment (automatically configured with 'ikon link')
-[Target]
-SpaceId = ""
-Name = ""
-# The platform a named target's app lives on, "development" or "production", written by 'ikon link'
-# and 'ikon deploy'. A command given this file's --target runs there, and --dev or --prod naming the
-# other one is refused, except by 'ikon link', which moves the target. Empty in an environment's own
-# file, whose name says which one it is.
-Environment = ""
-
-# The kinds of visitor the app serves, one [[Surface]] each: who may enter, which routes belong to
-# it, when it connects and negotiates media, and whether its clients see each other. With no
-# [[Surface]] declared, the app has one surface: anonymous entry as "guest" beside the default
-# sign-in providers, "/" captured, connecting at load. The app-structure guide describes surfaces
-# in full.
-# One kind of visitor. A browser picks the surface whose Routes match the path it opened, among the
-# surfaces its visitor could enter: a signed-in person skips a surface whose methods are all
-# anonymous. The surface with neither Routes nor Host serves everything else. With one surface
-# declared, that one serves everything. A native client names its surface when it connects.
+# The kinds of visitor, one [[Surface]] each; with none, one surface admits guests at "/" (app-structure guide, "Surfaces")
 [[Surface]]
-# The surface's name, unique in the app. The app reads it from Context.Surface.
-Name = "app"
-# The routes that belong to this surface (e.g. ["/", "/pricing"]), each a path the app serves
-# without redirecting. They are captured as boot snapshots at deploy and, when the surface admits
-# anonymous visitors, prerendered to crawlable HTML with a sitemap. A route listed by two surfaces
-# is an error. Content routes (one per article) are added in code with app.OnSnapshotRoutes(...).
-Routes = ["/"]
-# A hostname label for a surface that must be its own origin, such as an admin console: "admin" gives
-# it <space>-admin under the app domain, and a visitor enters it only from that hostname. Empty for a
-# surface selected by route.
-Host = ""
-# When the browser opens a session: "atLoad" as the page loads; "onAction" paints the route's
-# snapshot and connects on the visitor's first action, for pages many read and few act on; "none"
-# never connects, for a page with no server-handled control at all.
-Connect = "atLoad"
-# Whether the client opens a WebRTC connection for audio and video: "atConnect" opens it with the
-# connection; "none" never does, for a surface without media.
-Media = "atConnect"
-# Whether the surface's clients learn who else is in the session and are announced to them. Set
-# false for a public page, where nobody reads the list and announcing visitors would only add
-# traffic.
-Presence = true
-# What a route of this surface paints while it connects, as ordered "pattern:variantId" rules, first
-# match wins. A segment is a literal, "*" (one segment) or a final "**" (the rest), so "/**:shell"
-# matches every path. Each variant id is captured once as a skeleton the app renders by branching on
-# view.SnapshotVariant == "id". Variants are never prerendered or listed in the sitemap. A route the
-# build captured paints its own snapshot even when a rule matches it, so the rules decide only what
-# a path without one paints.
-Seeds = []
-# Which process serves the surface: "shared", the app instance its visitors' identity selects; "own",
-# an instance of its own with its own capacity and idle budget, which admits no other surface's
-# client. A local run serves every surface from its one process.
-Placement = "shared"
-# What a browser page on this surface does once its connection is lost for good and the offline
-# overlay shows: "attended" waits for a person to tap it; "unattended" tries again by itself, at
-# growing intervals, and reloads the page, which starts a new server. For wall displays, kiosks and
-# all-day tablets nobody touches. An ended session or a refused visitor still waits for a person.
-Recovery = "attended"
+Name = "app"  # Unique in the app; a handler reads it as Context.Surface
+Routes = ["/"]  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy
+Host = ""  # A hostname label of its own: "admin" serves it only at <space>-admin; empty selects it by route
+Connect = "atLoad"  # "atLoad"; "onAction" connects on the visitor's first action; "none" never connects
+Media = "atConnect"  # "atConnect" opens WebRTC audio and video; "none" never does
+Presence = true  # Whether clients learn who else is in the session; false for a public page
+Seeds = []  # What a route paints while it connects, as "pattern:variantId" rules, e.g. ["/**:shell"]
+Placement = "shared"  # "shared": the instance the visitor's identity selects; "own": an instance of its own
+Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks
 
 # Who may enter the surface
 [Surface.Auth]
-# Sign-in providers (google, apple, microsoft, signicat, email, passkey) and anonymous entry: "guest"
-# gives each visitor a private, device-scoped anonymous user; "global" gives every visitor one shared
-# anonymous user on shared app instances (scale out with [Sharded] on the SessionIdentity record;
-# detect with Context.IsGlobal). A surface that lists neither requires sign-in, and its sign-in screen
-# offers the listed providers. Any signed-in person may enter, whichever provider they used. "phone"
-# adds a QR code to the sign-in screen that a phone signed in to the app approves.
-Methods = ["google", "microsoft", "email", "guest"]
-# Roles a signed-in person must hold to enter (e.g. ["admin"]), checked when they connect and on every
-# function call from the surface. Empty admits every signed-in person.
-Roles = []
-# The surface that draws this surface's sign-in page in the app's own UI, with the view.SignInButton
-# controls, instead of the frontend's sign-in screen. A visitor who is not signed in enters it at the
-# same path, and the sign-in prompt (LoginShowAsync) opens it. It must admit anonymous visitors and
-# have no Host, and it does not count as the surface that serves what no route selects. Empty keeps the
-# frontend's sign-in screen.
-SignIn = ""
+Methods = ["google", "microsoft", "email", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
+Roles = []  # Roles a signed-in person must hold, e.g. ["admin"]; empty admits every signed-in person
+SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
-# Raw public ports the app serves, one [[Port]] each. 'ikon deploy' reserves a number for each, and the
-# address (ports-<region>.ikon-relay.ikonai.app:<number>) stays the same across deploys, restarts and
-# idle stops until the [[Port]] is removed. The app reads it from app.Ports and listens on its
-# LocalPort; the first connection or datagram starts a stopped app.
+# The emailed sign-in code, how long a browser stays signed in, and the sign-in screen's text (app-structure guide)
+[SignIn]
+CodeFormat = "alphanumeric"  # "alphanumeric" or "digits"
+CodeLength = 0  # 8-12 for "alphanumeric", 6-10 for "digits"; 0 takes 9 or 6
+SessionDays = 7  # Days a browser stays signed in after it was last used, 1-400
+Title = ""  # The sign-in screen's heading; empty keeps the stock heading
+Subtitle = ""  # The line under the heading; empty keeps the stock line
+EmailHint = ""  # The email field's hint, e.g. "Use your company address"; empty keeps the stock hint
 
-# Fixed answers or redirects that the platform's frontend router sends on chosen paths of the app's
-# domain, for any method, without starting the app. Each is one [[PathResponse]]. They are meant for a
-# site the app took over from another system: a 503 with Retry-After so that system's open tabs keep
-# their sessions, or a redirect that sends its public URLs to the app's own endpoints. The router
-# checks them before every page, file and route of the app.
+# The privacy notice and terms: legal/privacy.md and legal/terms.md in the app root, served at the paths below (app-structure guide)
+[Legal]
+PrivacyUrl = ""  # An https:// URL that PrivacyPath redirects to; empty serves legal/privacy.md
+TermsUrl = ""  # An https:// URL that TermsPath redirects to; empty serves legal/terms.md
+PrivacyPath = "/legal/privacy"  # Absolute, no file extension, not under /ikon or /api
+TermsPath = "/legal/terms"  # The same rules as PrivacyPath
+
+# The platform's feedback sheet; who is offered it is the space's setting, 'ikon feedback set' (parallax-overview guide)
+[Feedback]
+Button = "overlay"  # "overlay" draws a floating feedback button for whoever is offered feedback; "none" draws none
+
+# Usage measurement, of people who granted ConsentPurposes.UsageMeasurement (consent guide)
+[Analytics]
+UiActions = false  # Record each action a person runs, which a report filed from the app then carries
+
+# Fixed answers or redirects on paths of the app's domain, sent without starting the app (app-structure guide)
+# [[PathResponse]]
+# Path = ""  # Exact, or ending in "/*" for a prefix; not "/*", and nothing under /api, /ikon or /__ikon
+# Methods = ["*"]  # The methods it answers, e.g. ["GET"]; ["*"] answers every method, and "GET" also answers HEAD
+# Status = 0  # 200-599 for a Body, 301, 302, 307 or 308 for a Redirect; 0 takes 503 or 308
+# ContentType = "text/plain; charset=utf-8"  # The Body's Content-Type
+# Body = ""  # The response body, at most 16 KB; not with Redirect
+# Redirect = ""  # A path on the app's own host or an https:// URL; "{*}" takes what the Path's "/*" matched
+# Headers = []  # Extra response headers as "Name: value", e.g. ["Retry-After: 3600"]
+
+# Raw public TCP, UDP or TLS ports, one [[Port]] each, read as app.Ports (endpoints-webhooks guide)
+# [[Port]]
+# Name = ""  # Unique in the app; the app reads the port as app.Ports["<name>"]
+# Protocol = "tcp"  # "tcp" passes the stream through, TLS included; "udp" passes datagrams; "tls" ends TLS at the relay
+# Allow = []  # Source address ranges allowed to connect, e.g. ["203.0.113.0/24"]; empty admits any source
+
+# Commands the ikon tool runs in the app root, each started without a shell (app-container guide)
+[Scripts]
+FetchTools = []  # Download programs into IKON_TOOLS_DIR before 'ikon run', 'ikon bundle' and 'ikon deploy'
+PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it
+
+# The native app the Flutter frontend builds; set it only to update an app already in a store (frontend-fundamentals guide)
+[Flutter]
+IosBundleId = ""  # The iOS bundle identifier, e.g. "com.example.events"; empty takes AndroidApplicationId, then app.ikon.s<space id>
+AndroidApplicationId = ""  # The Android applicationId, e.g. "com.example.events"; empty takes IosBundleId, then app.ikon.s<space id>
+AppleTeamId = ""  # The Apple Developer team that signs the iOS app; turns on iOS universal links
+AndroidCertFingerprints = []  # SHA-256 fingerprints of the certificates that sign the Android app; turns on Android app links
+AssociatedDomains = []  # Hostnames besides the app's own whose https links open the app
+
+# What activating a deployed version does
+[Activation]
+StopSessions = true  # Stop every session of the app, so every client reconnects to the new version; false stops only yours
+
+# Where this file deploys to, written by 'ikon link'
+[Target]
+SpaceId = ""  # The app's id
+Name = ""  # The app's name, shown as its title (frontend-fundamentals guide)
+Environment = ""  # "development" or "production" in a named target's file; empty in an environment's own file
