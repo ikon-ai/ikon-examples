@@ -7,13 +7,13 @@ public partial class Validation
     private readonly Reactive<int> _drawingTriggerSave = new(0);
     private readonly Reactive<int> _drawingTriggerUndo = new(0);
     private readonly Reactive<int> _drawingTriggerRedo = new(0);
-    private readonly Reactive<string?> _drawingSavedImage = new(null);
-    private readonly Reactive<bool> _drawingCanUndo = new(false);
-    private readonly Reactive<bool> _drawingCanRedo = new(false);
+    private readonly ClientReactive<string?> _drawingSavedImage = new(null);
+    private readonly ClientReactive<bool> _drawingCanUndo = new(false);
+    private readonly ClientReactive<bool> _drawingCanRedo = new(false);
     private readonly Reactive<string> _drawingSourceUrl = new("/test-images/landscape.svg");
-    private readonly Reactive<bool> _drawingHighResolution = new(true);
-    private readonly Reactive<bool> _drawingFillShapes = new(false);
-    private readonly Reactive<bool> _drawingOverlayOn = new(false);
+    private readonly ClientReactive<bool> _drawingHighResolution = new(true);
+    private readonly ClientReactive<bool> _drawingFillShapes = new(false);
+    private readonly ClientReactive<bool> _drawingOverlayOn = new(false);
     private readonly Reactive<double> _drawingOverlayOpacity = new(0.5);
 
     private static readonly (string Url, string Label)[] DrawingSources =
@@ -94,6 +94,7 @@ public partial class Validation
                                 var captured = color;
                                 var active = _drawingBrushColor.Value == color;
                                 paletteRow.Box([$"w-7 h-7 rounded-full border border-secondary cursor-pointer hover:scale-110 transition-transform bg-[{captured}] {(active ? "ring-2 ring-brand ring-offset-2" : "")}"],
+                                    ariaLabel: $"Brush colour {captured}",
                                     onClick: async () => _drawingBrushColor.Value = captured);
                             }
                         });
@@ -219,6 +220,7 @@ public partial class Validation
                             header.Text([Text.Label], $"Last saved image ({_drawingSavedImage.Value!.Length} chars)", props: TestId("drawing-saved"));
                             header.Button([Button.OutlineSm],
                                 onClick: async () => _drawingSavedImage.Value = null,
+                                ariaLabel: "Clear saved image",
                                 content: b => b.Icon([Icon.Default, "w-3.5 h-3.5"], name: "x"));
                         });
                         c.Image(["max-h-32 w-auto rounded-md border border-secondary"],

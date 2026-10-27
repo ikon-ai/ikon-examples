@@ -22,13 +22,13 @@ public partial class Validation
 
     // The ceremony takes over the signer's tab, so the client that pressed the button is gone by the
     // time the order settles; the state is shared so whoever comes back to the tab sees the outcome.
-    private readonly Reactive<string> _sigDocument = new(SigDocGenerated);
-    private readonly Reactive<string> _sigPolicy = new(nameof(SignaturePolicy.EidHub));
-    private readonly Reactive<string> _sigSchemes = new("");
-    private readonly Reactive<bool> _sigAttrName = new(true);
-    private readonly Reactive<bool> _sigAttrNationalId = new(true);
-    private readonly Reactive<bool> _sigAttrDateOfBirth = new(true);
-    private readonly Reactive<bool> _sigReturnToApp = new(true);
+    private readonly ClientReactive<string> _sigDocument = new(SigDocGenerated);
+    private readonly ClientReactive<string> _sigPolicy = new(nameof(SignaturePolicy.EidHub));
+    private readonly ClientReactive<string> _sigSchemes = new("");
+    private readonly ClientReactive<bool> _sigAttrName = new(true);
+    private readonly ClientReactive<bool> _sigAttrNationalId = new(true);
+    private readonly ClientReactive<bool> _sigAttrDateOfBirth = new(true);
+    private readonly ClientReactive<bool> _sigReturnToApp = new(true);
     private readonly Reactive<bool> _sigRunning = new(false);
     private readonly Reactive<string> _sigStatus = new("IDLE no signature order yet");
     private readonly Reactive<SignatureResult?> _sigResult = new(null);

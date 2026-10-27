@@ -2,7 +2,7 @@ public partial class Validation
 {
     private const string DeciderSampleTicket = "I was charged twice for my subscription this month and I want my money back right now. This is the third time this has happened!";
 
-    private readonly Reactive<string> _deciderState = new(DeciderSampleTicket);
+    private readonly ClientReactive<string> _deciderState = new(DeciderSampleTicket);
     private readonly Reactive<bool> _deciderProcessing = new(false);
     private readonly Reactive<string?> _deciderResult = new(null);
     private readonly Reactive<string?> _deciderError = new(null);
@@ -18,6 +18,7 @@ public partial class Validation
                 view.Text([FormField.Label], "State (support ticket)");
                 view.TextArea(
                     [Textarea.Default],
+                    ariaLabel: "State (support ticket)",
                     value: _deciderState.Value,
                     onValueChange: async v => _deciderState.Value = v ?? "");
             });

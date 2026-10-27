@@ -233,6 +233,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Microphone");
                             view.Select(
+                                ariaLabel: "Microphone",
                                 value: _selectedMicrophoneId.Value,
                                 options: micOptions,
                                 disabled: _devicesLoading.Value,
@@ -249,11 +250,12 @@ public partial class Validation
                                     await RefreshDevicesAsync(clientScope.Value.Id);
                                 }
                             },
+                            ariaLabel: "Refresh microphones",
                             content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                         view.Column(["flex-1 min-w-[120px]"], content: view =>
                         {
                             view.Text([Text.Caption, "mb-1"], "Bitrate (Kbps)");
-                            view.TextField([Input.Default], value: _audioBitrate.Value, type: "number", step: "1", min: "8",
+                            view.TextField([Input.Default], ariaLabel: "Bitrate (Kbps)", value: _audioBitrate.Value, type: "number", step: "1", min: "8",
                                 onValueChange: async v => _audioBitrate.Value = v);
                         });
                     });
@@ -415,7 +417,9 @@ public partial class Validation
                             value: _audioPlaybackEnabled.Value,
                             onValueChange: value =>
                             {
+#pragma warning disable IKON019 // the instance-wide audio input handler reads this switch for every incoming stream, outside any client scope
                                 _audioPlaybackEnabled.Value = value;
+#pragma warning restore IKON019
                                 return Task.CompletedTask;
                             },
                             content: view => view.SwitchThumb([Switch.Thumb]),
@@ -576,6 +580,7 @@ public partial class Validation
                 view.Text([Text.Caption, "w-20"], paramKey);
                 view.TextField(
                     [Input.Default, "w-24"],
+                    ariaLabel: paramKey,
                     value: param.Value.Value.ToString("F2"),
                     type: "number",
                     onValueChange: value =>
@@ -601,6 +606,7 @@ public partial class Validation
                 view.Text([Text.Caption, "w-20"], paramKey);
                 view.TextField(
                     [Input.Default, "w-24"],
+                    ariaLabel: paramKey,
                     value: param.Value.Value.ToString("F2"),
                     type: "number",
                     onValueChange: value =>

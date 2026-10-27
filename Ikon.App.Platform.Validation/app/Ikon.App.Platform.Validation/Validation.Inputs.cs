@@ -14,6 +14,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "TextField - Sizes");
                 view.Column([Layout.Column.Md], content: view =>
                 {
+#pragma warning disable IKON019 // the Session Identity check types here in one tab and reads the value back in a second tab of the same session
                     view.TextField([Input.DefaultSm], placeholder: "Small input", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.Default], placeholder: "Medium input (default)", value: _textFieldValue.Value,
@@ -22,6 +23,7 @@ public partial class Validation
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.DefaultLg], placeholder: "Large input", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
+#pragma warning restore IKON019
                 });
             });
 
@@ -54,6 +56,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "TextField - States");
                 view.Column([Layout.Column.Md], content: view =>
                 {
+#pragma warning disable IKON019 // the Session Identity check types here in one tab and reads the value back in a second tab of the same session
                     view.TextField([Input.Default], placeholder: "Normal state", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.Invalid], placeholder: "Invalid state", value: _textFieldValue.Value,
@@ -64,6 +67,7 @@ public partial class Validation
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.Ghost], placeholder: "Ghost input", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
+#pragma warning restore IKON019
                     view.TextField([Input.Default], placeholder: "Disabled", disabled: true);
                 });
             });
@@ -128,7 +132,7 @@ public partial class Validation
                     view.TextField([Input.Default], placeholder: "0.00", type: "number", step: "0.01");
 
                     view.Text([Text.Caption], "Date");
-                    view.TextField([Input.Default], type: "date");
+                    view.TextField([Input.Default], ariaLabel: "Date", type: "date");
                 });
             });
 
@@ -249,6 +253,7 @@ public partial class Validation
                 {
                     view.Text([Text.Caption], "Flat options list");
                     view.Select(
+                        ariaLabel: "Flat options list",
                         value: _selectValue.Value,
                         placeholder: "Select a fruit...",
                         options:
@@ -262,6 +267,7 @@ public partial class Validation
 
                     view.Text([Text.Caption], "Grouped options");
                     view.Select(
+                        ariaLabel: "Grouped options",
                         value: _selectValue.Value,
                         placeholder: "Select food...",
                         groups:
@@ -283,6 +289,7 @@ public partial class Validation
 
                     view.Text([Text.Caption], "Disabled");
                     view.Select(
+                        ariaLabel: "Disabled",
                         disabled: true,
                         placeholder: "Disabled select...",
                         options:
@@ -603,12 +610,12 @@ public partial class Validation
                     view.TextField([Input.Default], placeholder: "0", type: "number", step: "1", min: "0", max: "100", disabled: true);
 
                     view.Text([Text.Caption], "With value binding");
-                    view.TextField([Input.Default], value: _numericIntValue.Value, type: "number", step: "1", min: "0", max: "100",
+                    view.TextField([Input.Default], ariaLabel: "With value binding", value: _numericIntValue.Value, type: "number", step: "1", min: "0", max: "100",
                         onValueChange: async v => _numericIntValue.Value = v ?? "0");
                     view.Text([Text.Caption], $"Current value: {_numericIntValue.Value}");
 
                     view.Text([Text.Caption], "With decimal value binding");
-                    view.TextField([Input.Default], value: _numericDecimalValue.Value, type: "number", step: "0.01",
+                    view.TextField([Input.Default], ariaLabel: "With decimal value binding", value: _numericDecimalValue.Value, type: "number", step: "0.01",
                         onValueChange: async v => _numericDecimalValue.Value = v ?? "0");
                     view.Text([Text.Caption], $"Current value: {_numericDecimalValue.Value}");
 
@@ -862,6 +869,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     view.CodeEditor(
+                        ariaLabel: "Code editor",
                         style: [CodeEditor.Root],
                         gutterStyle: [CodeEditor.Gutter],
                         contentStyle: [CodeEditor.Content],
@@ -1085,7 +1093,7 @@ public partial class Validation
                     view.RichTextEditor(placeholder: "Write something…");
 
                     view.Text([Text.Body], "CodeEditor");
-                    view.CodeEditor(language: "csharp", defaultValue: "var x = 1;");
+                    view.CodeEditor(ariaLabel: "CodeEditor", language: "csharp", defaultValue: "var x = 1;");
 
                     view.Text([Text.Body], "FileUpload");
                     view.FileUpload(onUploadComplete: async args => _lastUploadedFileName.Value = args.FileName);

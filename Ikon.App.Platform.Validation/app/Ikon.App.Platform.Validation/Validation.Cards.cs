@@ -421,30 +421,21 @@ public partial class Validation
                     view.Text([Text.H3, "mb-2"], "Default");
                     view.Box([Card.Subtle, "overflow-hidden"], content: view =>
                     {
-                        view.Box([EmptyState.Root], content: view =>
-                        {
-                            view.Box([EmptyState.IconWrap], content: view =>
-                                view.Icon([EmptyState.IconSize], name: "inbox"));
-                            view.Text([EmptyState.Title], "No messages yet");
-                            view.Text([EmptyState.Description], "When you receive messages they will appear here.");
-                            view.Row([EmptyState.Actions], content: view =>
-                            {
-                                view.Button([Button.PrimaryMd], text: "Get started", onClick: async () => { });
-                            });
-                        });
+                        view.EmptyState(
+                            title: "No messages yet",
+                            description: "When you receive messages they will appear here.",
+                            icon: "inbox",
+                            action: view => view.Button([Button.PrimaryMd], text: "Get started", onClick: async () => { }));
                     });
 
                     // Compact
                     view.Text([Text.H3, "mb-2"], "Compact");
                     view.Box([Card.Subtle, "overflow-hidden"], content: view =>
                     {
-                        view.Box([EmptyState.RootSm], content: view =>
-                        {
-                            view.Box([EmptyState.IconWrapSm], content: view =>
-                                view.Icon([EmptyState.IconSizeSm], name: "search"));
-                            view.Text([EmptyState.Title], "No results found");
-                            view.Text([EmptyState.Description], "Try adjusting your search or filters.");
-                        });
+                        view.EmptyState([EmptyState.RootSm],
+                            title: "No results found",
+                            description: "Try adjusting your search or filters.",
+                            icon: "search");
                     });
 
                     // With two actions
@@ -476,7 +467,9 @@ public partial class Validation
                                 view.Image([EmptyState.IllustrationSize],
                                     src: "/test-images/square-a.svg",
                                     alt: "Empty state illustration"));
+#pragma warning disable IKON038 // view.EmptyState takes only an icon, and this sample shows the IllustrationWrap tokens with an image
                             view.Text([EmptyState.Title], "No data available");
+#pragma warning restore IKON038
                             view.Text([EmptyState.Description], "Connect a data source to start seeing your metrics here.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
@@ -489,15 +482,11 @@ public partial class Validation
                     view.Text([Text.H3, "mb-2"], "Without Icon");
                     view.Box([Card.Subtle, "overflow-hidden"], content: view =>
                     {
-                        view.Box([EmptyState.RootSm], content: view =>
-                        {
-                            view.Text([EmptyState.Title], "Nothing here yet");
-                            view.Text([EmptyState.Description], "Add your first item to get started.");
-                            view.Row([EmptyState.Actions], content: view =>
-                            {
-                                view.Button([Button.PrimarySm], text: "Add item", onClick: async () => { });
-                            });
-                        });
+                        view.EmptyState([EmptyState.RootSm],
+                            title: "Nothing here yet",
+                            description: "Add your first item to get started.",
+                            icon: "",
+                            action: view => view.Button([Button.PrimarySm], text: "Add item", onClick: async () => { }));
                     });
                 });
             });

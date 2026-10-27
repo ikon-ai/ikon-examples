@@ -154,10 +154,13 @@ public partial class Validation
         view.Row([Layout.Row.Lg, "items-center py-2"], content: view =>
         {
             RenderTpRowLabel(view, stream.Mode);
-            view.Button([Button.PrimaryMd], text: "Start", disabled: running,
-                onClick: () => StartTpStream(stream, clientSessionId), props: TestId($"{prefix}-start"));
-            view.Button([Button.OutlineMd], text: "Stop", disabled: !running,
-                onClick: () => stream.Stop(clientSessionId), props: TestId($"{prefix}-stop"));
+            view.Row([Layout.Row.Actions], content: view =>
+            {
+                view.Button([Button.PrimaryMd], text: "Start", disabled: running,
+                    onClick: () => StartTpStream(stream, clientSessionId), props: TestId($"{prefix}-start"));
+                view.Button([Button.OutlineMd], text: "Stop", disabled: !running,
+                    onClick: () => stream.Stop(clientSessionId), props: TestId($"{prefix}-stop"));
+            });
             RenderTpStats(view, view =>
             {
                 RenderTpStat(view, "sent", stream.Sent.Value, $"{prefix}-sent");
@@ -173,10 +176,13 @@ public partial class Validation
         view.Row([Layout.Row.Lg, "items-center py-2"], content: view =>
         {
             RenderTpRowLabel(view, received.Mode);
-            view.Button([Button.PrimaryMd], text: "Start", disabled: running.Value,
-                onClick: () => running.Value = true, props: TestId($"{prefix}-start"));
-            view.Button([Button.OutlineMd], text: "Stop", disabled: !running.Value,
-                onClick: () => running.Value = false, props: TestId($"{prefix}-stop"));
+            view.Row([Layout.Row.Actions], content: view =>
+            {
+                view.Button([Button.PrimaryMd], text: "Start", disabled: running.Value,
+                    onClick: () => running.Value = true, props: TestId($"{prefix}-start"));
+                view.Button([Button.OutlineMd], text: "Stop", disabled: !running.Value,
+                    onClick: () => running.Value = false, props: TestId($"{prefix}-stop"));
+            });
             RenderTpStats(view, view =>
             {
                 view.AddNode("tp-probe", new Dictionary<string, object?> { ["role"] = "send", ["mode"] = received.Mode, ["running"] = running.Value }, style: ["min-w-0"]);

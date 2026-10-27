@@ -1,6 +1,7 @@
 using Ikon.Connectors;
 using Ikon.Connectors.Google;
 
+#pragma warning disable IKON019 // the Google Drive tab is one console over the instance's shared Drive sign-in: its folder, selection and status are instance-wide, so its inputs are too
 public partial class Validation
 {
     private const string GdClientIdSecret = "GOOGLE_CLIENT_ID";

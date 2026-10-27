@@ -1,6 +1,6 @@
 public partial class Validation
 {
-    private readonly Reactive<string> _colorPrompt = new("A warm, earthy SaaS dashboard theme inspired by terracotta and desert landscapes");
+    private readonly ClientReactive<string> _colorPrompt = new("A warm, earthy SaaS dashboard theme inspired by terracotta and desert landscapes");
     private readonly Reactive<bool> _colorPromptGenerating = new(false);
     private readonly Reactive<string?> _colorPromptError = new(null);
 

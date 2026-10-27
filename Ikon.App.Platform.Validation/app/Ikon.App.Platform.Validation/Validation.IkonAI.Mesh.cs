@@ -2,13 +2,13 @@ public partial class Validation
 {
     // Extra MeshGeneratorConfig options. Every default is the config's own default, so leaving the
     // card untouched sends exactly what it sent before — Meshy throws on a Rodin-only value.
-    private readonly Reactive<string> _meshGeometryMode = new(nameof(MeshGeneratorGeometryMode.Auto));
-    private readonly Reactive<string> _meshMaterial = new(nameof(MeshGeneratorMaterial.Auto));
-    private readonly Reactive<string> _meshOutputFormat = new(nameof(MeshGeneratorFileFormat.Glb));
-    private readonly Reactive<string> _meshInputImageView = new(nameof(MeshGeneratorView.Unknown));
-    private readonly Reactive<bool> _meshBoundingBox = new(false);
-    private readonly Reactive<bool> _meshRestPose = new(false);
-    private readonly Reactive<bool> _meshPreviewRender = new(false);
+    private readonly ClientReactive<string> _meshGeometryMode = new(nameof(MeshGeneratorGeometryMode.Auto));
+    private readonly ClientReactive<string> _meshMaterial = new(nameof(MeshGeneratorMaterial.Auto));
+    private readonly ClientReactive<string> _meshOutputFormat = new(nameof(MeshGeneratorFileFormat.Glb));
+    private readonly ClientReactive<string> _meshInputImageView = new(nameof(MeshGeneratorView.Unknown));
+    private readonly ClientReactive<bool> _meshBoundingBox = new(false);
+    private readonly ClientReactive<bool> _meshRestPose = new(false);
+    private readonly ClientReactive<bool> _meshPreviewRender = new(false);
     private readonly Reactive<int> _meshTargetPolycount = new(0);
 
     private readonly Reactive<bool> _meshOpsProcessing = new(false);
@@ -41,6 +41,7 @@ public partial class Validation
             {
                 view.Text([FormField.Label], "Geometry mode");
                 view.Select(
+                    ariaLabel: "Geometry mode",
                     value: _meshGeometryMode.Value,
                     options: GetModelOptions<MeshGeneratorGeometryMode>(),
                     onValueChange: async v => _meshGeometryMode.Value = v ?? _meshGeometryMode.Value);
@@ -50,6 +51,7 @@ public partial class Validation
             {
                 view.Text([FormField.Label], "Material");
                 view.Select(
+                    ariaLabel: "Material",
                     value: _meshMaterial.Value,
                     options: GetModelOptions<MeshGeneratorMaterial>(),
                     onValueChange: async v => _meshMaterial.Value = v ?? _meshMaterial.Value);
@@ -59,6 +61,7 @@ public partial class Validation
             {
                 view.Text([FormField.Label], "Output format");
                 view.Select(
+                    ariaLabel: "Output format",
                     value: _meshOutputFormat.Value,
                     options: GetModelOptions<MeshGeneratorFileFormat>(),
                     onValueChange: async v => _meshOutputFormat.Value = v ?? _meshOutputFormat.Value);
@@ -68,6 +71,7 @@ public partial class Validation
             {
                 view.Text([FormField.Label], "Input image view");
                 view.Select(
+                    ariaLabel: "Input image view",
                     value: _meshInputImageView.Value,
                     options: GetModelOptions<MeshGeneratorView>(),
                     onValueChange: async v => _meshInputImageView.Value = v ?? _meshInputImageView.Value);
@@ -78,6 +82,7 @@ public partial class Validation
                 view.Text([FormField.Label], "Target polycount (0 = default)");
                 view.TextField(
                     [Input.Default],
+                    ariaLabel: "Target polycount (0 = default)",
                     value: _meshTargetPolycount.Value.ToString(),
                     type: "number",
                     onValueChange: async v =>

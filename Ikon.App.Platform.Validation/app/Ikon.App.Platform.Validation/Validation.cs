@@ -18,7 +18,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private static readonly HashSet<string> ValidTabs =
     [
         "buttons", "inputs", "advanced-inputs", "typography", "icons", "cards",
-        "layout", "forms", "navigation", "nav-menu", "overlays", "drag-drop", "pan-zoom",
+        "layout", "forms", "navigation", "nav-menu", "app-nav", "overlays", "drag-drop", "pan-zoom",
         "crosswind", "brand",
         "charts",
         "files", "assets", "actions", "notifications",
@@ -26,62 +26,62 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "ikon-ai", "mcp", "cells", "cron",
         "virtualization", "drawing",
         "profiling", "memory", "session-identity", "account", "react-sdk", "consent",
-        "payments", "email", "costs", "custom-messages", "database", "persistent-state",
-        "self-test", "device", "telephony", "signatures", "sharepoint", "google-drive"
+        "payments", "email", "costs", "custom-messages", "database", "persistent-state", "reactive-scopes",
+        "self-test", "device", "telephony", "signatures", "sharepoint", "google-drive", "hot-reload"
     ];
 
     // Input states
     private readonly Reactive<string> _textFieldValue = new("");
-    private readonly Reactive<string> _successStateValue = new("valid@email.com");
-    private readonly Reactive<string> _warningStateValue = new("user123");
-    private readonly Reactive<string> _errorStateValue = new("invalid");
-    private readonly Reactive<string> _formVerifiedValue = new("valid@email.com");
-    private readonly Reactive<string> _formUsernameValue = new("user123");
-    private readonly Reactive<CheckedState> _triStateChecked = new(CheckedState.Indeterminate);
-    private readonly Reactive<string> _lastUploadedFileName = new("");
-    private readonly Reactive<string> _textAreaValue = new("");
-    private readonly Reactive<int> _autoResizePlaygroundRows = new(1);
-    private readonly Reactive<int> _autoResizePlaygroundMaxRows = new(6);
-    private readonly Reactive<bool> _autoResizePlaygroundMaxRowsDefined = new(true);
-    private readonly Reactive<bool> _autoResizePlaygroundEnabled = new(true);
-    private readonly Reactive<string> _selectValue = new("");
-    private readonly Reactive<bool> _checkboxChecked = new(false);
+    private readonly ClientReactive<string> _successStateValue = new("valid@email.com");
+    private readonly ClientReactive<string> _warningStateValue = new("user123");
+    private readonly ClientReactive<string> _errorStateValue = new("invalid");
+    private readonly ClientReactive<string> _formVerifiedValue = new("valid@email.com");
+    private readonly ClientReactive<string> _formUsernameValue = new("user123");
+    private readonly ClientReactive<CheckedState> _triStateChecked = new(CheckedState.Indeterminate);
+    private readonly ClientReactive<string> _lastUploadedFileName = new("");
+    private readonly ClientReactive<string> _textAreaValue = new("");
+    private readonly ClientReactive<int> _autoResizePlaygroundRows = new(1);
+    private readonly ClientReactive<int> _autoResizePlaygroundMaxRows = new(6);
+    private readonly ClientReactive<bool> _autoResizePlaygroundMaxRowsDefined = new(true);
+    private readonly ClientReactive<bool> _autoResizePlaygroundEnabled = new(true);
+    private readonly ClientReactive<string> _selectValue = new("");
+    private readonly ClientReactive<bool> _checkboxChecked = new(false);
     private readonly Reactive<string> _checkboxIndeterminate = new("unchecked");
-    private readonly Reactive<bool> _switchChecked = new(false);
-    private readonly Reactive<string> _radioValue = new("option1");
-    private readonly Reactive<double> _sliderValue = new(50);
-    private readonly Reactive<double> _panZoomScale = new(1);
-    private readonly Reactive<bool> _togglePressed = new(false);
-    private readonly Reactive<string> _toggleGroupSingleValue = new("center");
-    private readonly Reactive<IReadOnlyList<string>> _toggleGroupValues = new([]);
+    private readonly ClientReactive<bool> _switchChecked = new(false);
+    private readonly ClientReactive<string> _radioValue = new("option1");
+    private readonly ClientReactive<double> _sliderValue = new(50);
+    private readonly ClientReactive<double> _panZoomScale = new(1);
+    private readonly ClientReactive<bool> _togglePressed = new(false);
+    private readonly ClientReactive<string> _toggleGroupSingleValue = new("center");
+    private readonly ClientReactive<IReadOnlyList<string>> _toggleGroupValues = new([]);
 
     // Dialog states
-    private readonly Reactive<bool> _dialogOpen = new(false);
-    private readonly Reactive<bool> _alertDialogOpen = new(false);
-    private readonly Reactive<bool> _popoverOpen = new(false);
-    private readonly Reactive<bool> _toastOpen = new(false);
+    private readonly ClientReactive<bool> _dialogOpen = new(false);
+    private readonly ClientReactive<bool> _alertDialogOpen = new(false);
+    private readonly ClientReactive<bool> _popoverOpen = new(false);
+    private readonly ClientReactive<bool> _toastOpen = new(false);
 
     // Accordion/Collapsible states
-    private readonly Reactive<string> _accordionValue = new("");
-    private readonly Reactive<IReadOnlyList<string>> _accordionMultipleValues = new([]);
-    private readonly Reactive<bool> _collapsibleOpen = new(false);
+    private readonly ClientReactive<string> _accordionValue = new("");
+    private readonly ClientReactive<IReadOnlyList<string>> _accordionMultipleValues = new([]);
+    private readonly ClientReactive<bool> _collapsibleOpen = new(false);
 
     // Progress demo
     private readonly Reactive<double> _progressValue = new(60);
 
     // Nested tabs for navigation demo
-    private readonly Reactive<string> _nestedTabValue = new("nested1");
+    private readonly ClientReactive<string> _nestedTabValue = new("nested1");
 
     // Crosswind sub-tabs
-    private readonly Reactive<string> _crosswindSubTab = new("retro");
+    private readonly ClientReactive<string> _crosswindSubTab = new("retro");
 
     // File upload states
-    private readonly Reactive<string> _basicUploadStatus = new("");
-    private readonly Reactive<string> _multiUploadStatus = new("");
-    private readonly Reactive<string> _zoneUploadStatus = new("");
-    private readonly Reactive<string> _imagesUploadStatus = new("");
-    private readonly Reactive<string> _pdfsUploadStatus = new("");
-    private readonly Reactive<string> _codeUploadStatus = new("");
+    private readonly ClientReactive<string> _basicUploadStatus = new("");
+    private readonly ClientReactive<string> _multiUploadStatus = new("");
+    private readonly ClientReactive<string> _zoneUploadStatus = new("");
+    private readonly ClientReactive<string> _imagesUploadStatus = new("");
+    private readonly ClientReactive<string> _pdfsUploadStatus = new("");
+    private readonly ClientReactive<string> _codeUploadStatus = new("");
 
     // Advanced file upload states
     private readonly Reactive<string> _advUploadMode = new("local");
@@ -100,14 +100,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private string? _advUploadCurrentId;
 
     // ActionButton/ClientFunction states
-    private readonly Reactive<string> _clientFunctionResultText = new("(no function called)");
-    private readonly Reactive<bool> _clientFunctionToastOpen = new(false);
+    private readonly ClientReactive<string> _clientFunctionResultText = new("(no function called)");
+    private readonly ClientReactive<bool> _clientFunctionToastOpen = new(false);
 
     // Drag and drop states
-    private readonly Reactive<string> _dndStatus = new("");
-    private readonly Reactive<string> _activeDragId = new("");
-    private readonly Reactive<IReadOnlyList<string>> _sortableHandleCards = new(["Card A", "Card B", "Card C", "Card D"]);
-    private readonly Reactive<IReadOnlyList<string>> _sortableClickThroughList = new(["Item 1", "Item 2", "Item 3", "Item 4"]);
+    private readonly ClientReactive<string> _dndStatus = new("");
+    private readonly ClientReactive<string> _activeDragId = new("");
+    private readonly ClientReactive<IReadOnlyList<string>> _sortableHandleCards = new(["Card A", "Card B", "Card C", "Card D"]);
+    private readonly ClientReactive<IReadOnlyList<string>> _sortableClickThroughList = new(["Item 1", "Item 2", "Item 3", "Item 4"]);
     private readonly ReactiveDictionary<string, string?> _draggableItemZones = new(
         new Dictionary<string, string?>
         {
@@ -123,28 +123,28 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         });
 
     // NavigationMenu states
-    private readonly Reactive<string> _navMenuValue = new("");
+    private readonly ClientReactive<string> _navMenuValue = new("");
     private readonly Reactive<string> _navMenuStatus = new("");
 
     // Additional input states
-    private readonly Reactive<string> _numericIntValue = new("50");
-    private readonly Reactive<string> _numericDecimalValue = new("3.14");
-    private readonly Reactive<string> _radioHorizontalValue = new("h-opt1");
-    private readonly Reactive<double> _sliderVerticalValue = new(50);
-    private readonly Reactive<double> _sliderInvertedValue = new(30);
-    private readonly Reactive<IReadOnlyList<double>> _sliderRangeValues = new([25.0, 75.0]);
+    private readonly ClientReactive<string> _numericIntValue = new("50");
+    private readonly ClientReactive<string> _numericDecimalValue = new("3.14");
+    private readonly ClientReactive<string> _radioHorizontalValue = new("h-opt1");
+    private readonly ClientReactive<double> _sliderVerticalValue = new(50);
+    private readonly ClientReactive<double> _sliderInvertedValue = new(30);
+    private readonly ClientReactive<IReadOnlyList<double>> _sliderRangeValues = new([25.0, 75.0]);
 
     // Additional navigation states
-    private readonly Reactive<string> _verticalTabValue = new("vtab1");
-    private readonly Reactive<string> _manualTabValue = new("manual1");
+    private readonly ClientReactive<string> _verticalTabValue = new("vtab1");
+    private readonly ClientReactive<string> _manualTabValue = new("manual1");
     private readonly Reactive<int> _paginationPage = new(3);
     private readonly Reactive<IReadOnlyList<string>> _breadcrumbPath = new(["Home", "Products", "Electronics"]);
 
     // Server-side validation states
-    private readonly Reactive<string> _serverEmailValue = new("taken@example.com");
-    private readonly Reactive<bool> _serverEmailInvalid = new(true);
-    private readonly Reactive<string> _serverUsernameValue = new("admin");
-    private readonly Reactive<bool> _serverUsernameInvalid = new(true);
+    private readonly ClientReactive<string> _serverEmailValue = new("taken@example.com");
+    private readonly ClientReactive<bool> _serverEmailInvalid = new(true);
+    private readonly ClientReactive<string> _serverUsernameValue = new("admin");
+    private readonly ClientReactive<bool> _serverUsernameInvalid = new(true);
 
     // Theme state
     private ThemeControl _theme = null!;
@@ -171,33 +171,33 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<int> _screenHeight = new(0);
 
     // Camera capture options
-    private readonly Reactive<string> _cameraCodec = new("h264");
-    private readonly Reactive<string> _cameraResolution = new("720p");
-    private readonly Reactive<string> _cameraBitrate = new("5");
-    private readonly Reactive<string> _cameraFramerate = new("30");
+    private readonly ClientReactive<string> _cameraCodec = new("h264");
+    private readonly ClientReactive<string> _cameraResolution = new("720p");
+    private readonly ClientReactive<string> _cameraBitrate = new("5");
+    private readonly ClientReactive<string> _cameraFramerate = new("30");
 
     // Screen capture options
-    private readonly Reactive<string> _screenCodec = new("h264");
-    private readonly Reactive<string> _screenBitrate = new("5");
-    private readonly Reactive<string> _screenFramerate = new("30");
+    private readonly ClientReactive<string> _screenCodec = new("h264");
+    private readonly ClientReactive<string> _screenBitrate = new("5");
+    private readonly ClientReactive<string> _screenFramerate = new("30");
 
     // Device enumeration
     private readonly Reactive<IReadOnlyList<ClientMediaDevice>> _availableDevices = new([]);
     private readonly Reactive<bool> _devicesLoading = new(false);
 
     // Camera device selection
-    private readonly Reactive<string> _selectedCameraId = new("default");
-    private readonly Reactive<string> _selectedImageCameraId = new("default");
-    private readonly Reactive<string> _selectedImageFacing = new("auto");
+    private readonly ClientReactive<string> _selectedCameraId = new("default");
+    private readonly ClientReactive<string> _selectedImageCameraId = new("default");
+    private readonly ClientReactive<string> _selectedImageFacing = new("auto");
 
     // Microphone device selection
-    private readonly Reactive<string> _selectedMicrophoneId = new("default");
+    private readonly ClientReactive<string> _selectedMicrophoneId = new("default");
 
     // Audio capture options
-    private readonly Reactive<bool> _audioEchoCancellation = new(false);
-    private readonly Reactive<bool> _audioNoiseSuppression = new(true);
-    private readonly Reactive<bool> _audioAutoGainControl = new(true);
-    private readonly Reactive<string> _audioBitrate = new("32");
+    private readonly ClientReactive<bool> _audioEchoCancellation = new(false);
+    private readonly ClientReactive<bool> _audioNoiseSuppression = new(true);
+    private readonly ClientReactive<bool> _audioAutoGainControl = new(true);
+    private readonly ClientReactive<string> _audioBitrate = new("32");
 
     // Image capture state
     private readonly Reactive<string?> _capturedImageData = new(null);
@@ -206,10 +206,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<int> _capturedImageHeight = new(0);
 
     // Video URL player state
-    private readonly Reactive<string> _videoUrl = new("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
-    private readonly Reactive<bool> _videoUrlLoop = new(true);
-    private readonly Reactive<bool> _videoUrlMuted = new(false);
-    private readonly Reactive<bool> _videoUrlControls = new(true);
+    private readonly ClientReactive<string> _videoUrl = new("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
+    private readonly ClientReactive<bool> _videoUrlLoop = new(true);
+    private readonly ClientReactive<bool> _videoUrlMuted = new(false);
+    private readonly ClientReactive<bool> _videoUrlControls = new(true);
 
     // Audio source tracking
     private readonly ReactiveList<string> _sineWaveIds = new();
@@ -243,11 +243,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     // PushToTalk validation
     private readonly Reactive<bool> _isPushToTalkRecording = new(false);
-    private readonly Reactive<string> _lastSpeechRecognized = new("");
+    private readonly ClientReactive<string> _lastSpeechRecognized = new("");
     private readonly ClientReactive<string> _lastMicPermission = new("");
 
     // Chat state
-    private readonly Reactive<string> _chatInputText = new("");
+    private readonly ClientReactive<string> _chatInputText = new("");
     private readonly Reactive<bool> _chatIsProcessing = new(false);
     private readonly ReactiveList<ChatMessageEntry> _chatMessages = new();
 
@@ -259,9 +259,9 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     // Split layout demos
     private readonly Reactive<bool> _splitSidebarOpen = new(true);
-    private readonly Reactive<double> _resizableSplitSize = new(224);
-    private readonly Reactive<double> _resizableNestedOuterSize = new(320);
-    private readonly Reactive<double> _resizableNestedInnerSize = new(140);
+    private readonly ClientReactive<double> _resizableSplitSize = new(224);
+    private readonly ClientReactive<double> _resizableNestedOuterSize = new(320);
+    private readonly ClientReactive<double> _resizableNestedInnerSize = new(140);
 
     // Card selected demo
     private readonly Reactive<string> _selectedCardId = new("card-2");
@@ -274,33 +274,33 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Sound playback state
     private readonly Reactive<string> _lastSoundPlaybackId = new("(no sound playing)");
     private AudioPlayback? _lastSoundPlayback;
-    private readonly Reactive<bool> _soundToastOpen = new(false);
-    private readonly Reactive<string> _soundToastMessage = new("");
+    private readonly ClientReactive<bool> _soundToastOpen = new(false);
+    private readonly ClientReactive<string> _soundToastMessage = new("");
 
     // Keyboard listener state
-    private readonly Reactive<string> _globalKeyDownEvent = new("(no event)");
-    private readonly Reactive<string> _scopedKeyDownEvent = new("(no event)");
-    private readonly Reactive<string> _globalKeyUpEvent = new("(no event)");
+    private readonly ClientReactive<string> _globalKeyDownEvent = new("(no event)");
+    private readonly ClientReactive<string> _scopedKeyDownEvent = new("(no event)");
+    private readonly ClientReactive<string> _globalKeyUpEvent = new("(no event)");
 
     // Calendar / pickers state
-    private readonly Reactive<string> _calendarValue = new("2026-04-23");
-    private readonly Reactive<string> _datePickerValue = new("");
-    private readonly Reactive<string> _colorPickerValue = new("#db176e");
-    private readonly Reactive<string> _timePickerValue = new("09:30");
+    private readonly ClientReactive<string> _calendarValue = new("2026-04-23");
+    private readonly ClientReactive<string> _datePickerValue = new("");
+    private readonly ClientReactive<string> _colorPickerValue = new("#db176e");
+    private readonly ClientReactive<string> _timePickerValue = new("09:30");
 
     // Rich text / code editor state
-    private readonly Reactive<string> _richTextValue = new("<p>Edit <b>me</b> — try the toolbar!</p>");
-    private readonly Reactive<string> _codeEditorValue = new("public class Hello\n{\n    public static void Main() =>\n        Console.WriteLine(\"Hi\");\n}\n");
+    private readonly ClientReactive<string> _richTextValue = new("<p>Edit <b>me</b> — try the toolbar!</p>");
+    private readonly ClientReactive<string> _codeEditorValue = new("public class Hello\n{\n    public static void Main() =>\n        Console.WriteLine(\"Hi\");\n}\n");
 
     // Carousel state
-    private readonly Reactive<int> _carouselIndex = new(0);
-    private readonly Reactive<bool> _carouselLoop = new(true);
-    private readonly Reactive<int> _multiCarouselIndex = new(0);
-    private readonly Reactive<bool> _multiCarouselLoop = new(true);
+    private readonly ClientReactive<int> _carouselIndex = new(0);
+    private readonly ClientReactive<bool> _carouselLoop = new(true);
+    private readonly ClientReactive<int> _multiCarouselIndex = new(0);
+    private readonly ClientReactive<bool> _multiCarouselLoop = new(true);
 
     // Feed scroller state
-    private readonly Reactive<int> _feedActiveIndex = new(0);
-    private readonly Reactive<bool> _feedMuted = new(true);
+    private readonly ClientReactive<int> _feedActiveIndex = new(0);
+    private readonly ClientReactive<bool> _feedMuted = new(true);
     private readonly Reactive<int> _feedPagesLoaded = new(1);
 
     // Interactions test state
@@ -360,34 +360,39 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         app.OnStopping(ClearDatabaseAsync);
 
-        // Exercises the dynamic snapshot-route provider: these ship as route snapshots exactly like
-        // the statically configured ones. The platform validation script asserts both sets reach the
-        // sitemap and prerendered crawler pages.
-        app.OnSnapshotRoutes(() => Task.FromResult<IEnumerable<string>>(["/charts", "/icons"]));
+        // The tabs belong to "app", the fallback surface, which cannot list Routes, so their snapshot
+        // routes come from code. The routes the probe surfaces list in ikon-config.toml are captured
+        // beside them, and the validation script checks that both reach the sitemap and the
+        // prerendered crawler pages.
+        app.OnSnapshotRoutes(() => Task.FromResult<IEnumerable<string>>(["/", "/typography", "/buttons", "/cards", "/charts", "/icons"]));
 
         app.Navigation.PathChangedAsync += args =>
         {
             RecordNotificationActionTap(args.ClientSessionId, args.Url);
-            var tab = args.Path.TrimStart('/');
+
+            // A tab's own pages sit under its path (/app-nav/inbox), so the first segment names the tab
+            var tab = args.Path.TrimStart('/').Split('/', 2)[0];
 
             if (ValidTabs.Contains(tab))
             {
                 ActivateTab(tab);
             }
 
+            RouteAppNav(args.Path);
             return Task.CompletedTask;
         };
 
         app.ClientJoinedAsync += args =>
         {
             // InitialPath carries the deep link's query string too — tab names are path-only
-            var tab = args.ClientContext.InitialPath.Split('?', 2)[0].TrimStart('/');
+            var tab = args.ClientContext.InitialPath.Split('?', 2)[0].TrimStart('/').Split('/', 2)[0];
 
             if (ValidTabs.Contains(tab))
             {
                 ActivateTab(tab);
             }
 
+            _enteredSurface.Value = args.ClientContext.Surface;
             _ = RefreshDevicesAsync(args.ClientSessionId);
             _ = LoadIdentityAsync(args.ClientContext);
 
@@ -397,6 +402,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         UI.Root([Page.Default],
             content: view =>
             {
+                if (TryRenderSurfaceProbe(view))
+                {
+                    return;
+                }
+
                 AddColorScaleCss();
 
                 view.Column([Container.Xl4, "py-4 px-3 sm:py-8 sm:px-4"], content: view =>
@@ -410,21 +420,19 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         var iconName = isDark ? "sun" : "moon";
                         view.Button([Button.GhostMd, Button.Icon],
                             onClick: _theme.ToggleAsync,
+                            ariaLabel: isDark ? "Switch to light theme" : "Switch to dark theme",
                             content: vv => vv.Icon([Icon.Default], name: iconName));
                     });
 
                     // Main tabs. lazyPanels keeps only the active tab's panel in each client's
                     // server-side tree — with this many tabs, shipping all panels costs ~20 MB of
                     // live heap per connected client.
+                    // Each tab is a page: a press moves the client to /<tab> at once, and the path
+                    // handler above activates it.
                     view.Tabs(
                         value: _activeTab.Value,
                         lazyPanels: true,
-                        onValueChange: async value =>
-                        {
-                            var tab = value ?? "typography";
-                            ActivateTab(tab);
-                            await app.Navigation.SetPathAsync($"/{tab}");
-                        },
+                        path: "/{value}",
                         listContainerStyle: [Card.Default, "p-2 mb-4"],
                         listStyle: [Tabs.List, "flex-wrap bg-transparent"],
                         triggerStyle: [Tabs.Trigger, "px-2 text-xs sm:px-3 sm:text-sm"],
@@ -442,6 +450,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("overlays", "Overlays", RenderOverlaysSection),
                             new TabItem("navigation", "Navigation", RenderNavigationSection),
                             new TabItem("nav-menu", "Nav Menu", RenderNavMenuSection),
+                            new TabItem("app-nav", "App Nav", RenderAppNavSection),
                             new TabItem("advanced-inputs", "Advanced Inputs", RenderAdvancedInputsSection),
                             new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
                             new TabItem("pan-zoom", "Pan & Zoom", RenderPanZoomSection),
@@ -474,12 +483,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("custom-messages", "Custom Messages", RenderCustomMessagesSection),
                             new TabItem("database", "Database", RenderDatabaseSection),
                             new TabItem("persistent-state", "Persistent State", RenderPersistentStateSection),
+                            new TabItem("reactive-scopes", "Reactive Scopes", RenderReactiveScopesSection),
                             new TabItem("self-test", "Self-Test", RenderSelfTestSection),
                             new TabItem("device", "Device", RenderDeviceSection),
                             new TabItem("telephony", "Telephony", RenderTelephonySection),
                             new TabItem("signatures", "Signatures", RenderSignaturesSection),
                             new TabItem("sharepoint", "SharePoint", RenderSharePointSection),
                             new TabItem("google-drive", "Google Drive", RenderGoogleDriveSection),
+                            new TabItem("hot-reload", "Hot Reload", RenderHotReloadSection),
                         ]);
                 });
             });
@@ -768,7 +779,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         Audio.SpeechRecognizedAsync += async args =>
         {
-            _lastSpeechRecognized.Value = args.Text;
+            _lastSpeechRecognized.SetFor(args.ClientSessionId, args.Text);
         };
 
         Audio.AudioInputStreamBeginAsync += async args =>

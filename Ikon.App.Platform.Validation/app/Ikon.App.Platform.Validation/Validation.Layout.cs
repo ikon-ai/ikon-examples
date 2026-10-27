@@ -489,7 +489,7 @@ public partial class Validation
                             view.Button([Button.OutlineSm, Button.Icon], onClick: async () =>
                             {
                                 _splitSidebarOpen.Value = !_splitSidebarOpen.Value;
-                            }, content: v => v.Icon([Icon.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
+                            }, ariaLabel: _splitSidebarOpen.Value ? "Close sidebar" : "Open sidebar", content: v => v.Icon([Icon.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
                         });
                     });
                 });
@@ -812,7 +812,7 @@ public partial class Validation
             view.Text([Text.H2, "mb-4"], "Auto-Scroll Test");
             view.Text([Text.Caption, "mb-4"], "Items added every 3 seconds. Compare Polite vs Assertive scroll behaviors.");
 
-            view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mb-4 flex-wrap"], content: view =>
             {
                 var isRunning = _autoScrollCts != null;
                 view.Button([isRunning ? Button.ErrorMd : Button.PrimaryMd],

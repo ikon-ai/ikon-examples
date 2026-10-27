@@ -11,7 +11,7 @@ public partial class Validation
 
     private readonly Reactive<bool> _syntheticVideoRunning = new(false);
     private readonly Reactive<string> _syntheticVideoStatus = new("(idle)");
-    private readonly Reactive<string> _syntheticVideoCodec = new("h264");
+    private readonly ClientReactive<string> _syntheticVideoCodec = new("h264");
 
     private LiveVideoPlayback? _syntheticVideo;
     private readonly Dictionary<VideoCodec, IReadOnlyList<byte[]>> _syntheticVideoFramesByCodec = new();
@@ -31,6 +31,7 @@ public partial class Validation
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Codec");
                     view.Select(
+                        ariaLabel: "Codec",
                         value: _syntheticVideoCodec.Value,
                         options:
                         [

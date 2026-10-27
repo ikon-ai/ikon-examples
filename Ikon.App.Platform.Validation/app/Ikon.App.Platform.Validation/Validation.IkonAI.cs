@@ -17,54 +17,54 @@
     private readonly UserReactive<bool> _sectionPasswordError = new(false);
 
     // Chat model/region selection
-    private readonly Reactive<string> _chatModel = new(nameof(LLMModel.Claude45Sonnet));
-    private readonly Reactive<string> _chatRegion = new(nameof(ModelRegion.Global));
+    private readonly ClientReactive<string> _chatModel = new(nameof(LLMModel.Claude45Sonnet));
+    private readonly ClientReactive<string> _chatRegion = new(nameof(ModelRegion.Global));
 
     // Classifier state
-    private readonly Reactive<string> _classifierModel = new(nameof(ClassificationModel.OpenAIOmniModeration));
-    private readonly Reactive<string> _classifierInput = new("Hello world!");
+    private readonly ClientReactive<string> _classifierModel = new(nameof(ClassificationModel.OpenAIOmniModeration));
+    private readonly ClientReactive<string> _classifierInput = new("Hello world!");
     private readonly Reactive<bool> _classifierProcessing = new(false);
     private readonly Reactive<string?> _classifierResult = new(null);
     private readonly Reactive<string?> _classifierError = new(null);
 
     // EmbeddingGenerator state
-    private readonly Reactive<string> _embeddingModel = new(nameof(EmbeddingModel.OpenAI3Small));
-    private readonly Reactive<string> _embeddingInput = new("Example sentence for embedding");
-    private readonly Reactive<string> _embeddingType = new(nameof(EmbeddingType.Document));
+    private readonly ClientReactive<string> _embeddingModel = new(nameof(EmbeddingModel.OpenAI3Small));
+    private readonly ClientReactive<string> _embeddingInput = new("Example sentence for embedding");
+    private readonly ClientReactive<string> _embeddingType = new(nameof(EmbeddingType.Document));
     private readonly Reactive<bool> _embeddingProcessing = new(false);
     private readonly Reactive<string?> _embeddingResult = new(null);
     private readonly Reactive<string?> _embeddingError = new(null);
-    private readonly Reactive<bool> _embeddingAllowTruncation = new(false);
+    private readonly ClientReactive<bool> _embeddingAllowTruncation = new(false);
 
     // WebSearcher state
-    private readonly Reactive<string> _webSearcherModel = new(nameof(WebSearcherModel.Google));
-    private readonly Reactive<string> _webSearcherQuery = new("Finnish ice hockey teams");
+    private readonly ClientReactive<string> _webSearcherModel = new(nameof(WebSearcherModel.Google));
+    private readonly ClientReactive<string> _webSearcherQuery = new("Finnish ice hockey teams");
     private readonly Reactive<int> _webSearcherMaxResults = new(5);
     private readonly Reactive<bool> _webSearcherProcessing = new(false);
     private readonly Reactive<string?> _webSearcherResult = new(null);
     private readonly Reactive<string?> _webSearcherError = new(null);
 
     // WebScraper state
-    private readonly Reactive<string> _webScraperModel = new(nameof(WebScraperModel.Jina));
-    private readonly Reactive<string> _webScraperUrl = new("https://example.com");
-    private readonly Reactive<string> _webScraperOutputFormat = new(nameof(WebScraperOutputFormat.Markdown));
+    private readonly ClientReactive<string> _webScraperModel = new(nameof(WebScraperModel.Jina));
+    private readonly ClientReactive<string> _webScraperUrl = new("https://example.com");
+    private readonly ClientReactive<string> _webScraperOutputFormat = new(nameof(WebScraperOutputFormat.Markdown));
     private readonly Reactive<bool> _webScraperProcessing = new(false);
     private readonly Reactive<string?> _webScraperResult = new(null);
     private readonly Reactive<string?> _webScraperError = new(null);
 
     // Reranker state
-    private readonly Reactive<string> _rerankerModel = new(nameof(RerankModel.CohereRerank4Fast));
-    private readonly Reactive<string> _rerankerQuery = new("What is the latest in artificial intelligence?");
-    private readonly Reactive<string> _rerankerDocuments = new("Document about AI\nDocument about cooking\nDocument about space exploration");
+    private readonly ClientReactive<string> _rerankerModel = new(nameof(RerankModel.CohereRerank4Fast));
+    private readonly ClientReactive<string> _rerankerQuery = new("What is the latest in artificial intelligence?");
+    private readonly ClientReactive<string> _rerankerDocuments = new("Document about AI\nDocument about cooking\nDocument about space exploration");
     private readonly Reactive<bool> _rerankerProcessing = new(false);
     private readonly Reactive<string?> _rerankerResult = new(null);
     private readonly Reactive<string?> _rerankerError = new(null);
-    private readonly Reactive<bool> _rerankerAllowTruncation = new(false);
+    private readonly ClientReactive<bool> _rerankerAllowTruncation = new(false);
 
     // ImageGenerator state
-    private readonly Reactive<string> _imageGeneratorModel = new(nameof(ImageGeneratorModel.Gemini25FlashImage));
-    private readonly Reactive<string> _imageGeneratorPrompt = new("A serene mountain landscape at sunset");
-    private readonly Reactive<string> _imageGeneratorNegativePrompt = new("");
+    private readonly ClientReactive<string> _imageGeneratorModel = new(nameof(ImageGeneratorModel.Gemini25FlashImage));
+    private readonly ClientReactive<string> _imageGeneratorPrompt = new("A serene mountain landscape at sunset");
+    private readonly ClientReactive<string> _imageGeneratorNegativePrompt = new("");
     private readonly Reactive<int> _imageGeneratorWidth = new(1024);
     private readonly Reactive<int> _imageGeneratorHeight = new(1024);
     private readonly Reactive<int> _imageGeneratorSeed = new(0);
@@ -74,9 +74,9 @@
     private readonly Reactive<string?> _imageGeneratorDownloadUrl = new(null);
     private readonly Reactive<string?> _imageGeneratorProvenance = new(null);
     private readonly Reactive<int> _imageGeneratorSteps = new(0);
-    private readonly Reactive<string> _imageGeneratorQuality = new(nameof(ImageQuality.Auto));
-    private readonly Reactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
-    private readonly Reactive<bool> _imageGeneratorUpsamplePrompt = new(false);
+    private readonly ClientReactive<string> _imageGeneratorQuality = new(nameof(ImageQuality.Auto));
+    private readonly ClientReactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
+    private readonly ClientReactive<bool> _imageGeneratorUpsamplePrompt = new(false);
     private readonly Reactive<int> _imageGeneratorCount = new(1);
     private UploadedInput? _imageGeneratorInputImage;
     private readonly Reactive<string> _imageGeneratorInputImageName = new("");
@@ -84,14 +84,14 @@
 
     // SpeechGenerator state
     private readonly Reactive<string> _speechGeneratorModel = new(nameof(SpeechGeneratorModel.Gpt4OmniMiniTts));
-    private readonly Reactive<string> _speechGeneratorText = new("Hello, this is a test of the speech generation system.");
+    private readonly ClientReactive<string> _speechGeneratorText = new("Hello, this is a test of the speech generation system.");
     private readonly Reactive<string> _speechGeneratorVoiceId = new("alloy");
     private readonly Reactive<IReadOnlyList<string>> _speechGeneratorVoiceIds = new(["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"]);
     // Empty because the card opens on an OpenAI model, and those refuse a language outright rather
     // than dropping it — the language belongs in Instructions there. ElevenLabs is the model to
     // select when the field itself is what is being exercised.
-    private readonly Reactive<string> _speechGeneratorLanguage = new("");
-    private readonly Reactive<string> _speechGeneratorInstructions = new("");
+    private readonly ClientReactive<string> _speechGeneratorLanguage = new("");
+    private readonly ClientReactive<string> _speechGeneratorInstructions = new("");
     private readonly Reactive<bool> _speechGeneratorProcessing = new(false);
     private readonly Reactive<string?> _speechGeneratorResult = new(null);
     private readonly Reactive<string?> _speechGeneratorError = new(null);
@@ -126,7 +126,7 @@
     private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _speechRecognizerStreamInfo = new();
 
     // OCR state
-    private readonly Reactive<string> _ocrModel = new(nameof(OCRModel.AzureDocumentIntelligence));
+    private readonly ClientReactive<string> _ocrModel = new(nameof(OCRModel.AzureDocumentIntelligence));
     private readonly Reactive<bool> _ocrProcessing = new(false);
     private readonly Reactive<string?> _ocrResult = new(null);
     private readonly Reactive<string?> _ocrError = new(null);
@@ -136,7 +136,7 @@
     private string? _ocrFullResult;
 
     // FileConverter state
-    private readonly Reactive<string> _fileConverterModel = new(nameof(FileConverterModel.ConvertApi));
+    private readonly ClientReactive<string> _fileConverterModel = new(nameof(FileConverterModel.ConvertApi));
     private readonly Reactive<bool> _fileConverterProcessing = new(false);
     private readonly Reactive<string?> _fileConverterResult = new(null);
     private readonly Reactive<string?> _fileConverterError = new(null);
@@ -145,35 +145,35 @@
     private readonly Reactive<string?> _fileConverterDownloadUrl = new(null);
 
     // VideoGenerator state
-    private readonly Reactive<string> _videoGeneratorModel = new(nameof(VideoGeneratorModel.Pollo20));
-    private readonly Reactive<string> _videoGeneratorPrompt = new("A cat playing with a ball of yarn");
+    private readonly ClientReactive<string> _videoGeneratorModel = new(nameof(VideoGeneratorModel.Pollo20));
+    private readonly ClientReactive<string> _videoGeneratorPrompt = new("A cat playing with a ball of yarn");
     private readonly Reactive<int> _videoGeneratorLength = new(5);
-    private readonly Reactive<string> _videoGeneratorResolution = new(nameof(VideoGeneratorResolution.Resolution480p));
-    private readonly Reactive<string> _videoGeneratorAspectRatio = new(nameof(VideoGeneratorAspectRatio.Ratio16x9));
+    private readonly ClientReactive<string> _videoGeneratorResolution = new(nameof(VideoGeneratorResolution.Resolution480p));
+    private readonly ClientReactive<string> _videoGeneratorAspectRatio = new(nameof(VideoGeneratorAspectRatio.Ratio16x9));
     private readonly Reactive<bool> _videoGeneratorProcessing = new(false);
     private readonly Reactive<string?> _videoGeneratorResultUrl = new(null);
     private readonly Reactive<string?> _videoGeneratorError = new(null);
-    private readonly Reactive<string> _videoGeneratorNegativePrompt = new("");
+    private readonly ClientReactive<string> _videoGeneratorNegativePrompt = new("");
     private readonly Reactive<int> _videoGeneratorSeed = new(0);
-    private readonly Reactive<bool> _videoGeneratorGenerateAudio = new(false);
+    private readonly ClientReactive<bool> _videoGeneratorGenerateAudio = new(false);
     private UploadedInput? _videoGeneratorInputImage;
     private readonly Reactive<string> _videoGeneratorInputImageName = new("");
 
     // SoundEffectGenerator state
-    private readonly Reactive<string> _soundEffectModel = new(nameof(SoundEffectGeneratorModel.ElevenLabsV2));
-    private readonly Reactive<string> _soundEffectPrompt = new("Thunder rumbling in the distance");
+    private readonly ClientReactive<string> _soundEffectModel = new(nameof(SoundEffectGeneratorModel.ElevenLabsV2));
+    private readonly ClientReactive<string> _soundEffectPrompt = new("Thunder rumbling in the distance");
     private readonly Reactive<double> _soundEffectDuration = new(5.0);
     private readonly Reactive<bool> _soundEffectProcessing = new(false);
     private readonly Reactive<string?> _soundEffectResult = new(null);
     private readonly Reactive<string?> _soundEffectError = new(null);
     private readonly Reactive<string?> _soundEffectDownloadUrl = new(null);
-    private readonly Reactive<double> _soundEffectPromptInfluence = new(0.3);
-    private readonly Reactive<bool> _soundEffectLoop = new(false);
-    private readonly Reactive<bool> _soundEffectBuffered = new(false);
+    private readonly ClientReactive<double> _soundEffectPromptInfluence = new(0.3);
+    private readonly ClientReactive<bool> _soundEffectLoop = new(false);
+    private readonly ClientReactive<bool> _soundEffectBuffered = new(false);
 
     // MusicGenerator state
-    private readonly Reactive<string> _musicModel = new(nameof(MusicGeneratorModel.ElevenLabsMusicV2));
-    private readonly Reactive<string> _musicPrompt = new("An upbeat orchestral victory fanfare, bright and triumphant");
+    private readonly ClientReactive<string> _musicModel = new(nameof(MusicGeneratorModel.ElevenLabsMusicV2));
+    private readonly ClientReactive<string> _musicPrompt = new("An upbeat orchestral victory fanfare, bright and triumphant");
     private readonly Reactive<double> _musicDuration = new(10.0);
     private readonly Reactive<double> _musicStrength = new(0.9);
     private readonly Reactive<bool> _musicProcessing = new(false);
@@ -184,8 +184,8 @@
     private readonly Reactive<string> _musicInputAudioName = new("");
 
     // VideoEnhancer state
-    private readonly Reactive<string> _videoEnhancerModel = new("TensorPixFpsBoost");
-    private readonly Reactive<string> _videoEnhancerVideoUrl = new("");
+    private readonly ClientReactive<string> _videoEnhancerModel = new("TensorPixFpsBoost");
+    private readonly ClientReactive<string> _videoEnhancerVideoUrl = new("");
     private readonly Reactive<bool> _videoEnhancerProcessing = new(false);
     private readonly Reactive<string?> _videoEnhancerResultUrl = new(null);
     private readonly Reactive<string?> _videoEnhancerError = new(null);
@@ -195,8 +195,8 @@
     private readonly Reactive<string?> _videoEnhancerResultInfo = new(null);
 
     // ImageSegmenter state
-    private readonly Reactive<string> _imageSegmenterModel = new(nameof(ImageSegmenterModel.Sam31));
-    private readonly Reactive<string> _imageSegmenterPrompt = new("person");
+    private readonly ClientReactive<string> _imageSegmenterModel = new(nameof(ImageSegmenterModel.Sam31));
+    private readonly ClientReactive<string> _imageSegmenterPrompt = new("person");
     private readonly Reactive<bool> _imageSegmenterProcessing = new(false);
     private readonly Reactive<string?> _imageSegmenterResult = new(null);
     private readonly Reactive<string?> _imageSegmenterError = new(null);
@@ -205,7 +205,7 @@
     private readonly ReactiveList<string> _imageSegmenterImageDataUrls = new();
 
     // ImageUpscaler state
-    private readonly Reactive<string> _imageUpscalerModel = new(nameof(ImageUpscalerModel.SeedVr2));
+    private readonly ClientReactive<string> _imageUpscalerModel = new(nameof(ImageUpscalerModel.SeedVr2));
     private readonly Reactive<int> _imageUpscalerScaleFactor = new(2);
     private readonly Reactive<double> _imageUpscalerCreativity = new(0);
     private readonly Reactive<bool> _imageUpscalerProcessing = new(false);
@@ -216,7 +216,7 @@
     private readonly Reactive<string?> _imageUpscalerImageDataUrl = new(null);
 
     // DepthEstimator state
-    private readonly Reactive<string> _depthEstimatorModel = new(nameof(DepthEstimatorModel.DepthAnythingV2));
+    private readonly ClientReactive<string> _depthEstimatorModel = new(nameof(DepthEstimatorModel.DepthAnythingV2));
     private readonly Reactive<bool> _depthEstimatorProcessing = new(false);
     private readonly Reactive<string?> _depthEstimatorResult = new(null);
     private readonly Reactive<string?> _depthEstimatorError = new(null);
@@ -225,9 +225,9 @@
     private readonly Reactive<string?> _depthEstimatorImageDataUrl = new(null);
 
     // MeshGenerator state
-    private readonly Reactive<string> _meshGeneratorModel = new(nameof(MeshGeneratorModel.Meshy6));
-    private readonly Reactive<string> _meshGeneratorPrompt = new("A low-poly treasure chest");
-    private readonly Reactive<bool> _meshGeneratorTexture = new(true);
+    private readonly ClientReactive<string> _meshGeneratorModel = new(nameof(MeshGeneratorModel.Meshy6));
+    private readonly ClientReactive<string> _meshGeneratorPrompt = new("A low-poly treasure chest");
+    private readonly ClientReactive<bool> _meshGeneratorTexture = new(true);
     private readonly Reactive<bool> _meshGeneratorProcessing = new(false);
     private readonly Reactive<string?> _meshGeneratorResult = new(null);
     private readonly Reactive<string?> _meshGeneratorError = new(null);
@@ -313,6 +313,7 @@
                     view.Text([FormField.Label], "Password");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Password",
                         value: _sectionPassword.Value,
                         type: "password",
                         onValueChange: async v =>
@@ -414,6 +415,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _classifierModel.Value,
                         options: GetModelOptions<ClassificationModel>(),
                         onValueChange: async v => _classifierModel.Value = v ?? _classifierModel.Value);
@@ -424,6 +426,7 @@
                     view.Text([FormField.Label], "Text to Classify");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Text to Classify",
                         value: _classifierInput.Value,
                         onValueChange: async v => _classifierInput.Value = v ?? "");
                 });
@@ -512,6 +515,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _embeddingModel.Value,
                         options: GetModelOptions<EmbeddingModel>(),
                         onValueChange: async v => _embeddingModel.Value = v ?? _embeddingModel.Value);
@@ -521,6 +525,7 @@
                 {
                     view.Text([FormField.Label], "Embedding Type");
                     view.Select(
+                        ariaLabel: "Embedding Type",
                         value: _embeddingType.Value,
                         options: GetModelOptions<EmbeddingType>(),
                         onValueChange: async v => _embeddingType.Value = v ?? _embeddingType.Value);
@@ -531,6 +536,7 @@
                     view.Text([FormField.Label], "Text");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Text",
                         value: _embeddingInput.Value,
                         onValueChange: async v => _embeddingInput.Value = v ?? "");
                 });
@@ -628,6 +634,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _webSearcherModel.Value,
                         options: GetModelOptions<WebSearcherModel>(),
                         onValueChange: async v => _webSearcherModel.Value = v ?? _webSearcherModel.Value);
@@ -638,6 +645,7 @@
                     view.Text([FormField.Label], "Query");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Query",
                         value: _webSearcherQuery.Value,
                         onValueChange: async v => _webSearcherQuery.Value = v ?? "");
                 });
@@ -647,6 +655,7 @@
                     view.Text([FormField.Label], "Max Results");
                     view.TextField(
                         [Input.Default, "w-24"],
+                        ariaLabel: "Max Results",
                         value: _webSearcherMaxResults.Value.ToString(),
                         type: "number",
                         onValueChange: async v =>
@@ -741,6 +750,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _webScraperModel.Value,
                         options: GetModelOptions<WebScraperModel>(),
                         onValueChange: async v => _webScraperModel.Value = v ?? _webScraperModel.Value);
@@ -751,6 +761,7 @@
                     view.Text([FormField.Label], "URL");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "URL",
                         value: _webScraperUrl.Value,
                         onValueChange: async v => _webScraperUrl.Value = v ?? "");
                 });
@@ -759,6 +770,7 @@
                 {
                     view.Text([FormField.Label], "Output Format");
                     view.Select(
+                        ariaLabel: "Output Format",
                         value: _webScraperOutputFormat.Value,
                         options: GetModelOptions<WebScraperOutputFormat>(),
                         onValueChange: async v => _webScraperOutputFormat.Value = v ?? _webScraperOutputFormat.Value);
@@ -841,6 +853,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _rerankerModel.Value,
                         options: GetModelOptions<RerankModel>(),
                         onValueChange: async v => _rerankerModel.Value = v ?? _rerankerModel.Value);
@@ -851,6 +864,7 @@
                     view.Text([FormField.Label], "Query");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Query",
                         value: _rerankerQuery.Value,
                         onValueChange: async v => _rerankerQuery.Value = v ?? "");
                 });
@@ -860,6 +874,7 @@
                     view.Text([FormField.Label], "Documents (one per line)");
                     view.TextArea(
                         [Textarea.Default, "min-h-[120px]"],
+                        ariaLabel: "Documents (one per line)",
                         value: _rerankerDocuments.Value,
                         onValueChange: async v => _rerankerDocuments.Value = v ?? "");
                 });
@@ -954,6 +969,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _imageGeneratorModel.Value,
                         options: GetModelOptions<ImageGeneratorModel>(),
                         onValueChange: async v => _imageGeneratorModel.Value = v ?? _imageGeneratorModel.Value);
@@ -964,6 +980,7 @@
                     view.Text([FormField.Label], "Prompt");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Prompt",
                         value: _imageGeneratorPrompt.Value,
                         onValueChange: async v => _imageGeneratorPrompt.Value = v ?? "");
                 });
@@ -973,6 +990,7 @@
                     view.Text([FormField.Label], "Negative Prompt (optional)");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Negative Prompt (optional)",
                         value: _imageGeneratorNegativePrompt.Value,
                         onValueChange: async v => _imageGeneratorNegativePrompt.Value = v ?? "");
                 });
@@ -984,6 +1002,7 @@
                         view.Text([FormField.Label], "Width");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Width",
                             value: _imageGeneratorWidth.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -1000,6 +1019,7 @@
                         view.Text([FormField.Label], "Height");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Height",
                             value: _imageGeneratorHeight.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -1016,6 +1036,7 @@
                         view.Text([FormField.Label], "Seed (0 = random)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Seed (0 = random)",
                             value: _imageGeneratorSeed.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -1035,6 +1056,7 @@
                         view.Text([FormField.Label], "Steps (0 = auto)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Steps (0 = auto)",
                             value: _imageGeneratorSteps.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -1050,6 +1072,7 @@
                     {
                         view.Text([FormField.Label], "Quality");
                         view.Select(
+                            ariaLabel: "Quality",
                             value: _imageGeneratorQuality.Value,
                             options: GetModelOptions<ImageQuality>(),
                             onValueChange: async v => _imageGeneratorQuality.Value = v ?? _imageGeneratorQuality.Value);
@@ -1059,6 +1082,7 @@
                     {
                         view.Text([FormField.Label], "Background");
                         view.Select(
+                            ariaLabel: "Background",
                             value: _imageGeneratorBackground.Value,
                             options: GetModelOptions<ImageBackground>(),
                             onValueChange: async v => _imageGeneratorBackground.Value = v ?? _imageGeneratorBackground.Value);
@@ -1072,6 +1096,7 @@
                         view.Text([FormField.Label], "Count (1-4)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Count (1-4)",
                             value: _imageGeneratorCount.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -1113,7 +1138,9 @@
                             lock (_uploadedInputLock)
                             {
                                 _imageGeneratorInputImage = input;
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                                 _imageGeneratorInputImageName.Value = args.FileName;
+#pragma warning restore IKON019
                             }
                         },
                         content: view =>
@@ -1132,6 +1159,7 @@
                             view.Text([Text.Caption], _imageGeneratorInputImageName.Value);
                             view.Button(
                                 [Button.OutlineMd, Button.Icon],
+                                ariaLabel: "Clear input image",
                                 onClick: async () =>
                                 {
                                     lock (_uploadedInputLock)
@@ -1303,6 +1331,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _musicModel.Value,
                         options: GetModelOptions<MusicGeneratorModel>(),
                         onValueChange: async v => _musicModel.Value = v ?? _musicModel.Value);
@@ -1313,6 +1342,7 @@
                     view.Text([FormField.Label], "Prompt");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Prompt",
                         value: _musicPrompt.Value,
                         onValueChange: async v => _musicPrompt.Value = v ?? "");
                 });
@@ -1326,6 +1356,7 @@
                         view.Text([FormField.Label], "Duration (seconds)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Duration (seconds)",
                             value: _musicDuration.Value.ToString("F0"),
                             type: "number",
                             disabled: !supportsDuration,
@@ -1347,6 +1378,7 @@
                         view.Text([FormField.Label], "Adherence (0-1, editing)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Adherence (0-1, editing)",
                             value: _musicStrength.Value.ToString("F2"),
                             type: "number",
                             onValueChange: async v =>
@@ -1379,7 +1411,9 @@
                             lock (_uploadedInputLock)
                             {
                                 _musicInputAudio = input;
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                                 _musicInputAudioName.Value = args.FileName;
+#pragma warning restore IKON019
                             }
                         },
                         content: view =>
@@ -1398,6 +1432,7 @@
                             view.Text([Text.Caption], _musicInputAudioName.Value);
                             view.Button(
                                 [Button.OutlineMd, Button.Icon],
+                                ariaLabel: "Clear input audio",
                                 onClick: async () =>
                                 {
                                     lock (_uploadedInputLock)
@@ -1594,13 +1629,16 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _speechGeneratorModel.Value,
                         options: GetModelOptions<SpeechGeneratorModel>(),
                         onValueChange: async v =>
                         {
                             if (v != null && v != _speechGeneratorModel.Value)
                             {
+#pragma warning disable IKON019 // the model picks the card's one shared SpeechGenerator and its voice list
                                 _speechGeneratorModel.Value = v;
+#pragma warning restore IKON019
                                 UpdateSpeechGeneratorVoiceIds();
                             }
                         });
@@ -1611,6 +1649,7 @@
                     view.Text([FormField.Label], "Text");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Text",
                         value: _speechGeneratorText.Value,
                         onValueChange: async v => _speechGeneratorText.Value = v ?? "");
                 });
@@ -1624,9 +1663,12 @@
                             .Select(v => new SelectOption(v, v))
                             .ToList();
                         view.Select(
+                            ariaLabel: "Voice",
                             value: _speechGeneratorVoiceId.Value,
                             options: voiceOptions,
+#pragma warning disable IKON019 // the model picks the card's one shared SpeechGenerator and its voice list
                             onValueChange: async v => _speechGeneratorVoiceId.Value = v ?? _speechGeneratorVoiceId.Value);
+#pragma warning restore IKON019
                     });
 
                     view.Box([FormField.Root, "flex-1"], content: view =>
@@ -1777,9 +1819,12 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _speechRecognizerModel.Value,
                         options: GetSpeechRecognizerModelOptions(isContinuous),
+#pragma warning disable IKON019 // the instance-wide microphone pipeline and its one recognizer read these settings outside any client scope
                         onValueChange: async v => _speechRecognizerModel.Value = v ?? _speechRecognizerModel.Value);
+#pragma warning restore IKON019
                 });
 
                 view.Box([FormField.Root], content: view =>
@@ -1787,8 +1832,11 @@
                     view.Text([FormField.Label], "Language");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Language",
                         value: _speechRecognizerLanguage.Value,
+#pragma warning disable IKON019 // the instance-wide microphone pipeline and its one recognizer read these settings outside any client scope
                         onValueChange: async v => _speechRecognizerLanguage.Value = v ?? "");
+#pragma warning restore IKON019
                 });
 
                 view.Row([Layout.Row.InlineCenter, "mb-4 flex-wrap"], content: view =>
@@ -1798,7 +1846,9 @@
                         value: isContinuous,
                         onValueChange: value =>
                         {
+#pragma warning disable IKON019 // the instance-wide microphone pipeline and its one recognizer read these settings outside any client scope
                             _speechRecognizerContinuous.Value = value;
+#pragma warning restore IKON019
 
                             var options = GetSpeechRecognizerModelOptions(value);
                             if (options.All(o => o.Value != _speechRecognizerModel.Value) && options.Count > 0)
@@ -2057,7 +2107,9 @@
                 label: capabilities.SupportsDiarization ? "Diarize (label each word with a speaker)" : "Diarize (not supported by this model)",
                 value: _speechRecognizerDiarize.Value && capabilities.SupportsDiarization,
                 disabled: !capabilities.SupportsDiarization,
+#pragma warning disable IKON019 // the instance-wide microphone pipeline and its one recognizer read these settings outside any client scope
                 onValueChange: async v => _speechRecognizerDiarize.Value = v);
+#pragma warning restore IKON019
             return;
         }
 
@@ -2074,6 +2126,7 @@
                         : "End-of-turn silence ms (0 = model default)");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "End-of-turn silence ms",
                         value: _speechRecognizerEndOfTurnSilenceMs.Value.ToString(),
                         type: "number",
                         onValueChange: async v =>
@@ -2093,6 +2146,7 @@
                     view.Text([FormField.Label], "End-of-turn confidence threshold (0-1, 0 = model default)");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "End-of-turn confidence threshold (0-1, 0 = model default)",
                         value: _speechRecognizerEndOfTurnConfidence.Value.ToString("F2"),
                         type: "number",
                         onValueChange: async v =>
@@ -2279,6 +2333,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _ocrModel.Value,
                         options: GetModelOptions<OCRModel>(),
                         onValueChange: async v => _ocrModel.Value = v ?? _ocrModel.Value);
@@ -2290,7 +2345,9 @@
                     multiple: false,
                     onUploadComplete: async args =>
                     {
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                         _ocrFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         _ocrFilePath = args.LocalTempFilePath;
                     },
                     content: view =>
@@ -2448,6 +2505,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _fileConverterModel.Value,
                         options: GetModelOptions<FileConverterModel>(),
                         onValueChange: async v => _fileConverterModel.Value = v ?? _fileConverterModel.Value);
@@ -2467,7 +2525,9 @@
                         lock (_uploadedInputLock)
                         {
                             _fileConverterFile = new UploadedFile(path, args.FileName, args.MimeType);
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                             _fileConverterFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         }
 
                         _fileConverterResult.Value = null;
@@ -2620,6 +2680,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _videoGeneratorModel.Value,
                         options: GetModelOptions<VideoGeneratorModel>(),
                         onValueChange: async v => _videoGeneratorModel.Value = v ?? _videoGeneratorModel.Value);
@@ -2630,6 +2691,7 @@
                     view.Text([FormField.Label], "Prompt");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Prompt",
                         value: _videoGeneratorPrompt.Value,
                         onValueChange: async v => _videoGeneratorPrompt.Value = v ?? "");
                 });
@@ -2641,6 +2703,7 @@
                         view.Text([FormField.Label], "Negative Prompt (optional)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Negative Prompt (optional)",
                             value: _videoGeneratorNegativePrompt.Value,
                             onValueChange: async v => _videoGeneratorNegativePrompt.Value = v ?? "");
                     });
@@ -2653,6 +2716,7 @@
                         view.Text([FormField.Label], "Length (seconds)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Length (seconds)",
                             value: _videoGeneratorLength.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -2668,6 +2732,7 @@
                     {
                         view.Text([FormField.Label], "Resolution");
                         view.Select(
+                            ariaLabel: "Resolution",
                             value: _videoGeneratorResolution.Value,
                             options: GetModelOptions<VideoGeneratorResolution>(),
                             onValueChange: async v => _videoGeneratorResolution.Value = v ?? _videoGeneratorResolution.Value);
@@ -2677,6 +2742,7 @@
                     {
                         view.Text([FormField.Label], "Aspect Ratio");
                         view.Select(
+                            ariaLabel: "Aspect Ratio",
                             value: _videoGeneratorAspectRatio.Value,
                             options: GetModelOptions<VideoGeneratorAspectRatio>(),
                             onValueChange: async v => _videoGeneratorAspectRatio.Value = v ?? _videoGeneratorAspectRatio.Value);
@@ -2689,6 +2755,7 @@
                             view.Text([FormField.Label], "Seed (0 = random)");
                             view.TextField(
                                 [Input.Default],
+                                ariaLabel: "Seed (0 = random)",
                                 value: _videoGeneratorSeed.Value.ToString(),
                                 type: "number",
                                 onValueChange: async v =>
@@ -2736,7 +2803,9 @@
                                 lock (_uploadedInputLock)
                                 {
                                     _videoGeneratorInputImage = input;
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                                     _videoGeneratorInputImageName.Value = args.FileName;
+#pragma warning restore IKON019
                                 }
                             },
                             content: view =>
@@ -2755,6 +2824,7 @@
                                 view.Text([Text.Caption], _videoGeneratorInputImageName.Value);
                                 view.Button(
                                     [Button.OutlineMd, Button.Icon],
+                                    ariaLabel: "Clear input image",
                                     onClick: async () =>
                                     {
                                         lock (_uploadedInputLock)
@@ -2891,6 +2961,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _soundEffectModel.Value,
                         options: GetModelOptions<SoundEffectGeneratorModel>(),
                         onValueChange: async v => _soundEffectModel.Value = v ?? _soundEffectModel.Value);
@@ -2901,6 +2972,7 @@
                     view.Text([FormField.Label], "Description");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Description",
                         value: _soundEffectPrompt.Value,
                         onValueChange: async v => _soundEffectPrompt.Value = v ?? "");
                 });
@@ -2912,6 +2984,7 @@
                         view.Text([FormField.Label], "Duration (seconds)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Duration (seconds)",
                             value: _soundEffectDuration.Value.ToString("F1"),
                             type: "number",
                             onValueChange: async v =>
@@ -3077,6 +3150,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _videoEnhancerModel.Value,
                         options: GetModelOptions<VideoEnhancerModel>(),
                         onValueChange: async v => _videoEnhancerModel.Value = v ?? _videoEnhancerModel.Value);
@@ -3099,6 +3173,7 @@
                         view.Text([FormField.Label], "Target FPS (0 = auto)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Target FPS (0 = auto)",
                             value: _videoEnhancerTargetFps.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -3115,6 +3190,7 @@
                         view.Text([FormField.Label], "Start Frame (0 = from start)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "Start Frame (0 = from start)",
                             value: _videoEnhancerStartFrame.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -3131,6 +3207,7 @@
                         view.Text([FormField.Label], "End Frame (0 = to end)");
                         view.TextField(
                             [Input.Default],
+                            ariaLabel: "End Frame (0 = to end)",
                             value: _videoEnhancerEndFrame.Value.ToString(),
                             type: "number",
                             onValueChange: async v =>
@@ -3314,6 +3391,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _imageSegmenterModel.Value,
                         options: GetModelOptions<ImageSegmenterModel>(),
                         onValueChange: async v => _imageSegmenterModel.Value = v ?? _imageSegmenterModel.Value);
@@ -3324,6 +3402,7 @@
                     view.Text([FormField.Label], "Prompt (concept to segment)");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Prompt (concept to segment)",
                         value: _imageSegmenterPrompt.Value,
                         onValueChange: async v => _imageSegmenterPrompt.Value = v ?? "");
                 });
@@ -3342,7 +3421,9 @@
                         lock (_uploadedInputLock)
                         {
                             _imageSegmenterFile = new UploadedFile(path, args.FileName, args.MimeType);
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                             _imageSegmenterFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         }
                     },
                     content: view =>
@@ -3495,6 +3576,7 @@
                     {
                         view.Text([FormField.Label], "Model");
                         view.Select(
+                            ariaLabel: "Model",
                             value: _imageUpscalerModel.Value,
                             options: GetModelOptions<ImageUpscalerModel>(),
                             onValueChange: async v => _imageUpscalerModel.Value = v ?? _imageUpscalerModel.Value);
@@ -3507,6 +3589,7 @@
                             view.Text([FormField.Label], $"Scale factor (max {capabilities.MaxScaleFactor})");
                             view.TextField(
                                 [Input.Default],
+                                ariaLabel: "Scale factor",
                                 value: _imageUpscalerScaleFactor.Value.ToString(),
                                 type: "number",
                                 onValueChange: async v =>
@@ -3526,6 +3609,7 @@
                             view.Text([FormField.Label], "Creativity (0-1)");
                             view.TextField(
                                 [Input.Default],
+                                ariaLabel: "Creativity (0-1)",
                                 value: _imageUpscalerCreativity.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
                                 type: "number",
                                 onValueChange: async v =>
@@ -3553,7 +3637,9 @@
                         lock (_uploadedInputLock)
                         {
                             _imageUpscalerFile = new UploadedFile(path, args.FileName, args.MimeType);
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                             _imageUpscalerFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         }
                     },
                     content: view =>
@@ -3680,6 +3766,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _depthEstimatorModel.Value,
                         options: GetModelOptions<DepthEstimatorModel>(),
                         onValueChange: async v => _depthEstimatorModel.Value = v ?? _depthEstimatorModel.Value);
@@ -3699,7 +3786,9 @@
                         lock (_uploadedInputLock)
                         {
                             _depthEstimatorFile = new UploadedFile(path, args.FileName, args.MimeType);
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                             _depthEstimatorFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         }
                     },
                     content: view =>
@@ -3816,6 +3905,7 @@
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _meshGeneratorModel.Value,
                         options: GetModelOptions<MeshGeneratorModel>(),
                         onValueChange: async v => _meshGeneratorModel.Value = v ?? _meshGeneratorModel.Value);
@@ -3826,6 +3916,7 @@
                     view.Text([FormField.Label], "Prompt");
                     view.TextArea(
                         [Textarea.Default],
+                        ariaLabel: "Prompt",
                         value: _meshGeneratorPrompt.Value,
                         onValueChange: async v => _meshGeneratorPrompt.Value = v ?? "");
                 });
@@ -3861,7 +3952,9 @@
                             lock (_uploadedInputLock)
                             {
                                 _meshGeneratorInputImage = input;
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                                 _meshGeneratorInputImageName.Value = args.FileName;
+#pragma warning restore IKON019
                             }
                         },
                         content: view =>
@@ -3880,6 +3973,7 @@
                             view.Text([Text.Caption], _meshGeneratorInputImageName.Value);
                             view.Button(
                                 [Button.OutlineMd, Button.Icon],
+                                ariaLabel: "Clear input image",
                                 onClick: async () =>
                                 {
                                     lock (_uploadedInputLock)

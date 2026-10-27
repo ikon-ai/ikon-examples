@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ikon.Connectors;
 using Ikon.Connectors.Microsoft;
 
+#pragma warning disable IKON019 // the SharePoint tab is one console over the instance's shared site connection: its site, folder, selection and status are instance-wide, so its inputs are too
 public partial class Validation
 {
     // Only lists this tab made are offered for deletion, so a test against a shared site cannot
@@ -61,7 +62,7 @@ public partial class Validation
                     onClick: async () => await SpRunAsync("start list changes from now", () => ReadSharePointListChangesAsync(fromNow: true)));
 
                 var deletable = current.DisplayName.StartsWith(SpTestListPrefix, StringComparison.Ordinal);
-                view.Button([Button.GhostErrorSm], text: "Delete list", disabled: _spBusy.Value || !deletable, props: new Dictionary<string, object>
+                view.Button([Button.OutlineErrorSm], text: "Delete list", disabled: _spBusy.Value || !deletable, props: new Dictionary<string, object>
                 {
                     ["data-testid"] = "sp-list-delete",
                     ["title"] = deletable ? "Moves the list to the site's recycle bin" : "Only lists this tab created can be deleted here",
@@ -116,7 +117,7 @@ public partial class Validation
                         view.Button([Button.GhostSm], text: "Attachments", disabled: _spBusy.Value, props: TestId("sp-item-attachments"),
                             onClick: async () => await SpRunAsync("list attachments", () => LoadSharePointAttachmentsAsync(item)));
                     }
-                    view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                         props: new Dictionary<string, object> { ["aria-label"] = $"Delete item {item.Id}", ["title"] = "Moves it to the site's recycle bin" },
                         onClick: async () => await SpRunAsync("delete the item", () => DeleteSharePointListItemAsync(item)));
                 });
@@ -130,10 +131,13 @@ public partial class Validation
                             view.Row([Layout.Row.Sm, "items-center"], key: attachment.FileName, content: view =>
                             {
                                 view.Text([Text.Caption, "flex-1"], attachment.FileName, props: TestId("sp-item-attachment"));
-                                view.Button([Button.GhostSm], text: "Read", disabled: _spBusy.Value,
-                                    onClick: async () => await SpRunAsync($"read {attachment.FileName}", () => ReadSharePointAttachmentAsync(item, attachment)));
-                                view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
-                                    onClick: async () => await SpRunAsync($"delete {attachment.FileName}", () => DeleteSharePointAttachmentAsync(item, attachment)));
+                                view.Row([Layout.Row.Actions], content: view =>
+                                {
+                                    view.Button([Button.GhostSm], text: "Read", disabled: _spBusy.Value,
+                                        onClick: async () => await SpRunAsync($"read {attachment.FileName}", () => ReadSharePointAttachmentAsync(item, attachment)));
+                                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
+                                        onClick: async () => await SpRunAsync($"delete {attachment.FileName}", () => DeleteSharePointAttachmentAsync(item, attachment)));
+                                });
                             });
                         }
 

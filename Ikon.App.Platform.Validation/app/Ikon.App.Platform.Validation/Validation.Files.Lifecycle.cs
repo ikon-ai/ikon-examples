@@ -168,6 +168,7 @@ public partial class Validation
 
     [Function(Name = "UploadLabReport", Description = "The upload lab's browser reports what the client saw of one upload", Visibility = FunctionVisibility.External)]
     [AllowAnonymous]
+    [Surface("app")]
     public void UploadLabReport(string uploadId, string error, double elapsedMs, bool reconnected)
     {
         if (_labUploads.TryGetValue(uploadId, out var upload))

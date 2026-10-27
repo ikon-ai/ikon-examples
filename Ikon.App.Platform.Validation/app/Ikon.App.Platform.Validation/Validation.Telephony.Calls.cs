@@ -6,9 +6,9 @@ public partial class Validation
     private static readonly TimeSpan TelEchoLimit = TimeSpan.FromSeconds(60);
 
     // Outbound call
-    private readonly Reactive<string> _telCallTo = new("");
-    private readonly Reactive<string> _telCallFrom = new("auto");
-    private readonly Reactive<string> _telCallLine = new("This is the IKON validation app calling. One, two, three.");
+    private readonly ClientReactive<string> _telCallTo = new("");
+    private readonly ClientReactive<string> _telCallFrom = new("auto");
+    private readonly ClientReactive<string> _telCallLine = new("This is the IKON validation app calling. One, two, three.");
     private readonly Reactive<bool> _telCallBusy = new(false);
     private readonly Reactive<string> _telCallInfo = new("");
     private readonly Reactive<string> _telCallEnergy = new("");
@@ -46,6 +46,7 @@ public partial class Validation
                     {
                         view.Text([FormField.Label], "From");
                         view.Select(
+                            ariaLabel: "From",
                             value: _telCallFrom.Value,
                             options: TelFromOptions(),
                             disabled: _telCallLive.Value,
@@ -58,6 +59,7 @@ public partial class Validation
                 {
                     view.Text([FormField.Label], "Line to speak");
                     view.TextField([Input.Default],
+                        ariaLabel: "Line to speak",
                         value: _telCallLine.Value,
                         props: TestId("tel-call-line"),
                         onValueChange: async v => _telCallLine.Value = v ?? "");
@@ -288,6 +290,7 @@ public partial class Validation
             {
                 view.Text([FormField.Label], "Mode");
                 view.Select(
+                    ariaLabel: "Mode",
                     value: _telIncomingMode.Value,
                     options:
                     [
@@ -296,7 +299,9 @@ public partial class Validation
                         new SelectOption("echo", "Echo")
                     ],
                     props: TestId("tel-incoming-mode"),
+#pragma warning disable IKON019 // the incoming-call handler reads this outside any client scope to answer every call to the instance
                     onValueChange: async v => _telIncomingMode.Value = v ?? "tone");
+#pragma warning restore IKON019
             });
 
             if (_telCallLog.Count == 0)

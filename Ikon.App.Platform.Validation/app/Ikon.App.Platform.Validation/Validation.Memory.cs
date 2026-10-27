@@ -3,15 +3,15 @@ using System.Runtime.InteropServices;
 
 public partial class Validation
 {
-    private readonly Reactive<string> _memoryAllocateMb = new("10");
+    private readonly ClientReactive<string> _memoryAllocateMb = new("10");
     private readonly Reactive<int> _memoryAllocationVersion = new(0);
     private readonly Reactive<int> _maxClientsVersion = new(0);
-    private readonly Reactive<string> _maxClientsOverride = new("");
+    private readonly ClientReactive<string> _maxClientsOverride = new("");
     private readonly Reactive<bool> _memoryAllocating = new(false);
     private readonly Reactive<double> _memoryAfterGcProcessMb = new(0);
     private readonly Reactive<double> _memoryAfterGcManagedMb = new(0);
-    private readonly Reactive<bool> _memoryErrorToastOpen = new(false);
-    private readonly Reactive<string> _memoryErrorMessage = new("");
+    private readonly ClientReactive<bool> _memoryErrorToastOpen = new(false);
+    private readonly ClientReactive<string> _memoryErrorMessage = new("");
     private readonly List<nint> _memoryUnmanagedAllocations = [];
     private readonly List<byte[]> _memoryManagedAllocations = [];
     private long _memoryUnmanagedBytes;
@@ -66,7 +66,7 @@ public partial class Validation
                 int connectedClients = app.ReactiveGlobalState.Clients.Value.Values.Count(context => !context.IsInternal);
 
                 view.Text([Text.H2, "mb-4"], "Client Limit");
-                view.Text([Text.Body], $"Max clients: {(app.MaxClients > 0 ? app.MaxClients.ToString() : "unlimited")}");
+                view.Text([Text.Body], $"Max clients: {(app.MaxClients > 0 ? app.MaxClients.ToString() : "unlimited")}", props: TestId("max-clients"));
                 view.Text([Text.Body], $"Connected clients: {connectedClients}");
 
                 view.Row(["flex items-center gap-4 mt-4 flex-wrap"], content: view =>
@@ -74,8 +74,8 @@ public partial class Validation
                     view.Text([Text.Body, "whitespace-nowrap"], "Override max clients:");
                     view.TextField([Input.Default, "w-32"], value: _maxClientsOverride.Value, type: "number",
                         step: "1", min: "0", placeholder: app.MaxClients.ToString(),
-                        onValueChange: async v => _maxClientsOverride.Value = v ?? "");
-                    view.Button([Button.PrimaryMd], text: "Apply", onClick: ApplyMaxClientsOverrideAsync);
+                        onValueChange: async v => _maxClientsOverride.Value = v ?? "", props: TestId("max-clients-override"));
+                    view.Button([Button.PrimaryMd], text: "Apply", onClick: ApplyMaxClientsOverrideAsync, props: TestId("max-clients-apply"));
                 });
             });
 
@@ -86,7 +86,7 @@ public partial class Validation
                 view.Row(["flex items-center gap-4 flex-wrap"], content: view =>
                 {
                     view.Text([Text.Body, "whitespace-nowrap"], "MB to allocate:");
-                    view.TextField([Input.Default, "w-32"], value: _memoryAllocateMb.Value, type: "number",
+                    view.TextField([Input.Default, "w-32"], ariaLabel: "MB to allocate", value: _memoryAllocateMb.Value, type: "number",
                         step: "1", min: "1", max: "4096",
                         onValueChange: async v => _memoryAllocateMb.Value = v ?? "10");
                     view.Button([Button.PrimaryMd], text: "Allocate Managed", disabled: allocating, onClick: AllocateManagedMemoryAsync);

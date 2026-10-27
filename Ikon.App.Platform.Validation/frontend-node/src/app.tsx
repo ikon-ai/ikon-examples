@@ -1,15 +1,21 @@
 import './app.css';
 
-import { AuthProvider, IkonApp, getConnectionRecovery, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
+import { useEffect } from 'react';
+import { AuthProvider, IkonApp, bootAuthConfig, getConnectionRecovery, getOfflineScope, recoverWhenNetworkReturns, useAuthOptional, useIkonApp, useUnattendedRecovery } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
 import { registerTpProbeModule } from './lib/tp-probe/tp-probe-module';
 import { registerIdentityModule } from './lib/identity/identity-module';
 import { registerUploadLabModule } from './lib/upload-lab/upload-lab-module';
+import { registerSurfaceProbeModule } from './lib/surface-probe/surface-probe-module';
 import { AuthGuard } from './auth/auth-guard';
-import { authConfig } from './env';
 import { I18nProvider, useI18n } from './i18n/i18n';
 import { en } from './i18n/en';
+
+// The surfaces phase names a surface outright with ?validation-surface=, the selector a native client
+// or a test uses, which the backend checks like any other
+const explicitSurface = new URLSearchParams(window.location.search).get('validation-surface') ?? undefined;
+const authConfig = bootAuthConfig({ surface: explicitSurface });
 
 function App() {
   return (
@@ -25,7 +31,8 @@ function App() {
 
 function AuthorizedApp() {
   const app = useIkonApp({
-    modules: [registerStandardUiModule, registerLucideIconsModule, registerFunctionTesterModule, registerTpProbeModule, registerIdentityModule, registerUploadLabModule],
+    modules: [registerStandardUiModule, registerLucideIconsModule, registerFunctionTesterModule, registerTpProbeModule, registerIdentityModule, registerUploadLabModule, registerSurfaceProbeModule],
+    surface: explicitSurface,
   });
 
   return (
@@ -33,7 +40,7 @@ function AuthorizedApp() {
       {...app}
       connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay /> : null)}
       reconnectingOverlay={<ReconnectingOverlay />}
-      offlineOverlay={<OfflineOverlay isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} isStartupFailed={app.isStartupFailed} />}
+      offlineOverlay={<OfflineOverlay isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} isStartupFailed={app.isStartupFailed} isUnattended={app.isUnattended} />}
       accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} />}
     />
   );
@@ -63,17 +70,25 @@ function ReconnectingOverlay() {
   );
 }
 
-function OfflineOverlay({ isServerFull, isSessionExpired, isStartupFailed }: { isServerFull: boolean; isSessionExpired: boolean; isStartupFailed: boolean }) {
+function OfflineOverlay({ isServerFull, isSessionExpired, isStartupFailed, isUnattended }: { isServerFull: boolean; isSessionExpired: boolean; isStartupFailed: boolean; isUnattended: boolean }) {
   const { t } = useI18n();
 
-  const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : isStartupFailed ? 'startupFailed' : 'offline';
+  const scope = getOfflineScope({ isServerFull, isSessionExpired, isStartupFailed });
   const message = t(`connection.${scope}.message`);
   const recovery = getConnectionRecovery({ isSessionExpired });
+  const { secondsLeft, isChecking } = useUnattendedRecovery({ enabled: isUnattended, scope, recover: recovery.run });
+  const retry = isChecking ? t('connection.retrying') : secondsLeft === null ? '' : secondsLeft >= 120 ? t('connection.retryInMinutes', { minutes: String(Math.ceil(secondsLeft / 60)) }) : t('connection.retryInSeconds', { seconds: String(secondsLeft) });
+
+  // Only the plain disconnect reloads when the network returns; a full server, ended session or
+  // failed startup would come straight back to the same overlay.
+  useEffect(() => (scope === 'offline' ? recoverWhenNetworkReturns(recovery.run) : undefined), [scope, recovery.run]);
+
   return (
-    <div className="ikon-offline-overlay">
+    <div className="ikon-offline-overlay" data-offline-scope={scope}>
       <div className="ikon-offline-chip">
         <span className="ikon-offline-title">{t(`connection.${scope}.title`)}</span>
         {message && <span className="ikon-offline-message">{message}</span>}
+        {retry && <span className="ikon-offline-message" data-testid="offline-retry">{retry}</span>}
         <button type="button" className="ikon-offline-action" onClick={recovery.run}>
           <span className="ikon-offline-action-label">{t(`connection.${scope}.action`)}</span>
         </button>

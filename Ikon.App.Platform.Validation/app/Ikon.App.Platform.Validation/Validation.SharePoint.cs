@@ -3,6 +3,7 @@ using System.Text.Json;
 using Ikon.Connectors;
 using Ikon.Connectors.Microsoft;
 
+#pragma warning disable IKON019 // the SharePoint tab is one console over the instance's shared site connection: its site, folder, selection and status are instance-wide, so its inputs are too
 public partial class Validation
 {
     private const string SpTenantSecret = "MICROSOFT_TENANT_ID";
@@ -278,7 +279,7 @@ public partial class Validation
                         props: new Dictionary<string, object> { ["aria-label"] = $"More actions for {item.Name}", ["data-testid"] = "sp-file-more" },
                         onClick: async () => SpToggleActiveItem(item));
 
-                    view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
+                    view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
                         props: new Dictionary<string, object> { ["aria-label"] = $"Delete {item.Name}", ["title"] = "Moves it to the site's recycle bin" },
                         onClick: async () => await SpRunAsync($"delete {item.Name}", () => DeleteSharePointItemAsync(item)));
                 });

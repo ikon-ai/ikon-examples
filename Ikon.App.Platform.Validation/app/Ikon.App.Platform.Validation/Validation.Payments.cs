@@ -9,20 +9,20 @@ public partial class Validation
     private const string GatedFeatureOfferId = "validation_subscription";
     private const string GatedFeatureFunctionName = "ValidationGatedFeature";
 
-    private readonly Reactive<string> _payOfferId = new("validation_subscription");
-    private readonly Reactive<string> _payAmount = new("5.00");
-    private readonly Reactive<string> _payCurrency = new("eur");
-    private readonly Reactive<string> _payChargeDescription = new("Validation charge");
-    private readonly Reactive<string> _payCustomerOverride = new("");
-    private readonly Reactive<bool> _payAllowPromo = new(false);
-    private readonly Reactive<string> _payPriceOverride = new("");
-    private readonly Reactive<string> _payChangeOfferId = new("");
+    private readonly ClientReactive<string> _payOfferId = new("validation_subscription");
+    private readonly ClientReactive<string> _payAmount = new("5.00");
+    private readonly ClientReactive<string> _payCurrency = new("eur");
+    private readonly ClientReactive<string> _payChargeDescription = new("Validation charge");
+    private readonly ClientReactive<string> _payCustomerOverride = new("");
+    private readonly ClientReactive<bool> _payAllowPromo = new(false);
+    private readonly ClientReactive<string> _payPriceOverride = new("");
+    private readonly ClientReactive<string> _payChangeOfferId = new("");
 
-    private readonly Reactive<string> _payNewOfferId = new("my_offer");
-    private readonly Reactive<string> _payNewOfferName = new("My Offer");
-    private readonly Reactive<string> _payNewOfferPrice = new("9.99");
-    private readonly Reactive<string> _payNewOfferCurrency = new("eur");
-    private readonly Reactive<string> _payNewOfferKind = new("one_time");
+    private readonly ClientReactive<string> _payNewOfferId = new("my_offer");
+    private readonly ClientReactive<string> _payNewOfferName = new("My Offer");
+    private readonly ClientReactive<string> _payNewOfferPrice = new("9.99");
+    private readonly ClientReactive<string> _payNewOfferCurrency = new("eur");
+    private readonly ClientReactive<string> _payNewOfferKind = new("one_time");
 
     private readonly Reactive<IReadOnlyList<PaymentOffer>> _payOffers = new([]);
     private readonly Reactive<bool> _payOffersLoaded = new(false);
@@ -105,7 +105,9 @@ public partial class Validation
                         label: "Provider",
                         onValueChange: async v =>
                         {
+#pragma warning disable IKON019 // it shows app.Payments.DefaultProvider, which the handler sets for the whole instance
                             _payProvider.Value = v;
+#pragma warning restore IKON019
                             app.Payments.DefaultProvider = v switch
                             {
                                 "stripe" => PaymentProvider.Stripe,
@@ -418,7 +420,7 @@ public partial class Validation
                 card.Text([Text.H3], text: "Events");
                 if (_payEventLog.Value.Count == 0)
                 {
-                    card.Text([Text.BodySm, "text-tertiary"], text: "Nothing yet.");
+                    card.EmptyState([EmptyState.RootSm], title: "Nothing yet", icon: "");
                 }
                 foreach (var line in _payEventLog.Value.Take(20))
                 {

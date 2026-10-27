@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+#pragma warning disable IKON019 // the profiling run and the render modes this tab toggles are instance-wide, so its controls show instance state
 public partial class Validation
 {
     private readonly Reactive<bool> _profilingRunning = new(false);

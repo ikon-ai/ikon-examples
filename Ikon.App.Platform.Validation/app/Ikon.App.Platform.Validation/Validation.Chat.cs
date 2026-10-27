@@ -1,6 +1,6 @@
 public partial class Validation
 {
-    private readonly Reactive<string> _chatReasoning = new(ChatReasoningDefault);
+    private readonly ClientReactive<string> _chatReasoning = new(ChatReasoningDefault);
     private readonly Reactive<string?> _chatError = new(null);
     private readonly Reactive<string?> _chatErrorKind = new(null);
     private readonly Reactive<string?> _chatTokenEstimate = new(null);
@@ -82,6 +82,7 @@ public partial class Validation
                     {
                         view.Text([FormField.Label], "Model");
                         view.Select(
+                            ariaLabel: "Model",
                             value: _chatModel.Value,
                             options: GetModelOptions<LLMModel>(),
                             onValueChange: async v => _chatModel.Value = v ?? _chatModel.Value);
@@ -91,6 +92,7 @@ public partial class Validation
                     {
                         view.Text([FormField.Label], "Region");
                         view.Select(
+                            ariaLabel: "Region",
                             value: _chatRegion.Value,
                             options: GetModelOptions<ModelRegion>(),
                             onValueChange: async v => _chatRegion.Value = v ?? _chatRegion.Value);
@@ -100,6 +102,7 @@ public partial class Validation
                     {
                         view.Text([FormField.Label], "Reasoning");
                         view.Select(
+                            ariaLabel: "Reasoning",
                             value: _chatReasoning.Value,
                             options: ChatReasoningOptions,
                             onValueChange: async v => _chatReasoning.Value = v ?? ChatReasoningDefault);

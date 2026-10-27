@@ -1,13 +1,13 @@
 public partial class Validation
 {
-    private readonly Reactive<string> _shaderSource = new(DefaultShaderSource);
-    private readonly Reactive<double> _shaderFps = new(60);
-    private readonly Reactive<double> _shaderTimeSpeed = new(0.1);
-    private readonly Reactive<double> _shaderBokehDensity = new(450.0);
-    private readonly Reactive<double> _shaderBokehMinSize = new(30.0);
-    private readonly Reactive<double> _shaderBokehMaxSize = new(70.0);
-    private readonly Reactive<double> _shaderGlowIntensity = new(0.3);
-    private readonly Reactive<double> _shaderColorIntensity = new(3.0);
+    private readonly ClientReactive<string> _shaderSource = new(DefaultShaderSource);
+    private readonly ClientReactive<double> _shaderFps = new(60);
+    private readonly ClientReactive<double> _shaderTimeSpeed = new(0.1);
+    private readonly ClientReactive<double> _shaderBokehDensity = new(450.0);
+    private readonly ClientReactive<double> _shaderBokehMinSize = new(30.0);
+    private readonly ClientReactive<double> _shaderBokehMaxSize = new(70.0);
+    private readonly ClientReactive<double> _shaderGlowIntensity = new(0.3);
+    private readonly ClientReactive<double> _shaderColorIntensity = new(3.0);
 
     private const string DefaultShaderSource = @"const float MATH_PI = float( 3.14159265359 );
 
@@ -339,6 +339,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
                 view.TextArea(
                     [Textarea.Default, "font-mono text-sm h-96"],
+                    ariaLabel: "Shader source",
                     value: _shaderSource.Value,
                     onValueChange: value =>
                     {

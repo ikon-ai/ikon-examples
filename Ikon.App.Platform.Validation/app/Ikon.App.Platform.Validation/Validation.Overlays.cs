@@ -137,7 +137,7 @@ public partial class Validation
 
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
-                        trigger: view => view.Button([Button.OutlineMd, Button.Icon], content: v => v.Icon([Icon.Default], name: "info")),
+                        trigger: view => view.Button([Button.OutlineMd, Button.Icon], ariaLabel: "More information", content: v => v.Icon([Icon.Default], name: "info")),
                         content: view => view.Text(text: "More information here"));
                 });
             });

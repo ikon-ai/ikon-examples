@@ -13,7 +13,9 @@ public partial class Validation
             if (clientParams.Test == SiblingClientTestParameter)
             {
                 _siblingClientCount.Value++;
+#pragma warning disable IKON019 // the sibling client's join and leave are shown to the page that opened it, which is a different client
                 _lastSiblingClient.Value = $"session {clientContext.SessionId} joined at {DateTime.UtcNow:HH:mm:ss}";
+#pragma warning restore IKON019
             }
 
             return Task.CompletedTask;
@@ -24,7 +26,9 @@ public partial class Validation
             if (clientParams.Test == SiblingClientTestParameter)
             {
                 _siblingClientCount.Value = Math.Max(0, _siblingClientCount.Value - 1);
+#pragma warning disable IKON019 // the sibling client's join and leave are shown to the page that opened it, which is a different client
                 _lastSiblingClient.Value = $"session {clientContext.SessionId} left at {DateTime.UtcNow:HH:mm:ss}";
+#pragma warning restore IKON019
             }
 
             return Task.CompletedTask;

@@ -10,9 +10,9 @@ public partial class Validation
     private const int MaxRows = 100;
     private const string DatabaseName = "validationdb";
 
-    private readonly Reactive<string> _dbAuthor = new("");
-    private readonly Reactive<string> _dbMessage = new("");
-    private readonly Reactive<string> _dbReadVia = new("ef");
+    private readonly ClientReactive<string> _dbAuthor = new("");
+    private readonly ClientReactive<string> _dbMessage = new("");
+    private readonly ClientReactive<string> _dbReadVia = new("ef");
     private readonly ReactiveList<Entry> _dbEntries = new();
     private readonly Reactive<string> _dbStatus = new("");
     private readonly Reactive<bool> _dbBusy = new(false);
@@ -176,6 +176,7 @@ public partial class Validation
                     {
                         view.Text([Text.Label], "Read via");
                         view.Select(
+                            ariaLabel: "Read via",
                             value: _dbReadVia.Value,
                             options:
                             [
@@ -204,7 +205,7 @@ public partial class Validation
 
                 if (_dbEntries.Value.Count == 0)
                 {
-                    view.Text([Text.Caption], "No entries yet. Add one above.", props: TestId("db-empty"));
+                    view.EmptyState(title: "No entries yet", description: "Add one above.", icon: "database", props: TestId("db-empty"));
                 }
                 else
                 {

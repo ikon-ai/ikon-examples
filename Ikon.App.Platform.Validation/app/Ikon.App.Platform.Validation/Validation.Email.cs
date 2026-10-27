@@ -3,10 +3,10 @@ public partial class Validation
     private static readonly string[] AllowedRecipientDomains = ["ikon.live", "ikonai.com"];
 
     // Send state
-    private readonly Reactive<string> _emailTo = new("");
-    private readonly Reactive<string> _emailSubject = new("Validation test email");
-    private readonly Reactive<string> _emailBody = new("<p>Hello from the IKON validation app.</p>");
-    private readonly Reactive<bool> _emailAttachSample = new(false);
+    private readonly ClientReactive<string> _emailTo = new("");
+    private readonly ClientReactive<string> _emailSubject = new("Validation test email");
+    private readonly ClientReactive<string> _emailBody = new("<p>Hello from the IKON validation app.</p>");
+    private readonly ClientReactive<bool> _emailAttachSample = new(false);
     private readonly Reactive<bool> _emailSending = new(false);
     private readonly Reactive<string?> _emailSendResult = new(null);
     private readonly Reactive<string?> _emailSendError = new(null);
@@ -16,8 +16,8 @@ public partial class Validation
     private readonly Reactive<string?> _inboxError = new(null);
     private readonly ReactiveList<InboundEmailSummary> _inboxEmails = new();
     private readonly Reactive<string?> _inboxNextCursor = new(null);
-    private readonly Reactive<string> _inboxFilterRecipient = new("");
-    private readonly Reactive<string> _inboxFilterFrom = new("");
+    private readonly ClientReactive<string> _inboxFilterRecipient = new("");
+    private readonly ClientReactive<string> _inboxFilterFrom = new("");
 
     // Detail state
     private readonly Reactive<string?> _selectedEmailId = new(null);
@@ -115,6 +115,7 @@ public partial class Validation
                     view.Text([FormField.Label], "Subject");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Subject",
                         value: _emailSubject.Value,
                         onValueChange: async v => _emailSubject.Value = v ?? "");
                 });
@@ -124,6 +125,7 @@ public partial class Validation
                     view.Text([FormField.Label], "HTML Body");
                     view.TextArea(
                         [Textarea.Default, "min-h-[120px]"],
+                        ariaLabel: "HTML Body",
                         value: _emailBody.Value,
                         onValueChange: async v => _emailBody.Value = v ?? "");
                 });
@@ -191,6 +193,7 @@ public partial class Validation
                     view.Text([FormField.Label], "Filter by recipient");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Filter by recipient",
                         value: _inboxFilterRecipient.Value,
                         onValueChange: async v => _inboxFilterRecipient.Value = v ?? "");
                 });
@@ -200,6 +203,7 @@ public partial class Validation
                     view.Text([FormField.Label], "Filter by sender");
                     view.TextField(
                         [Input.Default],
+                        ariaLabel: "Filter by sender",
                         value: _inboxFilterFrom.Value,
                         onValueChange: async v => _inboxFilterFrom.Value = v ?? "");
                 });
@@ -257,7 +261,7 @@ public partial class Validation
 
         view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
         {
-            view.Box([isSelected ? Card.Selected : Card.Interactive, "p-3 flex-1 min-w-0"],
+            view.Box([isSelected ? Card.Selected : Card.Interactive, "p-3 flex-1 min-w-40"],
                 onClick: async () => await LoadEmailDetailAsync(id),
                 content: view =>
                 {
@@ -285,6 +289,7 @@ public partial class Validation
             view.Button(
                 [Button.ErrorMd, Button.Icon],
                 onClick: async () => await DeleteEmailAsync(id),
+                ariaLabel: "Delete email",
                 content: v => v.Icon([Icon.Default], name: "trash-2"));
         });
     }
@@ -303,6 +308,7 @@ public partial class Validation
                         _selectedEmailId.Value = null;
                         _emailDetail.Value = null;
                     },
+                    ariaLabel: "Close message",
                     content: v => v.Icon([Icon.Default], name: "x"));
             });
 

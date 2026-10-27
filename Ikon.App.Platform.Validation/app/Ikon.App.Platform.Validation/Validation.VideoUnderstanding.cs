@@ -1,8 +1,8 @@
 public partial class Validation
 {
     // Video Understanding (Asset URI) state
-    private readonly Reactive<string> _videoUnderstandingModel = new(nameof(LLMModel.Gemini25Flash));
-    private readonly Reactive<string> _videoUnderstandingPrompt = new("Describe what happens in this video clip.");
+    private readonly ClientReactive<string> _videoUnderstandingModel = new(nameof(LLMModel.Gemini25Flash));
+    private readonly ClientReactive<string> _videoUnderstandingPrompt = new("Describe what happens in this video clip.");
     private readonly Reactive<bool> _videoUnderstandingProcessing = new(false);
     private readonly Reactive<string?> _videoUnderstandingResult = new(null);
     private readonly Reactive<string?> _videoUnderstandingError = new(null);
@@ -59,6 +59,7 @@ public partial class Validation
                 {
                     view.Text([FormField.Label], "Model");
                     view.Select(
+                        ariaLabel: "Model",
                         value: _videoUnderstandingModel.Value,
                         options: GetVideoCapableModelOptions(),
                         onValueChange: async v => _videoUnderstandingModel.Value = v ?? _videoUnderstandingModel.Value);
@@ -77,7 +78,9 @@ public partial class Validation
                     multiple: false,
                     onUploadComplete: async args =>
                     {
+#pragma warning disable IKON019 // names the file in this card's one shared upload slot, which its run button reads
                         _videoUnderstandingFileName.Value = args.FileName;
+#pragma warning restore IKON019
                         _videoUnderstandingFilePath = args.LocalTempFilePath;
                     },
                     content: view =>

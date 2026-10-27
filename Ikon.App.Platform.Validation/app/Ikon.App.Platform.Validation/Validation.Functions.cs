@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+[Surface("app")]
 public static class ValidationFunctions
 {
     [Function(Name = "AllTypes", Description = "Takes all supported parameter types and returns them as JSON", Visibility = FunctionVisibility.External)]

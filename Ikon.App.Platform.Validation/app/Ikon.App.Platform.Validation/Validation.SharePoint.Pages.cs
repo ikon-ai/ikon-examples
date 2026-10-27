@@ -1,6 +1,7 @@
 using System.Net;
 using Ikon.Connectors.Microsoft;
 
+#pragma warning disable IKON019 // the SharePoint tab is one console over the instance's shared site connection: its site, folder, selection and status are instance-wide, so its inputs are too
 public partial class Validation
 {
     // Only pages this tab created are offered for deletion, so a test against a shared site cannot
@@ -41,16 +42,19 @@ public partial class Validation
                     view.Row([Layout.Row.Sm, "items-center py-1 border-b border-secondary"], key: page.Id, content: view =>
                     {
                         view.Text([Text.Caption, "flex-1 truncate"], $"{page.Title} · {page.Name} · {page.PublishingLevel ?? "?"}", props: TestId("sp-page"));
-                        view.Button([Button.GhostSm], text: "Open", disabled: _spBusy.Value,
-                            onClick: async () => await SpRunAsync($"read {page.Name}", () => ReadSharePointPageAsync(page)));
-                        view.Button([Button.GhostSm], text: "Publish", disabled: _spBusy.Value || page.PublishingLevel == "published",
-                            onClick: async () => await SpRunAsync($"publish {page.Name}", () => PublishSharePointPageAsync(page)));
-
-                        if (page.Name.StartsWith(SpTestPagePrefix, StringComparison.Ordinal))
+                        view.Row([Layout.Row.Actions], content: view =>
                         {
-                            view.Button([Button.GhostErrorSm], text: "Delete", disabled: _spBusy.Value,
-                                onClick: async () => await SpRunAsync($"delete {page.Name}", () => DeleteSharePointPageAsync(page)));
-                        }
+                            view.Button([Button.GhostSm], text: "Open", disabled: _spBusy.Value,
+                                onClick: async () => await SpRunAsync($"read {page.Name}", () => ReadSharePointPageAsync(page)));
+                            view.Button([Button.GhostSm], text: "Publish", disabled: _spBusy.Value || page.PublishingLevel == "published",
+                                onClick: async () => await SpRunAsync($"publish {page.Name}", () => PublishSharePointPageAsync(page)));
+
+                            if (page.Name.StartsWith(SpTestPagePrefix, StringComparison.Ordinal))
+                            {
+                                view.Button([Button.OutlineErrorSm], text: "Delete", disabled: _spBusy.Value,
+                                    onClick: async () => await SpRunAsync($"delete {page.Name}", () => DeleteSharePointPageAsync(page)));
+                            }
+                        });
                     });
                 }
             }

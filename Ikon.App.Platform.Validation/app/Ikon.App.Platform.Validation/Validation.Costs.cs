@@ -16,7 +16,7 @@ public partial class Validation
     private readonly ClientReactive<string?> _costsBudgetResult = new(null);
 
     private readonly Reactive<int> _costsDays = new(30);
-    private readonly Reactive<string> _costsCategory = new("");
+    private readonly ClientReactive<string> _costsCategory = new("");
     private readonly Reactive<bool> _costsLoading = new(false);
     private readonly Reactive<string?> _costsError = new(null);
     private readonly ReactiveList<DailyCost> _costsRows = new();

@@ -185,7 +185,7 @@ public partial class Validation
         {
             var removal = await call(null, CancellationToken.None);
 
-            if (removal == null)
+            if (removal == null || removal.Error?.Contains("has no account functions", StringComparison.Ordinal) == true)
             {
                 _accountRemovalScheduledFor.Value = "unknown";
                 _accountRemovalResult.Value = "FAIL the client has no account functions";

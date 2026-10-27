@@ -473,7 +473,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxBrand], content: view => view.Icon([StatCard.IconSize], name: "trending-up"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Total Revenue", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Total Revenue");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -493,7 +493,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxSuccess], content: view => view.Icon([StatCard.IconSize], name: "users"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Active Users", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Active Users");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -513,7 +513,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxError], content: view => view.Icon([StatCard.IconSize], name: "trending-down"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Churn Rate", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Churn Rate");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -533,7 +533,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxWarning], content: view => view.Icon([StatCard.IconSize], name: "triangle-alert"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Error Rate", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Error Rate");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -553,7 +553,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxInfo], content: view => view.Icon([StatCard.IconSize], name: "chart-bar"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Page Views", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Page Views");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -573,7 +573,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBox], content: view => view.Icon([StatCard.IconSize], name: "activity"));
-                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, ariaLabel: "More options for Uptime", content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Uptime");
                             view.Row([StatCard.ValueRow], content: view =>

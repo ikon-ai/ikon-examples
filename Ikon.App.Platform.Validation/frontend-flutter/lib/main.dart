@@ -28,6 +28,9 @@ class IkonAppConfig {
   static const String devUserId = String.fromEnvironment('IKON_DEV_USER_ID');
 
   static bool get isDeployed => spaceId.isNotEmpty;
+
+  /// Names this app's kept start-up screen: one per deployed space, or per local server.
+  static String get snapshotKey => isDeployed ? spaceId : 'local:$serverHost:$port';
 }
 
 class IkonFlutterApp extends StatelessWidget {
@@ -68,11 +71,18 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
   // Avoid flashing a spinner for quick (re)connects: only reveal it once we have
   // been unconnected for a few seconds (mirrors the web SDK's connectingSlow).
   bool _showSlowConnect = false;
+  // The screen this phone showed last time, shown while it connects instead of a blank one.
+  IkonLiveSnapshot? _startScreen;
   Timer? _slowConnectTimer;
 
   @override
   void initState() {
     super.initState();
+    IkonLiveSnapshot.load(IkonAppConfig.snapshotKey).then((snapshot) {
+      if (mounted && snapshot != null && _uiCore == null) {
+        setState(() => _startScreen = snapshot);
+      }
+    });
     _connect();
   }
 
@@ -128,7 +138,11 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
         _mediaManager = IkonMediaManager(audioPlayback: _audioPlayback, audioCapture: _audioCapture);
 
         if (mounted) {
-          setState(() => _connectionState = IkonConnectionState.connected);
+          setState(() {
+            _connectionState = IkonConnectionState.connected;
+            // The kept screen shows only until the first connect; after a later drop the app shows its own state.
+            _startScreen = null;
+          });
         }
         return;
       } catch (e) {
@@ -184,6 +198,26 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
     }
 
     if (_connectionState != IkonConnectionState.connected || _uiCore == null) {
+      final startScreen = _startScreen;
+      if (startScreen != null) {
+        return Scaffold(
+          body: SafeArea(
+            child: Stack(
+              children: [
+                IkonSnapshotView(snapshot: startScreen),
+                if (_showSlowConnect)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 24,
+                    child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
+
       // Hold a plain background until the connect is clearly slow, so brief
       // (re)connects don't flash a spinner.
       if (!_showSlowConnect) {
@@ -214,6 +248,7 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
         child: IkonParallaxView(
           uiCore: _uiCore!,
           client: _client,
+          liveSnapshotKey: IkonAppConfig.snapshotKey,
           mediaManager: _mediaManager,
         ),
       ),

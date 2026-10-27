@@ -33,6 +33,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Camera");
                             view.Select(
+                                ariaLabel: "Camera",
                                 value: _selectedCameraId.Value,
                                 options: cameraOptions,
                                 disabled: _devicesLoading.Value,
@@ -49,6 +50,7 @@ public partial class Validation
                                     await RefreshDevicesAsync(clientScope.Value.Id);
                                 }
                             },
+                            ariaLabel: "Refresh cameras",
                             content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                     });
 
@@ -58,6 +60,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Codec");
                             view.Select(
+                                ariaLabel: "Codec",
                                 value: _cameraCodec.Value,
                                 options:
                                 [
@@ -72,6 +75,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Resolution");
                             view.Select(
+                                ariaLabel: "Resolution",
                                 value: _cameraResolution.Value,
                                 options:
                                 [
@@ -85,13 +89,13 @@ public partial class Validation
                         view.Column(["flex-1 min-w-[120px]"], content: view =>
                         {
                             view.Text([Text.Caption, "mb-1"], "Bitrate (Mbps)");
-                            view.TextField([Input.Default], value: _cameraBitrate.Value, type: "number", step: "0.5", min: "0.1",
+                            view.TextField([Input.Default], ariaLabel: "Bitrate (Mbps)", value: _cameraBitrate.Value, type: "number", step: "0.5", min: "0.1",
                                 onValueChange: async v => _cameraBitrate.Value = v);
                         });
                         view.Column(["flex-1 min-w-[120px]"], content: view =>
                         {
                             view.Text([Text.Caption, "mb-1"], "Framerate");
-                            view.TextField([Input.Default], value: _cameraFramerate.Value, type: "number", step: "1", min: "1", max: "120",
+                            view.TextField([Input.Default], ariaLabel: "Framerate", value: _cameraFramerate.Value, type: "number", step: "1", min: "1", max: "120",
                                 onValueChange: async v => _cameraFramerate.Value = v);
                         });
                     });
@@ -172,6 +176,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Codec");
                             view.Select(
+                                ariaLabel: "Codec",
                                 value: _screenCodec.Value,
                                 options:
                                 [
@@ -185,13 +190,13 @@ public partial class Validation
                         view.Column(["flex-1 min-w-[120px]"], content: view =>
                         {
                             view.Text([Text.Caption, "mb-1"], "Bitrate (Mbps)");
-                            view.TextField([Input.Default], value: _screenBitrate.Value, type: "number", step: "0.5", min: "0.1",
+                            view.TextField([Input.Default], ariaLabel: "Bitrate (Mbps)", value: _screenBitrate.Value, type: "number", step: "0.5", min: "0.1",
                                 onValueChange: async v => _screenBitrate.Value = v);
                         });
                         view.Column(["flex-1 min-w-[120px]"], content: view =>
                         {
                             view.Text([Text.Caption, "mb-1"], "Framerate");
-                            view.TextField([Input.Default], value: _screenFramerate.Value, type: "number", step: "1", min: "1", max: "120",
+                            view.TextField([Input.Default], ariaLabel: "Framerate", value: _screenFramerate.Value, type: "number", step: "1", min: "1", max: "120",
                                 onValueChange: async v => _screenFramerate.Value = v);
                         });
                     });
@@ -271,6 +276,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Camera");
                             view.Select(
+                                ariaLabel: "Camera",
                                 value: _selectedImageCameraId.Value,
                                 options: imageCameraOptions,
                                 disabled: _devicesLoading.Value,
@@ -280,6 +286,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption, "mb-1"], "Facing");
                             view.Select(
+                                ariaLabel: "Facing",
                                 value: _selectedImageFacing.Value,
                                 options:
                                 [
@@ -300,6 +307,7 @@ public partial class Validation
                                     await RefreshDevicesAsync(clientScope.Value.Id);
                                 }
                             },
+                            ariaLabel: "Refresh cameras",
                             content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                     });
 

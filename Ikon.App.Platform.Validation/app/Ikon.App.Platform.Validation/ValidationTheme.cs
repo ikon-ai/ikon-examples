@@ -56,7 +56,7 @@ public static class ValidationTheme
         ["bg-brand-solid-hover"] = "#ce0266",
         ["bg-brand-button-hover"] = "#ce0266",
 
-        ["radius"] = "0.25rem",
+        ["radius"] = HotReloadProbe.Radius,
 
         // Elevation is hairline; depth comes from flat colour and borders, not blur.
         ["shadow-2xs"] = "0 1px 1px rgb(0 0 0 / 0.03)",

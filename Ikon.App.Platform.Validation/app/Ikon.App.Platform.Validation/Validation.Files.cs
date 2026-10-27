@@ -220,6 +220,7 @@ public partial class Validation
         });
     }
 
+#pragma warning disable IKON019 // one panel follows the latest upload's callbacks, tracked instance-wide by _advUploadLock and _advUploadCurrentId
     private void RenderAdvancedFileUploadSection(UIView view)
     {
         view.Box([Card.Default, "p-6"], content: view =>
@@ -234,6 +235,7 @@ public partial class Validation
                 {
                     view.Text([FormField.Label, "mb-1"], "Upload Mode");
                     view.Select(
+                        ariaLabel: "Upload Mode",
                         value: _advUploadMode.Value,
                         options:
                         [
@@ -365,6 +367,7 @@ public partial class Validation
             }
         });
     }
+#pragma warning restore IKON019
 
     private static void RenderCallbackStatusLine(UIView view, string label, string status)
     {

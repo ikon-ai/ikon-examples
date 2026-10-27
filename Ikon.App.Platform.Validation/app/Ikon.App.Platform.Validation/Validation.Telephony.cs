@@ -9,9 +9,9 @@ public partial class Validation
     private readonly ReactiveList<TelephonyNumber> _telNumbers = new();
 
     // SMS send
-    private readonly Reactive<string> _telSmsTo = new("");
-    private readonly Reactive<string> _telSmsFrom = new("auto");
-    private readonly Reactive<string> _telSmsText = new("Hello from the IKON validation app");
+    private readonly ClientReactive<string> _telSmsTo = new("");
+    private readonly ClientReactive<string> _telSmsFrom = new("auto");
+    private readonly ClientReactive<string> _telSmsText = new("Hello from the IKON validation app");
     private readonly Reactive<bool> _telSmsBusy = new(false);
     private readonly Reactive<string> _telSmsResult = new("");
 
@@ -213,6 +213,7 @@ public partial class Validation
                     {
                         view.Text([FormField.Label], "From");
                         view.Select(
+                            ariaLabel: "From",
                             value: _telSmsFrom.Value,
                             options: TelFromOptions(),
                             props: TestId("tel-sms-from"),
@@ -224,6 +225,7 @@ public partial class Validation
                 {
                     view.Text([FormField.Label], "Message");
                     view.TextField([Input.Default],
+                        ariaLabel: "Message",
                         value: _telSmsText.Value,
                         props: TestId("tel-sms-text"),
                         onValueChange: async v => _telSmsText.Value = v ?? "");

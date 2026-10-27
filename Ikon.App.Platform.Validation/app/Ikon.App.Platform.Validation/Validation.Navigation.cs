@@ -603,6 +603,7 @@ public partial class Validation
                         view.Button(["default", "bg-transparent", currentPage <= 1 ? Pagination.Disabled : Pagination.Previous],
                             disabled: currentPage <= 1,
                             onClick: async () => _paginationPage.Value = Math.Max(1, currentPage - 1),
+                            ariaLabel: "Previous page",
                             content: v => v.Icon([Icon.Sm], name: "chevron-left"));
 
                         for (var page = 1; page <= totalPages; page++)
@@ -628,6 +629,7 @@ public partial class Validation
                         view.Button(["default", "bg-transparent", currentPage >= totalPages ? Pagination.Disabled : Pagination.Next],
                             disabled: currentPage >= totalPages,
                             onClick: async () => _paginationPage.Value = Math.Min(totalPages, currentPage + 1),
+                            ariaLabel: "Next page",
                             content: v => v.Icon([Icon.Sm], name: "chevron-right"));
                     });
                 });

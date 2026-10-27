@@ -5,7 +5,7 @@ public partial class Validation
     // sample.mp4 is 632x632, 24 fps, about 5 s; the box covers the centre of the first frame
     private const int VideoSegmenterSampleSize = 632;
 
-    private readonly Reactive<string> _videoSegmenterPrompt = new("");
+    private readonly ClientReactive<string> _videoSegmenterPrompt = new("");
     private readonly Reactive<bool> _videoSegmenterProcessing = new(false);
     private readonly Reactive<string?> _videoSegmenterResult = new(null);
     private readonly Reactive<string?> _videoSegmenterError = new(null);

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ikon.Connectors;
 using Ikon.Connectors.Microsoft;
 
+#pragma warning disable IKON019 // the SharePoint tab is one console over the instance's shared site connection: its site, folder, selection and status are instance-wide, so its inputs are too
 public partial class Validation
 {
     private readonly Reactive<DriveItem?> _spActiveItem = new(null);
@@ -42,7 +43,7 @@ public partial class Validation
                         onClick: async () => await SpRunAsync("check out", () => CheckOutSharePointFileAsync(item)));
                     view.Button([Button.OutlineSm], text: "Check in", disabled: _spBusy.Value, props: TestId("sp-file-checkin"),
                         onClick: async () => await SpRunAsync("check in", () => CheckInSharePointFileAsync(item)));
-                    view.Button([Button.GhostSm], text: "Discard check-out", disabled: _spBusy.Value,
+                    view.Button([Button.OutlineErrorSm], text: "Discard check-out", disabled: _spBusy.Value,
                         onClick: async () => await SpRunAsync("discard the check-out", () => DiscardSharePointCheckOutAsync(item)));
                     view.Button([Button.OutlineSm], text: "Thumbnail", disabled: _spBusy.Value, props: TestId("sp-file-thumbnail"),
                         onClick: async () => await SpRunAsync("get the thumbnail", () => LoadSharePointThumbnailAsync(item)));
@@ -66,7 +67,7 @@ public partial class Validation
                     }, onClick: async () => await SpRunAsync("change permission inheritance", () => ToggleSharePointItemInheritanceAsync(item)));
                 }
 
-                view.Button([Button.GhostErrorSm], text: "Delete permanently", disabled: _spBusy.Value, props: TestId("sp-file-permanent-delete"),
+                view.Button([Button.OutlineErrorSm], text: "Delete permanently", disabled: _spBusy.Value, props: TestId("sp-file-permanent-delete"),
                     onClick: async () => _spPermanentDeleteOpen.Value = true);
             });
 
@@ -136,7 +137,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm, "items-center flex-wrap"], content: view =>
                     {
                         view.Link([Text.Caption, "break-all"], href: link.WebUrl, text: link.WebUrl, target: "_blank", props: TestId("sp-file-link"));
-                        view.Button([Button.GhostErrorSm], text: "Remove link", disabled: _spBusy.Value, props: TestId("sp-file-link-remove"),
+                        view.Button([Button.OutlineErrorSm], text: "Remove link", disabled: _spBusy.Value, props: TestId("sp-file-link-remove"),
                             onClick: async () => await SpRunAsync("remove the link", () => RemoveSharePointPermissionAsync(item, link.PermissionId)));
                     });
 
@@ -152,7 +153,7 @@ public partial class Validation
 
                             if (_spLinksCreatedHere.Contains(grant.PermissionId))
                             {
-                                view.Button([Button.GhostErrorSm], text: "Remove", disabled: _spBusy.Value,
+                                view.Button([Button.OutlineErrorSm], text: "Remove", disabled: _spBusy.Value,
                                     onClick: async () => await SpRunAsync("remove the permission", () => RemoveSharePointPermissionAsync(item, grant.PermissionId)));
                             }
                         });

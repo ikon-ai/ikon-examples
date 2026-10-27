@@ -223,7 +223,9 @@ public partial class Validation
                     });
                     view.Box([Command.List], content: view =>
                     {
+#pragma warning disable IKON038 // a static preview of the command palette's Command.Empty slot, not an empty page or list
                         view.Box([Command.Empty], content: v => v.Text(text: "No results found."));
+#pragma warning restore IKON038
                         view.Box([Command.Group], content: view =>
                         {
                             view.Box([Command.GroupHeading], content: v => v.Text(text: "Suggestions"));

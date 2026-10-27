@@ -18,14 +18,14 @@ namespace Ikon.App.Platform.Validation.Protocol
     }
 }
 
-// Validation tab exercising schema-versioned persisted state: a PersistentSessionReactive whose
+// Validation tab exercising schema-versioned persisted state: a PersistentReactive whose
 // value type is a data .tp (ValidationState.tp) rather than a plain record, so the stored payload
 // carries the schema version and the .tp compat contract applies on load. v1 payloads carrying
 // Nickname migrate on load, and the retired value stays readable through GetRetiredFields() during
 // the sunset window. See the "Schema-versioned state" section of the persistent-state guide.
 public partial class Validation
 {
-    private readonly PersistentSessionReactive<ValidationProfile> _versionedProfile = new(new ValidationProfile());
+    private readonly PersistentReactive<ValidationProfile> _versionedProfile = new(new ValidationProfile());
 
     // Per-client so concurrent sessions don't trample each other's in-progress edit.
     private readonly ClientReactive<string> _versionedProfileNameDraft = new("");

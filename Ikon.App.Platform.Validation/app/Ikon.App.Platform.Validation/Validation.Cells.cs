@@ -65,8 +65,9 @@ public partial class Validation
         }
     }
 
-    // Through the interface, as for any cell: in the cloud that reaches the cell-host serving the
-    // workspace, the same instance the HTTP checks move; a local run hosts it in-process.
+    // Through the interface, as for any cell: in the cloud and in a local `ikon run` that reaches the
+    // cell-host serving the workspace, the same instance the HTTP checks move (Studio's preview hosts
+    // it in-process).
     private static ILabCell ConnectLabCell(string workspace) => Cells.Instance.Connect<ILabCell>(new LabCellIdentity(workspace));
 
     // Which process this code runs in, so each view and each answer can say where a cell lives.
@@ -455,19 +456,15 @@ public partial class Validation
 
     /// <summary>
     /// What an app process holds through <c>Cells.Connect&lt;ILabCell&gt;(identity)</c>. Reached through
-    /// an interface, a cell served by another process becomes a proxy: its <c>Reactive&lt;T&gt;</c>
+    /// an interface, a cell served by another process becomes a proxy: its <c>IReadOnlyReactive&lt;T&gt;</c>
     /// properties are mirrors fed by an SDK subscription and its <c>[Function]</c> methods are sent over
     /// the SDK connection.
     /// </summary>
     public interface ILabCell
     {
-        Reactive<int> Counter { get; }
-
-        // A plain Reactive<T>, not ReactiveList<T>: the proxy mirrors only exact Reactive<T> getters.
-#pragma warning disable IKON002
-        Reactive<List<string>> History { get; }
-#pragma warning restore IKON002
-        Reactive<string> Process { get; }
+        IReadOnlyReactive<int> Counter { get; }
+        IReadOnlyReactive<List<string>> History { get; }
+        IReadOnlyReactive<string> Process { get; }
         Task IncrementAsync(int delta);
         Task ResetAsync();
     }
@@ -476,18 +473,19 @@ public partial class Validation
     public sealed class LabCell(ICell<LabCellIdentity> ctx) : ILabCell
     {
         public LabCellIdentity Identity { get; } = ctx.Identity;
-        public Reactive<int> Counter { get; } = new(0);
-#pragma warning disable IKON002
-        public Reactive<List<string>> History { get; } = new([]);
-#pragma warning restore IKON002
-        public Reactive<string> Process { get; } = new(ProcessLabel);
+        public IReadOnlyReactive<int> Counter => _counter;
+        public IReadOnlyReactive<List<string>> History => _history;
+        public IReadOnlyReactive<string> Process => _process;
 
-        // Every surface ends up here, so they all move the same state. History is replaced rather than
-        // changed in place: a snapshot or a render reads the list it got without the reactive's lock.
+        private readonly Reactive<int> _counter = new(0);
+        private readonly ReactiveList<string> _history = new();
+        private readonly Reactive<string> _process = new(ProcessLabel);
+
+        // Every surface ends up here, so they all move the same state.
         private void Increment(int delta)
         {
-            Counter.Value += delta;
-            History.Value = [.. History.Value, $"[{DateTime.UtcNow:HH:mm:ss}] +{delta} → {Counter.Value} ({Identity.Workspace})"];
+            _counter.Value += delta;
+            _history.Add($"[{DateTime.UtcNow:HH:mm:ss}] +{delta} → {_counter.Value} ({Identity.Workspace})");
         }
 
         [Function]
@@ -500,8 +498,8 @@ public partial class Validation
         [Function]
         public Task ResetAsync()
         {
-            Counter.Value = 0;
-            History.Value = [];
+            _counter.Value = 0;
+            _history.Clear();
             return Task.CompletedTask;
         }
 
@@ -544,7 +542,7 @@ public partial class Validation
         public HttpResult EchoSignature()
             => HttpResult.Ok(new LabSignatureEcho(HttpCallContext.Current?.Header("X-Demo-Signature") ?? "(none)", Identity.Workspace));
 
-        private LabSnapshot Snapshot() => new(Counter.Value, [.. History.Value], Identity.Workspace, Process.Value);
+        private LabSnapshot Snapshot() => new(_counter.Value, [.. _history.Value], Identity.Workspace, _process.Value);
     }
 
     /// <summary>
@@ -557,15 +555,9 @@ public partial class Validation
     /// </summary>
     public interface IGlobalLabCell
     {
-        Reactive<int> Counter { get; }
-
-        // Stays a plain Reactive<T> (not ReactiveList<T>): the substrate proxy only mirrors
-        // exact Reactive<T> getters — a ReactiveList<T> here would be dispatched as a wire
-        // method and break Cells.Connect<IGlobalLabCell>() at runtime.
-#pragma warning disable IKON002
-        Reactive<List<string>> History { get; }
-#pragma warning restore IKON002
-        Reactive<string> Process { get; }
+        IReadOnlyReactive<int> Counter { get; }
+        IReadOnlyReactive<List<string>> History { get; }
+        IReadOnlyReactive<string> Process { get; }
         Task IncrementAsync(int delta);
         Task ResetAsync();
     }
@@ -573,32 +565,29 @@ public partial class Validation
     /// <summary>
     /// Sibling cell with a parameterless SessionIdentity — one shared instance across the whole
     /// deployment. Reached through <see cref="IGlobalLabCell"/>; in the cloud the cell-host proxy mirrors
-    /// its <c>Reactive&lt;T&gt;</c> state and dispatches its <c>[Function]</c> methods over a standard SDK
-    /// connection to the cell-host (a local run hosts it in-process).
+    /// its reactive state and dispatches its <c>[Function]</c> methods over a standard SDK
+    /// connection to the cell-host, in the cloud and in a local `ikon run` alike (Studio's preview hosts it in-process).
     /// </summary>
     [Cell(IdleTtlSeconds = 600)]
     public sealed class GlobalLabCell(ICell<GlobalLabCell.SessionIdentity> ctx) : IGlobalLabCell
     {
         public record SessionIdentity();  // empty → global, eager-spawned at host init
 
+        public IReadOnlyReactive<int> Counter => _counter;
+        public IReadOnlyReactive<List<string>> History => _history;
+        public IReadOnlyReactive<string> Process => _process;
+
         private readonly ICell<SessionIdentity> _ctx = ctx;
-
-        public Reactive<int> Counter { get; } = new(0);
-
-        // Matches IGlobalLabCell.History exactly (interface implementation is invariant) and stays
-        // a plain Reactive<T> so the substrate proxy can mirror it.
-#pragma warning disable IKON002
-        public Reactive<List<string>> History { get; } = new([]);
-#pragma warning restore IKON002
-
-        public Reactive<string> Process { get; } = new(ProcessLabel);
+        private readonly Reactive<int> _counter = new(0);
+        private readonly ReactiveList<string> _history = new();
+        private readonly Reactive<string> _process = new(ProcessLabel);
 
         // Internal mutation core — every surface (SDK [Function], REST [Rest], MCP [Mcp]) routes
-        // through here so they all mutate the same Reactive<T> fields.
+        // through here so they all mutate the same reactive fields.
         private void IncrementCore(int delta)
         {
-            Counter.Value += delta;
-            History.Value = [.. History.Value, $"[{DateTime.UtcNow:HH:mm:ss}] +{delta} → {Counter.Value} (global)"];
+            _counter.Value += delta;
+            _history.Add($"[{DateTime.UtcNow:HH:mm:ss}] +{delta} → {_counter.Value} (global)");
         }
 
         // SDK surface — [Function] puts these on the function-call wire so the proxy can
@@ -613,8 +602,8 @@ public partial class Validation
         [Function]
         public Task ResetAsync()
         {
-            Counter.Value = 0;
-            History.Value = [];
+            _counter.Value = 0;
+            _history.Clear();
             return Task.CompletedTask;
         }
 
@@ -632,6 +621,6 @@ public partial class Validation
             return Snapshot();
         }
 
-        private GlobalLabSnapshot Snapshot() => new(Counter.Value, [.. History.Value], Process.Value);
+        private GlobalLabSnapshot Snapshot() => new(_counter.Value, [.. _history.Value], _process.Value);
     }
 }
