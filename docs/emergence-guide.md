@@ -1,4 +1,4 @@
-<!-- checked-against: 616798d8b45c2ce62b25eaec -->
+<!-- checked-against: 1fa7d22b6d39262071b8b976 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -562,7 +562,7 @@ foreach (var tool in mcpClient.ToFunctions(new[] { "search_docs" }))
 
 `StructuredTagParser` extracts XML-style tags from LLM responses, useful for structured output outside of JSON mode.
 
-Add `using Ikon.AI.Emergence.Structured;`.
+The scaffold's global usings import its namespace, `Ikon.AI.Emergence.Structured`.
 
 <!-- ikon-example: emergence-structured-tags -->
 ```csharp
@@ -613,7 +613,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `MaxInvalidJsonReplies` | `int?` | Consecutive unparseable JSON replies before stopping with `InvalidJson` (default 3) |
 | `MaxWallTime` | `TimeSpan?` | Max wall clock time |
 | `MaxRetries` | `int?` | Max retries on transient failures |
-| `RetryDelay` | `TimeSpan?` | Base of the exponential backoff: retry n waits `RetryDelay * 2^(n-1)` (default 2 seconds), or a provider's longer Retry-After, capped at 2 minutes |
+| `RetryDelay` | `TimeSpan?` | Base of the exponential backoff: retry n waits `RetryDelay * 2^(n-1)` (default 2 seconds), or a provider's longer Retry-After, which is capped at 2 minutes (the backoff itself has no cap) |
 | `SystemPrompt` | `string?` | System instruction |
 | `Command` | `string?` | User command |
 | `Tools` | `IList<Function>` | Available tools |

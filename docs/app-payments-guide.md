@@ -1,4 +1,4 @@
-<!-- checked-against: 7df852673a8d3136cdc20431 -->
+<!-- checked-against: dcc12a63bb0b21e7cdc20431 -->
 
 # Ikon.App.Payments Guide
 
@@ -20,8 +20,19 @@ ikon payments status                        # check onboarding / charges-enabled
 
 `enable` provisions a connected merchant under IKON's platform account and prints a hosted onboarding link
 (a Mollie OAuth grant or Stripe KYC) and, in a terminal, opens it in the browser. A bare
-`ikon payments enable` asks which provider in a terminal and picks Stripe in a script. The merchant's owner is
-your account name unless `--owner-name` says otherwise. With `--format json` it prints `{ spaceId, provider, mode, status, merchantId, onboardingUrl, dashboardUrl }` and opens no browser, so a coding agent can hand the link to you and follow progress with `ikon payments status --format json`. The default mode is **ikon-connect**
+`ikon payments enable` asks which provider in a terminal and picks Stripe in a script. Both providers also
+need the merchant's country: a terminal asks for it, a script passes `--country` (e.g. `--country se`). Stripe
+can't change the country once the merchant account exists, and onboarding checks the business ID and address
+against it. To correct a wrong country, run `ikon payments disable stripe` and enable Stripe again. Mollie uses
+the country only to fill in the business address, which the business can change in Mollie's onboarding.
+
+Stripe and Mollie accept different kinds of merchant. Stripe's onboarding asks whether you sell as an
+individual, a company or a non-profit, so a person without a company can take payments. For them, the country is
+the one they live in.
+Mollie only works with registered businesses, sole traders included, so the country is where the business is
+registered and its onboarding asks for the registration number.
+
+The merchant's owner is your account name unless `--owner-name` says otherwise. With `--format json` it prints `{ spaceId, provider, mode, status, merchantId, onboardingUrl, dashboardUrl }` and opens no browser, so a coding agent can hand the link to you and follow progress with `ikon payments status --format json`. The default mode is **ikon-connect**
 (zero-config, IKON-managed). `--default` picks the active provider when an app has more than one enabled.
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag: payments is on once a provider
 is configured.
@@ -395,10 +406,10 @@ are available as ordinary payment methods inside whichever provider you enable â
 
 ## Platform fee
 
-On the **ikon-connect** path IKON takes a percentage cut of each payment (default **10%**), set per app
-by IKON staff. byok takes no fee (the funds are in your own account). You do not set or see the fee from
-app code. The backend applies it with the provider's built-in fee split (Stripe application fees,
-Mollie application fee), so the cut settles to IKON automatically.
+On the **ikon-connect** path IKON takes a percentage cut of each payment. IKON sets the percentage per app
+and can change it, so never state a figure in the app or its pricing. byok takes no fee (the funds are in your
+own account). You do not set or see the fee from app code. The backend applies it with the provider's built-in
+fee split (Stripe application fees, Mollie application fee), so the cut settles to IKON automatically.
 
 ## Removing a provider
 

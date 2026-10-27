@@ -1,4 +1,4 @@
-<!-- checked-against: ac140c36d098cb2be3b0c442 -->
+<!-- checked-against: 1121524563fbdc99e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -510,7 +510,7 @@ client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 app's `ikon-config.toml` the client enters. The backend checks the person against that surface's
 `Methods` and `Roles` before it provisions anything, and refuses the connect otherwise. A guest enters
 only a surface listing `guest` or `global`. Without `surface:` the client enters, leaving out sign-in pages,
-the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. The app reads which surface a client entered from its `Context` (the `Surface` field).
+the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. The app reads which surface a client entered from its `Context` (the `Surface` field). `IkonClient.connectLocal` takes `surface:` too, for a local run.
 
 ### Joining only a running session
 

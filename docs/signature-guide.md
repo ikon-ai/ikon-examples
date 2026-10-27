@@ -1,4 +1,4 @@
-<!-- checked-against: 137248aad6f25e752ae0074e -->
+<!-- checked-against: 34a06915d6f25e752ae0074e -->
 
 # IKON Signature Guide
 
@@ -6,7 +6,7 @@ IKON apps can have documents signed with an eID, started from the app server. Yo
 
 ## TL;DR — what you wire
 
-The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings do not include — add `using Ikon.Common.Core.Signing;` to the file.
+The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings import.
 
 <!-- ikon-example: signature-order -->
 ```csharp

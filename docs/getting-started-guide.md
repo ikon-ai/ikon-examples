@@ -1,4 +1,4 @@
-<!-- checked-against: 71d8ee35a86125dce3b0c442 -->
+<!-- checked-against: 0b416a2fa86125dce3b0c442 -->
 
 # Getting started with IKON
 
@@ -24,7 +24,8 @@ runs:
 2. Under **Your coding agents**, install the ones you have an account for and sign in to each.
 3. Select **Connect Studio**, then **Open Studio**. The first time, Studio asks you to allow this
    computer: select **Allow**.
-4. In Studio, choose your agent under **Runs on**, below the field where you type.
+4. Studio then builds with one of the agents on that computer. To choose another agent, or IKON,
+   use **Runs on**, below the field where you type.
 
 ## Build on your own
 
@@ -37,13 +38,12 @@ IKON Desktop installs and opens the coding agents it supports, under **Build wit
 
 1. Under **Start a new app**, choose the coding agent and select **Open**. It opens in the
    `IKON Apps` folder in your home folder. Sign in there if it asks.
-2. Claude Desktop opens with an example prompt in its message box. For the other agents, IKON
-   Desktop copies the prompt for you to paste. It reads:
+2. Claude Desktop opens with a prompt in its message box. For the other agents, IKON Desktop
+   copies the prompt for you to paste. It reads:
 
-   > Use the ikon tool to create a new IKON app in a new folder inside this one. The app should let
-   > my book club suggest books and vote on the next one to read.
+   > Create an IKON app that [include your app concept here]
 
-3. Change the prompt to describe the app you want, and send it.
+3. Replace `[include your app concept here]` with the app you want, and send it.
 
 ### In a terminal
 

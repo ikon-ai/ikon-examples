@@ -1,4 +1,4 @@
-<!-- checked-against: aabc05851fd4ce3490d2a4b8 -->
+<!-- checked-against: 647041fd4b0ce5cf7050823a -->
 
 # IKON C# SDK
 
@@ -6,7 +6,7 @@ The IKON C# SDK connects any .NET application to an IKON app. It supports .NET 1
 
 ## Features
 
-- Seven authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), Guest (a user who has not signed in), and ResumeAuthResponse (joining another connection's client session)
+- Eight authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), UserToken (a person's session token for one space, issued elsewhere), Guest (a user who has not signed in), and ResumeAuthResponse (joining another connection's client session)
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -67,8 +67,8 @@ error yet never receives a `ClientScope`.
 
 The SDK opens one reliable connection to the server — TCP with TLS against a hosted app, plain TCP
 against a local one — and, alongside it, an unreliable UDP side channel used for messages the app
-flags unreliable. The .NET Standard 2.1 build uses only a plain UDP entrypoint, which a hosted app does not
-offer, so against a hosted app it runs over the reliable connection alone.
+flags unreliable. The side channel is encrypted with DTLS, which the .NET Standard 2.1 build lacks, so that
+build runs over the reliable connection alone.
 
 Set `EnableUdpChannel = false` to run over the reliable connection alone. Messages flagged unreliable
 are then sent over it, so nothing is lost, but they can no longer overtake a queued reliable message.
@@ -90,12 +90,13 @@ var config = new IkonClientConfig
 
 ## Authentication Modes
 
-The SDK supports seven authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
-`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, `Guest`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
+The SDK supports eight authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
+`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, `UserToken`, `Guest`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
 developer signed in on this machine (the ikon CLI's stored sign-in) and is intended for dev tooling and
-headless tests; production clients use `ApiKey` or `Backend`. The constructor also throws `ArgumentException`
+headless tests; production clients use `ApiKey` or `Backend`. `UserToken` connects as a person with a session
+token for the space that was issued elsewhere. The constructor also throws `ArgumentException`
 when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
-`SpaceId` and `ExternalUserId`, `UserLogin`'s or `Guest`'s `SpaceId`, or `Local`'s `Host` and a positive `HttpsPort`.
+`SpaceId` and `ExternalUserId`, `UserLogin`'s or `Guest`'s `SpaceId`, `UserToken`'s `SpaceId`, `Token` and `BackendUrl`, or `Local`'s `Host` and a positive `HttpsPort`.
 
 ### API Key Authentication
 
@@ -160,8 +161,13 @@ var config = new IkonClientConfig
 
 Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
 host — for example an embedded in-process app server minting URLs for its own clients. The
-authentication step is skipped entirely and the client connects straight through the URL. This
-mode is mutually exclusive with the other six; a config that combines them is rejected.
+authentication step is skipped entirely and the client connects straight through the URL. The
+client still describes itself on the request: its `InitialPath`, `IsSnapshot`, `StyleFormat`,
+viewport and description come from the config. The client type always comes from the token the
+URL carries, and so do the initial path, its URL, the snapshot flag and the snapshot variant when
+the config leaves them unset. A URL whose minter already put a client description on it keeps that
+description, and none of the config's values are sent. This mode is mutually exclusive with the other six; a config that
+combines them is rejected.
 
 <!-- ikon-example: sdk-external-connect-url -->
 ```csharp
@@ -192,6 +198,17 @@ var config = new IkonClientConfig
     }
 };
 ```
+
+### UserToken
+
+`UserToken = new UserTokenConfig { SpaceId = "...", Token = "...", BackendUrl = "..." }` connects as a
+person with a session token for the space that was issued elsewhere, through the cloud gateway like
+a browser client. It is how an app's server shows another app inside itself (`view.Portal` in the
+Parallax guide): the backend hands the host a session in the guest app for one of its users, and the
+host connects with it. The token's own lifetime limits the connection: a reconnect after it expires
+fails, and the program that holds the token has to get a new one. `BackendUrl` is the backend that
+issued the token, which `/init` is posted to; `UserType`, `ClientType` and `JoinOnly` have the same
+meaning as in `UserLogin`.
 
 ### Guest
 

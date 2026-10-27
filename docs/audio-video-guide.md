@@ -1,4 +1,4 @@
-<!-- checked-against: dfe902e83dc83b3652febf18 -->
+<!-- checked-against: 5b6a621e3dc83b3652febf18 -->
 
 # IKON Audio & Video Guide
 
@@ -20,7 +20,7 @@ Hold one `Audio` and one `Video` per app. Each `Audio` is its own mix with its o
 
 Both are `IAsyncDisposable`. Disposing one stops its playbacks and ends its streams on the clients. App stop does the same for every `Video`, and for every `Audio` stops the mixing without sending the clients stream ends, so an app that holds one for its whole life never disposes it.
 
-The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses, with one exception: `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`, so a file naming it adds `using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;`. Importing the whole namespace instead also brings its `Action` type, which makes a bare `Action` ambiguous with `System.Action` (CS0104).
+The app scaffold's `GlobalUsings.cs` imports the IKON namespaces this guide uses. `VideoCodec`, which `Video.PlayLive` and `Video.Raw` take, is in `Ikon.Common.Core.Protocol`. The scaffold aliases `VideoCodec` instead of importing that namespace, because the whole namespace also brings an `Action` type, which makes a bare `Action` ambiguous with `System.Action` (CS0104).
 
 ## Playing audio
 

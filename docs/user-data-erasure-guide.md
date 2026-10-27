@@ -1,4 +1,4 @@
-<!-- checked-against: f44222690bc7ed76d6531655 -->
+<!-- checked-against: 4d72058e0bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -27,7 +27,9 @@ merged into the account, the previous ids are erased together with it.
 - **The user account** — the user document with its credentials, plus passkeys, profiles, and
   organisation memberships (the existing removal cascade).
 - **Per-user app state** — rows in every app's databases whose reactive-storage scope belongs to the
-  user (`UserScope` values persisted by apps).
+  user (`UserScope` values persisted by apps). Global state is a separate store: every user-scope
+  global-state record of the user, in every space, and the user's global-state usage rows are deleted
+  too.
 - **User asset folders** — `user/{id}` folders (and their storage blobs) in the asset hub of every
   affected app and organisation.
 - **Push subscriptions** — web push and FCM registrations for the user's devices.
@@ -102,7 +104,7 @@ erase:
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
 `[Trigger(TriggerEventType.UserErased)]` method on your app class. Without it the platform does not
 call your app: an app whose active deployment declares no listener is never sent the event. (This
-example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package, 2.1.89 or later, and `using Dapper;`.)
+example uses Dapper's `ExecuteAsync`, which the app scaffold references and imports.)
 
 <!-- ikon-example: user-data-erasure-database -->
 ```csharp

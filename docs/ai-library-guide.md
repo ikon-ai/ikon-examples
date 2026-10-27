@@ -1,4 +1,4 @@
-<!-- checked-against: 999cd1f3e4898b605191ee7b -->
+<!-- checked-against: dc19b85c76996a1b66a40eb6 -->
 
 # Ikon.AI Library Overview
 
@@ -871,7 +871,7 @@ await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeech
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.SoundEffectGeneration.md` in AI apps).
 
-One-shot — returns a buffered WAV file:
+One-shot — returns a buffered WAV file (`Data` is null when `Kind` is `Url`; read the bytes with `await result.GetDataAsync()`):
 
 Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
@@ -1155,7 +1155,7 @@ var items = await reranker.RerankAsync(new RerankerConfig { Documents = document
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.Classification.md` in AI apps).
 
-One-shot text moderation — defaults to `OpenAIOmniModeration` (free to use):
+One-shot text moderation — defaults to `OpenAIOmniModeration` (free to use), or to the text-only `MistralModeration2` when the organisation's AI region policy is EU-only (`ClassificationModel.Default`):
 
 Needs the `Ikon.AI.Classification` using directive.
 
@@ -1185,7 +1185,7 @@ var result = await classifier.ClassifyAsync("What a nice weather!");
 Log.Instance.Info($"Flagged: {result.IsFlagged}");
 ```
 
-`OpenAIOmniModeration` reads one image per request. A `ClassifyAsync` call with several images sends one request per image, each with all the call's text inputs, and returns one merged result: flagged if any request was, with each label's highest score.
+`OpenAIOmniModeration` reads one image per request. A `ClassifyAsync` call with several images sends one request per image, each with all the call's text inputs, and returns one merged result: flagged if any request was, with each label's highest score. `MistralModeration2`, the default under an EU-only policy, reads text only: an input with an image (image data, a URL or an asset URI) throws `NonRetryableAIException` before any request, and the message names a model that reads images or, under an EU-only policy, says none is available and points to an EU-pinned vision LLM.
 
 ## Decisions
 

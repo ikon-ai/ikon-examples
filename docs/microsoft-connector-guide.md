@@ -1,4 +1,4 @@
-<!-- checked-against: c55e24bddf33e331ce845e9d -->
+<!-- checked-against: 938a8e4b82c16f8c9ccb41a8 -->
 
 # Microsoft Connector Guide
 
@@ -63,7 +63,7 @@ var oneDrive = new OneDrive(tokens);
 var directory = new EntraDirectory(tokens);
 ```
 
-Delegated access is an OAuth sign-in your app runs: send the person to `AuthorizeUrl`, receive the `code` at your redirect endpoint (an `[HttpGet]` endpoint — see the endpoints guide), and redeem it with `ExchangeCodeAsync`. `PkceCodes.Create()` (from `Ikon.Connectors`) adds PKCE: pass the `Challenge` of the `PkceCodes` it returns to `AuthorizeUrl` and keep its `Verifier` with the sign-in's state for `ExchangeCodeAsync`, so a code intercepted on its way back is useless to whoever took it. `offline_access` is always requested, so the result carries a refresh token. **Entra issues a new refresh token every time it refreshes**; keep the newest one, through `onRefreshTokenRotated`, or the stored one expires on its own lifetime however often it was used:
+Delegated access is an OAuth sign-in your app runs: send the person to `AuthorizeUrl`, receive the `code` at your redirect endpoint (an `[HttpGet]` endpoint — see the endpoints guide), and redeem it with `ExchangeCodeAsync`. `PkceCodes.Create()` (from `Ikon.Connectors`) adds PKCE: pass the `Challenge` of the `PkceCodes` it returns to `AuthorizeUrl` and keep its `Verifier` with the sign-in's state for `ExchangeCodeAsync`, so a code intercepted on its way back is useless to whoever took it. `offline_access` is always requested, so the result carries a refresh token. The account chooser is always shown, so the person picks an account rather than getting whichever one the browser is signed in to. **Entra issues a new refresh token every time it refreshes**; keep the newest one, through `onRefreshTokenRotated`, or the stored one expires on its own lifetime however often it was used:
 
 <!-- ikon-example: connectors-microsoft-user -->
 ```csharp

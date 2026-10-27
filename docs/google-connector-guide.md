@@ -1,4 +1,4 @@
-<!-- checked-against: 126bd56cd7f4e3814410b9c6 -->
+<!-- checked-against: 3d85d345075c262ee5af6daf -->
 
 # Google Connector Guide
 
@@ -19,7 +19,7 @@ Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with pro
 
 ### Signing in
 
-`GoogleAuth.AuthorizeUrl` builds the consent URL and `GoogleAuth.ExchangeCodeAsync` redeems the `code` for `GoogleCredentials`. The URL always asks for offline access with the consent screen, because Google issues a refresh token only on a consent; an exchange that still gets none throws rather than hand back credentials nothing could renew. `PkceCodes.Create()` (from `Ikon.Connectors`) adds PKCE: pass its `Challenge` to `AuthorizeUrl` and keep its `Verifier` with the sign-in's state for `ExchangeCodeAsync`, so a code intercepted on its way back is useless to whoever took it. Google lets the person untick scopes on the consent screen, so check what they granted with `GetGrantedScopesAsync`:
+`GoogleAuth.AuthorizeUrl` builds the consent URL and `GoogleAuth.ExchangeCodeAsync` redeems the `code` for `GoogleCredentials`. The URL always asks for offline access, and always shows the account chooser and the consent screen. The chooser makes the person pick an account rather than getting whichever one the browser is signed in to. The consent screen is needed because Google issues a refresh token only on a consent. An exchange that still gets none throws rather than hand back credentials nothing could renew. `PkceCodes.Create()` (from `Ikon.Connectors`) adds PKCE: pass its `Challenge` to `AuthorizeUrl` and keep its `Verifier` with the sign-in's state for `ExchangeCodeAsync`, so a code intercepted on its way back is useless to whoever took it. Google lets the person untick scopes on the consent screen, so check what they granted with `GetGrantedScopesAsync`:
 
 <!-- ikon-example: connectors-google-signin -->
 ```csharp

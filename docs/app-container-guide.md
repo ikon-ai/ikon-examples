@@ -1,4 +1,4 @@
-<!-- checked-against: a34f44c6c6c3498ddb3691ae -->
+<!-- checked-against: 98adf06ac6c3498ddb3691ae -->
 
 # App Container Guide
 
@@ -46,8 +46,8 @@ script that downloads it in `ikon-config.toml`, and keep the script in `scripts/
 committed with the app (`scratch/` is git-ignored, for throwaway scripts):
 
 ```toml
-[Tools]
-Fetch = ["python3 scripts/fetch_tools.py"]
+[Scripts]
+FetchTools = ["python3 scripts/fetch_tools.py"]
 ```
 
 The tool runs it before `ikon run`, `ikon run --container`, `ikon bundle` and `ikon deploy`, with
@@ -144,8 +144,30 @@ using var renode = Process.Start(new ProcessStartInfo("renode", ["--disable-gui"
 ```
 
 Files the program reads that belong to the app, such as firmware or scenes, ship in the bundle's
-`Data/` and are read from `app.DataDirectory`. A `[Package] PrePackage` step writes generated ones
+`Data/` and are read from `app.DataDirectory`. A `[Scripts] PrePackage` step writes generated ones
 into `$IKON_BUNDLE_APP_DIR/Data/`; a binary or `#!` script written under `IKON_BUNDLE_APP_DIR` keeps its execute bit.
+
+### Processing the bundle before it is zipped
+
+`ikon bundle` and `ikon deploy` run each `PrePackage` command in the app root, in order, after the
+build and before the bundle is zipped. Like `FetchTools`, a command starts without a shell, and
+`python3` at its start runs `python` on Windows. A command that fails stops the bundle or the
+deploy and prints its output.
+
+```toml
+[Scripts]
+PrePackage = ["python3 scripts/pack_assets.py"]
+```
+
+The command finds the staged bundle through environment variables:
+
+| Variable | What it is |
+|---|---|
+| `IKON_BUNDLE_APP_DIR` | the app's folder on the server: its `Data/` is `app.Files.Data` |
+| `IKON_BUNDLE_TOOLS_DIR` | programs written here are on the deployed app's `PATH` |
+| `IKON_BUNDLE_FRONTEND_DIR` | the frontend build |
+| `IKON_BUNDLE_DIR` | the whole staging folder; anything outside the three above is zipped but never reaches the server |
+| `IKON_APP_DIR` | the app root |
 
 ## Local runs
 

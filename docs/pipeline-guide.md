@@ -1,4 +1,4 @@
-<!-- checked-against: c3423ef1630149b96afd2700 -->
+<!-- checked-against: 9f2fd7b0c39b1bba3d6338f5 -->
 
 # IKON Pipeline Guide
 
@@ -144,6 +144,14 @@ foreach (var outputItem in outputItems)
 disk between runs, `InMemory` discards it with the process. Nothing checks that it agrees with
 `StateType`: the default persistent state with an `InMemory` content cache keeps state across runs
 while discarding the content it refers to.
+
+`Config.StateType` defaults to `File`, which keeps the run's state in memory and writes it to
+`pipeline_state.bin` under the cache path every 10 seconds while it changes and when the runner is
+disposed. `Sqlite` and `SqliteBatch` keep it in a SQLite database instead, so a run that dies keeps
+every item it finished; they need the `Ikon.Pipeline.Sqlite` package, at the version of the app's
+other `Ikon.*` packages, and without it `Initialize` throws `UserException` naming the package. The
+`ikon pipeline` command runs the pipeline with the packages its app references, so
+`--state-type Sqlite` or `SqliteBatch` needs the package in the app too.
 
 ### Reading What a Run Did
 
@@ -682,7 +690,7 @@ Additional parameters cover cache directories, retry configuration, remote execu
 
 ## Remote Host and Client Modes
 
-The pipeline runner can operate in remote host and client modes to distribute processor execution across multiple machines. The processes communicate over a message bus (RabbitMQ).
+The pipeline runner can operate in remote host and client modes to distribute processor execution across multiple machines. The processes communicate over a message bus (RabbitMQ), which needs the `Ikon.Pipeline.RabbitMQ` package in the pipeline's app, also when `ikon pipeline` runs it.
 
 ### Prerequisites
 

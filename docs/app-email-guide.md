@@ -1,4 +1,4 @@
-<!-- checked-against: 30703621e0133b05024025a6 -->
+<!-- checked-against: 086438d3e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -227,9 +227,8 @@ in it: keep what the handler records in a database and read it from there. The w
 backend fails to create the event, the message is still stored and readable through `app.Email` but
 the trigger never fires for it, so an app that must not miss mail still reads its inbox now and then.
 
-The next snippet needs `using Ikon.App.Triggers;` (`TriggerContext`), which the scaffold's global usings do not cover,
-and `using TriggerEventType = Ikon.Common.Core.Protocol.TriggerEventType;`. A plain `using Ikon.Common.Core.Protocol;`
-makes a bare `Action` ambiguous with `System.Action` (CS0104).
+The scaffold's global usings import `Ikon.App.Triggers` (`TriggerContext`) and alias `TriggerEventType`. A plain
+`using Ikon.Common.Core.Protocol;` makes a bare `Action` ambiguous with `System.Action` (CS0104).
 
 <!-- ikon-example: email-trigger -->
 ```csharp

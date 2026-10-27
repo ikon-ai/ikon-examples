@@ -1,4 +1,4 @@
-<!-- checked-against: 7e4e88698359eea828d29e4a -->
+<!-- checked-against: a4ec376bc76531c49b962095 -->
 
 # Ikon.Parallax Library Overview
 
@@ -184,7 +184,7 @@ private readonly UserReactiveList<string> _cart =
 
 ### Reactive Collections: ReactiveList and ReactiveDictionary
 
-List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build warning IKON002, an error in the codegen build and in-repo apps: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
+List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape, changed in place, is build warning IKON002, an error in the codegen build and in-repo apps: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
 
 <!-- ikon-example: px-reactive-collections-reactivelist-and-reactivedictionary -->
 ```csharp
@@ -666,7 +666,7 @@ For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly 
 view.Column(["flex-1 min-h-0 overflow-y-auto", Scrollbar.Thin], content: rows => { });
 ```
 
-Dev warnings are on by default (`IKON_DEV_WARNINGS=0` opts out): a single `Log.Instance.Warning` when a `Column`/`Row`/`Box`/`Flex` is detected with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
+Dev warnings are on in a local run and in a Studio preview, and off for an app running in the cloud (`IKON_DEV_WARNINGS=0` turns them off and `IKON_DEV_WARNINGS=1` on, wherever the app runs): a single `Log.Instance.Warning` when a `Column`/`Row`/`Box`/`Flex` is detected with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
 
 **Theme the native scrollbar when you scroll a container yourself.** A bare `overflow-auto` shows the OS scrollbar — on Windows a wide grey slab that matches no theme and shifts the layout when it appears. `Theming.Scrollbar.Thin` is the themed thin bar (`Scrollbar.Hidden` removes it entirely, for a strip whose overflow is visually obvious):
 
@@ -700,6 +700,10 @@ Give the viewport a size with its style array — it clips, so without a height 
 `onTap:` reports a tap or click on the content that did not pan, as a `PanZoomTapArgs` in the content's own unzoomed pixels from its top-left corner, whatever the pan and zoom. For a picture shown at its natural size that is the tapped pixel of the picture, so a marker drawn at that position inside a `relative` box the size of the picture lands where the person tapped and stays there at every zoom (the `pan-zoom-split-layout` pattern places a pin this way). A press on a button or link inside the content is that control's click, not a tap. The view opens at `defaultScale:` (or `scale:`) with the content's top-left corner in view, however large the content is. `anchor:` puts another part in view (`PanZoomAnchor.Right` opens a wide chart at its latest end), and `fit: PanZoomFit.Contain` (or `Width`, `Height`) opens the content scaled to the viewport, capped at `maxScale:` but not raised to `minScale:` (content too large for it still opens whole), and reports that scale through `onScaleChange:`. A 1400-pixel plan then opens whole in a 700-pixel viewport without working out a scale of 0.5 by hand. The client repeats this placement until the person pans or zooms or the app writes a new `scale:`, and again when `viewKey:` changes; a read-only `scale:` skips the fit.
 
 What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled, and the viewport captures a primary pointer press to pan once the pointer moves more than 5 pixels. A click on a custom node inside still reaches that node, but a drag that starts on the content pans the view, even a drag on a `DndContext` item. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`).
+
+## App Portals: Showing Another App Inside Yours
+
+`view.Portal(new PortalTarget { SpaceId = "..." }, style: ["flex-1 min-w-0 h-full"])` (`PortalExtensions`) shows another IKON app's UI at that place in the tree, as the person this view renders for. The host's server holds a session in the guest app for that person and passes the guest's UI to the person's client, which draws it there with the same renderer, and sends the person's taps on the guest's controls back to the guest. The guest keeps its own state, uploads, speech and navigation; the host decides where the portal is and when it is shown, and sees nothing of the guest's tree. A `PortalTarget` names the guest's space; `Portal` names which of its portals to show, where `main` (the default) is the guest's whole UI; `Args` is sent to the guest as JSON; and `Key` separates two portals of the same target shown to the same person. The node takes the size its style gives it, and a guest whose root is `fixed inset-0` fills it. A render that calls `view.Portal` is this person's own, so the root never shares it with other clients. The guest must be installed into the host first (`ikon portal add <guest-app>`), which is the host organisation's consent; the person then enters the guest under the guest's own entry and SSO policies, as at the guest's own address, and only as a signed-in person with a live session in the host: a signed-out visitor of a `guest` or `global` surface is refused, and the node shows "Could not open the app" with the reason. A guest learns it is embedded from its client parameters: the one named `PortalTarget.PortalParameter` holds the portal's name and the one named `PortalTarget.ArgsParameter` its parameters as JSON.
 
 ## The IKON O
 
