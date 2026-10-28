@@ -205,12 +205,12 @@ internal sealed partial class AgentGuideExamples
 
         var installer = platform switch
         {
-            { Os: ClientOs.Windows, Architecture: ClientArchitecture.Arm64 } => "setup-arm64.exe",
-            { Os: ClientOs.Windows } => "setup-x64.exe",
-            { Os: ClientOs.MacOs } => "app-universal.dmg",      // Architecture is Unknown outside Chromium
-            { Os: ClientOs.Linux, Distribution: "ubuntu" or "debian" } => "app.deb",
-            { Os: ClientOs.Linux, Distribution: "fedora" } => "app.rpm",
-            { Os: ClientOs.Linux } => "app.AppImage",          // no browser names its distribution reliably
+            { OS: ClientOS.Windows, Architecture: ClientArchitecture.Arm64 } => "setup-arm64.exe",
+            { OS: ClientOS.Windows } => "setup-x64.exe",
+            { OS: ClientOS.MacOS } => "app-universal.dmg",      // Architecture is Unknown outside Chromium
+            { OS: ClientOS.Linux, Distribution: "ubuntu" or "debian" } => "app.deb",
+            { OS: ClientOS.Linux, Distribution: "fedora" } => "app.rpm",
+            { OS: ClientOS.Linux } => "app.AppImage",          // no browser names its distribution reliably
             _ => null,                                          // a phone: list every download
         };
         #endregion

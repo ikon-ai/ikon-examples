@@ -70,7 +70,17 @@ internal sealed class FirstUserBecomesAdmin(IAppBase app) : IPatternDemo
         }
 
         // Works before the person has opened the app: they become an admin when they first sign in
-        var holdsItNow = await Profiles.AddRoleByEmailAsync(email, UserRole.Admin);
+        bool holdsItNow;
+        try
+        {
+            holdsItNow = await Profiles.AddRoleByEmailAsync(email, UserRole.Admin);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            _adminMessage.Value = ex.Message;
+            return;
+        }
+
         _adminMessage.Value = holdsItNow ? $"{email} is an admin" : $"{email} becomes an admin on first sign-in";
         _newAdminEmail.Value = "";
     }

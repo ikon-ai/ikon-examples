@@ -279,14 +279,14 @@ file sealed class PxAiDisclosureExamples(IApp<SessionIdentity, ClientParameters>
     {
         #region example:px-ai-disclosure
         // Under a chat composer
-        view.AiDisclosure(AiDisclosureKind.Interaction);
+        view.AIDisclosure(AIDisclosureKind.Interaction);
 
         // Above a page of generated copy, with the accuracy caveat that is not itself a disclosure
-        view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Banner,
+        view.AIDisclosure(AIDisclosureKind.GeneratedContent, AIDisclosureVariant.Banner,
             note: "AI can make mistakes. Check anything important.");
 
         // Over a generated image
-        view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
+        view.AIDisclosure(AIDisclosureKind.GeneratedContent, AIDisclosureVariant.Pill,
             style: ["default", "absolute bottom-2 end-2"]);
         #endregion
     }

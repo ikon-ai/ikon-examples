@@ -113,7 +113,8 @@ internal sealed class DocumentSearchWithRerank(IAppBase app) : IPatternDemo
         using var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
 
         // MaxPagesSupported is 0 when the model publishes no limit -- never read that as a zero
-        // budget. Where there IS a limit, a longer document is split across requests with Pages.
+        // budget. Where there IS a limit, pages past it are never read, so a longer document
+        // needs one request per page range.
         var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
         {
             AssetUri = document,

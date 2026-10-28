@@ -29,7 +29,7 @@ internal sealed partial class AgentGuideExamples
 
         // Or let it throw: ConsentRequiredException stops the path rather than letting it proceed
         // with less than it promised.
-        app.Consent.Require(userId, ConsentPurposes.AiProviderPersonalData);
+        app.Consent.Require(userId, ConsentPurposes.AIProviderPersonalData);
         #endregion
     }
 
@@ -44,7 +44,7 @@ internal sealed partial class AgentGuideExamples
         }
 
         // StateOf is a tracked read: once the user answers, this render runs again and the card goes.
-        if (app.Consent.StateOf(userId, ConsentPurposes.AiProviderPersonalData).State != ConsentAnswer.NotAsked)
+        if (app.Consent.StateOf(userId, ConsentPurposes.AIProviderPersonalData).State != ConsentAnswer.NotAsked)
         {
             return;
         }
@@ -53,8 +53,8 @@ internal sealed partial class AgentGuideExamples
             description: "Your notes are sent to an AI model provider to write the summary. You can change this later in Settings.",
             footer: footer =>
             {
-                footer.Button([Button.PrimarySm], text: "Allow", onClick: () => app.Consent.Grant(userId, ConsentPurposes.AiProviderPersonalData));
-                footer.Button([Button.OutlineSm], text: "Don't allow", onClick: () => app.Consent.Revoke(userId, ConsentPurposes.AiProviderPersonalData));
+                footer.Button([Button.PrimarySm], text: "Allow", onClick: () => app.Consent.Grant(userId, ConsentPurposes.AIProviderPersonalData));
+                footer.Button([Button.OutlineSm], text: "Don't allow", onClick: () => app.Consent.Revoke(userId, ConsentPurposes.AIProviderPersonalData));
             });
         #endregion
     }

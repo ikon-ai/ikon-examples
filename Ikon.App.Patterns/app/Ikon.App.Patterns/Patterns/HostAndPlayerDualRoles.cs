@@ -34,8 +34,8 @@ internal sealed class HostAndPlayerDualRoles : IPatternDemo
         /// <summary>Call once from Main.</summary>
         private void WireHostCode()
         {
-            // The first client in a new session is the host who created it, because players can
-            // only learn the session id from the host's screen.
+            // The first client that arrives with a host code is the host who created the session,
+            // because players can only learn the session id from the host's screen.
             app.OnClientJoined((ctx, parameters) =>
             {
                 if (_hostCode.Value is null && parameters.HostCode.Length > 0)

@@ -63,7 +63,7 @@ internal sealed class WeekGrid : IPatternDemo
                             cell.Text(["hidden sm:block text-xs font-semibold uppercase text-tertiary"], shortName);
                             cell.Text(["text-sm sm:text-base font-semibold text-primary text-center sm:text-start tabular-nums"], day.Day.ToString(CultureInfo.InvariantCulture));
 
-                            // A phone shows a dot per entry; a wider screen shows the first titles
+                            // A phone shows a dot per entry, up to four; a wider screen shows the first titles
                             cell.Box(["flex flex-wrap justify-center gap-0.5 sm:hidden"], content: dots =>
                             {
                                 foreach (var _ in entries.Take(4))

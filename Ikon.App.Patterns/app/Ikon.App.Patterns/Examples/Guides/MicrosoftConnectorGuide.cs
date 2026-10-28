@@ -588,7 +588,7 @@ file sealed class MicrosoftTeamsGuideExamples
         await _bot.StreamAsync(
             message.Conversation,
             run.OfType<ModelText<string>>().Select(token => token.Text),
-            final: new TeamsBotMessage { AiGenerated = true, FeedbackButtons = true });
+            final: new TeamsBotMessage { AIGenerated = true, FeedbackButtons = true });
         #endregion
     }
 

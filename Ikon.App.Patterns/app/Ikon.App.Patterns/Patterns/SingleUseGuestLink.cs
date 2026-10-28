@@ -59,8 +59,9 @@ internal sealed class SingleUseGuestLink : IPatternDemo
 
     // Call with ReactiveScope.UserId and the code from ClientParameters.Guest. The one UPDATE
     // claims the link only while nobody holds it and it has not expired, so two browsers opening
-    // it together cannot both get in. The claimant keeps access on reload because a guest keeps
-    // the same user id in one browser.
+    // it together cannot both get in. A guest keeps the same user id in one browser, so the
+    // claimant keeps access on a reload when the instance it reaches holds the claim in _links:
+    // the instance that took it, or one that has run LoadAsync since.
     private async Task<bool> RedeemAsync(string userId, string code)
     {
         if (HasAccess(userId))

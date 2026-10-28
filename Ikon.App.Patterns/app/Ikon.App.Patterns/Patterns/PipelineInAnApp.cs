@@ -59,7 +59,7 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
 
         try
         {
-            // Held while the run lasts, so the run finishes even if the person who started it leaves
+            // Held up to the 30 minutes passed here, so the run finishes even if the person who started it leaves
             await using var hold = await app.BackgroundWork.StartAsync(TimeSpan.FromMinutes(30), "summary pipeline");
 
             await using var runner = new PipelineRunner();
