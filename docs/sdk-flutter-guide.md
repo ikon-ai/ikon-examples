@@ -1,4 +1,4 @@
-<!-- checked-against: 1121524563fbdc99e3b0c442 -->
+<!-- checked-against: 4f35410663fbdc99e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -590,8 +590,8 @@ signing key. Name them under `[Flutter]` in `ikon-config.toml`:
 
 ```toml
 [Flutter]
-IosBundleId = "com.example.events"
-# Only when it differs from IosBundleId
+IOSBundleId = "com.example.events"
+# Only when it differs from IOSBundleId
 AndroidApplicationId = "com.example.events"
 AppleTeamId = "ABCDE12345"
 # The upload key's and the Play App Signing key's SHA-256, from the Play Console

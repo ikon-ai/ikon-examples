@@ -1,4 +1,4 @@
-<!-- checked-against: 1fa7d22b6d39262071b8b976 -->
+<!-- checked-against: 6db17d976d392620c8a392a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -462,7 +462,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 **Options:**
 - `Index` - The `TreeIndex` to search
 - `Query` - Search query
-- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps (or wall time) returns the sections it already marked, with `TreeSearchResult.StoppedReason` set to `MaxIterationsExceeded`; it stops the search (awaiting it throws `EmergenceStoppedException`) only when it marked none. A null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
+- `MaxSteps` - Maximum navigation steps (default: 10). A navigator that runs out of steps (or wall time) returns the sections it already marked, with `TreeSearchResult.StoppedReason` set to the reason it stopped: `MaxIterationsExceeded` for steps, `MaxWallTimeExceeded` for wall time; it stops the search (awaiting it throws `EmergenceStoppedException`) only when it marked none. A null `Index` or empty `Query` stops it with `NoTreeIndex` or `NoQuery`
 - `MaxResults` - Maximum sections to return (default: 5)
 - `Navigator(Action<EmergeScope<NavigationDecision>>)` - Configure navigator
 

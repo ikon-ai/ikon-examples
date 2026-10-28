@@ -1,4 +1,4 @@
-<!-- checked-against: dc19b85c76996a1b66a40eb6 -->
+<!-- checked-against: ca376f46b61d319c67ef1c08 -->
 
 # Ikon.AI Library Overview
 
@@ -13,7 +13,7 @@ A service that submits a job to its provider and waits for it (video, mesh, musi
 | Service | Default `Timeout` |
 |---|---|
 | LLM calls (`KernelContext`) | 60 seconds; 10 minutes for a reasoning model when `Timeout` is not set |
-| Embeddings, reranking | 10 seconds per request, scaled up with the batch size |
+| Embeddings, reranking | 10 seconds per request; embeddings add one second per 5,000 characters sent, reranking adds 10 ms per document |
 | Speech recognition | 1 minute |
 | Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds; the SerpApi models (Google, Bing, Amazon, YouTube) retry a timed-out request once, so up to 40 |
 | Single-page scrape | 60 seconds |
@@ -301,7 +301,7 @@ An app that must mark a clip it keeps reads the stored file back (`app.Files.Pub
 passes it to `MediaProvenance.Apply` and writes the result over it. That holds the whole clip in
 memory, so do it once per clip, not per viewer. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
 speech) hand out raw PCM chunks with no container, so they are never marked; disclose those to the
-user instead, with Parallax's `view.AiDisclosure(AiDisclosureKind.GeneratedContent)`.
+user instead, with Parallax's `view.AIDisclosure(AIDisclosureKind.GeneratedContent)`.
 
 ## Image Utilities
 
@@ -1195,7 +1195,7 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 `Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
-`Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. It costs $2.50 per million input tokens with output free, about 60 times Jev, so keep Jev for routing and triage and use Eevo where the trade-off between people is the question. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A request over a limit is refused before it is sent.
+`Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. It costs $2.50 per million input tokens with output free, about 60 times Jev, so keep Jev for routing and triage and use Eevo where the trade-off between people is the question. Upright states each decision's cost, and that stated cost is what is billed; the per-token price applies only to a decision that states none. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A request over a limit is refused before it is sent.
 
 `Decider.GetCapabilities(model)` says which models take stakeholders and consequences (`SupportsStakeholders`, `SupportsConsequences`). A question that names them is refused with a `NotSupportedException` before anything is sent to a model without them, rather than being answered as if it had asked something simpler.
 
@@ -1225,7 +1225,7 @@ string warehouse = await Decider.ChooseAsync(
     DecisionState.From(order), "Which warehouse ships this?", "helsinki", "tampere");
 ```
 
-A decision that affects several people is asked once per stakeholder. Write each consequence as one effect with its amounts, as a change from what happens if no option is taken, and limit it with `For` to the stakeholders it touches:
+A decision that affects several people is asked once per stakeholder, all of them in one request. Several such questions in one call are sent one after another, so each question with consequences adds its own 5 to 70 seconds, and a call with consequences times out after 10 minutes unless `Timeout` is set. Write each consequence as one effect with its amounts, as a change from what happens if no option is taken, and limit it with `For` to the stakeholders it touches:
 
 <!-- ikon-example: decision-stakeholders -->
 ```csharp

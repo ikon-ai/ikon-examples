@@ -1,4 +1,4 @@
-<!-- checked-against: d0c1d3cc2d53c96bb14cda5b -->
+<!-- checked-against: 06b8d6d688b896fa3bdad033 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -912,7 +912,7 @@ This applies to any fullscreen overlay effect: scan lines, sweep bands, CRT over
 
 ### Responsive Breakpoints
 
-**All UIs must be built responsively using breakpoint prefixes.** For how a layout looks, never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Which panels or features a phone is offered is app behaviour, not looks, so branching on `ctx.ViewportWidth` or `ClientPlatform.IsMobile` is fine for that. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
+**All UIs must be built responsively using breakpoint prefixes.** For how a layout looks, never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Which panels or features a phone is offered is app behaviour, not looks, so branching on `ctx.ViewportWidth` or `ClientPlatform.FromContext(ctx).IsMobile` is fine for that. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
 
 <!-- ikon-example: cw-responsive-breakpoints -->
 ```csharp

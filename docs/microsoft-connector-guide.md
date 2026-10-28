@@ -1,4 +1,4 @@
-<!-- checked-against: 938a8e4b82c16f8c9ccb41a8 -->
+<!-- checked-against: 9471e4fe782179132e6356fc -->
 
 # Microsoft Connector Guide
 
@@ -672,7 +672,7 @@ var line = TeamsActivities.Parse(body) switch
 };
 ```
 
-Answer every activity with `200` within 15 seconds and do slow work after answering. An invoke, such as a card action or a vote, is answered in the same response with a body from `TeamsInvokeResponse`. Every activity names its `Conversation`, a `TeamsBotConversation` to answer it in, whose `TeamsBotConversationType` says whether it is a one-on-one chat, a group chat or a channel. `PostAsync` sends a `TeamsBotMessage` and returns its activity id. In a channel thread, pass the activity's `ReplyToId` to keep the answer in the thread. `UpdateAsync` and `DeleteAsync` change the bot's own messages, and `SendTypingAsync` shows it writing. A `TeamsBotMessage` has `Text` in markdown by default (`TeamsBotTextFormat`), `Cards` (`TeamsCard.Adaptive`, laid out by `TeamsCardLayout` as a list or a carousel), `Mentions` (`TeamsBotMention`s, written in the text as `<at>Name</at>`), `SuggestedActions` offered as buttons in a one-on-one chat, a `Summary` for notifications, and for an AI agent `AiGenerated`, `Citations` (`TeamsCitation`s, shown where the text names `[1]`) and `FeedbackButtons`. `ListMembersAsync` and `GetMemberAsync` read the people in a conversation as `TeamsBotUser`s, whose `AadObjectId` is the id the Graph clients take, and `GetTeamAsync` and `ListTeamChannelsAsync` read the team a channel belongs to as a `TeamsBotTeam` and its `TeamsBotChannel`s. A conversation the bot cannot reach, because it was removed, never installed or blocked, throws with `StatusCode` 404:
+Answer every activity with `200` within 15 seconds and do slow work after answering. An invoke, such as a card action or a vote, is answered in the same response with a body from `TeamsInvokeResponse`. Every activity names its `Conversation`, a `TeamsBotConversation` to answer it in, whose `TeamsBotConversationType` says whether it is a one-on-one chat, a group chat or a channel. `PostAsync` sends a `TeamsBotMessage` and returns its activity id. In a channel thread, pass the activity's `ReplyToId` to keep the answer in the thread. `UpdateAsync` and `DeleteAsync` change the bot's own messages, and `SendTypingAsync` shows it writing. A `TeamsBotMessage` has `Text` in markdown by default (`TeamsBotTextFormat`), `Cards` (`TeamsCard.Adaptive`, laid out by `TeamsCardLayout` as a list or a carousel), `Mentions` (`TeamsBotMention`s, written in the text as `<at>Name</at>`), `SuggestedActions` offered as buttons in a one-on-one chat, a `Summary` for notifications, and for an AI agent `AIGenerated`, `Citations` (`TeamsCitation`s, shown where the text names `[1]`) and `FeedbackButtons`. `ListMembersAsync` and `GetMemberAsync` read the people in a conversation as `TeamsBotUser`s, whose `AadObjectId` is the id the Graph clients take, and `GetTeamAsync` and `ListTeamChannelsAsync` read the team a channel belongs to as a `TeamsBotTeam` and its `TeamsBotChannel`s. A conversation the bot cannot reach, because it was removed, never installed or blocked, throws with `StatusCode` 404:
 
 <!-- ikon-example: connectors-teams-bot-endpoint -->
 ```csharp
@@ -720,7 +720,7 @@ var run = Emerge.Run<string>(LLMModel.Claude55Sonnet, pass => pass.Command = mes
 await _bot.StreamAsync(
     message.Conversation,
     run.OfType<ModelText<string>>().Select(token => token.Text),
-    final: new TeamsBotMessage { AiGenerated = true, FeedbackButtons = true });
+    final: new TeamsBotMessage { AIGenerated = true, FeedbackButtons = true });
 ```
 
 ### Messaging people first

@@ -1,4 +1,4 @@
-<!-- checked-against: 80f0dbbeea80d7c84a5dbeb6 -->
+<!-- checked-against: 1e2e0e23ab4e80044a5dbeb6 -->
 
 # Custom Map Component Guide
 
@@ -594,7 +594,7 @@ marker.on('click', (e: L.LeafletMouseEvent) => {
 });
 ```
 
-**C#** — add the corresponding data class, parameter, and action wiring:
+**C#** — add the corresponding data class, then a sibling method that takes the callback parameter and wires the action:
 
 <!-- ikon-example: custom-map-pin-drag-data -->
 ```csharp
@@ -606,8 +606,9 @@ public class PinDragData
 }
 ```
 
-The extension method gains the parameter, the action wiring and the prop — the same three steps every
-new callback needs:
+The drag example is a sibling extension method, `MyMapWithDrag`, and leaves `MyMap` unchanged. It takes
+the callback parameter, wires the action and sets the prop — the same three steps every new callback
+needs:
 
 <!-- ikon-example: custom-map-pin-drag-wiring -->
 ```csharp

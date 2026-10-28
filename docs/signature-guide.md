@@ -1,4 +1,4 @@
-<!-- checked-against: 34a06915d6f25e752ae0074e -->
+<!-- checked-against: 457f2349d6f25e752ae0074e -->
 
 # IKON Signature Guide
 
@@ -134,9 +134,9 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and records the key, trimmed of surrounding whitespace, as that row's `TenantScope` id. The cost is therefore counted per tenant together with the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further setup. Nothing else changes the value, and a key that is all whitespace meters with no `TenantScope`. Pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost belongs to the space rather than to anything inside it.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the recipient signs, the platform meters the order once as a `signature.*` usage event and records the key, trimmed of surrounding whitespace, as that row's `TenantScope` id. The cost is therefore counted per tenant together with the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further setup. Nothing else changes the value, and a key that is all whitespace meters with no `TenantScope`. Pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost belongs to the space rather than to anything inside it.
 
-An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
+An order is metered once the recipient has signed, even if it then fails or the app cancels it, because the provider charges for the signature at that point. An order abandoned, declined or expired before the recipient signs is not metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
 
 ## Field reference
 
