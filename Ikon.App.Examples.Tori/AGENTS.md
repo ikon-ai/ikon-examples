@@ -8,7 +8,7 @@
 2. Pick a visual direction (below), the language (not English: first set `<html lang>` and the I18n default language; `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (shares every plain reactive; per-visitor: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`.
    Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; no one holds `admin` by default (`first-user-becomes-admin`).
 3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless the URL was minted with an identity. Records go in a database, and an open screen shows another instance's new row only when told (`reactive-state`).
-4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (its own data, the only one `app.Seed` runs on): `ikon link --target staging --new-app`. Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
+4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (its own data; `app.Seed` runs on staging and gym copies): `ikon link --target staging --new-app`. Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
 5. The scaffold runs: `ikon run --target staging --mock-ai --detach`, then `ikon browse --steps "observe"`. `browse` without `--target` drives the local run; a deployed copy spends credits. `dev warning:` lines reach `build/ikon-run.log` only once a client renders the view. `ikon db query` acts on the live app unless `--target` names one.
    `--mock-ai`: speech recognition gives one fixed sentence. An `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on each list property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
 
@@ -22,7 +22,7 @@ A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Py
 
 **UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`; no `ViewContext`, CS0246).
 
-**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders (`"default"` first keeps the themed default). A missing colour is a theme role (IKON013), set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`).
+**Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array: `[Button.PrimaryMd, "mt-4"]`. A `style:` array is exactly what renders (`"default"` first keeps the themed default). A missing colour is a theme role, set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`); a raw hex (`bg-[#…]`) is IKON013.
 
 ## Running and checking the app
 
@@ -48,7 +48,7 @@ client (new ids, empty `ClientReactive` state) that ends with the run, and so do
 and plays the whole flow in one run. Where the shell strips quotes (PowerShell), use
 `--steps-file scratch/steps.txt` (one step per line). `hold`, `mic` and `--fake-media-file` (a .wav loops into
 the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app.
-`look`, `click`, `drag`, `pointer`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
+`look`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
 gets its own page once a step acts in it.
 
 A script worth keeping is a **check gate**, `.ikon/gates/<name>.toml`: `ikon test` runs it against
@@ -98,10 +98,10 @@ empty (`view.EmptyState`), loading and error states; action buttons beside a tit
 
 `pitfalls` has each rule in full.
 
-- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031) and cannot `await` (CS4034): load in the handler. Outside a handler, name the client: `_x.SetFor(cid, v)`.
-- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`; `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch them and show a sentence and a retry.
-- **View calls**: the leading style array is positional and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange:` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
-  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; one with `disabled:` needs a `disabled:` class too (`[Button.PrimaryMd, "disabled:opacity-50"]`, `ui-components`).
+- **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `[Client]ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031) and cannot `await` (CS4034): load in the handler. Outside a handler, name the client: `_x.SetFor(cid, v)`.
+- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`; `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch, show a sentence and a retry.
+- **View calls**: the leading style array is positional (`CopyField`: `value` first), `"default"` first or the theme goes (IKON025), and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange: async v => …` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
+  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; one with `disabled:` needs a `disabled:` class too (`[Button.PrimaryMd, "disabled:opacity-50"]`).
 - **Databases**: Dapper and EF Core are in the scaffold, packages and usings both; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`).
 - **Logging**: `Log.Instance.Info/Warning/Error/Debug($"…")`, not `app.Logger`/`Information` (CS1061).
 - **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(options: [new SelectOption(v, l)])`, not `items:`.
