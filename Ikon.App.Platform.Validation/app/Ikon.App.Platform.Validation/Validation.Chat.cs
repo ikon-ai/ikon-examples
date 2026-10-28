@@ -177,7 +177,7 @@ public partial class Validation
                         });
                 });
 
-                view.AiDisclosure(AiDisclosureKind.Interaction);
+                view.AIDisclosure(AIDisclosureKind.Interaction);
 
                 view.Row([Layout.Row.Md, "mt-4 flex-wrap"], content: row =>
                 {

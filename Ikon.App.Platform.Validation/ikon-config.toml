@@ -1,4 +1,4 @@
-ConfigVersion = 10  # Schema version: the ikon tool upgrades an older file and refuses a newer one
+ConfigVersion = 11  # Schema version: the ikon tool upgrades an older file and refuses a newer one
 StateDatabase = ""  # The database PersistentReactive state lives in; empty picks the "app" database (databases guide)
 DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any (sso guide)
 MaxClients = 0  # Clients an instance admits before refusing with 429; 0 fits it to the container's memory (scaling guide)
@@ -171,7 +171,7 @@ Button = "overlay"  # "overlay" draws a floating feedback button for whoever is 
 
 # Usage measurement, of people who granted ConsentPurposes.UsageMeasurement (consent guide)
 [Analytics]
-UiActions = false  # Record each action a person runs, which a report filed from the app then carries
+UIActions = false  # Record each action a person runs, which a report filed from the app then carries
 
 # Fixed answers or redirects on paths of the app's domain, sent without starting the app (app-structure guide)
 # [[PathResponse]]
@@ -196,8 +196,8 @@ PrePackage = []  # Process the staged bundle after the build and before 'ikon bu
 
 # The native app the Flutter frontend builds; set it only to update an app already in a store (frontend-fundamentals guide)
 [Flutter]
-IosBundleId = ""  # The iOS bundle identifier, e.g. "com.example.events"; empty takes AndroidApplicationId, then app.ikon.s<space id>
-AndroidApplicationId = ""  # The Android applicationId, e.g. "com.example.events"; empty takes IosBundleId, then app.ikon.s<space id>
+IOSBundleId = ""  # The iOS bundle identifier, e.g. "com.example.events"; empty takes AndroidApplicationId, then app.ikon.s<space id>
+AndroidApplicationId = ""  # The Android applicationId, e.g. "com.example.events"; empty takes IOSBundleId, then app.ikon.s<space id>
 AppleTeamId = ""  # The Apple Developer team that signs the iOS app; turns on iOS universal links
 AndroidCertFingerprints = []  # SHA-256 fingerprints of the certificates that sign the Android app; turns on Android app links
 AssociatedDomains = []  # Hostnames besides the app's own whose https links open the app

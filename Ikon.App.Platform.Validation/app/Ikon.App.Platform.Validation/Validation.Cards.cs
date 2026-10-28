@@ -385,27 +385,27 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-1"], "AI Disclosure");
-                view.Text([Text.BodySm, "text-tertiary mb-4"], "view.AiDisclosure: the platform's uniform disclosure line, per kind (Interaction / GeneratedContent) and variant (Note / Banner / Pill).");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "view.AIDisclosure: the platform's uniform disclosure line, per kind (Interaction / GeneratedContent) and variant (Note / Banner / Pill).");
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     view.Text([Text.Caption], "Interaction · Note (default wording)");
-                    view.AiDisclosure(AiDisclosureKind.Interaction);
+                    view.AIDisclosure(AIDisclosureKind.Interaction);
 
                     view.Text([Text.Caption], "GeneratedContent · Banner with note");
-                    view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Banner,
+                    view.AIDisclosure(AIDisclosureKind.GeneratedContent, AIDisclosureVariant.Banner,
                         note: "AI can make mistakes. Check anything important.");
 
                     view.Text([Text.Caption], "GeneratedContent · Pill over an image");
                     view.Box(["relative w-64 h-36 rounded-lg overflow-hidden border border-secondary"], content: frame =>
                     {
                         frame.Image(["w-full h-full object-cover"], src: "/test-images/landscape.svg", alt: "Generated landscape");
-                        frame.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
+                        frame.AIDisclosure(AIDisclosureKind.GeneratedContent, AIDisclosureVariant.Pill,
                             style: ["default", "absolute bottom-2 end-2"]);
                     });
 
                     view.Text([Text.Caption], "Interaction · Note with custom text and icon, no icon variant");
-                    view.AiDisclosure(AiDisclosureKind.Interaction, text: "You are chatting with an AI assistant.", icon: "bot");
-                    view.AiDisclosure(AiDisclosureKind.GeneratedContent, showIcon: false);
+                    view.AIDisclosure(AIDisclosureKind.Interaction, text: "You are chatting with an AI assistant.", icon: "bot");
+                    view.AIDisclosure(AIDisclosureKind.GeneratedContent, showIcon: false);
                 });
             });
 

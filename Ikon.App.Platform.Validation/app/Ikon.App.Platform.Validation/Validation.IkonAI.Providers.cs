@@ -93,7 +93,7 @@ public partial class Validation
 
     private static async Task<string> CheckAICatalogAsync()
     {
-        var fetch = await IkonBackend.Instance.GetAiCatalogAsync(ifNoneMatch: null);
+        var fetch = await IkonBackend.Instance.GetAICatalogAsync(ifNoneMatch: null);
 
         if (fetch.Body is null)
         {
@@ -187,7 +187,7 @@ public partial class Validation
         }
 
         // The ETag covers the prices, which only change with the catalog, so a read right after must be a 304
-        var again = await IkonBackend.Instance.GetAiCatalogAsync(fetch.ETag);
+        var again = await IkonBackend.Instance.GetAICatalogAsync(fetch.ETag);
 
         if (!again.NotModified)
         {

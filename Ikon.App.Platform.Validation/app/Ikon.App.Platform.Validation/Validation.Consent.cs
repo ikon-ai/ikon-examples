@@ -6,7 +6,7 @@ public partial class Validation
     private static readonly ConsentPurpose ConsentNeverAskedPurpose = new("validation-never-asked");
     private const int ConsentChangeLogLimit = 20;
 
-    private static readonly ConsentPurpose[] ConsentCardPurposes = [ConsentPurposes.UsageMeasurement, ConsentPurposes.AiProviderPersonalData];
+    private static readonly ConsentPurpose[] ConsentCardPurposes = [ConsentPurposes.UsageMeasurement, ConsentPurposes.AIProviderPersonalData];
 
     // Bumped on every OnChanged so the C# card re-reads the ledger and the React panel (which gets
     // it as a prop) re-reads its own answers through the SDK — the second half of the round trip.
