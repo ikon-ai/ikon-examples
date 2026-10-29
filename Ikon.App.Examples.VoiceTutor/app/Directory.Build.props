@@ -2,9 +2,9 @@
   <PropertyGroup>
     <ArtifactsPath>$(MSBuildThisFileDirectory)..\build\app\artifacts</ArtifactsPath>
     <RestoreEnablePackagePruning>false</RestoreEnablePackagePruning>
-    <!-- Hot reload compiles with Roslyn directly and runs no source generators; writing generator
-         output to obj/ lets that compile include the generated halves ([GeneratedRegex] and
-         friends) instead of failing with CS8795 the moment one is used. -->
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)..\build\app\ikon-platform-repo.props" Condition="Exists('$(MSBuildThisFileDirectory)..\build\app\ikon-platform-repo.props')" />
+  <Target Name="IkonWarnLocalRunHoldsOutput" BeforeTargets="CoreCompile" Condition="'$(IkonLocalRunBuild)' != 'true' and Exists('$(OutDir)ikon-server-info.json')">
+    <Warning Text="A local run of this app may be running from $(OutDir), which holds its ikon-server-info.json. While it runs, copying this build there fails with MSB3027 (file locked). ikon stop ends the run" />
+  </Target>
 </Project>
