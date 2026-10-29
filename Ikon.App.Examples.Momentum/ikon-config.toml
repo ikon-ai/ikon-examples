@@ -16,7 +16,7 @@ MaxClients = 0  # Clients an instance admits before refusing with 429; 0 fits it
 # Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks
 # Who may enter the surface
 # [Surface.Auth]
-# Methods = ["google", "apple", "microsoft", "signicat", "email", "passkey", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
+# Methods = ["google", "apple", "microsoft", "email", "passkey", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
 # Roles = []  # Roles a signed-in person must hold, e.g. ["admin"]; empty admits every signed-in person
 # SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
