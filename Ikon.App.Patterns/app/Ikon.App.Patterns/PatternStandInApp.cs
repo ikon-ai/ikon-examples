@@ -46,7 +46,7 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync { add { } remove { } }
     public event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync { add { } remove { } }
     public Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
-    public Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<StepUpResult> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
     // A space URL of its own, so an example that renders the app's PublicUrl as a QR code or a link

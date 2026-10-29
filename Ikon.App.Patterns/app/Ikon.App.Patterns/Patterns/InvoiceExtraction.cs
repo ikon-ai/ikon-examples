@@ -39,6 +39,9 @@ internal sealed class InvoiceExtraction : IPatternDemo
     private const int MaxPages = 5;
 
     private readonly ClientReactive<Invoice?> _draft = new(null);
+    // The total as the user typed it, because a field showing the parsed number would reformat it on
+    // every keystroke
+    private readonly ClientReactive<string?> _totalText = new(null);
     private readonly ClientReactive<bool> _reading = new(false);
     private readonly ClientReactive<string?> _error = new(null);
     private readonly ReactiveList<Invoice> _approved = new();
@@ -68,6 +71,7 @@ internal sealed class InvoiceExtraction : IPatternDemo
         _reading.SetFor(clientSessionId, true);
         _error.SetFor(clientSessionId, null);
         _draft.SetFor(clientSessionId, null);
+        _totalText.SetFor(clientSessionId, null);
 
         try
         {
@@ -170,8 +174,17 @@ internal sealed class InvoiceExtraction : IPatternDemo
                 text => _draft.Value = invoice with { InvoiceNumber = new(text, 1) });
             ReviewField(col, "Date", invoice.Date.Value, invoice.Date.Confidence,
                 text => _draft.Value = invoice with { Date = new(text, 1) });
-            ReviewField(col, "Total", invoice.Total.Value.ToString("0.00", CultureInfo.InvariantCulture), invoice.Total.Confidence,
-                text => _draft.Value = decimal.TryParse(text, CultureInfo.InvariantCulture, out var total) ? invoice with { Total = new(total, 1) } : invoice);
+            var totalText = _totalText.Value ?? invoice.Total.Value.ToString("0.00", CultureInfo.InvariantCulture);
+            var totalParses = decimal.TryParse(totalText, CultureInfo.InvariantCulture, out _);
+            ReviewField(col, "Total", totalText, invoice.Total.Confidence, text =>
+            {
+                _totalText.Value = text;
+
+                if (decimal.TryParse(text, CultureInfo.InvariantCulture, out var total))
+                {
+                    _draft.Value = invoice with { Total = new(total, 1) };
+                }
+            });
 
             foreach (var line in invoice.Lines)
             {
@@ -182,7 +195,11 @@ internal sealed class InvoiceExtraction : IPatternDemo
             // The model's confidence is its own estimate; a sum the code adds up is a fact
             var linesTotal = invoice.Lines.Sum(l => l.Quantity * l.UnitPrice);
 
-            if (Math.Abs(linesTotal - invoice.Total.Value) > 0.01m)
+            if (!totalParses)
+            {
+                col.Text(["text-destructive text-sm"], "The total isn't a number. Type it like 166.40.");
+            }
+            else if (Math.Abs(linesTotal - invoice.Total.Value) > 0.01m)
             {
                 col.Text(["text-destructive text-sm"], $"The lines add up to {linesTotal:0.00}, not {invoice.Total.Value:0.00}. Check the total and the lines.");
             }
@@ -190,12 +207,17 @@ internal sealed class InvoiceExtraction : IPatternDemo
             col.Row(["gap-2"], content: row =>
             {
                 // A real app writes the approved record to its database here, never before
-                row.Button([Button.PrimaryMd], text: "Approve", onClick: async () =>
+                row.Button([Button.PrimaryMd, "disabled:opacity-50"], text: "Approve", disabled: !totalParses, onClick: async () =>
                 {
                     _approved.Add(invoice);
                     _draft.Value = null;
+                    _totalText.Value = null;
                 });
-                row.Button([Button.OutlineErrorMd], text: "Discard", onClick: async () => _draft.Value = null);
+                row.Button([Button.OutlineErrorMd], text: "Discard", onClick: async () =>
+                {
+                    _draft.Value = null;
+                    _totalText.Value = null;
+                });
             });
         });
     }
