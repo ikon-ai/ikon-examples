@@ -567,9 +567,6 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     private bool IsMobileLayout()
     {
-        // Subscribe to the reactive clients dictionary to trigger re-renders on context changes
-        _ = app.ReactiveGlobalState.Clients.Value;
-
         var clientScope = ReactiveScope.TryGet<ClientScope>();
 
         if (clientScope == null)

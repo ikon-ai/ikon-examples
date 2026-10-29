@@ -16,6 +16,9 @@ export interface Translations {
   'connection.startupFailed.title': string;
   'connection.startupFailed.message': string;
   'connection.startupFailed.action': string;
+  'connection.retryInSeconds': string;
+  'connection.retryInMinutes': string;
+  'connection.retrying': string;
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;
@@ -24,6 +27,7 @@ export interface Translations {
   'auth.email.submit': string;
   'auth.email.submitting': string;
   'auth.email.sent.message': string;
+  'auth.email.local.message': string;
   'auth.email.code.placeholder': string;
   'auth.email.code.submit': string;
   'auth.email.code.submitting': string;
