@@ -101,11 +101,10 @@ public partial class Validation
                             value: _profilingSubtreeRendering.Value,
                             onValueChange: async v =>
                             {
-                                _profilingSubtreeRendering.Value = v;
+                                // Set the mode before the reactive, so the root render that this
+                                // write starts already uses the new mode
                                 UI.EnableSubtreeRendering = v;
-                                // The per-container handle graph is built and torn down by a full
-                                // root render; without one, the previous mode keeps running.
-                                app.ReactiveGlobalState.Clients.NotifyUpdate();
+                                _profilingSubtreeRendering.Value = v;
                                 ResetProfilingStatsAfterModeChange();
                             },
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));

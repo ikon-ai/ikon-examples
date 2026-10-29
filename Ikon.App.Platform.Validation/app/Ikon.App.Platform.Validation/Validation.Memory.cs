@@ -63,7 +63,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 _ = _maxClientsVersion.Value;
-                int connectedClients = app.ReactiveGlobalState.Clients.Value.Values.Count(context => !context.IsInternal);
+                int connectedClients = app.GlobalState.Clients.Values.Count(context => context.IsReady && !context.IsInternal);
 
                 view.Text([Text.H2, "mb-4"], "Client Limit");
                 view.Text([Text.Body], $"Max clients: {(app.MaxClients > 0 ? app.MaxClients.ToString() : "unlimited")}", props: TestId("max-clients"));

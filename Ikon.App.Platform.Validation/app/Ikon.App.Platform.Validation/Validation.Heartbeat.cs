@@ -77,7 +77,7 @@ public partial class Validation
 
     private TimeZoneInfo ViewerTimeZone()
     {
-        var reported = app.GlobalState.Clients.TryGetValue(ReactiveScope.ClientId, out var client) ? client.Timezone : null;
+        var reported = app.GlobalState.GetClientContext(ReactiveScope.ClientId)?.Timezone;
 
         if (!string.IsNullOrEmpty(reported) && TimeZoneInfo.TryFindSystemTimeZoneById(reported, out var zone))
         {

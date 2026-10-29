@@ -199,8 +199,8 @@ line that starts with `PASS` or `FAIL`, and a step in `validation/validate_platf
 |---|---|---|
 | free | hourly | every tab rendered by the smoke sweep; Self-Test's in-process battery; the one-click checks on the Typography, Buttons, Inputs, Advanced Inputs, Forms, Overlays, Navigation, App Nav (the selection and the page's skeleton showing before the server answers; on a deployment, the Flutter boot snapshots it ships), Layout, Drawing, Pan & Zoom, Actions, Device, Notifications, Session Identity, Account (the legal page links, reading the account's scheduled removal), Consent (Require gating), React SDK (server functions from the browser, consent both ways between C# and the hook, sibling client), Costs and Telephony (status) tabs; on the Ikon.AI tab, the model catalog the backend serves this organisation and an app provider class called by name; the older phases (assets, files, the upload lifecycle lab, database, custom messages, media, MCP, cron, payments, connection transports, SEO) |
 | ai | six-hourly | the Ikon.AI Library cards, including Decider, direct model access, the mesh animation library, word timings and provenance; a call on the space's own provider key; a spend budget tripping |
-| daily | the 00:00 UTC six-hourly run, or a dispatch with `run_daily` | an SMS and a call each way between the space's two numbers, a signature order reaching the Signicat ceremony, SAM 3 video segmentation |
-| manual | a person, often on a phone | Motion, Recordings and Live Activity (native clients only), background location, completing a signature, answering calls, the capture hooks, account deletion, browsing and changing a SharePoint site on the SharePoint tab, signing in to Google and working a Drive on the Google Drive tab, the upload lab's app stop mid-upload, the upload lab through the Dart client (`platform-dart/ikon_sdk/test/upload_lab_live_test.dart` against a local run), the App Nav tab on a phone or simulator (`frontend-flutter/integration_test/app_nav_test.dart` against a local run: skeleton, pending bar, kept start-up screen) |
+| daily | the 00:00 UTC six-hourly run, or a dispatch with `run_daily` | an SMS and a call each way between the space's two numbers, a signature order on the generated PDF completed through Signicat's Norwegian BankID simulator and one the app stops waiting for, a step-up completed and one cancelled through Signicat's Norwegian BankID simulator, which the sandbox step-up client offers, and one the app stops waiting for, an eID sign-in on `/surfaces/eid` through the same simulator, again from a second browser to the same account, and one cancelled (they need the organisation's `StrongAuth` feature on), SAM 3 video segmentation |
+| manual | a person, often on a phone | Motion, Recordings and Live Activity (native clients only), background location, completing a signature, a step-up or an eID sign-in with a real eID (BankID, FTN, Smart-ID), answering calls, the capture hooks, account deletion, browsing and changing a SharePoint site on the SharePoint tab, signing in to Google and working a Drive on the Google Drive tab, the upload lab's app stop mid-upload, the upload lab through the Dart client (`platform-dart/ikon_sdk/test/upload_lab_live_test.dart` against a local run), the App Nav tab on a phone or simulator (`frontend-flutter/integration_test/app_nav_test.dart` against a local run: skeleton, pending bar, kept start-up screen) |
 
 The Hot Reload tab is proven by its own battery, `validation/validate platform-hot-reload`, which every
 scheduled run starts after the platform suites, never beside this app's deploy. It runs this app from the checkout with `ikon run`, rewrites `HotReloadProbe.cs` three
@@ -208,7 +208,7 @@ times under a page that stays open, and checks that page against one opened afte
 reloaded app's tabs and features, then that nothing warned. The battery rewrites the file line by line, so it
 keeps one `public const string` per value, and `ValidationTheme` reads its radius from there.
 
-The app declares nine `[[Surface]]` tables so the `surfaces` phase (`validation/validate_platform_surfaces.py`)
+The app declares eleven `[[Surface]]` tables so the `surfaces` phase (`validation/validate_platform_surfaces.py`)
 can drive every surface property. `app` is the fallback that serves the tabs, so its snapshot routes come
 from `app.OnSnapshotRoutes`. Each probe surface has a page at `/surfaces/<name>` (`Validation.Surfaces.cs`,
 and the React probe in `frontend-node/src/lib/surface-probe/`): `site` (onAction, no media, no presence,
@@ -216,7 +216,13 @@ a seed, `global`), `static` (`Connect = "none"`), `members` (sign-in required), 
 `console` (its own hostname, `Placement = "own"`), `gated` (sign-in required, with `login` as its
 `[Surface.Auth] SignIn` page) and `kiosk` (`Recovery = "unattended"`). `login` has no route: a visitor who
 has not signed in enters it at `/surfaces/gated`. The page picks itself by the path, not by
-`ctx.Surface`, so a client that entered the wrong surface shows two names that differ. A `staff` surface
+`ctx.Surface`, so a client that entered the wrong surface shows two names that differ.
+`eid` admits only an eID sign-in (`signicat`), at `/surfaces/eid` (`Validation.EidSignIn.cs`), and
+names `eid-login` as its sign-in page: a guest surface that asks for the shared password before it
+offers the eID, since the stock sign-in screen would offer it to every visitor and each sign-in is
+billed. That is why `app` does not list `signicat`, and why a person signed in with an eID cannot
+open the tabs: the sign-in is for `/surfaces/eid` only. The password only hides the button: the backend
+admits an eID sign-in into the space from anyone who builds the start URL by hand. A `staff` surface
 with `Roles` means every external function needs a `[Surface]` scope, so `ValidationFunctions` and
 `UploadLabReport` carry `[Surface("app")]`. Keep the tables the same in `ikon-config.development.toml` and
 `ikon-config.production.toml`; `ikon-config.history2.toml` belongs to the frozen history2 deployment.

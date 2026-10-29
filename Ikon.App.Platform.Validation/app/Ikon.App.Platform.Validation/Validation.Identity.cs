@@ -11,6 +11,7 @@ public partial class Validation
     private readonly ClientReactive<string> _identityUserId = new("");
     private readonly ClientReactive<string> _identityEmail = new("");
     private readonly ClientReactive<string> _identityVisibleName = new("");
+    private readonly ClientReactive<string> _identityName = new("");
     private readonly ClientReactive<string> _identityRoles = new("");
     private readonly ClientReactive<bool> _identityIsSharedSession = new(false);
     private readonly ClientReactive<string> _identityAuthProvider = new("");
@@ -40,6 +41,7 @@ public partial class Validation
             {
                 _identityEmail.SetFor(sessionId, profile.Email ?? "");
                 _identityVisibleName.SetFor(sessionId, profile.VisibleName);
+                _identityName.SetFor(sessionId, profile.Name ?? "");
                 _identityRoles.SetFor(sessionId, string.Join(", ", profile.Roles));
             }
         }
@@ -83,7 +85,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H3, "mb-4"], "Client Context");
-                app.ReactiveGlobalState.Clients.Value.TryGetValue(ReactiveScope.ClientId, out var clientContext);
+                var clientContext = app.GlobalState.GetClientContext(ReactiveScope.ClientId);
 
                 if (clientContext == null)
                 {

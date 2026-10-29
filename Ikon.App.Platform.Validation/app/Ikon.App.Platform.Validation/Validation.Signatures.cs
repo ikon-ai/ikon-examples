@@ -17,7 +17,6 @@ public partial class Validation
     private static readonly IReadOnlyList<SelectOption> SigPolicyOptions =
     [
         new SelectOption(nameof(SignaturePolicy.EidHub), "EidHub (eID authentication)"),
-        new SelectOption(nameof(SignaturePolicy.PkiSigning), "PkiSigning (qualified PKI)"),
     ];
 
     // The ceremony takes over the signer's tab, so the client that pressed the button is gone by the
@@ -36,6 +35,16 @@ public partial class Validation
     private readonly Lock _sigLock = new();
     private CancellationTokenSource? _sigCts;
 
+    // Like the signing ceremony, step-up takes over the tab, so its state is shared too.
+    private readonly ClientReactive<string> _stepUpAcrValues = new("");
+    private readonly ClientReactive<bool> _stepUpReturnToApp = new(true);
+    private readonly Reactive<bool> _stepUpRunning = new(false);
+    private readonly Reactive<string> _stepUpStatus = new("IDLE no step-up yet");
+    private readonly Reactive<StepUpResult?> _stepUpResult = new(null);
+
+    private readonly Lock _stepUpLock = new();
+    private CancellationTokenSource? _stepUpCts;
+
     private void InitSignatures()
     {
     }
@@ -53,7 +62,166 @@ public partial class Validation
 
             RenderSignatureOrderCard(view);
             RenderSignatureResultCard(view);
+            RenderStepUpCard(view);
+            RenderStepUpResultCard(view);
         });
+    }
+
+    private void RenderStepUpCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-1"], "Step-up");
+            view.Text([Text.Caption, "mb-4"], "Asks the signed-in user to prove who they are with an eID, and checks the platform's signed answer.");
+
+            view.Row([Layout.Row.Md, "items-end mb-4 flex-wrap"], content: view =>
+            {
+                view.TextField(
+                    [Input.Default, "min-w-[260px]"],
+                    bind: _stepUpAcrValues,
+                    label: "acr_values",
+                    placeholder: "empty = every method the client allows, e.g. idp:ftn",
+                    props: TestId("stepup-acr"));
+                view.Checkbox(bind: _stepUpReturnToApp, label: "Return to this app afterwards");
+            });
+
+            view.Row([Layout.Row.Md, "items-center mb-4 flex-wrap"], content: view =>
+            {
+                view.Button(
+                    [Button.PrimaryMd],
+                    text: "Verify with eID",
+                    disabled: _stepUpRunning.Value,
+                    onClick: StartStepUp,
+                    props: TestId("stepup-start"));
+
+                if (_stepUpRunning.Value)
+                {
+                    view.Button(
+                        [Button.ErrorMd],
+                        text: "Stop waiting",
+                        onClick: CancelStepUp,
+                        props: TestId("stepup-cancel"));
+                    view.Spinner();
+                }
+            });
+
+            var status = _stepUpStatus.Value;
+            view.Text(
+                [Text.Body, "break-all", status.StartsWith("PASS", StringComparison.Ordinal) ? "text-success-primary" : status.StartsWith("FAIL", StringComparison.Ordinal) ? "text-error-primary" : "text-secondary"],
+                status,
+                props: TestId("stepup-status"));
+        });
+    }
+
+    private void RenderStepUpResultCard(UIView view)
+    {
+        if (_stepUpResult.Value is not { } result)
+        {
+            return;
+        }
+
+        view.Box([Card.Elevated, "p-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Verified");
+            view.Column([Layout.Column.Xs], content: view =>
+            {
+                RenderSignerField(view, "Challenge", result.ChallengeId);
+                RenderSignerField(view, "User", result.UserId);
+                RenderSignerField(view, "Purpose", result.Purpose);
+                RenderSignerField(view, "Identity scheme", result.IdentityScheme);
+                RenderSignerField(view, "Assurance level", result.AssuranceLevel);
+                RenderSignerField(view, "Verified name", result.VerifiedName);
+                RenderSignerField(view, "Birthdate", result.Birthdate);
+                RenderSignerField(view, "Subject hash", result.EidSubjectHash);
+                RenderSignerField(view, "National id hash", result.IdentifierHash);
+                RenderSignerField(view, "Verified at", result.VerifiedAt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture));
+                RenderSignerField(view, "Expires at", result.ExpiresAt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture));
+                RenderSignerField(view, "Assertion", $"{result.Assertion.Length} chars");
+            });
+        });
+    }
+
+    private void StartStepUp()
+    {
+        var clientSessionId = ReactiveScope.ClientId;
+        CancellationTokenSource cts;
+
+        lock (_stepUpLock)
+        {
+            if (_stepUpRunning.Value)
+            {
+                return;
+            }
+
+            _stepUpCts?.Dispose();
+            _stepUpCts = cts = new CancellationTokenSource();
+            _stepUpRunning.Value = true;
+        }
+
+        _stepUpResult.Value = null;
+        _stepUpStatus.Value = $"PENDING step-up requested for client {clientSessionId}; the eID page opens in this tab";
+
+        var acrValues = _stepUpAcrValues.Value
+            .Split([',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        var returnUrl = _stepUpReturnToApp.Value ? SignatureReturnUrl() : null;
+
+        // The eID page navigates this client away, which ends its session; the wait must outlive it.
+        _ = Task.Run(() => RunStepUpAsync(clientSessionId, acrValues, returnUrl, cts));
+    }
+
+    private void CancelStepUp()
+    {
+        lock (_stepUpLock)
+        {
+            _stepUpCts?.Cancel();
+        }
+    }
+
+    private async Task RunStepUpAsync(int clientSessionId, IReadOnlyList<string> acrValues, string? returnUrl, CancellationTokenSource cts)
+    {
+        string outcome;
+
+        try
+        {
+            var result = await app.RequestStepUpAsync(clientSessionId, "validation.step-up", acrValues.Count > 0 ? acrValues : null, returnUrl, cts.Token);
+            _stepUpResult.Value = result;
+            outcome = $"PASS verified: {result.IdentityScheme}{(result.AssuranceLevel is { } level ? $" ({level})" : "")}, national id {(result.IdentifierHash is null ? "not returned" : "hashed")}";
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            outcome = "CANCELLED the app stopped waiting; the challenge expires at the platform";
+        }
+        catch (TimeoutException ex)
+        {
+            outcome = $"FAIL timed out: {ex.Message}";
+        }
+        catch (System.Security.SecurityException ex)
+        {
+            outcome = $"FAIL the assertion did not verify: {ex.Message}";
+        }
+        // Only the user's own refusal is declined. Every other failed challenge stays a FAIL.
+        catch (InvalidOperationException ex) when (ex.Message == "Step-up failed: access_denied")
+        {
+            outcome = $"DECLINED {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            outcome = $"FAIL {ex.GetType().Name}: {ex.Message}";
+        }
+
+        lock (_stepUpLock)
+        {
+            if (ReferenceEquals(_stepUpCts, cts))
+            {
+                _stepUpCts = null;
+            }
+
+            _stepUpStatus.Value = outcome;
+            _stepUpRunning.Value = false;
+        }
+
+        cts.Dispose();
     }
 
     private void RenderSignatureOrderCard(UIView view)

@@ -18,7 +18,7 @@ public partial class Validation
     public string SurfaceEcho() => SurfaceOf(ReactiveScope.ClientId);
 
     private string SurfaceOf(int clientId) =>
-        app.ReactiveGlobalState.Clients.Value.TryGetValue(clientId, out var context) ? context.Surface : "";
+        app.GlobalState.GetClientContext(clientId)?.Surface ?? "";
 
     // The probe page is chosen by the path, not by the surface the client entered: a wrong selection
     // then shows as a page whose two names differ, rather than as the tabs
@@ -55,6 +55,12 @@ public partial class Validation
             return false;
         }
 
+        if (probeSurface == EidSurface)
+        {
+            RenderEidSignInPage(view);
+            return true;
+        }
+
         view.SnapshotReveal(view => view.Column([Layout.Column.Lg, Container.Xl4, "py-8 px-4"], content: view =>
         {
             view.Text([Text.H1], "Surface probe");
@@ -80,7 +86,7 @@ public partial class Validation
                 view.Text([Text.Body], _surfaceCounter.Value.ToString(), props: TestId("surface-counter"));
             });
 
-            int browsers = app.ReactiveGlobalState.Clients.Value.Values.Count(context => context.ContextType == ContextType.Browser);
+            int browsers = app.GlobalState.Clients.Values.Count(context => context.IsReady && context.ContextType == ContextType.Browser);
             view.Text([Text.Body], "Browsers the app sees in this instance:");
             view.Text([Text.Body], browsers.ToString(), props: TestId("surface-app-clients"));
             view.AddNode("validation-surface-probe", new Dictionary<string, object?>(), style: ["w-full"]);

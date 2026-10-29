@@ -402,6 +402,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         UI.Root([Page.Default],
             content: view =>
             {
+                // Read here so the Profiling tab's subtree rendering toggle re-runs the whole root,
+                // the only render that switches the mode
+                _ = _profilingSubtreeRendering.Value;
+
                 if (TryRenderSurfaceProbe(view))
                 {
                     return;

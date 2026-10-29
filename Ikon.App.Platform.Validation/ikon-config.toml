@@ -17,7 +17,7 @@ Recovery = "attended"  # "attended" waits for a tap after a lost connection; "un
 
 # Who may enter the surface
 [Surface.Auth]
-Methods = ["google", "apple", "microsoft", "signicat", "email", "passkey", "sso", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
+Methods = ["google", "apple", "microsoft", "email", "passkey", "sso", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
 Roles = []  # Roles a signed-in person must hold, e.g. ["admin"]; empty admits every signed-in person
 SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
@@ -143,6 +143,38 @@ Presence = true
 Seeds = []
 Placement = "shared"
 Recovery = "unattended"
+
+[Surface.Auth]
+Methods = ["guest"]
+Roles = []
+SignIn = ""
+
+[[Surface]]
+Name = "eid"
+Routes = ["/surfaces/eid"]
+Host = ""
+Connect = "atLoad"
+Media = "none"
+Presence = false
+Seeds = []
+Placement = "shared"
+Recovery = "attended"
+
+[Surface.Auth]
+Methods = ["signicat"]
+Roles = []
+SignIn = "eid-login"
+
+[[Surface]]
+Name = "eid-login"
+Routes = []
+Host = ""
+Connect = "atLoad"
+Media = "none"
+Presence = false
+Seeds = []
+Placement = "shared"
+Recovery = "attended"
 
 [Surface.Auth]
 Methods = ["guest"]
