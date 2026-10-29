@@ -1,4 +1,4 @@
-<!-- checked-against: 457f2349d6f25e752ae0074e -->
+<!-- checked-against: 96aef1026d56743e679b3469 -->
 
 # IKON Signature Guide
 
@@ -31,7 +31,7 @@ var signer = signed.Signatories[0].Signer;
 // signer?.FullName, signer?.DateOfBirth, signer?.IdentityScheme, signer?.NationalIdHash
 ```
 
-The platform keeps the signed documents as the app's private files, with no expiry. Persist the document bytes in your own storage if they are your system of record.
+The platform keeps the signed documents as the app's private files, with no expiry, until the app is deleted. Persist the document bytes in your own storage if they are your system of record.
 
 ## Supported document types
 
@@ -111,6 +111,8 @@ The signature flow is always **server-initiated**: only an IKON app server holdi
     • failed           — the provider could not produce the signed document; `failureCode` set
 ```
 
+An order in a terminal state does not change again, even when the provider reports something about it later.
+
 The helper polls every 10s for up to 1 hour; on `completed` it returns the `SignatureResult`, on any terminal failure it throws.
 
 ## Signed-document verification
@@ -127,16 +129,16 @@ Apps don't need to re-verify; the helper has done it by the time `CreateSignatur
 
 | `SignaturePolicy` | Wire value | What it means |
 |---|---|---|
-| `PkiSigning` | `pki-signing` | Server-side PKI signing under the certificate vendor the platform deployment configures. Refused (503) where none is configured. |
 | `EidHub` | `eid-hub` | The recipient authenticates with a national eID (BankID, MitID, FTN, …) and the resulting evidence is bound to the signature. |
+| `PkiSigning` | `pki-signing` | Server-side PKI signing. Not available: an order with this policy is refused with 400. |
 
-For most "user signs a document" flows, `EidHub` is the right policy. `PkiSigning` still sends the recipient through the ceremony.
+Use `EidHub` for every order.
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the recipient signs, the platform meters the order once as a `signature.*` usage event and records the key, trimmed of surrounding whitespace, as that row's `TenantScope` id. The cost is therefore counted per tenant together with the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further setup. Nothing else changes the value, and a key that is all whitespace meters with no `TenantScope`. Pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost belongs to the space rather than to anything inside it.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the recipient signs, the platform meters the order once, as `signature.*` usage rows. There is one row for each thing the provider charges for: the signature, counted once per document, and for a PDF order the PAdES container. Each row records the key, trimmed of surrounding whitespace, as its `TenantScope` id. The cost is therefore counted per tenant together with the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further setup. Nothing else changes the value, and a key that is all whitespace meters with no `TenantScope`. Pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost belongs to the space rather than to anything inside it.
 
-An order is metered once the recipient has signed, even if it then fails or the app cancels it, because the provider charges for the signature at that point. An order abandoned, declined or expired before the recipient signs is not metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
+An order is metered once the recipient has signed, even if it then fails, is cancelled or expires, because the provider charges for the signature at that point. An order abandoned, declined or expired before the recipient signs is not metered. See [Ikon.App Payments Guide](app-payments-guide.md) for the broader monetization model.
 
 ## Field reference
 
@@ -149,7 +151,7 @@ An order is metered once the recipient has signed, even if it then fails or the 
 | `Signatory` | yes | One `SignatureSignatory(Policy, IdentitySchemes?, RequestedAttributes?)`. More than one signatory is not supported. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony. Defaults to `Signature {Purpose}`. |
-| `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. Must be an allowed redirect target on the platform, or order creation is refused (400); the landing page re-checks it. When unset or no longer allowed, the landing page shows a plain "you may close this window" page instead. |
+| `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. Must be an allowed redirect target on the platform, or order creation is refused (400); the landing page re-checks it. When unset or no longer allowed, the landing page shows a status page for the outcome that tells the recipient to close the window. `signing` is `success`, `error`, `cancel` or `unknown`, and some providers report `success` whatever the outcome, so read the order's status for the result. |
 
 ### `SignatureResult` (returned to app)
 
@@ -183,7 +185,7 @@ An order is metered once the recipient has signed, even if it then fails or the 
 |---|---|
 | `FullName`, `GivenName`, `FamilyName` | The signer's legal name as the eID reported it, when the order asked for the `name` attribute. Null otherwise. This is what you show a user and check against the signer you expected. |
 | `DateOfBirth` | ISO 8601 calendar date, when the order asked for `dateOfBirth` and the eID supplied it. |
-| `NationalIdHash` | Keyed hash of the signer's national identity number. The number itself never leaves the platform. |
+| `NationalIdHash` | Keyed hash of the signer's national identity number, present whenever the eID reports the number, whether or not the order asked for `nationalId`. The number itself never leaves the platform. |
 | `SubjectHash` | Keyed hash of the provider's stable identifier for this person. |
 | `IdentityScheme` | eID scheme used, in the platform's own vocabulary (e.g. `nbid`, `ftn`, `bankid-se`, `mitid`). |
 | `AssuranceLevel` | How strongly the identity was proven, when the provider reports it. Not every provider does. |
@@ -192,11 +194,11 @@ An order is metered once the recipient has signed, even if it then fails or the 
 
 `IdentityScheme` and `AssuranceLevel` describe *how strongly* somebody authenticated, never *who*. If your app hands out a link that anyone holding the URL can complete, compare `FullName` against the party you addressed it to — otherwise a completed ceremony proves only that some real identity signed, not that it was the intended one.
 
-The hashes are keyed by a platform secret, so an app can compare two ceremonies for the same person but cannot recompute one from a national identity number it already holds. The platform keeps the identity on the order; persist what you need long-term yourself.
+The hashes are keyed by a platform secret and by the app, so an app can compare two of its own ceremonies for the same person, whichever provider ran them, but cannot recompute one from a national identity number it already holds. A step-up hashes the same way, so a signer's `NationalIdHash` equals the `IdentifierHash` of the same person's step-up in the same app. Hashes from different apps never match. The platform keeps the identity on the order; persist what you need long-term yourself.
 
 ## Webhook configuration
 
-Each signing provider calls its own platform-side webhook route when an order changes status, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`. Signicat is offered for new orders only when its webhook secret is configured on the platform; Idura generates a fresh webhook secret for each order.
+Each signing provider calls its own platform-side webhook route when an order changes status, and the platform verifies HMAC-SHA256 over the raw body before acting on anything. Webhooks are required for orders to progress past `pending_signature`. A provider is offered for new orders only when the platform has its webhook secret, or, for a provider that authenticates each order separately, generates a fresh secret for each order and verifies that order's deliveries against it.
 
 ## Failure handling
 
@@ -204,7 +206,7 @@ The helper throws on every terminal failure. These refusals happen before pollin
 
 - `ArgumentException` for a blank `Purpose` or no `Documents`.
 - `FeatureNotEnabledException` when `document_signature` is off.
-- `UserException` carrying the platform's message when it rejects the order with 400: mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, an `IdentitySchemes` or `RequestedAttributes` entry outside the platform's vocabulary, or a disallowed `ClientReturnUrl`.
+- `UserException` carrying the platform's message when it rejects the order with 400: the `PkiSigning` policy, mixed, empty or oversized documents, more than 10 documents, an over-long `Purpose`, `Title`, `CostAttributionKey` or filename, an `IdentitySchemes` or `RequestedAttributes` entry outside the platform's vocabulary, or a disallowed `ClientReturnUrl`.
 - `HttpRequestException` for a 413 when the base64-encoded documents together exceed the 100 MB request body, and for a 503 when no configured provider can sign the order, which includes a MIME type outside the supported ones.
 - An `InvalidOperationException` starting "Failed to navigate", which the case-sensitive `"failed"` filter does not match.
 
@@ -236,6 +238,21 @@ catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
     // the provider could not produce the signed document; details in ex.Message
 }
 ```
+
+## Step-up: proving who the user is without signing
+
+When an action needs a strong identity but no document, such as deleting a case or opening sensitive data, call `app.RequestStepUpAsync(clientSessionId, purpose)`. The platform sends the user's browser through the same eID flow and returns a `StepUpResult`. The client must be signed in, and the app's organisation must have the `strong_auth` feature, which is off by default.
+
+The platform verifies the result before returning it: the signature against its published keys, the issuer, that it was issued for this app, that it has not expired, and that it answers this request for this user and purpose. A failed check throws `SecurityException`, platform keys that cannot be fetched after 3 tries `HttpRequestException`, a failed challenge `InvalidOperationException`, and a user who has not finished within 10 minutes `TimeoutException`. Pass `acrValues` (for example `["idp:ftn"]`) to offer one eID only, and `clientReturnUrl` to bring the user back into the app afterwards.
+
+| `StepUpResult` field | Description |
+|---|---|
+| `UserId`, `Purpose`, `ChallengeId` | The request this result answers. |
+| `IdentityScheme`, `AssuranceLevel` | Which eID was used and how strongly it proved the identity, as the provider reports them. |
+| `VerifiedName`, `Birthdate` | What the eID verified, when it returned them. |
+| `EidSubjectHash`, `IdentifierHash` | Keyed hashes of the person's eID identifier and national identity number, made the same way as the signature hashes above. `IdentifierHash` matches a signer's `NationalIdHash` for the same person; `EidSubjectHash` does not match `SubjectHash`, because Signicat's signing and authentication give one person different identifiers. `IdentifierHash` is null when the eID returned no number. |
+| `VerifiedAt`, `ExpiresAt` | When the user authenticated, and when the signed assertion stops being valid (10 minutes after it was issued). |
+| `Assertion` | The signed JWT itself, for a service of yours that verifies it on its own. |
 
 ## Related
 

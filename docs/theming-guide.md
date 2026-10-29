@@ -1,4 +1,4 @@
-<!-- checked-against: 1951a1b9ca3584e3d3c48e97 -->
+<!-- checked-against: 1951a1b9ca3584e30764143c -->
 
 # IKON Theming Guide
 
