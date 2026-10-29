@@ -25,13 +25,14 @@ interface EmailLoginFormProps {
 
 export function EmailLoginForm({ config, onAttempt }: EmailLoginFormProps) {
   const { t } = useI18n();
-  const { requestEmailCode, submitEmailCode } = useAuth();
+  const { requestEmailCode, submitEmailCode, localEmailSignIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>('email');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const digits = config.emailCode?.format === 'digits';
 
   const handleSendCode = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,17 +95,19 @@ export function EmailLoginForm({ config, onAttempt }: EmailLoginFormProps) {
       <form className="ikon-auth-email-form" onSubmit={handleSubmitCode}>
         {errorMessage && <div className="ikon-auth-error">{errorMessage}</div>}
         <p className="ikon-auth-email-code-hint">
-          {t('auth.email.sent.message')} <strong>{email}</strong>
+          {t(localEmailSignIn ? 'auth.email.local.message' : 'auth.email.sent.message')} <strong>{email}</strong>
         </p>
         <input
           type="text"
           value={code}
-          onChange={(event) => setCode(event.target.value.toUpperCase())}
+          onChange={(event) => setCode(digits ? event.target.value.replace(/\D/g, '') : event.target.value.toUpperCase())}
           placeholder={t('auth.email.code.placeholder')}
           className="ikon-auth-code-input"
           disabled={status === 'verifying'}
           autoComplete="one-time-code"
-          inputMode="text"
+          inputMode={digits ? 'numeric' : 'text'}
+          pattern={digits ? '[0-9]*' : undefined}
+          maxLength={digits ? config.emailCode?.length : undefined}
           autoFocus
         />
         <button type="submit" className="ikon-auth-email-button" disabled={status === 'verifying'}>
@@ -131,7 +134,7 @@ export function EmailLoginForm({ config, onAttempt }: EmailLoginFormProps) {
         type="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        placeholder={t('auth.email.placeholder')}
+        placeholder={config.signInText?.emailHint ?? t('auth.email.placeholder')}
         className="ikon-auth-email-input"
         disabled={status === 'sending'}
         autoComplete="email"
