@@ -329,7 +329,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                     foreach (var entry in _transcripts.Value)
                                     {
                                         var isActive = entry.Id == _activeTranscriptId.Value;
-                                        var cardStyle = isActive ? "border border-brand-primary/60 bg-brand-primary/10" : "border border-transparent";
+                                        var cardStyle = isActive ? "border border-brand bg-brand-secondary" : "border border-transparent";
 
                                         view.Box([Card.Default, "p-4", cardStyle], content: view =>
                                         {
