@@ -216,10 +216,33 @@ UIActions = false  # Record each action a person runs, which a report filed from
 # Headers = []  # Extra response headers as "Name: value", e.g. ["Retry-After: 3600"]
 
 # Raw public TCP, UDP or TLS ports, one [[Port]] each, read as app.Ports (endpoints-webhooks guide)
-# [[Port]]
-# Name = ""  # Unique in the app; the app reads the port as app.Ports["<name>"]
-# Protocol = "tcp"  # "tcp" passes the stream through, TLS included; "udp" passes datagrams; "tls" ends TLS at the relay
-# Allow = []  # Source address ranges allowed to connect, e.g. ["203.0.113.0/24"]; empty admits any source
+[[Port]]
+Name = "echo-tcp"  # Unique in the app; the app reads the port as app.Ports["<name>"]
+Protocol = "tcp"  # "tcp" passes the stream through, TLS included; "udp" passes datagrams; "tls" ends TLS at the relay
+Number = 0  # 0 reserves a number of the app's own; 1024-9999 shares that well-known number, e.g. 8089, and a verified hostname picks the app ('ikon hostname create <name> --port <Name>')
+Allow = []  # Source address ranges allowed to connect, e.g. ["203.0.113.0/24"]; empty admits any source
+Labels = []  # Names IKON issues for a shared Number, one per label: "fingrid" is reached at <space>-fingrid.ports-<region>.<relay zone>, verified and routed at deploy with no DNS of your own
+
+[[Port]]
+Name = "echo-udp"
+Protocol = "udp"
+Number = 0
+Allow = []
+Labels = []
+
+[[Port]]
+Name = "echo-tls"
+Protocol = "tls"
+Number = 0
+Allow = []
+Labels = []
+
+[[Port]]
+Name = "closed"
+Protocol = "tcp"
+Number = 0
+Allow = ["192.0.2.0/24"]
+Labels = []
 
 # Commands the ikon tool runs in the app root, each started without a shell (app-container guide)
 [Scripts]

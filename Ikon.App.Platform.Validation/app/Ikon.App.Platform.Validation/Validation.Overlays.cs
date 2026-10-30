@@ -2,6 +2,17 @@ public partial class Validation
 {
     private readonly ClientReactive<bool> _footerDialogOpen = new(false);
     private readonly ClientReactive<string> _footerDialogResult = new("Footer: (no choice yet)");
+    private readonly ClientReactive<bool> _stepDialogOpen = new(false);
+    private readonly ClientReactive<int> _stepDialogIndex = new(0);
+    private readonly ClientReactive<string> _stepDialogResult = new("Step dialog: not run yet");
+
+    private static readonly StepDialogStep[] StepDialogSteps =
+    [
+        new("Welcome", "The first step has Next and Skip, and no Back.", Icon: "sparkles"),
+        new("Middle", "A middle step has Back and Next, and points at the Start tour button.", Icon: "compass",
+            Target: "step-dialog-start", TargetSide: Side.Bottom),
+        new("Last", "The last step has Done instead of Next.", Icon: "flag"),
+    ];
 
     private void RenderOverlaysSection(UIView view)
     {
@@ -64,6 +75,53 @@ public partial class Validation
                             });
                     });
                 view.Text([Text.Caption, "mt-3"], _footerDialogResult.Value, props: TestId("footer-dialog-result"));
+            });
+
+            // Step Dialog
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Step Dialog");
+                view.Text([Text.Caption, "mb-4"], "A guided tour: Back, Next and Done page through steps the app holds, and Skip closes it early");
+
+                view.Button([Button.PrimaryMd], text: "Start tour",
+                    props: new Dictionary<string, object>(TestId("step-dialog-open")) { [TourTarget.AttributeName] = "step-dialog-start" },
+                    onClick: async () =>
+                    {
+                        _stepDialogIndex.Value = 0;
+                        _stepDialogOpen.Value = true;
+                    });
+
+                if (_stepDialogOpen.Value)
+                {
+                    view.StepDialog(StepDialogSteps, _stepDialogIndex.Value,
+                        open: true,
+                        onOpenChange: async open =>
+                        {
+                            // Removing the open dialog after Done or Skip makes the client report it
+                            // closed as well, so a close after the tour ended must not replace the
+                            // result onFinish or onSkip wrote.
+                            if (!open && _stepDialogOpen.Value)
+                            {
+                                _stepDialogOpen.Value = false;
+                                _stepDialogResult.Value = $"FAIL step dialog closed on step {_stepDialogIndex.Value + 1}";
+                            }
+                        },
+                        onIndexChange: async index => _stepDialogIndex.Value = index,
+                        onFinish: async () =>
+                        {
+                            _stepDialogOpen.Value = false;
+                            _stepDialogResult.Value = _stepDialogIndex.Value == StepDialogSteps.Length - 1
+                                ? $"PASS step dialog finished after {StepDialogSteps.Length} steps"
+                                : $"FAIL step dialog finished on step {_stepDialogIndex.Value + 1}";
+                        },
+                        onSkip: async () =>
+                        {
+                            _stepDialogOpen.Value = false;
+                            _stepDialogResult.Value = $"FAIL step dialog skipped on step {_stepDialogIndex.Value + 1}";
+                        });
+                }
+
+                view.Text([Text.Caption, "mt-3"], _stepDialogResult.Value, props: TestId("step-dialog-result"));
             });
 
             // Alert Dialog

@@ -357,6 +357,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         InitConsent();
         InitSiblingClientEvents();
         InitGoogleDrive();
+        StartPortEchoes();
 
         app.OnStopping(ClearDatabaseAsync);
 

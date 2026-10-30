@@ -74,11 +74,12 @@ public partial class Validation
                 view.Button([Button.ErrorMd, "mt-4"], text: "Sign out", onClick: async () => await ClientFunctions.LogoutAsync());
             }
 
-            // The app's own legal pages, which the platform serves from legal/*.md at the [Legal] paths.
-            // rel="external" makes the browser load the page instead of the app routing the link.
+            // The app's legal pages at its [Legal] paths: the privacy notice the platform renders from
+            // legal/privacy.md, and the terms, which redirect to TermsUrl. rel="external" makes the
+            // browser load the page instead of the app routing the link.
             view.Row(["flex-wrap gap-x-2 items-center mt-4"], content: row =>
             {
-                row.Text([Text.Link, "text-sm"], "Privacy notice", href: "/legal/privacy", rel: "external", props: TestId("legal-link-privacy"));
+                row.Text([Text.Link, "text-sm"], "Privacy notice", href: "/legal/privacy-notice", rel: "external", props: TestId("legal-link-privacy"));
                 row.Text([Text.Caption], "·");
                 row.Text([Text.Link, "text-sm"], "Terms", href: "/legal/terms", rel: "external", props: TestId("legal-link-terms"));
             });

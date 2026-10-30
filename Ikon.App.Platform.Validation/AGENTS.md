@@ -7,7 +7,7 @@
 1. Converting an existing app? Its screens become C#: read the `convert` playbook first (`ikon docs convert`, `convert/lovable`). Else read the `product-design` guide first, then `docs/Ikon.Agent.Docs/patterns/_start.md` (table "Words in the request", then a row per kind of app) and your row's patterns; `ikon docs --search <feature>` finds any other feature.
 2. Pick a visual direction (below), the language (not English: first set `<html lang>` and the I18n default language; `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for a room everyone shares use `SessionIdentity()` (shares every plain reactive; per-visitor: `Client*`/`User*`), `SessionIdentity(string? Room)` one per `?room=`.
    Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; no one holds `admin` by default (`first-user-becomes-admin`).
-3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless the URL was minted with an identity. Records go in a database, and an open screen shows another instance's new row only when told (`reactive-state`).
+3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database, and an open screen shows another instance's new row only when told (`reactive-state`).
 4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (its own data; `app.Seed` runs on staging and gym copies): `ikon link --target staging --new-app`. Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
 5. The scaffold runs: `ikon run --target staging --mock-ai --detach`, then `ikon browse --steps "observe"`. `browse` without `--target` drives the local run; a deployed copy spends credits. `dev warning:` lines reach `build/ikon-run.log` only once a client renders the view. `ikon db query` acts on the live app unless `--target` names one.
    `--mock-ai`: speech recognition gives one fixed sentence. An `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on each list property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
@@ -26,8 +26,8 @@ A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Py
 
 ## Running and checking the app
 
-From the app root, `ikon run --detach` starts the app, returns when ready; a plain
-`ikon run` blocks. A first build takes minutes: no short `timeout` on `ikon build` or `run --detach`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+`ikon run --detach` starts the app, returns when ready; a plain
+`ikon run` blocks. A first build takes minutes: no short `timeout` or `| tail` on `build`, `link --new-app`, `deploy` or `run --detach`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
@@ -46,7 +46,7 @@ the last tap, once the tap's handlers return. `--new` waits for new text. A bare
 app's first update or when those handlers return: not a pause, only `sleep 15s` pauses. A bare number is milliseconds. Each run is a new
 client (new ids, empty `ClientReactive` state) that ends with the run, and so does what the app keeps only while a client is connected (a room): a script names controls by label
 and plays the whole flow in one run. Where the shell strips quotes (PowerShell), use
-`--steps-file scratch/steps.txt` (one step per line). `hold`, `mic` and `--fake-media-file` (a .wav loops into
+`--steps-file scratch/steps.txt`. `hold`, `mic` and `--fake-media-file` (a .wav loops into
 the microphone, or plays once with `--mic-once`; a .y4m is the camera) test a voice or camera app.
 `look`, `upload`, `mic` and `audio` need the page, so no `--text-only`; on a local run `as bob:`
 gets its own page once a step acts in it.
@@ -70,7 +70,7 @@ join: use `--text-only` there, a local run for `look`, or list "guest". `click <
 ## The ikon tool's commands
 
 `ikon help --json` covers every command, how the app and environment are chosen, and
-the shape of `--format json` output (`ikon help <command> --json`: one). An unknown command a doc names
+the shape of `--format json` output. An unknown command a doc names
 was renamed. `ikon deploy` commits and pushes first (`--no-save`: neither). Settings are in `ikon-config.toml`,
 each explained by its comment: `ikon-config.development.toml` for an app on the development
 platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
@@ -101,7 +101,7 @@ empty (`view.EmptyState`), loading and error states; action buttons beside a tit
 - **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `[Client]ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031) and cannot `await` (CS4034): load in the handler. Outside a handler, name the client: `_x.SetFor(cid, v)`.
 - **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`; `Emerge.AskAsync(prompt, model)` is prompt-first (CS1503). AI calls throw: catch, show a sentence and a retry.
 - **View calls**: the leading style array is positional (`CopyField`: `value` first), `"default"` first or the theme goes (IKON025), and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert take `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange: async v => …` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
-  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; one with `disabled:` needs a `disabled:` class too (`[Button.PrimaryMd, "disabled:opacity-50"]`).
+  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`; the token dims a disabled one.
 - **Databases**: Dapper and EF Core are in the scaffold, packages and usings both; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`).
 - **Logging**: `Log.Instance.Info/Warning/Error/Debug($"…")`, not `app.Logger`/`Information` (CS1061).
 - **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(options: [new SelectOption(v, l)])`, not `items:`.
@@ -230,8 +230,15 @@ with `Roles` means every external function needs a `[Surface]` scope, so `Valida
 The rest of `ikon-config.development.toml` is set so that the battery can check it: `[SignIn]` text and a
 digits code, two `[[PathResponse]]` entries under `/legacy/`, a made-up `[Flutter]` team and certificate
 fingerprint for the `/.well-known` app-link files, `[Analytics] UIActions` and
-`[Activation] StopSessions = false`. The `config` phase of `validation/validate_platform_current.py` checks
-them, and the `activation` step checks that a guest's session outlives the deploy.
+`[Activation] StopSessions = false`. `StateDatabase` names `validationdb`, where the Reactive Scopes tab's
+persistent counter is read back as a row. `[Legal]` serves the privacy notice at `/legal/privacy-notice`
+and redirects `/legal/terms` to `TermsUrl`. The four `[[Port]]` tables answer a line or datagram that
+starts with `validation ` with the port's name and the rest of it (`Validation.Ports.cs`): a tcp, a udp
+and a tls port, and `closed`, whose `Allow` names a documentation range, so no runner gets an answer.
+The ports are public, so an answer is never longer than the probe and anything else gets none. `[Feedback] Button = "overlay"` is
+checked against a page opened through a test link (`ikon feedback link create`), which is offered
+feedback whatever the space's audience is. The `config` phase of `validation/validate_platform_current.py`
+checks them, and the `activation` step checks that a guest's session outlives the deploy.
 
 The Files tab's upload lifecycle lab runs the same scenarios hosted and locally, with one difference:
 a hosted app's LocalFile store is its read-only bundle. There the scenarios that need a writable asset
