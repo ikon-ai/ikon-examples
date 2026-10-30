@@ -1,4 +1,4 @@
-<!-- checked-against: 5b6a621e3dc83b36f0ffa95e -->
+<!-- checked-against: db70f20649ecbfeaf0ffa95e -->
 
 # IKON Audio & Video Guide
 
@@ -118,7 +118,7 @@ Audio.SpeechRecognizedAsync += async args =>
 
 ### Stopping, pausing and volume
 
-`Audio.Stop`, `Audio.Pause`, `Audio.Resume` and `Audio.SetSlotVolume` act on what the targeted clients hear in a slot (a null slot is every slot):
+`Audio.Stop`, `Audio.Pause`, `Audio.Resume` and `Audio.SetSlotVolume` act on what the targeted clients hear in a slot (for `Stop`, `Pause` and `Resume` a null slot is every slot; `SetSlotVolume` throws `ArgumentException` without one):
 
 <!-- ikon-example: av-mixer-control -->
 ```csharp
@@ -358,7 +358,7 @@ Audio and video reach only the clients of the app instance that plays them. Noth
 
 A surface is a named place on clients where one picture shows. The client renders it with `view.VideoSurface(surface: "stage")`; the app plays onto the same name with `Video.Play` (a client's input, relayed) or `Video.PlayLive` (frames the app encodes). Both return a `VideoPlayback` at once. Surface names are app-wide.
 
-A surface shows one playback at a time. A new playback on it **replaces** the current one for every viewer — even one played to fewer clients — the old one ends `Replaced`, and each viewer keeps its last picture until the new source's first keyframe, which the platform asks for at once. To show different clients different pictures, give each its own surface name. Rendering a surface never makes the app send to it: who sees a playback is its audience, the `MediaTargets` it was started with.
+A surface shows one playback at a time. A new playback on it **replaces** the current one for every viewer — even one played to fewer clients — the old one ends `Replaced`, and each viewer in the new playback's audience keeps its last picture until the new source's first keyframe, which the platform asks for at once; a viewer left out of that audience has its surface cleared at once. To show different clients different pictures, give each its own surface name. Rendering a surface never makes the app send to it: who sees a playback is its audience, the `MediaTargets` it was started with.
 
 ### Relaying cameras
 

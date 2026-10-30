@@ -1,4 +1,4 @@
-<!-- checked-against: 6db17d976d392620c8a392a6 -->
+<!-- checked-against: 08ce1a286d392620c8a392a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -384,7 +384,7 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 
 <!-- ikon-example: emergence-ensemble -->
 ```csharp
-// Without s.Model every solver runs on the model passed here; so does the merger, unless opt.Model or m.Model names another
+// Without s.Model every solver runs on opt.Model when that is set, else on the model passed here; so does the merger without m.Model
 LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
 var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
@@ -511,7 +511,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 **Methods:**
 - `Tool.Of(name, description, lambda)` — sync or async lambda, up to 6 parameters (a seventh fails with CS0411 naming the zero-parameter overload; `Tool.OfContext` takes up to 4 after the context); the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
-- `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments; it needs an agent run, and a plain `Emerge.Run` throws an error that no tool bridge is set. The overload whose `invoke` takes only the arguments and returns the result text (`async args => "..."`) needs no agent run
+- `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments; it needs an agent run, and on a plain `Emerge.Run` the tool call fails with an error that no tool bridge is set, which the model gets back as the call's result. The overload whose `invoke` takes only the arguments and returns the result text (`async args => "..."`) needs no agent run
 - `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool; since `AddTool` keeps the first registration of a name and the configure callback re-runs on the same pass, re-adding the copy with new values on a later iteration is silently dropped — remove the old one from `pass.Tools` first. On a tool whose request record's fields are its arguments (below), name a field (`title`); naming the record parameter throws `ArgumentException`
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
@@ -536,7 +536,7 @@ pass.AddTool(Tool.Of("create_event", "Create a calendar event",
     (CreateEventRequest request) => CreateEvent(request)));
 ```
 
-**MCP tools.** `mcpClient.ToFunctions(toolNames)` turns the tools a connected `McpClient` advertises into functions for the `Tools` of any pass or pattern scope, in or outside an agent run; pass the names of the tools the model may call. For a persona, wrap the client in an `McpSkill`, which yields one `Tool.FromSchema` per tool whose schema it can describe; those resolve their `ToolContext` from the agent run, so invoking one on a bare `Emerge.Run` pass throws:
+**MCP tools.** `mcpClient.ToFunctions(toolNames)` turns the tools a connected `McpClient` advertises into functions for the `Tools` of any pass or pattern scope, in or outside an agent run; pass the names of the tools the model may call. For a persona, wrap the client in an `McpSkill`, which yields one `Tool.FromSchema` per tool whose schema it can describe; those resolve their `ToolContext` from the agent run, so invoking one on a bare `Emerge.Run` pass fails, and the model gets the error back as the call's result:
 
 <!-- ikon-example: emx-tool-registration-2 -->
 ```csharp

@@ -1,4 +1,4 @@
-<!-- checked-against: 1951a1b9ca3584e30764143c -->
+<!-- checked-against: 64efe5aeca3584e30764143c -->
 
 # IKON Theming Guide
 
@@ -70,11 +70,11 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | `spacing`, `radius-base` (the targets of `density` and `radius`) | `--spacing`, `--radius-base` | the same resolver as their theme key |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`) | `--{key}` | smart sniff |
 | `--custom-name` (explicit `--` prefix) | `--custom-name` | smart sniff — a deliberately declared custom variable |
-| anything else | `--{key}` plus a one-time production warning (a dead variable nothing reads — almost always a typo) | smart sniff |
+| anything else | `--{key}` plus a one-time dev warning (a dead variable nothing reads — almost always a typo) | smart sniff |
 
 The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref (`var(--color-amber-400)`), an IKON scale step → its own variable (`brand-600` → `var(--brand-600)`), `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"`, `["primary"] = "brand-600"` and `["primary"] = "#F5A524"` all work. `neutral` is both a Tailwind family and an IKON scale; as a value, `neutral-600` is the Tailwind step, which a `["neutral-600"]` override moves along with the IKON one.
 
-Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per process, in a local run and a Studio preview; an app running in the cloud logs none. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
+Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per app start (a hot reload warns again for a key still wrong), in a local run and a Studio preview; an app running in the cloud logs none. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
 
 ## What's NOT in the system
 
@@ -207,7 +207,7 @@ Palette families: `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`
 ### Collisions — read this before writing `primary` anywhere
 
 - **Theme KEY `primary` = brand.** `["primary"] = "amber-400"` paints CTAs, focus rings, and brand chrome amber.
-- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral border one step heavier than the default hairline. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write the role the element plays instead: `bg-background` for the page canvas, `bg-card` for a card, panel, dialog or popover, plus `text-foreground` / `border-secondary`. Neither replacement is colour-identical to `bg-primary` — in the baseline `bg-primary` equals `bg-card` in light (white) but `bg-background` in dark (neutral-950), and an app theme may paint its page with yet another token — so pick by the surface the element is, and keep its text in the same family (card text on a card surface, page text on the page). The legacy names clash with the shadcn convention, where `primary` means brand, so they confuse every later reader.
+- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral border one step heavier than the default hairline in light mode and the same as it in dark mode. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write the role the element plays instead: `bg-background` for the page canvas, `bg-card` for a card, panel, dialog or popover, plus `text-foreground` / `border-secondary`. Neither replacement is colour-identical to `bg-primary` — in the baseline `bg-primary` equals `bg-card` in light (white) but `bg-background` in dark (neutral-950), and an app theme may paint its page with yet another token — so pick by the surface the element is, and keep its text in the same family (card text on a card surface, page text on the page). The legacy names clash with the shadcn convention, where `primary` means brand, so they confuse every later reader.
 - **The reverse trap:** `["primary"] = "zinc-950"` intending a dark page background paints every CTA near-black. The page surface key is `["background"]`.
 - **Bare `accent` and `secondary` are NOT theme keys** (they log a dev warning). Their shadcn and IKON meanings conflict: shadcn `accent` is a hover surface (the `bg-accent` utility), while IKON's `accent-*` scale drives text-selection tints. Set what you mean explicitly — `["bg-accent"]`, `["bg-secondary"]`, or the `accent-*` scale steps below.
 
@@ -589,7 +589,7 @@ view.Box(["absolute inset-0 -z-10 bg-[image:var(--hero-glow)] pointer-events-non
 
 The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fill-brand-primary`/`stroke-brand-primary` (icons, from `--fg-brand-primary`); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, `bg-error-primary`/`bg-error-secondary` (the `["destructive"]` key drives the solid and button members), and the full `bg-success-*`/`bg-warning-*` families.
 
-Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / a border one step heavier than the default hairline / body text again). They stay supported forever, but do not write them in new code. Use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) according to what the surface is, plus `text-foreground` / `border-secondary` (the default hairline, lighter than `border-primary`). Neither replacement matches `bg-primary` in both schemes.
+Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / a border one step heavier than the default hairline in light mode, the same as it in dark / body text again). They stay supported forever, but do not write them in new code. Use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) according to what the surface is, plus `text-foreground` / `border-secondary` (the default hairline, lighter than `border-primary` in light mode). Neither replacement matches `bg-primary` in both schemes.
 
 Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
 

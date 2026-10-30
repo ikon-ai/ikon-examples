@@ -1,4 +1,4 @@
-<!-- checked-against: b32a792fa9ade70ded3dc268 -->
+<!-- checked-against: 94ff9208979e4b3a1bf75929 -->
 
 # IMAP Connector Guide
 
@@ -65,7 +65,7 @@ A failure is a `ConnectorException` (from `Ikon.Connectors`) with `Provider` `"i
 
 A message is identified by `ImapMessageId`: its folder, the folder's UIDVALIDITY, and its UID. That is how IMAP numbers mail. A UID is unique only within one folder, so a message moved to another folder gets a new id. A server that renumbers a folder (a new UIDVALIDITY) invalidates every id it had. `ToString()` writes the id as `folder:uidvalidity:uid` for storage, and `ImapMessageId.Parse` reads it back.
 
-`ListMessagesPageAsync(folder, since, before, limit, cursor)` lists a folder newest first, one `ImapMessagePage` at a time, as `ImapMessageSummary` envelopes: `ImapAddress` senders and recipients, subject, dates, threading headers, a preview, read and draft state, and whether there are attachments. `GetMessageAsync(id)` returns an `ImapMessage`, which adds the `Text` and `Html` bodies, the `Attachments` as `ImapAttachment` records, and the headers. A message that is gone, or whose folder was renumbered, throws with `StatusCode` 404. `DownloadMessageAsync` returns the raw message and `DownloadAttachmentAsync(id, attachment.Id)` one decoded file. Both are streams over a temporary file that is deleted when you dispose the stream.
+`ListMessagesPageAsync(folder, since, before, limit, cursor)` lists a folder newest first, one `ImapMessagePage` at a time, as `ImapMessageSummary` envelopes: `ImapAddress` senders and recipients, subject, dates, threading headers, a preview, read and draft state, and whether there are attachments. `limit` is 1 to 500 (25 by default), or the call throws `ArgumentOutOfRangeException`, and a `cursor` that is not a page's `NextCursor` throws `ArgumentException`. `GetMessageAsync(id)` returns an `ImapMessage`, which adds the `Text` and `Html` bodies, the `Attachments` as `ImapAttachment` records, and the headers. A message that is gone, or whose folder was renumbered, throws with `StatusCode` 404. `DownloadMessageAsync` returns the raw message and `DownloadAttachmentAsync(id, attachment.Id)` one decoded file. Both are streams over a temporary file that is deleted when you dispose the stream.
 
 ## Following a folder
 
@@ -81,11 +81,11 @@ A token whose folder was renumbered or removed throws `ConnectorException` with 
 
 ## Sending
 
-`SendAsync(NewImapMessage)` sends from the mailbox's address over SMTP, with any files as `NewImapAttachment` streams. It then appends a read copy to the Sent folder, because most SMTP servers keep no copy. Gmail, Outlook.com and iCloud file their own copy, and the connector uses that one instead of adding a second. `ReplyAsync(id, reply, replyAll)` quotes the original below the reply's text and sets `In-Reply-To` and `References`, so mail programs thread it. A reply that names recipients goes to exactly those; one with none goes to the original's Reply-To or sender. Reply All leaves out the mailbox's own address. `ForwardAsync(id, forward)` quotes the original under a "Forwarded message" block and carries its attachments.
+`SendAsync(NewImapMessage)` sends from the mailbox's address over SMTP, with any files as `NewImapAttachment` streams. A message with no recipients, or with an address that does not parse, throws `ArgumentException` before anything is sent. It then appends a read copy to the Sent folder, because most SMTP servers keep no copy. Gmail, Outlook.com and iCloud file their own copy, and the connector uses that one instead of adding a second. `ReplyAsync(id, reply, replyAll)` quotes the original below the reply's text and sets `In-Reply-To` and `References`, so mail programs thread it. A reply that names recipients goes to exactly those; one with none goes to the original's Reply-To or sender. Reply All leaves out the mailbox's own address. `ForwardAsync(id, forward)` quotes the original under a "Forwarded message" block and carries its attachments.
 
 The quoting lines ("On … wrote:", "Forwarded message") are in English, whatever language the mailbox's owner uses.
 
-The result is an `ImapSentMessage` with the Message-ID the mail went out with and the `Id` of the copy in Sent. If the copy could not be made, `Id` is null and `SentCopyFailure` says why. The send still happened, so do not send it again.
+The result is an `ImapSentMessage` with the Message-ID the mail went out with and the `Id` of the copy in Sent. If appending the copy failed or was cut short, `Id` is null and `SentCopyFailure` says why. The send still happened, so do not send it again. `Id` is also null, with no `SentCopyFailure`, when the account has no Sent folder or the server did not say which UID the copy got and a search by Message-ID found nothing.
 
 <!-- ikon-example: connectors-imap-send -->
 ```csharp

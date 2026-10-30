@@ -1,10 +1,10 @@
-<!-- checked-against: 8bd77268da942a22e803d78f -->
+<!-- checked-against: e49087b20a3717f17d136c37 -->
 
 # Asset System Developer Guide
 
 ## Overview
 
-The IKON asset system stores and reads files, JSON documents and other binary or text data through one API, so application code does not depend on a specific storage backend. Each `Asset` instance sends every read, write, delete and list request to the storage driver for the asset class in the `AssetUri`, and passes on change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous throughout, takes cancellation tokens where appropriate, and returns metadata on every transfer for optimistic concurrency and lifecycle management.
+The IKON asset system stores and reads files, JSON documents and other binary or text data through one API, so application code does not depend on a specific storage backend. Each `Asset` instance sends every read, write, delete and list request to the storage driver for the asset class in the `AssetUri`, and passes on each storage's change notifications (`IStorage.AssetEventAsync`) to `GetOrUpdateWithMetadataAsync` callbacks so caches can react to updates. The API is asynchronous throughout, takes cancellation tokens where appropriate, and returns metadata on every read for optimistic concurrency and lifecycle management. Writes return none; read the new version back with `GetMetadataAsync`.
 
 ## Asset URIs
 
@@ -67,7 +67,7 @@ await assets.WriteAsync(
 
 ### `GetWriteStreamAsync`
 
-`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). A write that fails before dispose still commits what was written, so prefer `WriteAsync` unless you need the stream itself. On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes (the `LastModified` conflict check then runs when the stream is opened); without a size the whole object is buffered in memory and uploaded when the stream is disposed.
+`GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests). A write that fails before dispose still commits what was written, so prefer `WriteAsync` unless you need the stream itself. On a cloud file the write streams to storage only when the metadata carries its `Size`, and the stream must then receive exactly that many bytes. The `LastModified` conflict check then runs when the stream is opened. That stream refuses synchronous writes with `NotSupportedException`, so a stream writer or serializer that writes synchronously needs `WriteAsync`, which accepts them. Without a size, the whole object is buffered in memory and uploaded when the stream is disposed.
 
 <!-- ikon-example: asset-guide-write-stream -->
 ```csharp
@@ -86,7 +86,7 @@ await fileStream.CopyToAsync(writeStream);
 
 ### `SetTextAsync` / `TrySetTextAsync`
 
-Use `SetTextAsync` to persist UTF-8 encoded text to any storage class that accepts textual payloads (for example `CloudJson`). Provide `AssetMetadata.LastModified` when you need optimistic concurrency: the driver validates the value against the current revision and throws `AssetUpdateConflictException` (or returns `AssetWriteStatus.Conflict` from `TrySetTextAsync`). On `CloudFile`, `CloudFilePublic` and `LocalFile`, a `LastModified` for an asset that no longer exists throws `FileNotFoundException` instead (`AssetWriteStatus.NotFound` from `TrySetTextAsync` and `TrySetBytesAsync`), not a conflict.
+Use `SetTextAsync` to persist UTF-8 encoded text to any storage class that accepts textual payloads (for example `CloudJson`, which accepts only valid JSON and refuses other text with an `HttpRequestException`). Provide `AssetMetadata.LastModified` when you need optimistic concurrency: the driver validates the value against the current revision and throws `AssetUpdateConflictException` (or returns `AssetWriteStatus.Conflict` from `TrySetTextAsync`). On `CloudFile`, `CloudFilePublic`, `CloudJson` and `LocalFile`, a `LastModified` for an asset that no longer exists throws `FileNotFoundException` instead (`AssetWriteStatus.NotFound` from `TrySetTextAsync` and `TrySetBytesAsync`), not a conflict.
 
 <!-- ikon-example: asset-guide-set-text -->
 ```csharp

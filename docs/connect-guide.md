@@ -1,4 +1,4 @@
-<!-- checked-against: d4a69c255d753426e3b0c442 -->
+<!-- checked-against: 19e459a05d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -128,9 +128,10 @@ What an app may do is a set of **grants**, checked on your computer:
 | `devices` | See and control phones and simulators |
 | `browser` | Use the computer's signed-in browser, which every connected app shares |
 | `terminal` | Open a terminal — keyboard access to the computer |
+| `bridges` | Call the programs registered on the computer with `ikon connect bridge add` |
 
 Run inside a repository, an app gets `repo`, `agents`, `files` and `devices`; elsewhere, `agents`,
-`files` and `devices`. `browser` and `terminal` are never given by default. A command that needs a
+`files` and `devices`. `browser`, `terminal` and `bridges` are never given by default. A command that needs a
 grant the app lacks is refused on the computer, and the app is told which grant is missing.
 
 | Option | What it does |
@@ -158,9 +159,9 @@ from the repository instead. `ikon connect "<link>"` does the same thing where l
 After connecting, `ikon connect` says where the connection stands: working, waiting to be allowed in
 the app or for its code to be typed there, waiting for the app to be opened, or what stops it. `ikon connect list` shows
 the same for every connection, and `--format json` gives it as a `phase` — `ready`, `pairing`,
-`standby` (the app is not open; nothing is wrong), `connecting`, `retrying`, `blocked` (needs you),
+`standby` (the app is not open; nothing is wrong), `starting` (not tried yet), `connecting`, `retrying`, `blocked` (needs you),
 `idle` (stopped after a week unused) or `notRunning` (IKON Connect is not running). A connection counts as `ready`
-only once the app has said it took the computer.
+only once the app has said it took the computer, or, for an app too old to answer, once three hellos ten seconds apart go unanswered.
 
 When a connection cannot start — most often because your sign-in expired — IKON Connect says so in
 its output and, on macOS, in a notification, and tries again every minute, so it is back on its own
@@ -176,16 +177,17 @@ ikon connect delete <app>          # disconnect one; its folder stays
 
 ## Phones, simulators and emulators
 
-If the machine has phone tooling — Xcode's simulators (macOS) or `adb` for Android — the app's
-Preview tab gains a **Phones and simulators** button, opening a Devices view that lists every
+If the machine has phone tooling — Xcode's simulators (macOS) or `adb` for Android — the app gains
+a **Devices** section in Studio's sidebar, next to Preview, that lists every
 phone-shaped run target on every connected machine: iOS simulators, Android emulators and
 plugged-in devices, and emulator images that are not running yet. Two verbs per device:
 
-- **Open the app** boots a simulator if needed and opens the running preview's app on it, signed
+- **Open in browser** boots a simulator if needed and opens the running preview's app on it, signed
   in — the same app instance the Preview tab shows, on the device's own screen. Android emulators get
   the host-loopback rewrite (`10.0.2.2`) automatically, and a remote machine's devices get your
   machine's LAN address instead of `localhost`. An emulator image that is not running shows
-  **Boot** instead: it starts the emulator, and you open the app once it appears as connected.
+  **Boot** instead: it starts the emulator, and you open the app once it appears as connected. An
+  app with a Flutter frontend also gets **Open native** and **Stop native**.
 - **Live Preview** mirrors the device's screen into Studio. When the machine can encode — an
   Android device encodes on-device, an iOS simulator needs ffmpeg installed beside it — the
   mirror is a live H.264 video stream, sent to viewers over the platform's normal video
@@ -199,7 +201,7 @@ on its own after ten minutes.
 
 ## 3. Pick the agent when creating a task
 
-The machine appears on the app's board within a few seconds, and its agents join the "Build with"
+The machine appears on the app's board within a few seconds, and its agents join the "Runs on"
 choice when you create a task. Each task runs on the machine chosen at creation, in a worktree
 beside your repository, and the choice is remembered for your next task.
 

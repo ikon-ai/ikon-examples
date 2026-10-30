@@ -1,4 +1,4 @@
-<!-- checked-against: 610f06c70528314316e186d3 -->
+<!-- checked-against: e916caf7af29a01206b4cb40 -->
 
 # App Files Guide
 
@@ -49,8 +49,8 @@ A runtime-written file's URL is not built from its path, and it changes on every
 is stored under a new URL and the old one stops working. Ask `GetUrlAsync` for it after the write,
 and give each version of a file you hand out (a feed entry, a link in an email) a path of its own.
 
-A root-relative path has no host, so server code cannot fetch it: `new Uri(url)` throws, and
-`Audio.Play` takes only absolute URLs. A file shipped in `public/` plays from
+A root-relative path has no host, so server code cannot fetch it:
+`Audio.Play` takes only absolute http or https URLs and throws `ArgumentException` for any other. A file shipped in `public/` plays from
 `GetAbsoluteUrlAsync(path)` in a local run and in a deployed app. A local run cannot fetch its own
 local address, so it reads the file from the folder instead. To play a file the app wrote, read its bytes and play them as a stream:
 
@@ -64,7 +64,7 @@ Paths are plain relative file paths (`"thumbnails/42.png"`). A leading slash and
 normalized away rather than rejected; an empty path, a trailing slash, or a `.`/`..`/empty segment
 throws `ArgumentException`.
 
-Every `app.Files` call is a network round trip to cloud storage, in a local run as well as deployed.
+Every async `app.Files` call is a network round trip to cloud storage, in a local run as well as deployed.
 A read through `app.Files.Data` makes one even for a file shipped in `data/`, because it looks for a
 runtime-written file at that path first. Start independent calls together and await them with
 `Task.WhenAll` rather than one after another. Do not call `ExistsAsync` before a read. Read the file
@@ -78,7 +78,7 @@ run these commands.
 | You run | What happens to binaries |
 |---|---|
 | `ikon save`, `bundle`, `deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
-| `ikon run`, `clone`, `pull`, `restore` | Each pointer whose real file is missing or no longer matches its hash downloads the stored bytes over it — an offloaded binary edited since the last save reverts. |
+| `ikon run`, `clone`, `pull`, `restore` | Each pointer whose real file is missing, or still has the bytes the tool last left there after its pointer moved, downloads the stored bytes over it. A binary edited since then is kept as it is, with a warning: `ikon save` stores the edit and `ikon asset materialize --force` restores the stored bytes. |
 
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that

@@ -1,4 +1,4 @@
-<!-- checked-against: 8351b2a4470f7ae4e3b0c442 -->
+<!-- checked-against: 0d19fc89470f7ae4e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -209,16 +209,17 @@ client.Disconnect();
 const IkonClientConfig& config = client.GetConfig();
 
 // Access the global state (available after connection).
-// The returned pointer aliases the plugin's live GlobalState, which the
-// network thread can replace at any time. Only safe to read from the
-// receive/network thread; otherwise use SnapshotGlobalState() for a copy.
+// The returned pointer aliases the live GlobalState, which the network
+// thread can replace at any time and a reconnect frees. Only safe to read
+// from the receive/network thread; otherwise use SnapshotGlobalState() for a copy.
 const GlobalState* state = client.GetGlobalState();
 if (state)
 {
     // Use global state...
 }
 
-// Thread-safe snapshot of the current GlobalState. Returns std::nullopt
+// Thread-safe snapshot of the current GlobalState, also while a reconnect
+// replaces the connection. Returns std::nullopt
 // before Connect(), after Disconnect(), and when a Connect() from Idle or a
 // reconnect attempt fails at its auth/token HTTP request. A Connect() retried
 // from Offline keeps the earlier attempt's state, and after a later failure or
@@ -234,7 +235,8 @@ std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 
 <!-- ikon-example: cpp-sdk-send-raw -->
 ```cpp
-// Wrap a payload in a ProtocolMessage yourself and send it as is
+// Wrap a payload in a ProtocolMessage yourself and send it as is. Read the
+// context inside a client callback: on another thread a reconnect can free it.
 auto* ctx = client.GetClientContext();
 if (ctx)
 {

@@ -1,4 +1,4 @@
-<!-- checked-against: dcc12a63bb0b21e7cdc20431 -->
+<!-- checked-against: da08fdcdbb0b21e7cdc20431 -->
 
 # Ikon.App.Payments Guide
 
@@ -435,5 +435,5 @@ You only ever send commands and react to events — the backend does the rest:
 
 The backend holds the payment store, drives the provider, and turns each provider webhook into a single
 normalized `PaymentEvent` it pushes to your app. The providers behave differently underneath (signed vs.
-thin webhooks, KYC vs. OAuth vs. KYB onboarding, native vs. backend-orchestrated subscriptions), but your
+thin webhooks, KYC vs. OAuth onboarding), but your
 app code is the same for all of them.

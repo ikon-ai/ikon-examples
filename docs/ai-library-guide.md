@@ -1,4 +1,4 @@
-<!-- checked-against: ca376f46b61d319c67ef1c08 -->
+<!-- checked-against: c6d6489ba8e846b1fac923fd -->
 
 # Ikon.AI Library Overview
 
@@ -8,7 +8,7 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 
 Every service's config has a `Timeout`, and a call that runs past it throws `AITimeoutException`. A static one-shot such as `DepthEstimator.EstimateAsync` uses the default; for another value, use the constructor and the config form. `AITimeoutException` is retryable, so a retry loop multiplies the wait.
 
-A service that submits a job to its provider and waits for it (video, mesh, music, image segmentation, depth, upscaling, video enhancement and segmentation, OCR, and some image models) throws `ProviderJobAbandonedException` instead once the provider has accepted the job. It is not retryable: the provider usually still finishes the job and charges for it, so the platform keeps reading the job and bills it once it ends, and a retry would pay for a second one. A result the provider charged for that could not be used throws `ProviderChargedException`, also not retryable. The defaults:
+A service that submits a job to its provider and waits for it (video, mesh, music, image segmentation, depth, upscaling, video enhancement and segmentation, OCR, AssemblyAI batch speech recognition, Eevo decisions with consequences, and some image models) throws `ProviderJobAbandonedException` instead once the provider has accepted the job. It is not retryable: the provider usually still finishes the job and charges for it, so the platform keeps reading the job and bills it once it ends, and a retry would pay for a second one. A result the provider charged for that could not be used throws `ProviderChargedException`, also not retryable. The defaults:
 
 | Service | Default `Timeout` |
 |---|---|
@@ -257,7 +257,8 @@ models list their sizes in `ImageGenerator.GetCapabilities(model).SizeRules`: gp
 gpt-image-2 render 1024x1024, 1536x1024 and 1024x1536 only, while gpt-image-2.5 takes any size with
 edges in multiples of 16 up to 3840, shapes up to 3:1 and 0.66 to 8.3 megapixels (above 2560x1440
 OpenAI calls it experimental). `ImageGenerator.FitSize(model, width, height)` returns the nearest
-size the model renders. `Width`
+size those `SizeRules` allow, and the requested size unchanged for a model without them, such as
+Gemini, xAI and FLUX Kontext. `Width`
 and `Height` default to 1024; set both to `0` to take the provider's own default. The 1024 default is
 a square size request, so editing a non-square input image comes back square unless both are `0`, and
 setting only one of them to `0` throws `NonRetryableAIException`; `Flux1Fill` is the exception, ignoring
@@ -1195,7 +1196,7 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 `Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
-`Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. It costs $2.50 per million input tokens with output free, about 60 times Jev, so keep Jev for routing and triage and use Eevo where the trade-off between people is the question. Upright states each decision's cost, and that stated cost is what is billed; the per-token price applies only to a decision that states none. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A request over a limit is refused before it is sent.
+`Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. It costs $2.50 per million input tokens with output free, about 60 times Jev, so keep Jev for routing and triage and use Eevo where the trade-off between people is the question. Upright states each decision's cost, and that stated cost is what is billed; the per-token price applies only to a decision that states none. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A consequence's description takes at most 1,000 characters and its label 60, and an option's name with its description, or a stakeholder's description with its values, about 2,000. A request over a limit is refused before it is sent.
 
 `Decider.GetCapabilities(model)` says which models take stakeholders and consequences (`SupportsStakeholders`, `SupportsConsequences`). A question that names them is refused with a `NotSupportedException` before anything is sent to a model without them, rather than being answered as if it had asked something simpler.
 

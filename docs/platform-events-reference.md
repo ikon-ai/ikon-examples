@@ -1,4 +1,4 @@
-<!-- checked-against: 3a29accc2f547b80644cf1ec -->
+<!-- checked-against: e061cc08b7b8f72ffbcf5206 -->
 
 # IKON Platform Events
 
@@ -125,8 +125,8 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 
 | Event | When | Payload |
 |---|---|---|
-| `app_initialized` | The IKON app has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
-| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, or the app's seed run threw) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
+| `app_initialized` | The IKON app has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them is synchronous work on the cold-start path, which delays readiness on a single-core container. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
+| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, the app's seed run threw, or an `app.OnStarting` handler threw) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
 
@@ -250,7 +250,7 @@ zero of them. Successful calls are not tracked individually.
 | Event | When | Payload |
 |---|---|---|
 | `rpc_server_call_failed` | A function call was rejected at validation, or threw while executing | `class`, `callId`, `functionName`, `version` (requested), `versionResolution`, `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
-| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or exhausted its retries and threw. Not emitted on first-attempt success. | `class`, `callId`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
+| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or threw — after its retries ran out, or on its first attempt when the error was not one to retry. Not emitted on first-attempt success. | `class`, `callId`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
 | `rpc_server_version_resolved` | A hosted function version served a call for the first time, once per version and calling app. Hosts that register no versions stay silent, so an ordinary app emits none. | `functionName`, `version` (requested), `hostedVersion`, `versionResolution`, `callerSpaceId`, `callerSessionId` |
 
 `versionResolution` taxonomy: `None`, `Exact`, `Floor`, `Greatest`, `Current`, `Unversioned`,
@@ -290,6 +290,8 @@ a fixed set of events, derived from the `eventName` argument the caller supplies
 - `{eventName}_cancelled`
 - `{eventName}_failed`
 
+A call the AI mocks answer (`AIMocks.Use()`, `ikon run --mock-ai`) emits none of them; only its debug log lines record it.
+
 Payload (same for all three): `modelName`, `elapsedSeconds`, `callId` when the operation ran inside a
 function call (it joins the `rpc_*_call_failed` rows), plus caller-defined additional fields as
 top-level keys, the completion details, the exception (`class`, `failureKind`,
@@ -308,7 +310,7 @@ also carries `statusCode`, the provider's HTTP status as an integer, when there 
 provider that is down from one whose account has no credit left. Both stop the call, but only the
 first is fixed by waiting.
 
-**A persisting failure is logged once, not once per call.** Every failed call is still one `_failed`
+**A persisting failure is logged once, not once per call.** Every failed call still writes its `_failed`
 row, so event counts stay correct. The log line that goes with them drops to debug after the first
 for that model and failure kind, and becomes a warning again an hour later. Count the events, not
 the log lines.
@@ -318,7 +320,9 @@ in another process, the failure is recorded there, by the process that saw it, w
 actually threw. The calling side records nothing, so there is no second row saying
 `FunctionCallException`. What the caller experienced is in `rpc_client_call_failed`, which reports
 once per call with `attemptsMade` and `finalOutcome`, so a call that succeeded on its second attempt
-is one `expected` row and not a failure at all.
+is one `expected` row and not a failure at all. The exception is a call that moves to the model's next
+route: the route that failed gets its own `_failed` row carrying `movedTo`, the usage prefix of the
+route that took over, even when that route then succeeds.
 
 `errorType` is the type the operation threw. Where that reached us over the wire it is the *remote*
 type, unwrapped from the transport exception that carried it, and `stackTrace` is the remote stack —
@@ -348,8 +352,8 @@ Emitted by the backend, not by the server.
 | `anonymous_user_removed` | An anonymous user was removed | `user` |
 
 `provider` on `user_login`: `username`, `google`, `apple`, `microsoft`, `facebook`, `signicat`,
-`sso`, `email`, `passkey`, `api-key`, `space-token`. OAuth and Signicat sign-ins also carry `space` when
-one is known, and `sso` sign-ins carry `space` and `ssoConnection`.
+`sso`, `email`, `passkey`, `api-key`, `space-token`, `ticket`. OAuth and Signicat sign-ins also carry `space` when
+one is known, `sso` sign-ins carry `space` and `ssoConnection`, and `ticket` sign-ins (a sign-in ticket an app's own server issued) carry `space`, the issuing space.
 
 `authSession` is what ties a sign-in to the sessions that follow it — it is also on `client_joined`'s
 `clientContext.AuthSessionId`.
@@ -419,8 +423,8 @@ The CLI reports a command that rejected your input separately from one that brok
 
 | Event | When | `class` |
 |---|---|---|
-| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, failed build, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases |
-| `tool_rejected` | The command refused the input and said why, or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
+| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, a program such as `npm` that exited non-zero, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases |
+| `tool_rejected` | The command refused the input and said why (an app that does not compile among them), or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 
@@ -435,8 +439,9 @@ When the backend is what failed or refused, `tool_failed` or `tool_rejected` als
 the path with its ids replaced by `:id`, so every caller of one broken endpoint groups into one row
 rather than into as many rows as there were ids.
 
-When a program the command ran exited non-zero (a build, `npm`), `message` is only which program
-failed and with what code, because its output holds local paths. The distinct compiler, NuGet,
+When a program the command ran exited non-zero (such as `npm`), `message` is only which program
+failed and with what code, because its output holds local paths. A build of the app that failed is a
+`tool_rejected` row whose `message` is the tool's own line naming the first errors. The distinct compiler, NuGet,
 MSBuild, TypeScript and npm error codes in that output are kept as `errorCodes` (for example
 `["CS0103"]`), which is enough to tell a broken app from a broken package. When Windows refused to
 open a file the command needed, `tool_failed` carries `blockedBy`: `app-control` (Smart App Control),

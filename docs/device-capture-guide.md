@@ -1,4 +1,4 @@
-<!-- checked-against: 9c13a5d5e37ec52601be9203 -->
+<!-- checked-against: b1aad4e6e37ec52601be9203 -->
 
 # IKON Device Capture Guide
 
@@ -40,9 +40,9 @@ await app.Motion.StartTrackingAsync(sessionId, new MotionOptions(
 
 `MotionOptions` carries the whole configuration:
 
-- **`Hertz`** — samples per second per sensor. 25 is plenty to tell a walk from a trot; a controller wants 60 or more. Devices honour this approximately.
+- **`Hertz`** — samples per second per sensor. 25 is plenty to tell a walk from a trot; a controller wants 60 or more. Devices honour this approximately, and the Flutter client moves a value outside 1–200 to the nearest limit without saying so.
 - **`Sensors`** — a `[Flags]` combination of `MotionSensors`: `UserAcceleration` (gravity removed — what the person or vehicle is doing), `Acceleration` (raw, which also tells you which way is down), `Gyroscope` (rad/s), `Magnetometer` (heading, and noisy indoors or near anything with a motor in it).
-- **`BatchMilliseconds`** — how long the client buffers before sending. Sending each sample on its own would put a round trip on every one of them; batching turns fifty calls a second into five.
+- **`BatchMilliseconds`** — how long the client buffers before sending. Sending each sample on its own would put a round trip on every one of them; batching turns fifty calls a second into five. The Flutter client keeps it within 20–5000.
 - **`Background`** — keep streaming while backgrounded. On iOS this needs an already-running background mode; motion alone does not keep an app alive, so pair it with location tracking if the app must read from a pocket.
 - **`LiveHertz`** — send only this many samples a second live while the recording archive keeps every one on the device. Zero streams everything.
 
@@ -72,7 +72,7 @@ ignore both.
 
 ## Recordings — the track that survives a tunnel
 
-A fix that fails to send in a tunnel or on a flat cell is gone. The server cannot recover it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`. Only the Flutter client records: a browser client has no recording function, so there `StartAsync` returns false and nothing is recorded — check the bool.
+A fix that fails to send in a tunnel or on a flat cell is gone. The server cannot recover it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the app calls `StopAsync` with the id it gave `StartAsync`. It starts no sensor: a fix is written only while `app.Locations` tracking runs on that client and a motion sample only while `app.Motion` tracking does, and a file with nothing in it is deleted on the device instead of uploaded, so `OnArchive` never fires for it. Only the Flutter client records: a browser client has no recording function, so there `StartAsync` returns false and nothing is recorded — check the bool.
 
 <!-- ikon-example: device-recordings -->
 ```csharp
@@ -123,7 +123,7 @@ It carries **values, never layout**. One widget draws every app's banner, so the
   The buttons need the current `IkonActivityAttributes.swift`, bridge and widget from Momentum.
 - Prefer `UpdateAsync` to a repeated `StartAsync`. A second start would orphan the first banner with numbers that never move again; the client folds a repeat start into an update, but calling the right one says what you meant.
 - `StartAsync`, `UpdateAsync` and `EndAsync` aim at the calling client unless given a `sessionId`. A background tracking loop or timer has no calling client, so pass the `sessionId` there — without one the call throws `InvalidOperationException` instead of answering `false`.
-- **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said on a screen the person cannot dismiss it from. `EndAsync(sessionId)` is for clearing one client on purpose.
+- **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said until the person swipes it away or iOS ends it at its time limit. `EndAsync(sessionId)` is for clearing one client on purpose.
 
 `StartAsync`, `UpdateAsync` and `EndAsync` answer `false` rather than throwing where a banner cannot be shown — a browser, an Android device, iOS below 16.2, an iOS build that does not carry the widget extension and its bridge. A banner is a nicety and its absence must never take an app down with it.
 
@@ -145,6 +145,7 @@ app.Uploads.Register("my-app.telemetry",
 ```
 
 - **Namespace the id.** The ids that rendered `view.FileUpload` components generate are in the same table.
+- **Register in `OnStarting`, outside any client's scope.** A registration made from a click handler, `OnClientJoined` or a render belongs to that client and is dropped when it leaves, and the device that uploads later comes back as a new session.
 - Registering the same id again replaces the previous handlers.
 - Returning an `AssetUri` from `onStart` streams the bytes straight into asset storage without ever holding them in the app — which is what a large file needs, since an app container has far less memory than the files people send it. Return a result that is not accepted to refuse the upload.
 - `onError` runs once, after the client has been told, for an upload that does not complete — unless `onStart` itself refused it. A device will generally try again on its next connection.

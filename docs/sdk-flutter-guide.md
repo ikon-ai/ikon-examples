@@ -1,4 +1,4 @@
-<!-- checked-against: 4f35410663fbdc99e3b0c442 -->
+<!-- checked-against: 0c556b8463fbdc99e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -96,8 +96,10 @@ at half opacity. Linear gradients draw too:
 `bg-[linear-gradient(...)]`, radial and conic gradients are web only. A `Switch` or
 `Checkbox` still takes its checked colours from the `data-[state=checked]:` classes in its
 style, which the server sends to Flutter separately from the other styles. On a phone, a
-`Checkbox` or `Switch` keeps the size its style gives it, and a tap on empty space within 48
-pixels of it also reaches it, so a 16px web checkbox needs no Flutter-only size.
+`Checkbox` or `Switch` keeps the size its style gives it, and a tap on empty space within a
+48-pixel square centred on it also reaches it, so a 16px web checkbox needs no Flutter-only size.
+A tap on another element in that square stays with that element, and when two controls are in
+reach the nearer one gets the tap.
 
 Theme fonts are the exception to "no Flutter-specific work": a family the theme names
 (`["font-heading"] = "Barlow Condensed"`) renders on Flutter only when the Flutter app bundles
@@ -157,7 +159,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk: ^1.11.0
+  ikon_sdk: ^1.15.0
 
 flutter:
   uses-material-design: true
@@ -264,13 +266,15 @@ cd frontend-flutter
 flutter run -d chrome --dart-define=IKON_PORT=8443
 ```
 
-`ikon run` serves HTTPS on 8443, or on the next free port when 8443 is taken; pass that port by hand,
+`ikon run` serves HTTPS on the port the app's last run used while it is free, else on 8443 or the
+next free port, so a run can stay on 8444 after 8443 frees up; pass the port the run printed by hand,
 while the `--flutter-*` flags pass it for you. The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
 `--flutter-android` use the simulator or emulator that is already running, then a plugged-in phone of
 that platform, and boot one only when neither is there (`xcrun simctl boot` on iOS,
 `flutter emulators --launch` on Android). They also pass
 the right server host for the device — the Android emulator reaches the host machine at `10.0.2.2`,
-not `localhost`. A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
+not `localhost`, and a plugged-in phone at the machine's LAN address, so it needs to be on the same
+network and joins as a guest (below). A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
 skips opening the web frontend in a browser tab; the web frontend still serves.
 
 ### From Studio's Devices tab
@@ -279,13 +283,14 @@ Studio's Devices tab runs the frontend on a phone or simulator of a connected co
 local run: the computer brings its checkout of the app up to date, runs `flutter run -d <device>`
 in `frontend-flutter/`, and passes the dart-define `IKON_CONNECT_URL` through a defines file
 (`--dart-define-from-file`, so the URL's query string survives every shell). The value is a
-connect URL Studio minted for the preview it is running. `IkonClient.connectLocal` sees that
+connect URL Studio minted for the preview it is running. `IkonClient.connectLocal` (ikon_sdk 1.15.0 or later) sees that
 define and calls `IkonClient.connectWithUrl` instead of looking for a local server, so a
 `main.dart` written for `ikon run` needs no change; the `parameters` and `userId` it passes do
 not apply then, because the URL already carries the identity and parameters it was minted with.
 The device joins with the same credential the tab's "Open in browser" link carries. A self-signed
 certificate is trusted only when the URL names this machine or one on its network
-(`isLocalNetworkHost`). The computer needs Flutter (`ikon install flutter`) and the app's git
+(`isLocalNetworkHost`). IKON Connect on the computer needs the app's `devices` grant, and its
+`agents` grant because the run checks the app out. The computer needs Flutter (`ikon install flutter`) and the app's git
 needs the `frontend-flutter/` folder, so a frontend added by a task reaches the device after the
 task's work is saved to the app.
 
@@ -337,6 +342,8 @@ ikon run --host-lan
 
 The dev server's certificate is self-signed; `IkonClient.connectLocal` trusts it for the host it
 connects to, so simulators, emulators and phones on the LAN connect without installing anything.
+A phone on the LAN joins as a guest of its own install, never as the developer or a test user, so
+the run refuses it when the surface admits no guest.
 On an Apple Silicon Mac the simulator build links against a copy of the `opus_flutter_ios` plugin
 that carries the arm64 simulator slice the published package lacks; inside the ikon-platform
 repo the ikon tool writes that override into `pubspec_overrides.yaml` for you.
@@ -510,7 +517,9 @@ client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 app's `ikon-config.toml` the client enters. The backend checks the person against that surface's
 `Methods` and `Roles` before it provisions anything, and refuses the connect otherwise. A guest enters
 only a surface listing `guest` or `global`. Without `surface:` the client enters, leaving out sign-in pages,
-the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. The app reads which surface a client entered from its `Context` (the `Surface` field). `IkonClient.connectLocal` takes `surface:` too, for a local run.
+the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. A native
+build sends no browser `Origin`, so it can never enter a surface that has a `Host`, named or by default:
+the connect fails with 403. The app reads which surface a client entered from its `Context` (the `Surface` field). `IkonClient.connectLocal` takes `surface:` too, for a local run.
 
 ### Joining only a running session
 
@@ -538,8 +547,8 @@ On the web the browser opens the app at the address that was followed, and the a
 `Context.InitialPath`. A native app gets the same from `IkonNavigation`: every connect sends its
 current entry as the session's initial path, and that entry is `/` unless something set it first.
 
-- `IkonNavigation.open(path)` sets the path (with its query, such as `/events/42?tab=info`) that the
-  next connection opens at. Once a connection is up it navigates there instead, which the server
+- `IkonNavigation.instance.open(path)` sets the path (with its query, such as `/events/42?tab=info`) that the
+  next connection opens at, and returns false for a path that does not start with a single `/`. Once a connection is up it navigates there instead, which the server
   raises as `Navigation.PathChangedAsync`, the same as a link tapped inside the app.
 - After a dropped connection, the new session opens at the screen the app was showing, as a reloaded
   browser tab does.
@@ -574,7 +583,7 @@ void dispose() {
 ```
 
 A push notification delivered through Firebase while the app was closed is not seen by the SDK. Pass
-its path to `IkonNavigation.open` before connecting, for example from
+its path to `IkonNavigation.instance.open` before connecting, for example from
 `FirebaseMessaging.instance.getInitialMessage()`.
 
 For a phone to open https links in the app rather than in the browser, the app's domain must serve
@@ -728,7 +737,7 @@ Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and 
 - `ikon.client.keepScreenAwake` — wakelock; returns false when the platform refuses it, as a browser does without a user gesture
 - `ikon.client.scrollTo` — a no-op that returns true
 - `ikon.client.getUrl` / `setUrl` — a URL stack that `setUrl` pushes or replaces; the back gesture pops it and reports the path underneath
-- `ikon.client.goBack` — the server's `Navigation.BackAsync`: `IkonNavigation.goBackOr(fallbackPath)` pops one entry as the back gesture does, or, with nothing to pop, replaces the current entry with the fallback path; either way the new path is reported, except that a client already on the fallback path reports nothing and returns true
+- `ikon.client.goBack` — the server's `Navigation.BackAsync`: `IkonNavigation.instance.goBackOr(fallbackPath)` pops one entry as the back gesture does, or, with nothing to pop, replaces the current entry with the fallback path; either way the new path is reported, except that a client already on the fallback path reports nothing and returns true
 - `ikon.client.getLocation` — geolocation (via `geolocator`)
 - `ikon.client.getNotificationPermission` / `showNotification` — local notifications (via `flutter_local_notifications`, permission requested lazily on first send)
 - `ikon.client.getPushSubscription` — FCM token for offline push (returns null unless the app wires `ikonFcmTokenProvider`; Firebase stays opt-in)

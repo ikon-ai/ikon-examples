@@ -1,4 +1,4 @@
-<!-- checked-against: 3d85d345075c262ee5af6daf -->
+<!-- checked-against: 4f96b6652b9232ab0cde5d60 -->
 
 # Google Connector Guide
 
@@ -15,7 +15,7 @@ var drive = new Drive(tokens);
 var gmail = new Gmail(tokens);
 ```
 
-Every Google failure is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit or quota with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is an access failure. A daily quota (`dailyLimitExceeded`, Drive's `sharingRateLimitExceeded`) or a `Retry-After` longer than two minutes surfaces as `429` at once, since retrying within seconds cannot succeed. A `503` or `504` is retried only on a read (a batched or `POST` query included), an upload chunk or a create that carries a `requestId`, because Google may have carried out any other write before answering one. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request, except that a calendar id may hold `#` and `%`.
+Every failure Google answers, or the connector finds itself, is a `ConnectorException` (from `Ikon.Connectors`) with provider `"google"` and Google's error reason (`notFound`, `insufficientPermissions`, `fileNotDownloadable`) as `ErrorCode`; a request that never gets an answer (a reset connection, a DNS failure, the `HttpClient` timeout) throws `HttpRequestException` or `TaskCanceledException` as it is. `IsReconnectRequired` (`401`/`403`) means the person has to reconnect or be granted access rather than retry, and `IsTransient` (`408`, `429`, `5xx`) that the same call may succeed later. A refresh token Google refuses for good (`invalid_grant`, a bad client) is a `401`. Google answers a rate limit or quota with `403` as well as `429`; both are retried three times, waiting the `Retry-After` or a doubling wait, and one that outlasts the retries surfaces as `429`, so a Google `403` that reaches you is a refusal: usually of access, but also of some actions reconnecting cannot fix, such as deleting a shared drive that still holds files (`cannotDeleteSharedDriveWithItems`), transferring ownership between personal accounts (`consentRequiredForOwnershipTransfer`), or a full Drive (`storageQuotaExceeded`); `IsReconnectRequired` is false for those. A daily quota (`dailyLimitExceeded`, Drive's `sharingRateLimitExceeded`) or a `Retry-After` longer than two minutes surfaces as `429` at once, since retrying within seconds cannot succeed. A `503` or `504` is retried only on a read (a batched or `POST` query included), an upload chunk or a create that carries a `requestId`, because Google may have carried out any other write before answering one. Ids are passed as Google returned them; one holding `/`, `?`, `#`, `%` or `\` throws `ArgumentException` before any request, except that a calendar id may hold `#` and `%`.
 
 ### Signing in
 
@@ -194,7 +194,7 @@ foreach (var permission in await drive.ListPermissionsAsync(fileId))
 
 Group membership is in the Workspace directory, not in Drive. Pass a `GoogleDirectory` and `GetAccessAsync` asks it about each group that would raise the person's role. Without one, or for a group the directory cannot answer for (one outside the Workspace's own domain), the group is listed in `UnresolvedGroups` instead of counting as no access, so the app can say "maybe" rather than "no". `GoogleDirectory` needs the `admin.directory.group.member.readonly` scope on an admin's account, usually a service account acting as one (see "Choosing an identity").
 
-To check many people against one folder, read its permissions once and pass them to the static `Drive.GetAccessAsync(permissions, emailAddress, ...)`, which reads nothing more than group membership:
+To check many people against one folder, read its permissions once and pass them to the static `Drive.GetAccessAsync(permissions, emailAddress, ...)`, which reads nothing more than group membership. It takes the permissions as they are, so on a folder that turns inheritance off, leave out the inherited ones below organizer first:
 
 <!-- ikon-example: connectors-drive-access -->
 ```csharp
@@ -316,7 +316,7 @@ var sentId = await gmail.SendAsync("someone@example.com", "Weekly summary", body
 
 ### Sending, replying and drafts
 
-For more than plain text, `SendAsync` takes a `NewGmailMessage`: `To`, `Cc` and `Bcc`, a `ReplyTo`, a send-as `From` address (`ListSendAsAsync` lists them as `GmailSendAs` records), a `Text` and an `Html` body — both go, as alternatives — and `NewGmailAttachment` files, an inline image given a `ContentId` its HTML names as `cid:`. `ReplyAsync` answers a message in its thread, to its Reply-To or sender, quoting it below the reply's own text and with the threading headers mail programs rely on; `replyAll: true` copies everyone else it went to. `ForwardAsync` sends a message on with its text quoted and its attachments carried. An empty `Subject` on a reply or forward takes the original's.
+For more than plain text, `SendAsync` takes a `NewGmailMessage`: `To`, `Cc` and `Bcc`, a `ReplyTo`, a send-as `From` address (`ListSendAsAsync` lists them as `GmailSendAs` records), a `Text` and an `Html` body — both go, as alternatives — and `NewGmailAttachment` files, an inline image given a `ContentId` its HTML names as `cid:`. `ReplyAsync` answers a message in its thread, to its Reply-To or sender, quoting it below the reply's own text and with the threading headers mail programs rely on; `replyAll: true` copies everyone else it went to. `ForwardAsync` sends a message on with its text quoted and its attachments carried. Both read the whole original first, so they need a Gmail read scope as well as `gmail.send`. An empty `Subject` on a reply or forward takes the original's.
 
 <!-- ikon-example: connectors-gmail-send -->
 ```csharp
@@ -406,7 +406,7 @@ if (await verifier.VerifyAsync(authorizationHeader)
 
 `CreateEventAsync` creates a `NewCalendarEvent` — guests, optional guests, a recurrence rule, reminders, Drive attachments, `WithMeet` for a new Meet link. Invitations are emailed only when `notify` asks, a `CalendarNotify` of `All` or `ExternalOnly`; the event appears in the guests' calendars either way. `UpdateEventAsync` changes what it is given, refusing with `412` an update over a change made since the `ETag` it is handed; `DeleteEventAsync`, `MoveEventAsync`, `QuickAddAsync` (from a sentence, `Lunch with Ada tomorrow 12:30`) and `RespondAsync` (a `CalendarResponse` to an invitation) complete the set, with `CreateOutOfOfficeAsync`, `CreateFocusTimeAsync` and `CreateWorkingLocationAsync` for Workspace's special events.
 
-`GetFreeBusyAsync` returns each calendar's `CalendarFreeBusy` — its `CalendarBusy` spans, without what fills them, so it works on calendars shared for free/busy alone — and `FindFreeTimeAsync` turns several people's into the `CalendarFreeTime` stretches every one of them is free, within working hours:
+`GetFreeBusyAsync` returns each calendar's `CalendarFreeBusy` — its `CalendarBusy` spans, without what fills them, so it works on calendars shared for free/busy alone — and `FindFreeTimeAsync` turns several people's into the `CalendarFreeTime` stretches every one of them is free, within working hours on weekdays (`includeWeekends: true` adds Saturdays and Sundays). Where `GetFreeBusyAsync` returns an `Error` for a calendar Google cannot answer for, such as a guest who does not share free/busy, `FindFreeTimeAsync` throws `ConnectorException` with that reason as `ErrorCode`:
 
 <!-- ikon-example: connectors-calendar-meeting -->
 ```csharp

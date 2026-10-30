@@ -1,4 +1,4 @@
-<!-- checked-against: 086438d3e0133b05024025a6 -->
+<!-- checked-against: 3bdc3e0ee0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -37,9 +37,10 @@ anything is sent; a malformed `To` or `ReplyTo` address and too many metadata ke
 backend and surface as a `UserException`.
 
 A local `ikon run` does not refuse a reserved-domain recipient: it writes the message to
-`build/mail/<time>-<recipient>/` in the app folder (`message.json`, `body.html`, `attachments/`)
-and the send succeeds, so the success path can be tested without sending anything.
-`ikon run --mail-sink` writes every message there, whatever its recipient.
+a folder of its own under `build/mail/` in the app folder, named by the UTC time, the recipient
+(`@` as `_`) and a random suffix (`message.json`, `body.html`, `attachments/`), and the send succeeds, so the success path can be tested without sending anything.
+`ikon run --mail-sink` writes every message there, whatever its recipient. A `--container` run has
+no such folder and sends as a deployed app does, and it does not take `--mail-sink`.
 
 Any other recipient of a local `ikon run` gets real email from the app's cloud space, but in a local run `app.PublicUrl`
 and `app.JoinUrl` are the address of that run, so a link built from them works only while the run is

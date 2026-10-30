@@ -1,4 +1,4 @@
-<!-- checked-against: 25bb252459a1df1ae3b0c442 -->
+<!-- checked-against: a89eb92d59a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -40,12 +40,15 @@ ikon auth token create my-pipeline
 It prints the token once:
 
 ```text
-Created service token 'my-pipeline' (id 68f2a1c9e4b17d3a5c9012ab), valid until 2026-09-09 14:32
+✓ Created service token my-pipeline
+  Id           68f2a1c9e4b17d3a5c9012ab
+  Valid until  2026-09-09 14:32
 
 ikon_svc_kZ8vQ2mR7tX...
 
-This is the only time the token is shown. Store it in your CI secret store as IKON_SERVICE_TOKEN — the tool reads it from there and exchanges it for a short-lived token on each run.
-It carries your own access to the platform, so treat it as a password. Revoke it with 'ikon auth token revoke'.
+This is the only time the token is shown
+Store it in your CI secret store as IKON_SERVICE_TOKEN — the tool reads it from there and exchanges it for a short-lived token on each run
+It carries your own access to the platform, so treat it as a password. Revoke it with ikon auth token revoke
 ```
 
 Only a hash of it is stored on our side, so it cannot be shown again — if you lose it, revoke it and create another. To write it to a file instead of the terminal, pass `--format json --output <file>`; the file holds it as `token`. Keep that file out of the repository.

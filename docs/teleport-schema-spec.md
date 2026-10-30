@@ -1,4 +1,4 @@
-<!-- checked-against: 181da652b64ded513293bfa9 -->
+<!-- checked-against: b200f321b64ded513293bfa9 -->
 
 # Teleport message schema specification
 
@@ -87,7 +87,7 @@ Rules and generation behavior:
 - TypeScript emits only `export interface` declarations and enums. Optional fields (`"T?"`) become true optional properties (`Field?: T`). No codecs, no opcode export, no opcode-registry participation.
 - Dart, C++, and Rust generators emit nothing for data schemas — data-schema support is C#/TS-only for now.
 - `string[]` fields may declare a default as a TOML array literal — `Methods = 'string[] = ["google", "email"]'` emits `new List<string> { "google", "email" }` in C#. List defaults are data-schema-only and string-element-only.
-- Every `#` comment line above a field, a `[nested.X]` header, or an `[enums.X]` header is preserved verbatim as that member's doc lines. The XML doc summary is unchanged; the full line list feeds the TOML writer below.
+- Every `#` comment line above a field, a `[nested.X]` header, or an `[enums.X]` header, plus a trailing `#` comment on that key's own line, is preserved verbatim as that member's doc lines. The generated XML doc (`<remarks>`) is unchanged; the full line list feeds the TOML writer below.
 - The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class. Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, as are the root's `GetTeleportSchemaVersion`/`ApplyTeleportLoad`, and the `WriteToTeleport`/`ReadFromTeleport` codecs are `internal` on every class. A schema with an `[obsolete]` ledger adds the visible retired-field members of section 5.
 
 #### TOML Writer (`toml = true`)
@@ -101,16 +101,16 @@ var config = new AppProjectConfig();
 string toml = config.ToToml();
 
 // extraLinesBySection appends raw lines: "" targets the root block, a section field name that
-// section, and any other key becomes a trailing [Key] block.
+// section, a list-of-sections field name is dropped, and any other key becomes a trailing [Key] block.
 string annotated = config.ToToml(new Dictionary<string, IReadOnlyList<string>>
 {
     [""] = ["# written by the deploy step"],
 });
 ```
 
-which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: root fields first (one blank line between blocks, each preceded by its doc lines), then one `[FieldName]` section per nested-typed root field in schema order, written compactly with the nested type's doc lines above the header. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, and any other key becomes a trailing `[Key]` block.
+which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: a one-line doc comment goes after its value (`Key = value  # comment`), a longer one above the key. Root fields come first, with a blank line only before a root key whose comment is above it. Then, in schema order and one blank line apart, comes one `[FieldName]` section per nested-typed root field (followed by its `[FieldName.Sub]` sub-sections) and one `[[FieldName]]` block per element of a list-of-sections field, written compactly with the nested type's doc lines above the header. In a list, the element's doc lines and the field comments are written on the first element only, and an empty list is written as one commented-out `# [[FieldName]]` element at its defaults. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, a list-of-sections field name is dropped, and any other key becomes a trailing `[Key]` block.
 
-The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, or a non-optional nested type (one `[FieldName]` section each, after the root scalars); section fields are the same scalars/lists. Lists of a nested type have no TOML form and are rejected. Optional fields, enums, and nesting below sections are rejected.
+The writer supports exactly this shape, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, a non-optional nested type (one `[FieldName]` section each, after the root scalars), or a list of one (one `[[FieldName]]` block per element); section and element fields are the same scalars/lists or a nested type, written as a `[FieldName.Sub]` sub-section of scalars/lists. Optional fields, enums, other primitives, and a sub-section that nests further are rejected.
 
 #### Binary Codecs
 

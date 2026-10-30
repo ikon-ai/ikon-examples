@@ -1,4 +1,4 @@
-<!-- checked-against: 8759f1da3f563864e3b0c442 -->
+<!-- checked-against: 813993873f563864e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -87,10 +87,11 @@ The SDK supports four authentication modes. Exactly one must be configured.
 ### Guest
 
 Join a deployed app as a guest, a visitor who has not signed in. It needs no key, only the app id,
-and is the TypeScript counterpart of the .NET SDK's `Guest` mode. The platform's anonymous sign-in
-gives the client a guest user keyed by `deviceId`: clients with the same device id are the same
-guest, and a client without one gets a new device id each time it cannot store one (every run of a
-Node program). The connect fails with 403 "Anonymous users not allowed" when none of the app's surfaces
+and is the TypeScript counterpart of the .NET SDK's `Guest` mode. When the app lists `guest`, the
+platform's anonymous sign-in gives the client a guest user keyed by `deviceId`: clients with the same
+device id are the same guest, and a client without one gets a new device id each time it cannot
+store one (every run of a Node program). When the app lists `global`, the sign-in ignores `deviceId`
+and every guest is the same space-wide user. The connect fails with 403 "Anonymous users not allowed" when none of the app's surfaces
 lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' requires sign-in with one of: …"
 when the surface the client enters does not list one. `guest` listed on another surface does not let the
 client in. Leaving out sign-in pages (surfaces another surface names as its sign-in page), the client
@@ -152,8 +153,8 @@ const client = new IkonClient({
 });
 ```
 
-The port belongs to the run, not to the app: a run takes 8443 when it is free and the next free
-port when another app's run holds it. Use the port of the Server URL the run printed, which is also
+A run takes the port the project's last run used while it is free, else 8443 or the next free port,
+so a run can stay on 8444 after 8443 frees up. Use the port of the Server URL the run printed, which is also
 the `serverUrl` in `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. With `spaceId`
 set to the app id, a connect to a server that runs another app fails with an `AuthenticationError`
 that names both apps, instead of joining it. Without `userId`, a `spaceId` also makes the SDK sign
@@ -258,7 +259,7 @@ if (isOffline(client.connectionState)) {
 <!-- ikon-example: ts-sdk-config-callbacks -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
 
   // Connection state changes
   onConnectionStateChange: (state) => {
@@ -329,7 +330,7 @@ The SDK automatically attempts to reconnect when the connection is lost unexpect
 <!-- ikon-example: ts-sdk-reconnection -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Slow-connection threshold (drives isConnectingSlow in the React layer)
     connectionTimeoutMs: 180000,        // Connection timeout (3 minutes)
@@ -393,6 +394,11 @@ const unsubscribe2 = client.subscribeToProtocolMessages(
   }
 );
 ```
+
+Only an `opcodeGroupsMask` without `opcodes` narrows what the protocol worker forwards to the main
+thread. A subscriber with `opcodes` or without `opcodeGroupsMask`, or an `onProtocolMessage` in the
+config, makes the worker forward every message, media frames included, and the opcode filter then
+runs on the main thread.
 
 ### Subscribing to State Changes
 
@@ -679,7 +685,7 @@ const capture = await client.ensureMediaCapture();
 <!-- ikon-example: ts-sdk-media-config -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   audio: {
     performance: { preferWebCodecs: true },
     background: { allowOnDesktop: true, allowOnMobile: false },
@@ -707,7 +713,7 @@ The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-conf
 <!-- ikon-example: ts-sdk-webrtc -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   webRtc: { media: 'none' },  // never negotiate a peer; 'atConnect' (the default) negotiates it with the connection
 });
 
@@ -812,7 +818,7 @@ The `sdk-ui` library is designed to be framework-agnostic. For React integration
 <!-- ikon-example: ts-sdk-timeouts -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Default: 5000
     connectionTimeoutMs: 180000,        // Default: 180000 (3 minutes)
@@ -908,7 +914,7 @@ app state.
 | Parameter | Values | What it does |
 |---|---|---|
 | `ikon-transport` | `ws`, `wt`, `http`, `http-binary`, `http-sse`, `http-poll` | Pin one transport, and for the HTTP stream its downstream encoding. Long forms (`websocket`, `webtransport`, `httpstream`) also work |
-| `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`) |
+| `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`). Ignored, as is the `proxy` option, when the client connects with `local` |
 | `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific IKON server, for shareable preview links. Carries a credential — treat the link like one |
 | `ikon-session` | session identity hash | Join a specific live session instead of resolving one by identity |
 | `ikon-version` | app bundle id | Run a deploy that is not live (`ikon deploy --no-activate`) in a session of its own. Only someone who may change the app is let in; anyone else gets `AccessDeniedError`. Stays in the address bar, so a reload stays on that version |
@@ -945,7 +951,7 @@ By default, the SDK auto-registers browser convenience functions (getTheme, setT
 <!-- ikon-example: ts-sdk-browser-functions -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   disableBrowserFunctions: true,
 });
 ```
@@ -994,7 +1000,7 @@ does not route:
 <!-- ikon-example: ts-sdk-intercept-links -->
 ```ts
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   interceptInternalLinks: false,
 });
 ```
@@ -1065,7 +1071,7 @@ In a browser the protocol runs in a Web Worker, and errors raised there reach `o
 import { AuthenticationError } from '@ikonai/sdk';
 
 const client = new IkonClient({
-  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken: exactly one
+  local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
   onError: (error) => {
     if (error instanceof AuthenticationError) {
       console.error('Authentication failed:', error.message);

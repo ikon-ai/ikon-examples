@@ -1,4 +1,4 @@
-<!-- checked-against: 026a0991b5bc0cd0ecb18f56 -->
+<!-- checked-against: d5c7370ab5bc0cd0ecb18f56 -->
 
 # Ikon.App.Telephony Guide
 
@@ -26,7 +26,9 @@ ikon phone markets
 ikon phone buy --country se --provider 46elks --yes
 ```
 
-It picks a number in that market and connects it to your app. A number **rents monthly** for as long as
+It picks a number in that market and connects it to your app. Incoming messages and calls can only
+be pointed at a deployed app, so a number bought before the first deploy receives nothing until you
+deploy and run `ikon phone bind`, as the command then says. A number **rents monthly** for as long as
 the app holds it, charged to the app's credits, so the command asks for confirmation before
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
 when an agent runs it). The cost shows up in `ikon costs` like any other usage.
@@ -65,7 +67,8 @@ Where a regulator has to approve the details — on Twilio, Germany, the UK and 
 and `buy` asks before collecting anything whether to submit for review or choose another market.
 Submitting stops there: nothing is bought or charged until the review is approved, which usually
 takes 1-3 business days. A non-interactive run exits with an error once the details are in review,
-so a script that expected a number does not read the review as one. `ikon phone list` shows the review, and running `buy` again
+so a script that expected a number does not read the review as one; with `--format json` it exits
+normally and reports `"status": "review-submitted"` instead. `ikon phone list` shows the review, and running `buy` again
 once it is approved buys the number under it. A review you no longer want is withdrawn with
 `ikon phone release --review de`.
 
@@ -269,7 +272,8 @@ instance. `ikon phone list` shows where each number currently points, and
 
 A running app can also claim inbound for itself with
 `app.Telephony.BindInboundToThisInstanceAsync()`, which points every number the app holds at it and
-is what a developer uses to receive on their own machine. When a local run stops, its binding is
+is what a developer uses to receive on their own machine. Like `ikon phone bind`, it is refused for
+an app that has never been deployed. When a local run stops, its binding is
 reverted by sending every number back to the shared instance, so per-number `ikon phone bind` routes
 made before the run are lost. A binding made from a cloud instance outlives the process.
 

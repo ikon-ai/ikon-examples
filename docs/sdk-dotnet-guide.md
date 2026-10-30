@@ -1,4 +1,4 @@
-<!-- checked-against: 647041fd06f26a79b07e7eab -->
+<!-- checked-against: b6db20b24554531bb07e7eab -->
 
 # IKON C# SDK
 
@@ -65,13 +65,15 @@ error yet never receives a `ClientScope`.
 
 ## Transports
 
-The SDK opens one reliable connection to the server — TCP with TLS against a hosted app, plain TCP
-against a local one — and, alongside it, an unreliable UDP side channel used for messages the app
-flags unreliable. The side channel is encrypted with DTLS, which the .NET Standard 2.1 build lacks, so that
+The SDK opens one reliable connection to the server — TCP with TLS first (a local server offers it
+too), then plain TCP, then a WebSocket when the TCP ports do not answer — and, alongside it, an
+unreliable UDP side channel used for messages the app flags unreliable. A client that ends up on a
+WebSocket opens no side channel. The side channel is encrypted with DTLS, which the .NET Standard 2.1 build lacks, so that
 build runs over the reliable connection alone.
 
 Set `EnableUdpChannel = false` to run over the reliable connection alone. Messages flagged unreliable
-are then sent over it, so nothing is lost, but they can no longer overtake a queued reliable message.
+are then sent over it, though one is still dropped rather than waited on when the send queue is full,
+and they can no longer overtake a queued reliable message.
 Turn it off in two cases. One is when the network between the client and the server drops or blocks
 UDP, usually because of a corporate egress filter. The connect does not wait for UDP, but every
 connect would otherwise spend up to the 15-second DTLS handshake timeout on a background attempt that
@@ -166,7 +168,7 @@ client still describes itself on the request: its `InitialPath`, `IsSnapshot`, `
 viewport and description come from the config. The client type always comes from the token the
 URL carries, and so do the initial path, its URL, the snapshot flag and the snapshot variant when
 the config leaves them unset. A URL whose minter already put a client description on it keeps that
-description, and none of the config's values are sent. This mode is mutually exclusive with the other six; a config that
+description, and none of the config's values are sent. This mode is mutually exclusive with the other seven; a config that
 combines them is rejected.
 
 <!-- ikon-example: sdk-external-connect-url -->
@@ -181,7 +183,7 @@ var config = new IkonClientConfig
 
 Authenticate as the developer signed in on this machine (the ikon CLI's stored sign-in), connecting
 through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
-tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other six modes.
+tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other seven modes.
 `Environment` names the platform the app is on. If it names a platform other than the process's own,
 the client signs in with that platform's saved sign-in. Otherwise, or when it is null, the process's
 own sign-in is used.
@@ -404,7 +406,7 @@ Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`
 - `state.IsConnected()` - True if `Connected`
 - `state.IsDisconnected()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
-- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection; it is not final, since the background reconnect can still bring the client back
+- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection; it is not final while the background reconnect runs, since that can still bring the client back
 
 ### Events
 
@@ -432,8 +434,8 @@ client.StoppingAsync += async e =>
 
 // Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
 // the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
-// retrying from Offline, so this is final only when the server is stopping or
-// BackgroundReconnect is off. Not raised by a failed IkonClient.ConnectAsync (that is the
+// retrying from Offline, so this is final only when the server is stopping,
+// BackgroundReconnect is off, or a JoinOnly client found the session ended. Not raised by a failed IkonClient.ConnectAsync (that is the
 // call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
 // drop that reconnects
 client.DisconnectedAsync += async e =>
@@ -495,7 +497,7 @@ var config = new IkonClientConfig
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted.
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted. A `JoinOnly` client whose reconnect finds the session ended does not: it stays `Offline`.
 
 ## Sending Messages
 

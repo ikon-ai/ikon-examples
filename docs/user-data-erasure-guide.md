@@ -1,4 +1,4 @@
-<!-- checked-against: 4d72058e0bc7ed76d6531655 -->
+<!-- checked-against: 26188ebd0bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -123,8 +123,9 @@ already re-erased the user's platform-managed state on the app side (`EraseUserS
 handler only needs to cover app-owned data. It runs **once per app per erasure**, in the app's
 shared userless instance — the same one `[Cron]` ticks in, cold-started if none is running — however
 many instances of your app are live, and the session stays open for the whole run however long it
-takes. Delivery is durable and at-least-once: it is a platform event stored per app and redelivered
-until a run completes without throwing. Write the handler to be idempotent, and let exceptions
+takes, as long as no single user id's cleanup runs longer than 12 hours. Delivery is durable and
+at-least-once: it is a platform event stored per app and redelivered until a run completes without
+throwing. Write the handler to be idempotent, and let exceptions
 propagate so an incomplete cleanup is retried instead of being acknowledged.
 
 `app.OnUserDataErasure(userId => ...)` still attaches a handler at runtime and runs alongside the

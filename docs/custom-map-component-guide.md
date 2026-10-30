@@ -1,4 +1,4 @@
-<!-- checked-against: 1e2e0e23ab4e80044a5dbeb6 -->
+<!-- checked-against: 34fdf1ec2c91f7144a5dbeb6 -->
 
 # Custom Map Component Guide
 
@@ -207,6 +207,8 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
         color: pin.color || '#3388ff',
         fillColor: pin.color || '#3388ff',
         fillOpacity: 0.8,
+        // A circle marker passes its clicks on to the map by default, which would also fire onMapClick.
+        bubblingMouseEvents: false,
       });
 
       if (pin.label) {
@@ -493,6 +495,8 @@ public static class MyMapExtensions
 3. **`view.AddNode(nodeType, props)`** emits a UI node. The `nodeType` string (`"my-map"`) must match the resolver check in the frontend. Props are a `Dictionary<string, object?>` — a null value is equivalent to an absent prop (the frontend prop helpers treat null as unset, and the diff protocol represents removed props as null)
 
 ## Step 3: Using the Map in Your App
+
+A pin click fires `onPinClick` and then `onMapClick` too, because Leaflet passes a circle marker's click on to the map. To stop that, create each pin in Step 1 with `bubblingMouseEvents: false`.
 
 On the app class:
 

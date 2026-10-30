@@ -1,4 +1,4 @@
-<!-- checked-against: 06b8d6d688b896fa3bdad033 -->
+<!-- checked-against: 36ef079388b896fa3bdad033 -->
 
 # Crosswind Styling and Motion Guide
 
@@ -405,7 +405,7 @@ Base modes split text (or children) into individually animated segments:
 - `motion-per-paragraph` — each paragraph
 - `motion-per-children` — each child element
 
-Text longer than 16,384 characters is not split and animates as one piece.
+Text longer than 16,384 characters is not split, so its per-letter, per-word, per-line and per-paragraph tracks do not play: the text shows without them.
 
 The letter, word and line modes support compound suffixes that combine the split with a playback modifier:
 
@@ -416,7 +416,7 @@ The letter, word and line modes support compound suffixes that combine the split
 | `-reverse` | Stagger from last element backward | `motion-per-line-reverse` |
 | `-reverse-loop` | Reverse stagger + infinite | `motion-per-letter-reverse-loop` |
 
-These compound variants are available for `per-letter`, `per-word`, and `per-line`.
+These compound variants are available for `per-letter`, `per-word`, and `per-line`. A text `-reverse` stagger runs backward only when the class is unconditional: under a variant such as `hover:`, `dark:`, a breakpoint or `data-[state=open]:`, the web renderer staggers it forward.
 
 <!-- ikon-example: cw-per-element-modes-and-compound-variants -->
 ```csharp
@@ -706,14 +706,14 @@ string[] Classes =
 
 #### Motion Priority
 
-Order an element's motion tracks with a priority hint (0–999): tracks are listed in the `animation-*` lists by descending priority, ties in source order, which decides which track wins where they animate the same property. It does not change stagger order:
+Order an element's motion tracks with a priority hint (0–999): tracks are listed in the `animation-*` lists by ascending priority, ties in source order. Where two tracks animate the same property, the one listed last wins, so the higher priority wins. It does not change stagger order:
 
 <!-- ikon-example: cw-motion-priority -->
 ```csharp
 string[] Classes =
 [
     "motion-priority-0",     // default
-    "motion-priority-100",   // listed ahead of lower-priority tracks
+    "motion-priority-100",   // listed after lower-priority tracks, so it wins a shared property
 ];
 ```
 

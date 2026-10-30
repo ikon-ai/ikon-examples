@@ -1,4 +1,4 @@
-<!-- checked-against: a425332c845776b0d4e39898 -->
+<!-- checked-against: b752685283bef647dbebc999 -->
 
 # GitHub Connector Guide
 
@@ -28,7 +28,7 @@ Every request pins `X-GitHub-Api-Version` — `2026-03-10` on github.com and GHE
 A `GitHubTokenProvider` is what every client but `GitHubApp` takes in place of a bare token. Give the clients of one credential the same provider, so they share one renewal:
 
 - `GitHubTokenProvider.ForToken(token)` — a personal access token, an OAuth app's token, or an installation token minted elsewhere, used as it is.
-- `GitHubTokenProvider.Anonymous()` — no token: public data only, at 60 requests an hour per address. GitHub's GraphQL API answers nothing without a token, so the methods that use it (`QueryAsync`, `ListCommitsAsync` and the others this guide says read through GraphQL) throw `InvalidOperationException` before sending anything.
+- `GitHubTokenProvider.Anonymous()` — no token: public data only, at 60 requests an hour per address. GitHub's GraphQL API answers nothing without a token, so the methods that use it (`QueryAsync`, `ListCommitsAsync` and the others this guide says read through GraphQL) throw `InvalidOperationException` instead of sending the GraphQL request. The pull request methods that look up a node id first (below) send that REST read before they throw.
 - `new GitHubTokenProvider(userToken, clientId, clientSecret, onTokensRotated)` — a GitHub App user token. It lasts eight hours and is renewed five minutes before it expires, and once more when GitHub answers `401`; concurrent callers wait on one renewal. **GitHub rotates the refresh token on every renewal and the old pair stops working**, so persist the pair `onTokensRotated` receives. A renewal GitHub refuses is a `401`: the person signs in again.
 - `new GitHubTokenProvider(appCredentials, installationId)` — a GitHub App installation: it signs a JWT with the app's private key, mints the hour-long installation token and mints the next one before it runs out. `GitHubInstallationTokenOptions` narrows it to some repositories or permissions.
 
@@ -204,7 +204,7 @@ var commit = await gitHub.CommitFilesAsync("ikon-ai/examples", "main",
 ], "Restructure the docs", expectedHeadSha: expectedHead);
 ```
 
-Writes that create content — files, blobs, commits — run one at a time: GitHub refuses bursts of them as a secondary rate limit.
+Within one `CommitFilesAsync` or `CreateTreeAsync` call the blobs are written one at a time, because GitHub refuses bursts of content-creating writes as a secondary rate limit. Nothing serializes the writes you start yourself, so make file, blob and commit writes one at a time.
 
 ### Checks and statuses
 
@@ -470,7 +470,7 @@ return delivery switch
 };
 ```
 
-`GitHubHooks` manages the webhooks of a repository or an organization (a `GitHubHookScope`): `ListAsync`, `GetAsync` (`GitHubHook`), `CreateAsync` with a `NewGitHubHook` — an https address, the secret and the events; deliveries are JSON — `UpdateAsync` (only the arguments given change; a new address keeps the secret), `DeleteAsync` and `PingAsync`. **GitHub never retries a failed delivery by itself**: `ListDeliveriesAsync` (`GitHubHookDelivery`) finds the failures, `GetDeliveryAsync` reads one with its request and response, and `RedeliverAsync` sends it again within GitHub's 30 days. A GitHub App's own webhook, set in its settings, has the same on `GitHubApp`: `GetHookUrlAsync`, `UpdateHookAsync`, `ListHookDeliveriesAsync` and `RedeliverHookDeliveryAsync`.
+`GitHubHooks` manages the webhooks of a repository or an organization (a `GitHubHookScope`): `ListAsync`, `GetAsync` (`GitHubHook`), `CreateAsync` with a `NewGitHubHook` — an https address, the secret and the events; deliveries are JSON — `UpdateAsync` (only the arguments given change; a new address keeps the secret), `DeleteAsync` and `PingAsync`. **GitHub never retries a failed delivery by itself**: `ListDeliveriesAsync` (`GitHubHookDelivery`) finds the failures, `GetDeliveryAsync` reads one with its request and response, and `RedeliverAsync` sends it again if GitHub made it in the past 3 days. A GitHub App's own webhook, set in its settings, has the same on `GitHubApp`: `GetHookUrlAsync`, `UpdateHookAsync`, `ListHookDeliveriesAsync` and `RedeliverHookDeliveryAsync`.
 
 <!-- ikon-example: connectors-github-hooks -->
 ```csharp

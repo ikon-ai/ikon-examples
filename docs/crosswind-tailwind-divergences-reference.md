@@ -1,4 +1,4 @@
-<!-- checked-against: 6e4c7a30e3b0c442e3b0c442 -->
+<!-- checked-against: 4f6502d6e3b0c442e3b0c442 -->
 
 # Crosswind ↔ Tailwind v4: deliberate divergences
 
@@ -6,8 +6,8 @@ Crosswind's Tailwind compatibility is measured by a differential conformance
 harness (`Ikon.Crosswind.Test/Conformance/`, run with
 `IKON_RUN_TAILWIND_CONFORMANCE=1`) that compiles a ~1030-class corpus through
 both Crosswind and the real Tailwind CLI (pinned 4.1.11) and compares output.
-As of 2026-08-30 parity is **98.5%** (623 byte-match + 383 semantically
-equivalent of 1021; 10 Crosswind-only extensions such as the `animate-in`/
+Parity is **98.2%** (1003 of 1021 classes byte-match or are semantically
+equivalent; 10 Crosswind-only extensions such as the `animate-in`/
 `animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **18 divergent classes** are all deliberate, listed in
 `conformance-allowlist.txt`, and documented here. Anything not on that list
 fails CI.

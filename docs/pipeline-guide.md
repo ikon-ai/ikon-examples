@@ -1,4 +1,4 @@
-<!-- checked-against: 9f2fd7b0c39b1bba3d6338f5 -->
+<!-- checked-against: 4c4d8237c39b1bba3d6338f5 -->
 
 # IKON Pipeline Guide
 
@@ -627,7 +627,7 @@ value with `ikon secret set` takes effect on the next pipeline run.
 
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline` to execute a pipeline outside your application code. Inside an IKON app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name; a short name finds only a public, non-nested class, so name an `internal` or nested one by its fully qualified type name.
+Use `ikon pipeline` to execute a pipeline outside your application code. Inside an IKON app project it resolves the DLL and the app from the project; with `--dll-path` it runs a pre-built assembly from anywhere, still as an app: `--app-id`, else the enclosing project's `Target.SpaceId`, else `IKON_SPACE_ID`, else your default app, and it fails if none is found. It loads `Ikon.Pipeline.dll` from the folder that DLL is in and fails with `FileNotFoundException` when that file is missing, so point `--dll-path` into the build output folder, not at a DLL copied out on its own. It names the pipeline by the `name` its `[Pipeline]` attribute declares or by its class name; a short name finds only a public, non-nested class, so name an `internal` or nested one by its fully qualified type name.
 
 ## Reading PDFs
 

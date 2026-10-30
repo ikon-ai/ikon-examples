@@ -1,4 +1,4 @@
-<!-- checked-against: e0cdc5f828cc97181e03f5af -->
+<!-- checked-against: f756f73328cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -77,7 +77,7 @@ motion-[ <step>( , <step> )* ]
 * **Time:** either **percent** (`0..100` as integer or decimal without `%`) **or** **duration** (`<number>ms|s`). A step without a time is dropped; the build flags it as IKON022.
   **Rule:** all steps in one block MUST use the same time basis (percent **or** duration).
 * **Step utilities:** one or more **utility tokens**, separated by spaces.
-  A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a registered utility with arbitrary value `name-[value]` (e.g., `translate-y-[8px]`). A name that is not a registered Crosswind utility, including the arbitrary-property form `[prop:value]`, is dropped from the step with an "Unknown utility" warning.
+  A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a registered utility with arbitrary value `name-[value]` (e.g., `translate-y-[8px]`). A name that is not a registered Crosswind utility is dropped from the step with an "Unknown utility" warning. The arbitrary-property form `[prop:value]` passes only when `prop` is also a utility name (`[opacity:0.5]` emits `opacity: 0.5`); any other property is dropped with the same warning.
 
 Examples:
 
@@ -89,7 +89,7 @@ glitch:motion-[0:opacity-100 -translate-x-1,10:opacity-0 translate-x-1,20:opacit
 
 ### 2.2 Motion Track Timing & Flags
 
-All may be prefixed by variants and/or a track.
+All may be prefixed by variants and/or a track, except that `motion-rate-*` and `motion-letter-delay-*` (`motion-stagger-*`) ignore the track and apply to every track on the element.
 
 * `motion-duration-<dur>` or `motion-duration-[<dur>]`
   `<dur>` is a duration literal (`250ms`, `0.6s`).
@@ -130,7 +130,7 @@ All may be prefixed by variants and/or a track.
 * `motion-per-line-reverse-loop` (boolean flag; combines `motion-per-line-reverse` with `motion-loop`)
 * `motion-per-paragraph` (boolean flag)
 * `motion-per-children` (boolean flag)
-* `motion-priority-<int>` or `motion-priority-[<int>]` (track order: the element's tracks are listed highest priority first in the comma-separated `animation-*` lists, ties in source order; clamped to `0..999`, and a value that is not an integer is replaced by `0` with a warning)
+* `motion-priority-<int>` or `motion-priority-[<int>]` (track order: the element's tracks are listed lowest priority first in the comma-separated `animation-*` lists, ties in source order, so where two tracks animate the same property the higher priority, listed later, wins; clamped to `0..999`, and a value that is not an integer is replaced by `0` with a warning)
 * `motion-promote` (boolean flag; force `will-change` emission for the track even when the auto rule would skip it for a one-shot animation)
 * `motion-no-promote` (boolean flag; skip `will-change` emission for the track even when the auto rule would promote it — opt-out for plentiful elements where the GPU-layer cost outweighs the start-up smoothness)
 
@@ -192,7 +192,7 @@ Binds a **virtual timeline progress** (0–100) to an input source.
   motion-bind-<source>/[<min>-<max>]
   ```
 
-  `<source>` ∈ `scrollx|scrolly|dragx|dragy|value|time`.
+  `<source>` ∈ `scrollx|scrolly|dragx|dragy|value|time`. The web runtime binds only `scrolly`, to the `scrollTop` of the element's nearest ScrollView ancestor (page scroll is not a source); the other sources compile but do nothing. The result is written only to the CSS variables `--tw-motion-bind-progress` (0–100), `--tw-motion-bind-progress-ratio`, `--tw-motion-bind-source-value` and `--tw-motion-bind-value` (after `motion-map`); it does not drive a `motion-[...]` timeline, so the element's own styles must read those variables.
   `<min>`, `<max>` are numbers (units depend on source; syntax only).
 
 * **Clamp policy** (empty brackets default to `clamp`)
@@ -351,6 +351,7 @@ Inside a timeline step, **utilities** follow Tailwind forms:
 * **Named tokens:** `opacity-0`, `scale-105`, `shadow-xl`, etc.
 * **Negative prefix:** `-translate-x-1`, `-rotate-3`.
 * **Arbitrary values:** `translate-x-[3.5rem]`, `rotate-[12deg]`, `shadow-[0_0_10px_rgba(0,0,0,0.4)]`.
+* **Filters:** the filter-function utilities (`blur-*`, `brightness-*`, `drop-shadow-*`, … and their `backdrop-*` forms) combine into one `filter` (or `backdrop-filter`) per step. A utility that sets the whole value (`filter-[...]`, `filter-none`, `backdrop-[...]`, `backdrop-filter-[...]`, `backdrop-filter-none`) sets it as given and replaces the combined value in that step: `0:blur-[8px]_filter-[grayscale(1)]` animates `filter` to `grayscale(1)`.
 * **Audio params:** as listed in §2.5.3.
 
 **Separator:** single space or `_` (underscore) between utilities. Underscores outside of brackets and parentheses are normalized to spaces.
