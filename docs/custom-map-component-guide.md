@@ -1,4 +1,4 @@
-<!-- checked-against: 34fdf1ec2c91f7144a5dbeb6 -->
+<!-- checked-against: 34fdf1ecc225ddff4a5dbeb6 -->
 
 # Custom Map Component Guide
 

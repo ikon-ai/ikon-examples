@@ -1,4 +1,4 @@
-<!-- checked-against: 927ca73ce7897a99039b9da6 -->
+<!-- checked-against: 7c9be2343bbadc87039b9da6 -->
 
 # IKON Persistent State Guide
 
@@ -66,8 +66,10 @@ called without a user's bearer token, run in the instance with an empty identity
 minted with one, and under an identity with members that instance is no user's or room's. A call
 proved with a bearer token (`EndpointAuth.User`, the `[Mcp]` default) runs in that user's instance
 when `SessionIdentity` declares `UserId`. So what such a method writes for users' pages goes in
-a `PersistentGlobal…` value or in the database. The build warns IKON046 on a `PersistentReactive` or
-`PersistentUserReactive` write in such a method, and IKON047 on one of those values in an app whose
+a `PersistentGlobal…` value or in the database. A `[Cron]` or `[Trigger]` method uses only `Global…`
+values under any identity, and the build warns IKON051 on any other reactive in one. It warns IKON046
+on a `PersistentReactive` or `PersistentUserReactive` write in an endpoint or MCP tool that runs in the
+empty-identity instance, and IKON047 on one of those values in an app whose
 identity has a `[Sharded]` field, or is a `[Sharded]` record without a `UserId`, because each shard
 keeps its own value.
 
@@ -225,9 +227,10 @@ storage is for binaries and public files:
   used, which can be the built-in `app`; a named database the app lacks logs one error and that
   value is never saved.
 
-Existing data migrates by itself: when a structured value first loads from the app's state database and finds
-no row, the old asset location is read and the value is copied into Postgres, so the next load hits
-the row. The old asset blob is left in place. Apps already using a named database with
+An app that kept its state in asset storage while it had no database gets that state copied into
+its built-in database by the platform when the database is created, before the app can use it. A
+value the app already saved to the database is kept, and the old asset blobs are left in place. The
+app never reads asset storage for a value that has no row. Apps already using a named database with
 `backend: PersistenceBackend.Postgres` are untouched by all of this.
 
 Every load and save logs its destination at debug level (member name, scope, and the postgres
@@ -240,6 +243,11 @@ Backend and scope are chosen independently. Scope decides who sees the value; ba
 Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
 `dedicated-small` — which decides how densely it is packed onto an instance and how many
 connections it gets. `ikon db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database starts on `shared-dense`.
+
+The app reaches a database through a connection pooler, which runs its queries on 1 server
+connection on `shared-dense`, 3 on `shared` and 48 on `dedicated-small`, shared by every instance
+of the app. Queries beyond that wait at the pooler for a free one. Persistent state loads a joining
+user's values with one query per database, however many values the user has.
 
 A live database can move to another tier without redeploying:
 
@@ -302,7 +310,7 @@ global types are sent on their own schedule ("Global values", above).
 
 ## Erasing a user's state
 
-`ClearFor(userId)` on any user-scoped persistent reactive erases that user's partition (on a `PersistentGlobalUserReactive`, for every instance): the in-memory value is dropped (the next read sees the initial value) and the persisted copy is deleted from whichever store it routes to — including the legacy asset blob when the value lives in Postgres with read-through, so an erased value cannot resurrect on the next load. The deletion runs in the background; the user leaves the shutdown save immediately, so a cleared user is never re-persisted.
+`ClearFor(userId)` on any user-scoped persistent reactive erases that user's partition (on a `PersistentGlobalUserReactive`, for every instance): the in-memory value is dropped (the next read sees the initial value) and the persisted copy is deleted from whichever store it routes to. The deletion runs in the background; the user leaves the shutdown save immediately, so a cleared user is never re-persisted.
 
 To erase everything the app has persisted about a user — a user-data-erasure (GDPR) request — use the app-level helper:
 

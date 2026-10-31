@@ -1,4 +1,4 @@
-<!-- checked-against: acf2bcb64a42dd1ca4e4e53a -->
+<!-- checked-against: 1f950b114a42dd1ca4e4e53a -->
 
 # Session issues
 
@@ -47,13 +47,21 @@ leave the analysis.
 ## Issue states
 
 ```text
-open ──► acknowledged ──► resolved        plus muted, plus likely-fixed
+open ──► acknowledged ──► awaiting-release ──► resolved        plus muted, plus likely-fixed
 ```
 
 - **open** — the default list. Without filters it shows what is wrong right now.
 - **acknowledged** — someone owns it.
+- **awaiting-release** — the fix is written but not deployed yet. The build running when you set
+  this state keeps logging the problem, and those occurrences are counted without reopening the
+  issue. The next deploy of a newer build resolves it. Any build uploaded after the one that was
+  running counts, whatever its version number says; a rollback to an older build does not. An
+  occurrence in a session running a newer build reopens the issue, because the fix did not hold.
+  Once resolved this way, the issue still ignores sessions that run the old build. If you resolve
+  it yourself before the release, it becomes an ordinary resolved issue.
 - **resolved** — somebody fixed something. A resolved issue reopens automatically on any new
-  occurrence, and the reopen count is itself a signal that a fix did not hold. After 30 days resolved
+  occurrence, except one from the old build after a release resolved it, and the reopen count is
+  itself a signal that a fix did not hold. After 30 days resolved
   an issue is deleted, and a new occurrence opens a fresh issue instead.
 - **muted** — counted but never shown again. Your own cost control.
 - **likely-fixed** — a state the platform sets, never one you set. The issue has not occurred while
@@ -69,8 +77,8 @@ An issue stays open while the app runs no sessions, because the issue has had no
 - **CLI** — `ikon issue list` lists what is wrong right now; `--state likely-fixed` lists the
   issues waiting for your review, and `--deployment-version` shows whether a deploy broke something. `ikon issue show <id>`
   has the full detail and sample, and lists the related issues; `ikon issue set <id> --state …` changes the state
-  (muted and likely-fixed go only to open or resolved, and resolved goes nowhere — only a new
-  occurrence reopens it);
+  (muted and likely-fixed go only to open, awaiting-release or resolved; awaiting-release goes
+  only to open or resolved; and resolved goes nowhere — only a new occurrence reopens it);
   `ikon issue merge <id> --into <id>` merges an issue into another that is the same problem.
   `ikon autopilot history --job analysis` lists the analysis runs behind the issues. An empty issue list means
   either nothing is wrong or nothing has run yet, and only the run history tells them apart.
@@ -78,7 +86,8 @@ An issue stays open while the app runs no sessions, because the issue has had no
   drive your own alerting from `ikon events` or the events API.
 - **Email digest** — off by default. `ikon autopilot set --digest enable` sends one email per day per
   app to your organisation's admins, only when error or critical issues have opened or issues have
-  escalated in it (never for noise or muted ones), with counts
+  escalated in it (never for noise or muted ones, or for the old build of an issue awaiting its
+  release), with counts
   and titles only. Related issues share one line, under the title of the most severe.
   `ikon autopilot set --digest disable` stops it.
 

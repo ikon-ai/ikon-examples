@@ -1,4 +1,4 @@
-<!-- checked-against: c6d6489ba8e846b1fac923fd -->
+<!-- checked-against: b614c481cb04839afac923fd -->
 
 # Ikon.AI Library Overview
 
@@ -41,7 +41,7 @@ negative prompt, runs on another provider of the model that takes it. It throws 
 
 ## Emergence
 
-`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. Every run is both awaitable and enumerable: `await` it for the result (non-null; `EmergenceStoppedException` when the run stops without one), or `await foreach` its `EmergeEvent<T>` stream. `.FinalAsync()` returns a nullable result together with the updated `KernelContext` for conversation continuity. Emergence can target any model listed in the [LLM](#llm) section. See the [Emergence Guide](emergence-guide.md) for the full documentation.
+`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. Every run is both awaitable and enumerable: `await` it for the result (non-null; `EmergenceStoppedException` when the run stops without one), or `await foreach` its `EmergeEvent<T>` stream. `.FinalAsync()` returns a nullable result together with the updated `KernelContext` for conversation continuity. Emergence can target any model listed in the [LLM](#llm) section. See the Emergence Guide (`emergence-guide.md`, in the `Ikon.AI.Emergence` docs folder of an app) for the full documentation.
 
 ### Object Generation
 
@@ -75,7 +75,7 @@ public class PersonDetails
 }
 ```
 
-Emergence supports multi-agent patterns: `BestOf`, `Refine`, `MapReduce`, `TreeSearch`, and `EnsembleMerge`. See the [Emergence Guide](emergence-guide.md) for full documentation on all patterns.
+Emergence supports multi-agent patterns: `BestOf`, `Refine`, `MapReduce`, `TreeSearch`, and `EnsembleMerge`. See the Emergence Guide (`emergence-guide.md`) for full documentation on all patterns.
 
 Region support is available via `pass.Regions`:
 

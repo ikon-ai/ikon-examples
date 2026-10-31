@@ -1,4 +1,4 @@
-<!-- checked-against: 813993873f563864e3b0c442 -->
+<!-- checked-against: 4892bf64be22c59be3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -1053,7 +1053,7 @@ The SDK has a typed error for each kind of failure:
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
 | `SpaceNotFoundError` | No app found for the given domain (exported, but the SDK does not currently raise it) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
-| `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
+| `ServerFullError` | Server at its client limit, connection rejected (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
 | `NoMatchingEndpointTypeError` | `?ikon-transport` / `?ikon-proxy` pin a combination the server did not offer (terminal, exposes `pinnedTransport`, `pinnedTier`, `offeredTypes`) |
 | `AppStartupFailedError` | The app's server failed during startup (terminal) |
@@ -1062,6 +1062,8 @@ The SDK has a typed error for each kind of failure:
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
 | `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal, exposes `spaceId` and `retryAfterMs`, the backend's suggested wait) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
+| `ServerRateLimitedError` | A rate limiter refused the request with HTTP 429: the ikon server's, which counts per address, or the backend's. The connect asks an ikon server again after the wait it named, 30 s at most, and raises this when its budget runs out while a rate limiter's refusal is the most telling answer it got. Says nothing about the sign-in (extends `ServerUnavailableError`, exposes `retryAfterMs`) |
+| `ServerNotReadyError` | The connect ran out of its budget on an ikon server that kept not answering, refusing the connection or answering 5xx. A credential refusal on any connect URL is raised as `AuthenticationError` instead, and a rate limiter's as `ServerRateLimitedError` (extends `ServerUnavailableError`, exposes `status`, 0 when the try got no answer) |
 | `ServerChangedError` | The ikon server refused the connect token as not its own or expired, usually because the server was replaced. A cloud connect gets a fresh token from `/init` once before raising it; a local or connect-URL connect, which has no `/init` to ask, raises `AuthenticationError` instead. Not an `AuthenticationError`: the sign-in is still valid (exposes `status`) |
 
 In a browser the protocol runs in a Web Worker, and errors raised there reach `onError` as a plain `Error` that keeps only the `name` and `message`, so identify transport-level errors by `error.name` rather than `instanceof`.
@@ -1156,7 +1158,7 @@ const client = new IkonClient({
 | `ProvisioningTimeoutError` | Provisioning timeout |
 | `SpaceNotFoundError` | No app found (not currently raised) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
-| `ServerFullError` | Server at capacity (terminal, no retry) |
+| `ServerFullError` | Server at its client limit (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |
 | `NoMatchingEndpointTypeError` | Pinned transport/tier not offered by the server (terminal) |
 | `AppStartupFailedError` | App server failed during startup (terminal) |
@@ -1164,6 +1166,8 @@ const client = new IkonClient({
 | `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal) |
 | `ServerUnavailableError` | Backend HTTP 5xx (retried) |
+| `ServerRateLimitedError` | HTTP 429 from a rate limiter (retried after its wait, 30 s at most) |
+| `ServerNotReadyError` | Connect budget ran out on a server that timed out, refused or answered 5xx |
 | `ServerChangedError` | Server refused a stale connect token (one fresh `/init` first; not an `AuthenticationError`) |
 | `FunctionCallError` | Remote function call failure with error type and stack trace |
 

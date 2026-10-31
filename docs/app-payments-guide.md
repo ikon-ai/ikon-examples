@@ -1,4 +1,4 @@
-<!-- checked-against: da08fdcdbb0b21e7cdc20431 -->
+<!-- checked-against: da08fdcdbb0b21e7592ff225 -->
 
 # Ikon.App.Payments Guide
 
