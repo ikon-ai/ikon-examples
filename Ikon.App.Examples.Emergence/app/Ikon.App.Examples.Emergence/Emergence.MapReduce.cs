@@ -90,10 +90,12 @@ Disappointed with the battery - doesn't last a full day for me.
                     foreach (var (key, label) in examples)
                     {
                         var isSelected = _selectedMapReduceExample.Value == key;
+#pragma warning disable IKON041 // the buttons pick an example on one page, they do not navigate between pages
                         view.Button(
                             [isSelected ? Button.PrimaryMd : Button.OutlineMd],
                             text: label,
                             onClick: async () => _selectedMapReduceExample.Value = key);
+#pragma warning restore IKON041
                     }
                 });
             });

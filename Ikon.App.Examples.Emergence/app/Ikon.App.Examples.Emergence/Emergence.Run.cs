@@ -71,10 +71,12 @@ public partial class Emergence
                     foreach (var (key, label) in examples)
                     {
                         var isSelected = _selectedRunExample.Value == key;
+#pragma warning disable IKON041 // the buttons pick an example on one page, they do not navigate between pages
                         view.Button(
                             [isSelected ? Button.PrimaryMd : Button.OutlineMd],
                             text: label,
                             onClick: async () => _selectedRunExample.Value = key);
+#pragma warning restore IKON041
                     }
                 });
             });
