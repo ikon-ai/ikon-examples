@@ -66,7 +66,7 @@ UIActions = false  # Record each action a person runs, which a report filed from
 # Commands the ikon tool runs in the app root, each started without a shell (app-container guide)
 [Scripts]
 FetchTools = []  # Download programs into IKON_TOOLS_DIR before 'ikon run', 'ikon bundle' and 'ikon deploy'
-PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it
+PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it
 
 # The native app the Flutter frontend builds; set it only to update an app already in a store (frontend-fundamentals guide)
 [Flutter]
