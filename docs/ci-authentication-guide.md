@@ -1,4 +1,4 @@
-<!-- checked-against: a89eb92d59a1df1ae3b0c442 -->
+<!-- checked-against: 61d3a1d759a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -84,6 +84,10 @@ Every command then works as usual â€” `ikon deploy`, `ikon bundle`, and so on â€
 The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV`, and any `--target` a command passes, must name that same environment.
 
 Do not also set `IKON_BACKEND_URL` or `IKON_BACKEND_TOKEN`. That pair takes an access token from a sign-in, and the tool refuses to run when `IKON_BACKEND_TOKEN` holds a service token or is set without `IKON_BACKEND_URL`.
+
+### Where the repository lives
+
+A runner cannot read an app's IKON-hosted git origin. Check out an external mirror instead: `ikon mirror add <https url>` connects a GitHub, GitLab or Azure DevOps repository, and `ikon mirror run` syncs it both ways. The checkout must hold the committed `ikon-config.toml`.
 
 ### Installing the tool on a runner
 

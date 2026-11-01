@@ -1,4 +1,4 @@
-<!-- checked-against: 20e493b19aeb0838d8044243 -->
+<!-- checked-against: ed111c3b150a9d9c5630d6ce -->
 
 # Ikon.Parallax Library Overview
 
@@ -295,7 +295,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
 - `view.ChatLog()` - `ScrollColumn` with auto-scroll on and optional header/footer slots (pass your composer as the footer)
 - `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload when `onAttachmentStart` or `onAttachmentAdded` is wired (a dropped or pasted web address joins the text instead), auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
-- `view.ContentGrid()` - A grid with fixed columns (`ContentGridColumn[]`: header, width or `Flex`, alignment) that the content fills cell by cell, row after row: a comparison table, a sheet of aligned values, a card or media grid. A `DataTable` adds typed cells, paging and row actions
+- `view.ContentGrid()` - A grid with fixed columns (a list or array of `ContentGridColumn`: header, width or `Flex`, alignment) that the content fills cell by cell, row after row: a comparison table, a sheet of aligned values, a card or media grid. A `DataTable` adds typed cells, paging and row actions
 - `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
 
 **Editors:**
@@ -820,7 +820,7 @@ Automatic skeletonization is a **one-off build-time render**, so it can afford t
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
-**A Flutter frontend gets the same snapshots.** When the app has a `frontend-flutter`, the capture renders each route a second time with Flutter styles and ships them with `boot-snapshots-flutter.json`, which maps each route to its file. The phone downloads its route's snapshot after it first connects and starts on it next time, until it has a screen of its own to start on (see Responsiveness in the Flutter guide). The second capture doubles the capture time, and a route whose Flutter capture fails ships without one, which the deploy log names.
+**A Flutter frontend gets the same snapshots.** When the app has a `frontend-flutter`, the capture renders each route and each seed-rule variant a second time with Flutter styles and ships them with `boot-snapshots-flutter.json`, which lists the app's surfaces with the file of each route and seed rule, as the page's boot table does. The phone picks the file the way the web page does, for the surface it entered, downloads it after it first connects and starts on it next time, until it has a screen of its own to start on (see Responsiveness in the Flutter guide). The second capture doubles the capture time, and a route or variant whose Flutter capture fails ships without one, which the deploy log names.
 
 **Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint. A coding agent does the same with `ikon browse --path "/?ikon-snapshot=true"` (or `"/fi?ikon-snapshot=true"` for a route): `observe` reads the snapshot's screen and `look` screenshots it.
 
@@ -924,6 +924,8 @@ Methods = ["google", "email"]
 A pattern segment is a literal (exact match), `*` (exactly one segment, any content), or a final `**` (zero or more remaining segments). So `/` matches only the front page, `/*` any one-segment path, `/*/**` any path two segments or deeper, and `/**` everything. Order matters — `**` means *zero* or more, so `/*/**` also matches one-segment paths; listing `/*:dashboard` first keeps those on the dashboard rule. A `/**` entry anywhere but last fails the bundle (the entries after it could never apply).
 
 On load, the SDK works out which surface the visitor enters: the surface with the longest route covering the path, or the surface with neither routes nor host when no route covers it. A visitor who appears signed in (a non-anonymous localStorage session, or an OAuth callback token) skips a surface whose methods are all anonymous. The SDK then paints that surface's own snapshot of the route if the build captured one, otherwise the file of the surface's first matching seed rule. If the surface has neither, the page stays blank until it connects rather than painting another visitor's page. So in the example above, a signed-in person at `/` enters `app` and paints its `admin` skeleton, while an anonymous visitor paints the captured `/` page.
+
+The same files draw the pages a `view.NavOutlet` has not shown yet. When a person presses a menu item, the outlet looks up the page's path the same way, the surface's snapshot of it or its first matching seed rule, and draws that capture as a skeleton until the server's page arrives. The capture file carries the page's styles, and the outlet puts them on the page, because the server sends a client each style on first use, so a page the client has not shown names styles the page does not hold yet. A surface whose signed-in pages cannot be captured as routes, such as a hub behind sign-in, gives each page a seed rule of its own (`"/inbox:shell-inbox"`, `"/settings/**:shell-settings"`) and renders that page's shape for the variant. The first paint of a deep link and the first press of a menu item then both show the right page instead of one shell for every page.
 
 Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton (the seed rules may name at most 16 distinct variant ids; more fails the bundle) — no magic paths, the toml ids are the `case` labels:
 

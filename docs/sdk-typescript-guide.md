@@ -1,4 +1,4 @@
-<!-- checked-against: 4892bf64be22c59be3b0c442 -->
+<!-- checked-against: 3c254b19f50598ade3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -708,7 +708,7 @@ When WebRTC is disabled or its signaling fails, the playback pipelines process a
 
 ### WebRTC
 
-The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-config.toml`, which a page passes on, says whether the peer is negotiated: with the connection (`atConnect`, the default) or never (`none`). A program sets it in the configuration:
+The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-config.toml`, which a page passes on, says whether the peer is negotiated: with the connection (`atConnect`, the default) or never (`none`). With the connection means as soon as the app's first UI has arrived, or a second after connecting for an app that sends none, so the first frame is not slowed down by the peer's setup. A program sets it in the configuration:
 
 <!-- ikon-example: ts-sdk-webrtc -->
 ```ts

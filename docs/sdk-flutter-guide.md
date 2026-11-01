@@ -1,4 +1,4 @@
-<!-- checked-against: 0c556b8463fbdc99e3b0c442 -->
+<!-- checked-against: 057dbc6121fcec31e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -646,7 +646,9 @@ A Flutter app reacts to a tap before the server answers, with no app code:
 - A press on a control with a `path:` moves the app to that path at once: a `view.NavBar` item
   turns selected and, until the server sends the page, `view.NavOutlet` shows the page as the phone
   last showed it, without taking taps. A page the phone has not shown yet appears as a skeleton
-  drawn from the deploy's boot snapshot of the route, or as placeholder bars.
+  drawn from the deploy's capture for the route on the surface the client entered, with the
+  styles that capture carries. The capture is the surface's own snapshot of the route, or else
+  the file of its first matching seed rule. Without one, the page appears as placeholder bars.
 
 An app can also start on the screen it showed last time instead of a blank one. Give the view a
 `liveSnapshotKey`, one per app and environment such as its space id, and while connecting show

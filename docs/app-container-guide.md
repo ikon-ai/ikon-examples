@@ -1,4 +1,4 @@
-<!-- checked-against: 6d51c85bc6c3498ddb3691ae -->
+<!-- checked-against: 18b3f3d8c6c3498ddb3691ae -->
 
 # App Container Guide
 
@@ -152,7 +152,8 @@ into `$IKON_BUNDLE_APP_DIR/Data/`; a binary or `#!` script written under `IKON_B
 `ikon bundle` and `ikon deploy` run each `PrePackage` command in the app root, in order, after the
 build and before the bundle is zipped. Like `FetchTools`, a command starts without a shell, and
 `python3` at its start runs `python` on Windows. A command that fails stops the bundle or the
-deploy and prints its output.
+deploy and prints its output. A command string is split on spaces, with quotes grouping words.
+`ikon run` does not run `PrePackage`; it runs only `FetchTools`.
 
 ```toml
 [Scripts]

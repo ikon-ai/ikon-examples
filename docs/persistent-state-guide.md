@@ -1,4 +1,4 @@
-<!-- checked-against: 7c9be2343bbadc87039b9da6 -->
+<!-- checked-against: e834746b3bbadc87039b9da6 -->
 
 # IKON Persistent State Guide
 
@@ -67,7 +67,7 @@ minted with one, and under an identity with members that instance is no user's o
 proved with a bearer token (`EndpointAuth.User`, the `[Mcp]` default) runs in that user's instance
 when `SessionIdentity` declares `UserId`. So what such a method writes for users' pages goes in
 a `PersistentGlobal…` value or in the database. A `[Cron]` or `[Trigger]` method uses only `Global…`
-values under any identity, and the build warns IKON051 on any other reactive in one. It warns IKON046
+values under an identity with members, and the build warns IKON051 on any other reactive in one. It warns IKON046
 on a `PersistentReactive` or `PersistentUserReactive` write in an endpoint or MCP tool that runs in the
 empty-identity instance, and IKON047 on one of those values in an app whose
 identity has a `[Sharded]` field, or is a `[Sharded]` record without a `UserId`, because each shard
