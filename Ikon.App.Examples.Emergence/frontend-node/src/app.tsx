@@ -23,6 +23,7 @@ function App() {
 function AuthorizedApp() {
   const app = useIkonApp({
     modules: [registerStandardUiModule, registerLucideIconsModule],
+    backgroundAudio: false,
   });
 
   return (
