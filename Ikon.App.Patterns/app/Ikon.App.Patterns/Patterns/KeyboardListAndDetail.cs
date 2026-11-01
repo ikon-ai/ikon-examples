@@ -23,7 +23,7 @@ internal sealed class KeyboardListAndDetail : IPatternDemo
 
     private void Render(IView view)
     {
-        view.KeyboardListener(global: true, keys: ["j", "k", "J", "K"], onKeyDown: args =>
+        view.KeyboardListener(global: true, keys: ["j", "k"], onKeyDown: args =>
         {
             var step = args.Key is "j" or "J" ? 1 : -1;
             _selected.Value = Math.Clamp(_selected.Value + step, 0, Clauses.Length - 1);

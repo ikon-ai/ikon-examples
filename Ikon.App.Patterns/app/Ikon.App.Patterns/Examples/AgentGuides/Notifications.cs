@@ -60,15 +60,13 @@ file sealed class InboxUiExamples(IApp<SessionIdentity, ClientParameters> app)
 {
     private readonly NotificationInbox _inbox = new(app);
 
-    private static Task NavigateAsync(string? launchUrl) => Task.CompletedTask;
-
     public void Render(UIView view)
     {
         #region example:notification-inbox-ui
         view.Badge($"{_inbox.UnreadCount}");              // signed-in user
         foreach (var item in _inbox.Items)                // newest first
         {
-            view.Box([Card.Default, "p-3 mb-2"], onClick: async () => { _inbox.MarkRead(item.Id); await NavigateAsync(item.LaunchUrl); },
+            view.Box([Card.Default, "p-3 mb-2"], onClick: async () => { _inbox.MarkRead(item.Id); await ClientFunctions.SetUrlAsync(item.LaunchUrl ?? "/"); },
                 content: row => row.Text([item.Read ? Text.Body : Text.BodyStrong], item.Title));
         }
         #endregion

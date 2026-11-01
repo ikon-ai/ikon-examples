@@ -41,6 +41,7 @@ internal sealed class UpscaleAnImage : IPatternDemo
     #region example:pattern-upscale-an-image
     private readonly Reactive<OutputImage?> _upscaled = new(null);
     private readonly Reactive<bool> _busy = new(false);
+    private readonly Reactive<string?> _error = new(null);
 
     /// <summary>
     /// Upscaling is capability-gated harder than most services: a faithful model THROWS rather
@@ -55,6 +56,8 @@ internal sealed class UpscaleAnImage : IPatternDemo
         }
 
         using var busy = _busy.AsToken();
+
+        _error.Value = null;
 
         try
         {
@@ -78,14 +81,20 @@ internal sealed class UpscaleAnImage : IPatternDemo
 
             _upscaled.Value = result.Image;
         }
-        catch (AIException)
+        catch (AIException exception)
         {
-            // Upscaling failed; the original is untouched and the user can retry.
+            // The original is untouched; show why it failed, since a refusal such as an input below MinInputSide is fixable.
+            _error.Value = exception.Message;
         }
     }
 
     private void Render(IView view)
     {
+        if (_error.Value is { } error)
+        {
+            view.Alert(error, tone: SemanticTone.Error);
+        }
+
         if (_upscaled.Value is not { } image)
         {
             return;

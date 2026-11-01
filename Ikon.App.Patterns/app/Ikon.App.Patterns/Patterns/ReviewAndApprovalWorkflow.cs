@@ -3,8 +3,10 @@ using Dapper;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: review-and-approval-workflow — see docs/patterns/review-and-approval-workflow.md.
-// The demo draws a reviewer's queue from sample rows; its buttons write to the app's database,
-// which only a running app has.
+// The demo draws a reviewer's queue from sample rows. A running app writes the same rows to its
+// submissions table at start, but only while the table is empty, and each sample file only while it
+// is missing, so the buttons find their rows and a move someone made is never undone. The render
+// smoke test never starts the app and draws the rows from memory.
 internal sealed class ReviewAndApprovalWorkflow : IPatternDemo
 {
     public string Slug => "review-and-approval-workflow";
@@ -13,20 +15,79 @@ internal sealed class ReviewAndApprovalWorkflow : IPatternDemo
 
     private const string SampleReviewerId = "user-reviewer";
 
+    private static readonly Submission[] SampleSubmissions =
+    [
+        new Submission("s1", "user-aino", "Brochure, Finnish", "submissions/s1/v1.txt", Status.Submitted, null),
+        new Submission("s2", "user-bruno", "Contract, Swedish", "submissions/s2/v2.txt", Status.ChangesRequested, "Section 4 still reads as machine output"),
+        new Submission("s3", "user-chidi", "Menu, English", "submissions/s3/v1.txt", Status.Approved, null),
+    ];
+
     private readonly IAppBase app;
 
     public ReviewAndApprovalWorkflow(IAppBase app)
     {
         this.app = app;
-        _submissions.AddRange(
-        [
-            new Submission("s1", "user-aino", "Brochure, Finnish", "submissions/s1/v1.docx", Status.Submitted, null),
-            new Submission("s2", "user-bruno", "Contract, Swedish", "submissions/s2/v2.pdf", Status.ChangesRequested, "Section 4 still reads as machine output"),
-            new Submission("s3", "user-chidi", "Menu, English", "submissions/s3/v1.pdf", Status.Approved, null),
-        ]);
+        _submissions.AddRange(SampleSubmissions);
+        app.OnStarting(SeedOnceAsync);
     }
 
     public void RenderDemo(IView view) => RenderQueue((UIView)view, SampleReviewerId, isReviewer: true);
+
+    // Every visitor shares the gallery's database and files, so nothing here overwrites what is
+    // already there. ON CONFLICT keeps two instances starting at once from failing.
+    private async Task SeedOnceAsync()
+    {
+        if (SnapshotCapture.IsCaptureProcess)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadAsync();
+
+            await using (var db = await app.DatabaseAsync())
+            {
+                await db.OpenAsync();
+                await db.ExecuteAsync("""
+                    INSERT INTO submissions (id, author_id, title, file_path, status, review_note)
+                    SELECT * FROM unnest(@ids, @authorIds, @titles, @filePaths, @statuses, @reviewNotes)
+                    WHERE NOT EXISTS (SELECT 1 FROM submissions)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    new
+                    {
+                        ids = SampleSubmissions.Select(s => s.Id).ToArray(),
+                        authorIds = SampleSubmissions.Select(s => s.AuthorId).ToArray(),
+                        titles = SampleSubmissions.Select(s => s.Title).ToArray(),
+                        filePaths = SampleSubmissions.Select(s => s.FilePath).ToArray(),
+                        statuses = SampleSubmissions.Select(s => s.Status.ToString()).ToArray(),
+                        reviewNotes = SampleSubmissions.Select(s => s.ReviewNote).ToArray(),
+                    });
+            }
+
+            foreach (var submission in SampleSubmissions)
+            {
+                if (!await app.Files.Data.ExistsAsync(submission.FilePath))
+                {
+                    await app.Files.Data.WriteTextAsync(submission.FilePath, $"{submission.Title}: a sample file the review gallery demo opens");
+                }
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            // The queue still draws from the sample rows; only its buttons need the table. Rows a
+            // load already read are the real ones and stay.
+            if (_submissions.Count == 0)
+            {
+                _submissions.ReplaceAll(SampleSubmissions);
+            }
+
+            Log.Instance.Warning($"Seeding the review-and-approval-workflow demo's submissions table or files failed, so its moves or files may fail: {ex.Message}");
+        }
+    }
 
     #region example:pattern-review-and-approval-workflow
     private enum Status { Submitted, ChangesRequested, Approved }

@@ -27,8 +27,8 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
         _error.Value = null;
 
         // Instructions need ElevenLabs v3; with the default ElevenFlash25 Speak throws, and Azure,
-        // the default under an EU-only policy, ignores them. No Speed: ElevenLabs refuses any but 1.0.
-        // Pass one only with an OpenAI, Google or Azure model, e.g.
+        // the default under an EU-only policy, ignores them. No Speed: ElevenLabs and Gemini 3.8 TTS
+        // refuse any but 1.0. Pass one only with an OpenAI, Azure or Google Cloud TTS model, e.g.
         // Model = SpeechGeneratorModel.Gpt4OmniMiniTts, Speed = 0.95.
         var line = Audio.Speak(MediaTargets.Everyone, text, new SpeechOptions
         {

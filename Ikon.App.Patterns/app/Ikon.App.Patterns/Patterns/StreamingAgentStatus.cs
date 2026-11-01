@@ -188,7 +188,7 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                 }
 
                 view.Text(["text-xs text-muted-foreground/50 mt-1"],
-                    text: $"turn {usage.Turns + 1} · earlier turns: {usage.InputTokens + usage.OutputTokens} tokens, {usage.WallTime.TotalSeconds:F0}s");
+                    text: $"pass {usage.Turns + 1} · earlier passes: {usage.InputTokens + usage.OutputTokens} tokens, {usage.WallTime.TotalSeconds:F0}s");
             });
         }
         #endregion

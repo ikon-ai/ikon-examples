@@ -9,6 +9,19 @@ internal sealed class VoiceGroupCall(IApp<SessionIdentity, ClientParameters> app
     public string Category => "Voice";
     public void RenderDemo(IView view) => Render(view);
 
+    // The gallery's Main builds the demos, so the call is wired once as the app starts, where the
+    // pattern's own Main would. The render smoke test never starts the app, so it wires nothing.
+    public static VoiceGroupCall Wired(IApp<SessionIdentity, ClientParameters> app)
+    {
+        var demo = new VoiceGroupCall(app);
+        app.OnStarting(() =>
+        {
+            demo.WireCall();
+            return Task.CompletedTask;
+        });
+        return demo;
+    }
+
     #region example:pattern-voice-group-call
     private Audio Audio { get; } = new(app);
 

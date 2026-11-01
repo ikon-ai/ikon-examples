@@ -42,9 +42,10 @@ internal sealed class ClientCallableFunctions : IPatternDemo
         // The registry is readable, which is how an app shows a client what it may call rather than
         // maintaining a second hand-written list that drifts.
         var external = FunctionRegistry.Instance.Functions
-            // Keyed by NAME, and each entry holds every registered version of it.
+            // Keyed by NAME, and each entry holds the app's registrations of it plus every connected
+            // client's. IsLocal drops the clients' ones, which are External too.
             .SelectMany(entry => entry.Value)
-            .Where(f => f.Visibility == FunctionVisibility.External)
+            .Where(f => f.IsLocal && f.Visibility == FunctionVisibility.External)
             .Select(f => $"{f.Name}({string.Join(", ", f.Parameters.Select(p => p.Name))})")
             .Order(StringComparer.Ordinal)
             .ToList();

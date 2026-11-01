@@ -57,7 +57,9 @@ internal sealed class BestOfWithRubric : IPatternDemo
 
     private async Task GenerateAsync(string brief)
     {
-        var judged = new Dictionary<Tagline, ScoreBreakdown>();
+        // A list, not a dictionary keyed by the record: records compare by value, so two equal drafts
+        // (or a critic rewrite equal to the winner) would share one entry.
+        var judged = new List<(Tagline Candidate, ScoreBreakdown Breakdown)>();
 
         var best = await Emerge.BestOf<Tagline>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
         {
@@ -67,7 +69,12 @@ internal sealed class BestOfWithRubric : IPatternDemo
             // ScoreDetailedAsync is the judge's rubric: it ranks the candidates and hands the
             // breakdown to the critic. With Count above 1 and no scorer, BestOf throws before
             // the first candidate rather than pay for runs it could not tell apart.
-            options.ScoreDetailedAsync = async (candidate, _) => judged[candidate] = await JudgeAsync(candidate, brief);
+            options.ScoreDetailedAsync = async (candidate, _) =>
+            {
+                var breakdown = await JudgeAsync(candidate, brief);
+                judged.Add((candidate, breakdown));
+                return breakdown;
+            };
 
             // Configuring the critic also ENABLES it; an explicitly configured critic that never
             // ran was the trap this shape avoids. The string replaces the critic's whole Command,
@@ -82,7 +89,7 @@ internal sealed class BestOfWithRubric : IPatternDemo
         });
 
         _winner.Value = best.Text;
-        _breakdown.Value = judged[best].FormatBreakdown();
+        _breakdown.Value = judged.Last(entry => ReferenceEquals(entry.Candidate, best)).Breakdown.FormatBreakdown();
     }
 
     private void Render(IView view)

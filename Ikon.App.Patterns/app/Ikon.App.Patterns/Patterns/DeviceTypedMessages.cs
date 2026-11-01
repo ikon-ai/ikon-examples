@@ -90,7 +90,8 @@ internal sealed class DeviceTypedMessages(IAppBase app) : IPatternDemo
         #region example:pattern-device-typed-messages-device
         const string appId = "your-app-id";
 
-        // Production in both, or Development for an app on *.dev.ikonai.app
+        // IKON_BACKEND=development for an app on *.dev.ikonai.app, Production otherwise
+        var development = Environment.GetEnvironmentVariable("IKON_BACKEND") == "development";
         var config = (Environment.GetEnvironmentVariable("IKON_LOCAL_PORT"), Environment.GetEnvironmentVariable("IKON_API_KEY")) switch
         {
             // A local `ikon run`, on the port of the Server URL it prints. SpaceId refuses another app's run on that port
@@ -101,12 +102,12 @@ internal sealed class DeviceTypedMessages(IAppBase app) : IPatternDemo
             // A private app lets no guest in, so the program connects with a key from `ikon api-key create`
             (_, { } apiKey) => new IkonClientConfig
             {
-                ApiKey = new ApiKeyConfig { ApiKey = apiKey, SpaceId = appId, ExternalUserId = "station-north", BackendType = BackendType.Production },
+                ApiKey = new ApiKeyConfig { ApiKey = apiKey, SpaceId = appId, ExternalUserId = "station-north", BackendType = development ? BackendType.Development : BackendType.Production },
                 DeviceId = "station-north",
             },
             _ => new IkonClientConfig
             {
-                Guest = new GuestConfig { SpaceId = appId, Environment = IkonBackend.EnvironmentType.Production },
+                Guest = new GuestConfig { SpaceId = appId, Environment = development ? IkonBackend.EnvironmentType.Development : IkonBackend.EnvironmentType.Production },
                 DeviceId = "station-north",
             },
         };

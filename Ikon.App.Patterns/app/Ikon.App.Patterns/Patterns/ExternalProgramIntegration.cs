@@ -31,13 +31,13 @@ internal sealed class ExternalProgramIntegration(IAppBase app) : IPatternDemo
 
     public sealed record JobStatusUpdate(string Status);
 
-    // A real app keeps the jobs in its database. An endpoint call runs in the instance with the
-    // empty identity, which a per-user instance does not share.
+    // A real app keeps the jobs in its database. These Public endpoints run in the instance with
+    // the empty identity, which a per-user instance does not share.
     private readonly ReactiveList<Job> _jobs = new();
 
     // The route is "/jobs", without /api: the platform serves every endpoint under /api, so a
     // script calls GET https://{app}.ikonai.app/api/jobs with an X-Api-Key header. Public, because
-    // a script cannot carry a signed grant: the key is the authorization.
+    // the key is the authorization: a key the app can compare and rotate.
     [HttpGet("/jobs", Auth = EndpointAuth.Public)]
     public HttpResult ListJobs(Ikon.App.HttpRequest request) =>
         HasPartnerKey(request) ? HttpResult.Ok(_jobs.ToList()) : HttpResult.Unauthorized();

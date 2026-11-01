@@ -125,6 +125,8 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
     /// A manual that already has headings needs no model to index it. One node per heading holds the
     /// text under it, so a hit is that section rather than the whole document, and a long manual costs
     /// nothing to index. The summary is the section's first line, which is what the navigator reads.
+    /// The document's title is the <c>title</c> argument: every <c># </c> line in <c>markdown</c> becomes a
+    /// chapter, so a leading <c># Title</c> line would become chapter 1.
     /// </summary>
     internal static TreeIndex IndexFromHeadings(string title, string markdown)
     {

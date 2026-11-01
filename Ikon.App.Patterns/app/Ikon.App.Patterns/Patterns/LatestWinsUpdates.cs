@@ -61,7 +61,7 @@ internal sealed class LatestWinsUpdates(IAppBase app) : IPatternDemo
             {
                 foreach (var (workerId, latest) in _latest)
                 {
-                    // Only a changed position is written, so a still tablet sends nothing to the screens
+                    // Only a position received since the last tick is written, so a tablet that stops sending sends nothing to the screens
                     if (!_shown.TryGetValue(workerId, out var shown) || shown != latest.Position)
                     {
                         _shown[workerId] = latest.Position;

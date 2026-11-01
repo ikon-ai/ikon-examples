@@ -11,14 +11,14 @@ internal sealed class RunTraceAndCost : IPatternDemo
     private sealed record Answer(string Text);
 
     // The gallery never calls the model: the buttons load the traces of two runs that finished, a
-    // short one and one that kept re-reading its own output. A run cut off at the output cap throws
-    // instead of returning a trace, so there is none to show for it.
+    // short one and one whose first two replies were rejected as invalid JSON and asked for again. A
+    // run cut off at the output cap throws instead of returning a trace, so there is none to show for it.
     private static readonly EmergenceTrace CompletedTrace = new(
         iterations: 2, toolCalls: 0, duration: TimeSpan.FromSeconds(4.8), finishReason: "end_turn",
         inputTokens: 1_840, cachedInputTokens: 12_400, outputTokens: 612);
 
     private static readonly EmergenceTrace LongTrace = new(
-        iterations: 6, toolCalls: 0, duration: TimeSpan.FromSeconds(21.3), finishReason: "end_turn",
+        iterations: 3, toolCalls: 0, duration: TimeSpan.FromSeconds(21.3), finishReason: "end_turn",
         inputTokens: 9_215, cachedInputTokens: 61_900, outputTokens: 3_480);
 
     public void RenderDemo(IView view)

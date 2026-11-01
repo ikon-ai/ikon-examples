@@ -43,8 +43,9 @@ internal sealed class AnnotationDrawOverlay : IPatternDemo
 
                 // Capture BEFORE leaving draw mode: turning the overlay off unmounts the canvas and
                 // its marks. Each bump of the request id is one capture, and the overlay answers
-                // every one, echoing the id, with an empty string when nothing was drawn. A second
-                // click before the reply supersedes the first, which then leaves the state alone.
+                // every one, echoing the id, with an empty string when nothing was drawn. One client's
+                // clicks run one after another, but another client's click before the reply supersedes
+                // the first, which then leaves the state alone.
                 _annotationCapture?.Reply.TrySetCanceled();
                 var requestId = _annotationCaptureRequestId.Value + 1;
                 var reply = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);

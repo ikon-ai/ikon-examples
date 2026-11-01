@@ -82,7 +82,8 @@ file sealed class PgVectorExamples(IApp<SessionIdentity, ClientParameters> app)
     #region example:pgvector-search
     private sealed record PassageHit(long Id, string DocumentId, int Page, string Text, double Similarity);
 
-    // Run once from app.OnStarting. 1536 is the length of a default EmbeddingGenerator vector.
+    // Run once from app.OnStarting. 1536 is the length of a default EmbeddingGenerator vector; a model that returns
+    // 3072 numbers needs EmbeddingGeneratorConfig.OutputDimensions = 1536, since an HNSW index holds at most 2000.
     private async Task CreatePassagesTableAsync()
     {
         await using var connection = await app.DatabaseAsync();
@@ -115,11 +116,16 @@ file sealed class PgVectorExamples(IApp<SessionIdentity, ClientParameters> app)
         var query = (await EmbeddingGenerator.EmbedAsync([question], type: EmbeddingType.Query))[0];
         await using var connection = await app.DatabaseAsync();
         await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        // An HNSW scan is approximate and looks at hnsw.ef_search candidates (default 40, at most 1000), so a larger
+        // limit, or a filter that drops candidates, returns fewer rows than asked for unless it is raised first.
+        await connection.ExecuteAsync($"SET LOCAL hnsw.ef_search = {Math.Clamp(limit * 2, 40, 1000)}", transaction: transaction);
         // <=> is the cosine distance the index is built on, so ordering by it uses the index instead of reading every row.
         var rows = await connection.QueryAsync<PassageHit>("""
             SELECT id, document_id AS DocumentId, page, text, 1 - (embedding <=> CAST(@query AS vector)) AS Similarity
             FROM passages ORDER BY embedding <=> CAST(@query AS vector) LIMIT @limit
-            """, new { query = ToVector(query), limit });
+            """, new { query = ToVector(query), limit }, transaction);
+        await transaction.CommitAsync();
         return rows.AsList();
     }
 
@@ -318,5 +324,39 @@ internal sealed partial class AgentGuideExamples
             await command.ExecuteNonQueryAsync();
         });
         #endregion
+    }
+}
+
+file sealed class ReadOnlyQueryExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private async Task<ResultSet> RunReadOnlyAsync(string sql)
+    {
+        #region example:text-to-sql-read-only
+        await using var connection = await app.DatabaseAsync();
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        await using (var guard = connection.CreateCommand())
+        {
+            guard.Transaction = transaction;
+            guard.CommandText = "SET TRANSACTION READ ONLY; SET LOCAL statement_timeout = 5000";
+            await guard.ExecuteNonQueryAsync();
+        }
+
+        ResultSet rows;
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = sql;
+
+            // Disposed before the transaction ends, or the rollback fails
+            await using var reader = await query.ExecuteReaderAsync();
+            rows = await ResultSet.CreateAsync(reader, maxRows: 200, countAllRows: false);
+        }
+
+        await transaction.RollbackAsync();
+        #endregion
+
+        return rows;
     }
 }

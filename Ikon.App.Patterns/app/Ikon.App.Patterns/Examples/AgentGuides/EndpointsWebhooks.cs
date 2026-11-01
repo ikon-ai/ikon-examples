@@ -12,6 +12,7 @@ file sealed class EndpointsExamples
     // The JSON body binds to your typed parameter. Missing fields default and unknown fields are
     // ignored, but a body with only fields the type does not have returns 400, and so do {} and an
     // empty body when the type has a required member. Bad input returns a 4xx (it never throws a 500).
+    // No Auth: the default Grant, so callers need a minted URL (the bare address answers 401).
     [HttpPost("/sum")]
     public HttpResult Sum(SumRequest req) => req.A < 0 || req.B < 0
         // A 4xx with a JSON body; BadRequest(reason) sends its reason as text/plain
@@ -19,6 +20,7 @@ file sealed class EndpointsExamples
         : HttpResult.Ok(new { sum = req.A + req.B });
 
     // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
+    // Also the default Grant.
     [HttpGet("/health")]
     public string Health() => "ok";
 
@@ -131,7 +133,11 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:raw-endpoint
         // ikon-config.toml declares [[Port]] Name = "game", Protocol = "udp"
-        var game = app.Ports["game"];
+        if (!app.Ports.TryGetValue("game", out var game))
+        {
+            return;
+        }
+
         var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, game.LocalPort));
         // The port is opened after Main returns, so the address arrives through AddressChanged
         game.AddressChanged += port => Log.Instance.Info($"Game server listening at udp://{port.Address}");

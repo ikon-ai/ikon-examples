@@ -85,7 +85,7 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
             var isUser = message.Author == Author.User;
             view.Box(["rounded-xl p-3", isUser ? "bg-foreground/10 self-end" : "bg-card self-start"],
                 key: index.ToString(),
-                content: v => v.Text(["whitespace-pre-wrap text-sm"], message.GetText()));
+                content: v => v.Markdown(content: message.GetText()));
         }
 
         foreach (var call in _thread.ToolCallTimeline.Value.Where(c => c.ResultText is null))

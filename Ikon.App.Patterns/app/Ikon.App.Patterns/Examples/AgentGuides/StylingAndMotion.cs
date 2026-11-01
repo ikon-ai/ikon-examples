@@ -75,6 +75,20 @@ file static class MotionExamples
         #endregion
     }
 
+    public static void Background(UIView view)
+    {
+        #region example:motion-background
+        // `isolate` makes the root a stacking context, so the `-z-10` layer stays above the page background and behind the content
+        view.Box(["relative isolate min-h-64 overflow-hidden rounded-lg p-8"], content: view =>
+        {
+            view.Box(["absolute inset-0 -z-10 pointer-events-none bg-[linear-gradient(135deg,#6d28d9,#0ea5e9)] " +
+                "motion-[0:opacity-60,50:opacity-100,100:opacity-60] motion-duration-4000ms motion-loop"]);
+
+            view.Text([Text.H2, "text-white"], "Welcome back");
+        });
+        #endregion
+    }
+
     public static void Advanced(UIView view)
     {
         #region example:motion-advanced

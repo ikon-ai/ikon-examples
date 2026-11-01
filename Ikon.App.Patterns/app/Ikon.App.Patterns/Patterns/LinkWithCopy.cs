@@ -16,7 +16,7 @@ internal sealed class LinkWithCopy : IPatternDemo
         {
             col.CopyField(inviteLink, label: "Invite link");
 
-            // A short code is easier to read whole and in larger text, so it turns off the two-line clamp
+            // A short code is easier to read in larger, wider-spaced text
             col.CopyField(joinCode, label: "Join code", valueStyle: ["default", "text-base tracking-widest"]);
         });
     }

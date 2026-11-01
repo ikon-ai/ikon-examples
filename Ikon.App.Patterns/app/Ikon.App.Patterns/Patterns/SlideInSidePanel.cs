@@ -80,7 +80,7 @@ internal sealed class SlideInSidePanel : IPatternDemo
                 header.Row(["items-center justify-between"], content: row =>
                 {
                     row.Text(["text-lg font-semibold text-[#D6A85C]"], "System");
-                    row.Button([Button.GhostSm, "!px-2 !py-1"],
+                    row.Button([Button.GhostSm, "!px-2 !py-1 text-[#A8A29E] hover:text-[#EDE7DC]"],
                         text: "✕",
                         onClick: async () => { _systemPanelOpen.Value = false; });
                 });

@@ -49,7 +49,8 @@ internal sealed class DepthAndAtmosphere : IPatternDemo
 
         // 4. ACCENT GRADIENT SURFACE (vivid/fixed-theme apps — heroes, headers, empty states):
         //    a two-stop gradient in the committed palette via arbitrary values. Text on it uses an
-        //    explicit contrast color. Gratuitous gradients on every card are the anti-pattern; ONE
+        //    explicit contrast color. The design analyzer hints on it: IKON011 for the gradient,
+        //    IKON013 for each hex stop. Gratuitous gradients on every card are the anti-pattern; ONE
         //    atmospheric surface per view is the recipe.
         view.Box(["rounded-2xl p-8 bg-gradient-to-br from-[#0ea5e9] to-[#6366f1] text-white shadow-lg"],
             content: v => v.Text(["text-lg font-semibold text-white"], text: "Weekly summary"));

@@ -246,7 +246,7 @@ file static class EmergenceGuideExamples
     public static async Task EnsembleAsync()
     {
         #region example:emergence-ensemble
-        // Without s.Model every solver runs on the model passed here; so does the merger, unless opt.Model or m.Model names another
+        // Without s.Model every solver runs on opt.Model when that is set, else on the model passed here; so does the merger without m.Model
         LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
         var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>

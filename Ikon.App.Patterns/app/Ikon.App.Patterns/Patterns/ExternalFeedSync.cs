@@ -18,8 +18,8 @@ file abstract class ExternalFeedSyncExample
     #region example:pattern-external-feed-sync
     private const int MaxFeedBytes = 2 * 1024 * 1024;
 
-    // One client for the app: a new one per call runs out of sockets. The timeout covers the whole
-    // request, and the User-Agent is there because many feed hosts answer 403 without one.
+    // One client for the app: a new one per call runs out of sockets. The User-Agent is there
+    // because many feed hosts answer 403 without one.
     private static readonly HttpClient FeedClient = CreateFeedClient();
 
     private readonly PersistentUserReactive<string> _feedUrl = new("");
@@ -28,14 +28,14 @@ file abstract class ExternalFeedSyncExample
 
     private static HttpClient CreateFeedClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var client = new HttpClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("my-app/1.0");
         return client;
     }
 
     // Call from app.OnClientJoined, which runs in the joining user's scope, so the writes below land
-    // in that user's reactives. Under a per-user SessionIdentity a [Cron] job cannot do this (see
-    // daily-reminder-per-user).
+    // in that user's reactives. A [Cron] job cannot do this, because it runs in an instance of its own
+    // (see daily-reminder-per-user).
     private async Task SyncFeedAsync(Context ctx)
     {
         if (ctx.IsSnapshot || string.IsNullOrEmpty(_feedUrl.Value))
@@ -48,7 +48,7 @@ file abstract class ExternalFeedSyncExample
             _feedTitles.Value = ParseTitles(await FetchTextAsync(_feedUrl.Value));
             _feedError.Value = null;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException or UriFormatException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException or InvalidDataException or UriFormatException)
         {
             // The previous titles stay, so a feed host that is down for a minute does not blank the screen.
             _feedError.Value = $"Could not load the feed: {ex.Message}";
@@ -62,8 +62,12 @@ file abstract class ExternalFeedSyncExample
             throw new InvalidDataException("The feed address must start with https://");
         }
 
+        // HttpClient.Timeout stops at the headers when the body is streamed, so one deadline covers
+        // the request and the read.
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
         // Headers first, so a huge body is refused before it is downloaded.
-        using var response = await FeedClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await FeedClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         response.EnsureSuccessStatusCode();
 
         if (response.Content.Headers.ContentLength > MaxFeedBytes)
@@ -72,12 +76,12 @@ file abstract class ExternalFeedSyncExample
         }
 
         // A server may omit or understate the length, so the read is capped as well.
-        await using var stream = await response.Content.ReadAsStreamAsync();
+        await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
         using var buffer = new MemoryStream();
         var chunk = new byte[16 * 1024];
         int read;
 
-        while ((read = await stream.ReadAsync(chunk)) > 0)
+        while ((read = await stream.ReadAsync(chunk, deadline.Token)) > 0)
         {
             if (buffer.Length + read > MaxFeedBytes)
             {

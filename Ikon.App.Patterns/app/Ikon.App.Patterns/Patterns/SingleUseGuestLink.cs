@@ -3,8 +3,10 @@ using Dapper;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: single-use-guest-link — see docs/patterns/single-use-guest-link.md.
-// The demo draws the staff screen from sample rows; its buttons write to the app's database,
-// which only a running app has.
+// The demo draws the staff screen from sample rows. A running app writes the same rows to its
+// guest_links table at start, but only while the table is empty, so "Create a link" has a table to
+// insert into and a link someone claimed stays claimed. The render smoke test never starts the app
+// and draws the rows from memory.
 internal sealed class SingleUseGuestLink : IPatternDemo
 {
     public string Slug => "single-use-guest-link";
@@ -13,17 +15,68 @@ internal sealed class SingleUseGuestLink : IPatternDemo
 
     private readonly IAppBase app;
 
+    private static GuestLink[] SampleLinks() =>
+    [
+        new GuestLink("5d0c7b1e9a3f4e28b6c1d2e3f4a5b6c7", "Maija Korhonen", DateTime.UtcNow.AddDays(2), UserId: null),
+        new GuestLink("a1b2c3d4e5f60718293a4b5c6d7e8f90", "Tomas Weber", DateTime.UtcNow.AddDays(1), UserId: "user-guest-7"),
+    ];
+
     public SingleUseGuestLink(IAppBase app)
     {
         this.app = app;
-        _links.AddRange(
-        [
-            new GuestLink("5d0c7b1e9a3f4e28b6c1d2e3f4a5b6c7", "Maija Korhonen", DateTime.UtcNow.AddDays(2), UserId: null),
-            new GuestLink("a1b2c3d4e5f60718293a4b5c6d7e8f90", "Tomas Weber", DateTime.UtcNow.AddDays(1), UserId: "user-guest-7"),
-        ]);
+        _links.AddRange(SampleLinks());
+        app.OnStarting(SeedOnceAsync);
     }
 
     public void RenderDemo(IView view) => RenderLinks((UIView)view);
+
+    // Every visitor shares the gallery's database, so nothing here overwrites a row already there.
+    // ON CONFLICT keeps two instances starting at once from failing.
+    private async Task SeedOnceAsync()
+    {
+        if (SnapshotCapture.IsCaptureProcess)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadAsync();
+
+            var links = SampleLinks();
+
+            await using (var db = await app.DatabaseAsync())
+            {
+                await db.OpenAsync();
+                await db.ExecuteAsync("""
+                    INSERT INTO guest_links (code, name, expires_at, user_id)
+                    SELECT * FROM unnest(@codes, @names, @expiresAts, @userIds)
+                    WHERE NOT EXISTS (SELECT 1 FROM guest_links)
+                    ON CONFLICT (code) DO NOTHING
+                    """,
+                    new
+                    {
+                        codes = links.Select(l => l.Code).ToArray(),
+                        names = links.Select(l => l.Name).ToArray(),
+                        expiresAts = links.Select(l => l.ExpiresAt).ToArray(),
+                        userIds = links.Select(l => l.UserId).ToArray(),
+                    });
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            // The staff screen still draws from the sample rows; only "Create a link" needs the
+            // table. Rows a load already read are the real ones and stay.
+            if (_links.Count == 0)
+            {
+                _links.ReplaceAll(SampleLinks());
+            }
+
+            Log.Instance.Warning($"Seeding the single-use-guest-link demo's guest_links table failed, so its sample rows show and \"Create a link\" fails: {ex.Message}");
+        }
+    }
 
     #region example:pattern-single-use-guest-link
     private sealed record GuestLink(string Code, string Name, DateTime ExpiresAt, string? UserId);

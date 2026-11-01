@@ -1,14 +1,24 @@
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: record-then-analyse-audio — see docs/patterns/record-then-analyse-audio.md.
-// The demo draws the record button; recording needs a running app's microphone stream.
-internal sealed class RecordThenAnalyseAudio(IAppBase app) : IPatternDemo
+// The demo wires the microphone handlers once, so a take recorded in a running app gets its caption
+// and feedback card; the gallery's mocks answer the speech recognition and the model.
+internal sealed class RecordThenAnalyseAudio : IPatternDemo
 {
     public string Slug => "record-then-analyse-audio";
     public string Title => "Record, then analyse";
     public string Category => "Voice & audio";
 
-    private Audio Audio { get; } = new(app);
+    private readonly IAppBase app;
+
+    private Audio Audio { get; }
+
+    public RecordThenAnalyseAudio(IAppBase app)
+    {
+        this.app = app;
+        Audio = new Audio(app);
+        WireRecording();
+    }
 
     public void RenderDemo(IView view) => Render((UIView)view);
 

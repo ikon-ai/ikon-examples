@@ -7,8 +7,8 @@ using Ikon.App.Cells;
 internal static class ScalingSharedInstanceExamples
 {
     #region example:scaling-sharded-shared-instance
-    // Everyone shares one instance; past 150 connected clients new ones go to a second shard.
-    [Sharded(150)]
+    // Everyone shares one instance; past 500 connected clients new ones go to a second shard.
+    [Sharded(500)]
     public record SessionIdentity();
     #endregion
 }
@@ -16,9 +16,9 @@ internal static class ScalingSharedInstanceExamples
 internal static class ScalingShardedRoomExamples
 {
     #region example:scaling-sharded-room
-    // One instance per room. A room with more than 50 clients spills into shards of its own,
+    // One instance per room. A room with more than 500 clients spills into shards of its own,
     // at most four of them.
-    public record SessionIdentity([property: Sharded(50, MaxShards = 4)] string? RoomId);
+    public record SessionIdentity([property: Sharded(500, MaxShards = 4)] string? Room);
     #endregion
 }
 

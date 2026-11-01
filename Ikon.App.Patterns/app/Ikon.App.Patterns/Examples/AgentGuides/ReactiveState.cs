@@ -273,12 +273,14 @@ file abstract class GlobalValuesExamples
 
     private void JoinLobby(string playerName) => _lobby.Add(playerName);
 
-    // The job runs in the instance with an empty identity, where no user scope is active, so it names the user.
+    // The job runs in an instance of its own, where no user scope is active, so it names the user. Loading
+    // the user's value first sends the write at once instead of at the next check, within a minute.
     [Cron("0 3 * * *")]
     public async Task ResetLapsedStreaksAsync()
     {
         foreach (var userId in await LoadLapsedUserIdsAsync())
         {
+            await _streak.LoadForAsync(userId);
             _streak.SetFor(userId, 0);
         }
     }
@@ -321,6 +323,10 @@ internal sealed partial class AgentGuideExamples
         // not the raw bytes, so it is no image src; serve media through app.Files.Public
         private readonly PersistentReactive<byte[]> _logo
             = new([], backend: PersistenceBackend.Public);
+
+        // Asset storage even when the app has a database — a structured value kept out of it
+        private readonly PersistentReactive<Prefs> _privatePrefs
+            = new(new Prefs(), backend: PersistenceBackend.Private);
 
         // Small, frequently-mutated value (counters, status flags). Requires a postgres DB declared
         // created with 'ikon db create --name main'. Omit postgresDatabase if there is only one.

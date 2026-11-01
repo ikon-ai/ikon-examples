@@ -303,7 +303,9 @@ internal sealed class DocumentSearchWithRerank(IAppBase app) : IPatternDemo
     {
         const string fileName = "handbook.md";
         var text = await app.Files.Data.ReadTextAsync(fileName);
-        var version = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+        // Bump the literal when the cutting or embedding below changes, or the old rows stay
+        const string indexVersion = "sections-v1";
+        var version = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(indexVersion + "\n" + text)));
 
         await using var db = await app.DatabaseAsync();
         await db.OpenAsync();

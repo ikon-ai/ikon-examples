@@ -95,6 +95,7 @@ internal sealed class McpToolsFromServer(IApp<SessionIdentity, ClientParameters>
     /// </summary>
     private static async Task<string> AnswerWithServerToolsAsync(McpClient client, string question, CancellationToken ct)
     {
+        // The names must be ones the server advertises: list them first with client.Tools.Select(t => t.Name)
         var serverTools = client.ToFunctions(["search", "get_document"], ct);
 
         return await Emerge.Run<string>(LLMModel.Claude55Sonnet, pass =>

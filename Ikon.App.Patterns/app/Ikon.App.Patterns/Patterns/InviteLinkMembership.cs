@@ -3,8 +3,10 @@ using Dapper;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: invite-link-membership — see docs/patterns/invite-link-membership.md.
-// The demo draws the owner's member screen from sample rows; its buttons write to the app's
-// database, which only a running app has.
+// The demo draws the owner's member screen from sample rows. A running app writes the same rows to
+// its database at start, but only into an empty members table, so every button finds the rows it
+// writes to and a change someone made is never undone. The render smoke test never starts the app
+// and draws the rows from memory.
 internal sealed class InviteLinkMembership : IPatternDemo
 {
     public string Slug => "invite-link-membership";
@@ -15,19 +17,81 @@ internal sealed class InviteLinkMembership : IPatternDemo
 
     private readonly IAppBase app;
 
+    private const string SampleInviteCode = "3f9c1a7e5b2d4c86a0e1f2b3c4d5e6f7";
+
+    private static readonly Member[] SampleMembers =
+    [
+        new Member(SampleOwnerId, "Aino Virtanen", IsOwner: true),
+        new Member("user-bruno", "Bruno Costa", IsOwner: false),
+        new Member("user-chidi", "Chidi Okafor", IsOwner: false),
+    ];
+
     public InviteLinkMembership(IAppBase app)
     {
         this.app = app;
-        _members.AddRange(
-        [
-            new Member(SampleOwnerId, "Aino Virtanen", IsOwner: true),
-            new Member("user-bruno", "Bruno Costa", IsOwner: false),
-            new Member("user-chidi", "Chidi Okafor", IsOwner: false),
-        ]);
-        _invites.Add(new Invite("3f9c1a7e5b2d4c86a0e1f2b3c4d5e6f7", DateTime.UtcNow.AddDays(9)));
+        ShowSampleRows();
+        app.OnStarting(SeedOnceAsync);
     }
 
     public void RenderDemo(IView view) => RenderMembers((UIView)view, SampleOwnerId);
+
+    private void ShowSampleRows()
+    {
+        _members.ReplaceAll(SampleMembers);
+        _invites.ReplaceAll([new Invite(SampleInviteCode, DateTime.UtcNow.AddDays(9))]);
+    }
+
+    // Every visitor shares the gallery's database, so the sample rows go in only while the members
+    // table is empty, with the invite in the same statement: a removed member or a cancelled invite
+    // stays gone. ON CONFLICT keeps two instances starting at once from failing.
+    private async Task SeedOnceAsync()
+    {
+        if (SnapshotCapture.IsCaptureProcess)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadAsync();
+
+            await using (var db = await app.DatabaseAsync())
+            {
+                await db.OpenAsync();
+                await db.ExecuteAsync("""
+                    WITH seeded AS (
+                        INSERT INTO members (user_id, name, is_owner)
+                        SELECT * FROM unnest(@userIds, @names, @isOwners)
+                        WHERE NOT EXISTS (SELECT 1 FROM members)
+                        ON CONFLICT (user_id) DO NOTHING
+                        RETURNING 1)
+                    INSERT INTO invites (code, expires_at)
+                    SELECT @code, now() + interval '9 days' WHERE EXISTS (SELECT 1 FROM seeded)
+                    ON CONFLICT (code) DO NOTHING
+                    """,
+                    new
+                    {
+                        userIds = SampleMembers.Select(m => m.UserId).ToArray(),
+                        names = SampleMembers.Select(m => m.Name).ToArray(),
+                        isOwners = SampleMembers.Select(m => m.IsOwner).ToArray(),
+                        code = SampleInviteCode,
+                    });
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            // The screen still draws from the sample rows; only its buttons need the tables. Rows
+            // a load already read are the real ones and stay.
+            if (_members.Count == 0)
+            {
+                ShowSampleRows();
+            }
+
+            Log.Instance.Warning($"Seeding the invite-link-membership demo's members and invites tables failed, so the demo shows its sample rows and its buttons fail: {ex.Message}");
+        }
+    }
 
     #region example:pattern-invite-link-membership
     private sealed record Member(string UserId, string Name, bool IsOwner);

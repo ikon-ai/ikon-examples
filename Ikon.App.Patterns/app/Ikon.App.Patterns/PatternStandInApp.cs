@@ -17,8 +17,9 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     // Backed rather than thrown: a pattern that builds a `UI` (or other app-bound object) in a field
     // initializer touches these at construction time, before any render, and the AGENTS.md examples
     // render a join URL from the session's space.
-    public GlobalState GlobalState { get; } = new();
-    public ReactiveGlobalState ReactiveGlobalState { get; } = WithSpaceUrl(new ReactiveGlobalState());
+    // A space URL of its own, so an example that renders the app's PublicUrl as a QR code or a link
+    // draws one; with the empty default, QR draws nothing at all.
+    public AppGlobalState GlobalState { get; } = new(new GlobalState { SpaceUrl = "https://patterns.example.com" });
     private readonly Reactive<IReadOnlyList<string>> _mounts = new(["ikon-ui"]);
     public IReadOnlyList<EndpointInfo> Endpoints => throw new NotImplementedException();
     public IReadOnlyList<DatabaseConnectionInfo> Databases => throw new NotImplementedException();
@@ -48,12 +49,4 @@ public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? l
     public Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
     public Task<StepUpResult> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default) => throw new NotImplementedException();
-
-    // A space URL of its own, so an example that renders the app's PublicUrl as a QR code or a link
-    // draws one; with the empty default, QR draws nothing at all.
-    private static ReactiveGlobalState WithSpaceUrl(ReactiveGlobalState state)
-    {
-        state.SpaceUrl.Value = "https://patterns.example.com";
-        return state;
-    }
 }

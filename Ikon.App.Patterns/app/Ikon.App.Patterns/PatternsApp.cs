@@ -8,7 +8,7 @@ public record ClientParameters(string Name = "Ikon", string? Checkin = null);
 [App]
 public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
 {
-    private UI UI { get; } = new(app, new IkonTheme { Mode = ThemeMode.Fixed });
+    private UI UI { get; set; } = null!;
 
     private readonly ClientReactive<string> _selectedSlug = new("");
 
@@ -20,6 +20,12 @@ public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
             .OrderBy(d => d.Category)
             .ThenBy(d => d.Title)
             .ToList();
+
+        // Every UI puts its theme in the process's global styles as the app starts, the last one built
+        // winning, and several demos build a UI of their own. Built after them, the shell's theme is the
+        // one that applies. The shell is dark and the production patterns it shows were written for a
+        // dark page, so the theme pins the platform's dark scheme rather than following the browser.
+        UI = new(app, new IkonTheme { Mode = ThemeMode.Fixed, ["background"] = "neutral-950" });
 
         UI.Root([Page.Default], content: view =>
         {
@@ -72,7 +78,7 @@ public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
         view.ScrollArea(
             scrollbars: ScrollAreaScrollbars.Vertical,
             type: ScrollAreaType.Auto,
-            rootStyle: ["flex-1 min-w-0"],
+            rootStyle: ["flex-1 min-w-0 bg-background text-primary"],
             viewportStyle: ["p-8"],
             content: pane =>
             {
@@ -86,8 +92,8 @@ public class PatternsApp(IApp<SessionIdentity, ClientParameters> app)
 
                 pane.Column(["gap-1 mb-6"], content: header =>
                 {
-                    header.Text(["text-2xl font-semibold text-[#EDE7DC]"], selected.Title);
-                    header.Text(["text-xs font-mono text-[#7A756E]"],
+                    header.Text(["text-2xl font-semibold text-primary"], selected.Title);
+                    header.Text(["text-xs font-mono text-tertiary"],
                         $"{selected.Category} · {selected.Slug}");
                 });
 

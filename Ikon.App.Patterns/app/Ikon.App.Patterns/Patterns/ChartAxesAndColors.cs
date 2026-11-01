@@ -59,8 +59,9 @@ internal sealed class ChartAxesAndColors : IPatternDemo
             axisRight: new AxisConfig { Hidden = true },
 
             // One scheme for the whole chart keeps series colours consistent. An explicit scheme
-            // overrides the theme palette; only an explicit colors list or a series' own Color,
-            // for when a series has a meaning attached to its colour, outranks it.
+            // overrides the theme palette. An explicit colors list, a colorsByKey entry or a series'
+            // own Color, for when a series has a meaning attached to its colour, drops the scheme
+            // for the whole chart, and the series with no colour of their own take the theme palette.
             colorScheme: ChartColorScheme.Category10,
 
             // A legend names each series. Anchor and Direction are enums. At a side anchor with no

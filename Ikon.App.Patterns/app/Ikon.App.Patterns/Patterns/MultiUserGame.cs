@@ -53,7 +53,8 @@ internal sealed class MultiUserGame : IPatternDemo
 
         private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx, ClientParams parameters)
         {
-            // The deploy's boot snapshot client (ctx.IsSnapshot, user id "snapshot-0") joins too and is no player
+            // The deploy's boot snapshot clients (ctx.IsSnapshot, one per captured route, user ids "snapshot-0",
+            // "snapshot-1" and so on) join too and are no players
             if (ctx.IsSnapshot)
             {
                 return;

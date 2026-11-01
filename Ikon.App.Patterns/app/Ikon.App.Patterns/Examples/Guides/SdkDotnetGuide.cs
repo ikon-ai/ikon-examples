@@ -460,8 +460,8 @@ file static class SdkExtraExamples
 
         // Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
         // the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
-        // retrying from Offline, so this is final only when the server is stopping or
-        // BackgroundReconnect is off. Not raised by a failed IkonClient.ConnectAsync (that is the
+        // retrying from Offline, so this is final only when the server is stopping,
+        // BackgroundReconnect is off, or a JoinOnly client found the session ended. Not raised by a failed IkonClient.ConnectAsync (that is the
         // call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
         // drop that reconnects
         client.DisconnectedAsync += async e =>

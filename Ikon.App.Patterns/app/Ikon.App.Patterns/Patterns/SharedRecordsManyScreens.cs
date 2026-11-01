@@ -3,8 +3,10 @@ using Dapper;
 namespace Ikon.App.Patterns.Patterns;
 
 // Pattern: shared-records-many-screens — see docs/patterns/shared-records-many-screens.md.
-// The doc quotes the example region below. The demo starts from seeded rows, because only a running
-// app has the stock table in its database. Switching shops works, and "Sold one" calls the database.
+// The doc quotes the example region below. The demo starts from sample rows. A running app writes
+// the same rows to its stock table at start, but only while the table is empty, so "Sold one" sells
+// from the table and a sale someone made is never undone. The render smoke test never starts the app
+// and draws the rows from memory.
 internal sealed class SharedRecordsManyScreens(IApp<SessionIdentity, ClientParameters> app) : IPatternDemo
 {
     public string Slug => "shared-records-many-screens";
@@ -12,16 +14,66 @@ internal sealed class SharedRecordsManyScreens(IApp<SessionIdentity, ClientParam
     public string Category => "Multi-user & games";
     public void RenderDemo(IView view) => Render((UIView)view);
 
+    private static readonly StockItem[] SampleStock =
+    [
+        new StockItem("Harbour", "TUBE-28", "Inner tube 28\"", 6, 3),
+        new StockItem("Harbour", "CHAIN-11", "Chain, 11-speed", 2, 2),
+        new StockItem("Old Town", "TUBE-28", "Inner tube 28\"", 12, 3),
+    ];
+
     public static SharedRecordsManyScreens WithSampleStock(IApp<SessionIdentity, ClientParameters> app)
     {
         var demo = new SharedRecordsManyScreens(app);
-        demo._stock.AddRange(
-        [
-            new StockItem("Harbour", "TUBE-28", "Inner tube 28\"", 6, 3),
-            new StockItem("Harbour", "CHAIN-11", "Chain, 11-speed", 2, 2),
-            new StockItem("Old Town", "TUBE-28", "Inner tube 28\"", 12, 3),
-        ]);
+        demo._stock.AddRange(SampleStock);
+        app.OnStarting(demo.SeedOnceAsync);
         return demo;
+    }
+
+    // Every visitor shares the gallery's database, so nothing here overwrites a row already there.
+    // ON CONFLICT keeps two instances starting at once from failing.
+    private async Task SeedOnceAsync()
+    {
+        if (SnapshotCapture.IsCaptureProcess)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadStockAsync();
+
+            await using (var connection = await app.DatabaseAsync())
+            {
+                await connection.OpenAsync();
+                await connection.ExecuteAsync("""
+                    INSERT INTO stock (shop, sku, name, quantity, low_at)
+                    SELECT * FROM unnest(@shops, @skus, @names, @quantities, @lowAts)
+                    WHERE NOT EXISTS (SELECT 1 FROM stock)
+                    ON CONFLICT (shop, sku) DO NOTHING
+                    """,
+                    new
+                    {
+                        shops = SampleStock.Select(s => s.Shop).ToArray(),
+                        skus = SampleStock.Select(s => s.Sku).ToArray(),
+                        names = SampleStock.Select(s => s.Name).ToArray(),
+                        quantities = SampleStock.Select(s => s.Quantity).ToArray(),
+                        lowAts = SampleStock.Select(s => s.LowAt).ToArray(),
+                    });
+            }
+
+            await LoadStockAsync();
+        }
+        catch (Exception ex)
+        {
+            // The list still draws from the sample rows; only "Sold one" needs the table. Rows a
+            // load already read are the real ones and stay.
+            if (_stock.Count == 0)
+            {
+                _stock.ReplaceAll(SampleStock);
+            }
+
+            Log.Instance.Warning($"Seeding the shared-records-many-screens demo's stock table failed, so its sample rows show and \"Sold one\" fails: {ex.Message}");
+        }
     }
 
     #region example:pattern-shared-records-many-screens

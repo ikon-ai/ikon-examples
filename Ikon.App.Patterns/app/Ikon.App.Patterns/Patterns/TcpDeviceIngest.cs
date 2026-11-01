@@ -35,7 +35,12 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
         // ikon-config.toml declares [[Port]] Name = "devices". Its address stays the same across deploys,
         // restarts and idle stops, so each device keeps it in its own configuration, and a connection
         // to it starts a stopped app.
-        var devices = app.Ports["devices"];
+        // The boot snapshot capture of ikon deploy has no ports, so a missing one is not an error
+        if (!app.Ports.TryGetValue("devices", out var devices))
+        {
+            return;
+        }
+
         _tcpAddress.Value = devices.Address;
         devices.AddressChanged += port => _tcpAddress.Value = port.Address;
 

@@ -9,7 +9,7 @@ internal sealed class FormStateSubmit : IPatternDemo
     public string Category => "Forms & input";
     public void RenderDemo(IView view) => Render(view);
 
-    private static Task SaveAsync(FormStateSubmit.Invite invite) => throw new NotImplementedException();
+    private static Task SaveAsync(FormStateSubmit.Invite invite) => Task.Delay(400);
 
     internal sealed record Invite(string Email = "", string Role = "member");
 

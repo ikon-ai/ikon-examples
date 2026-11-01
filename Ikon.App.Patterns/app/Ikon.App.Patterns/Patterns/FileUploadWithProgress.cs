@@ -27,7 +27,7 @@ internal sealed class FileUploadWithProgress : IPatternDemo
     }
 
     private readonly ReactiveList<UploadTracker> _activeUploads = new();
-    private readonly Reactive<string?> _fileUploadError = new(null);
+    private readonly ClientReactive<string?> _fileUploadError = new((string?)null);
 
     private void RenderFileUploadArea(UIView view, Guid caseId)
     {

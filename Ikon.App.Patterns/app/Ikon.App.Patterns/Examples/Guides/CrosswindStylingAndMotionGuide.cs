@@ -631,7 +631,7 @@ file sealed class CwMotionPriorityExamples(IApp<SessionIdentity, ClientParameter
         string[] Classes =
         [
             "motion-priority-0",     // default
-            "motion-priority-100",   // listed ahead of lower-priority tracks
+            "motion-priority-100",   // listed after lower-priority tracks, so it wins a shared property
         ];
         #endregion
         ExampleSwatches.Render(view, Classes);

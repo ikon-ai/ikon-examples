@@ -124,7 +124,7 @@ internal sealed partial class AgentGuideExamples
         // with query parameters (URL-encoded name=value pairs from an anonymous object):
         var inviteUrl = app.JoinUrl(new { id = sessionId });
         // or session-specific:
-        var sessionUrl = app.ReactiveGlobalState.SessionUrl.Value;
+        var sessionUrl = app.GlobalState.SessionUrl;
 
         // Render as QR code
         view.QR(["w-48 h-48"], value: joinUrl);
@@ -178,7 +178,7 @@ internal sealed partial class AgentGuideExamples
         await ClientFunctions.LogoutAsync();
 
         // The signed-in user's own right to erasure, made with their client's own sign-in. Each returns a
-        // ClientAccountRemoval (Succeeded, ScheduledFor, Error); a client with no page gets Succeeded = false.
+        // ClientAccountRemoval (Succeeded, ScheduledFor, Error); a deployed guest is scheduled like any user, while a client with no page or a local run gets Succeeded = false.
         await ClientFunctions.GetAccountRemovalAsync();
         await ClientFunctions.RequestAccountRemovalAsync();       // erased after the grace period
         await ClientFunctions.CancelAccountRemovalAsync();
@@ -241,6 +241,7 @@ internal sealed partial class AgentGuideExamples
     private void DocHostServices(string gameId, int clientSessionId, int clientId)
     {
         #region example:host-services
+        // A render that reads any app.GlobalState value re-renders when that value changes
         var spaceId = app.GlobalState.SpaceId;                  // Current space ID
         var ikonServerId = app.GlobalState.IkonServerId;     // Id of this IKON server instance
         var sessionIdentityHash = app.GlobalState.SessionIdentityHash;  // Hash of session identity params (logical session id)
@@ -249,12 +250,12 @@ internal sealed partial class AgentGuideExamples
         var sessionUrl = app.GlobalState.SessionUrl;            // Session-specific access URL
         var primaryUserId = app.GlobalState.PrimaryUserId;      // Static user ID of session owner
         var firstUserId = app.GlobalState.FirstUserId;          // First human user who joined (dynamically reassigned)
-        var clientContext = app.GlobalState.GetClientContext(clientSessionId);  // null if no such client is connected
+        var clientContext = app.GlobalState.GetClientContext(clientSessionId);  // null if no such client is connected; re-renders on that client's changes only
         var dataDirectory = app.DataDirectory;                  // Path to app's Data directory
         var databases = app.Databases;                          // Database connection info (see Databases section)
         var identity = app.SessionIdentity;                     // Current session identity
         var parameters = app.Clients[clientId]?.Parameters;     // Client parameters; the indexer is null when that client is gone
-        var clients = app.ReactiveGlobalState.Clients;          // Reactive client state
+        var clients = app.GlobalState.Clients;                  // Every client's Context; re-renders when any client changes
         #endregion
 
         Log.Instance.Debug($"{spaceId} {ikonServerId} {sessionIdentityHash} {publicUrl} {joinUrl} "

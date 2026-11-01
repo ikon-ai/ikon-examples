@@ -43,7 +43,8 @@ file abstract class DailyReminderPerUserExample(IApp<SessionIdentity, ClientPara
 
     // Call from app.OnClientJoined: the client's time zone is known only while it is connected, and
     // the cron job below runs with no client connected. A deploy's boot-snapshot capture joins as a
-    // client too (ctx.IsSnapshot, user id "snapshot-0"), and it is not a user to remind.
+    // client too, at least one per captured route (ctx.IsSnapshot, user ids such as "snapshot-0",
+    // "snapshot-1" or "snapshot-0-flutter"), and none of them is a user to remind.
     private async Task RememberUserAsync(Context ctx)
     {
         if (string.IsNullOrEmpty(ctx.UserId) || ctx.IsSnapshot)

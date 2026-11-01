@@ -88,7 +88,17 @@ internal sealed class StagedFileDownload(IAppBase app) : IPatternDemo
             _downloadUrl.Value = (await Asset.Instance.GetMetadataAsync(ExportUri)).Url;
         }, _report);
 
-        app.OnStopping(async () => await Asset.Instance.DeleteAsync(ExportUri));
+        app.OnStopping(async () =>
+        {
+            try
+            {
+                await Asset.Instance.DeleteAsync(ExportUri);
+            }
+            catch (FileNotFoundException)
+            {
+                // Stopped before the first staging finished, so there is nothing to delete.
+            }
+        });
     }
 
     /// <summary>

@@ -55,7 +55,8 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
             Actions: [new NotificationAction("approve", "Approve", "/approvals?act=approve")]);
 
         // The ROUTE is the decision, not the content. Silent records without buzzing; Default is
-        // inbox plus the connected devices; Everywhere adds every registered device and the named
+        // inbox plus the connected devices, or the registered ones when none is connected; Everywhere
+        // adds every registered device and the named
         // channels — the "they must see this" route, and the one to use sparingly.
         var route = urgent
             ? NotificationRoute.Everywhere("email", "sms")

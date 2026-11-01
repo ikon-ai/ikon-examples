@@ -11,8 +11,9 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
     public void RenderDemo(IView view) => RenderSummaries((UIView)view);
 
     #region example:pattern-pipeline-in-an-app
-    // One LLM call per document. The cache skips a document whose text, prompt and model have not
-    // changed since the last run.
+    // One LLM call per document. The cache skips a document whose text has not changed since the
+    // last run. The prompt and the model are not part of the cache key: after changing either, raise
+    // the processor's version, or the next run returns the old summaries.
     [Pipeline(name: "summaries")]
     public sealed class SummaryPipeline
     {

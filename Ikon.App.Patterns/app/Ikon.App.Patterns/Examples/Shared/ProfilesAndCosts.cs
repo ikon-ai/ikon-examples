@@ -90,6 +90,18 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
     }
     #endregion
 
+    #region example:costs-by-scope
+    public async Task<Dictionary<string, double>> CreditsPerTeamAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        // One row per day, event name and team id; usage under no "team" scope has a null ScopeId.
+        var rows = await app.Costs.GetDailyCostsAsync(new CostQuery(from, to, GroupByScopeType: "team"), ct);
+
+        return rows
+            .GroupBy(row => row.ScopeId ?? "(no team)")
+            .ToDictionary(group => group.Key, group => group.Sum(row => row.Credits));
+    }
+    #endregion
+
     #region example:costs-budget
     public async Task<IReadOnlyList<string>> SummariseAsync(IReadOnlyList<string> documents, CancellationToken ct)
     {

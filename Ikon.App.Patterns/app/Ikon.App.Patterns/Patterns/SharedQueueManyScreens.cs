@@ -121,7 +121,13 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
         switch (_screen.Value)
         {
             case Screen.Staff when !_isStaff.Value:
-                view.Text([Text.Body], "This screen is for staff. Sign in with a staff account.");
+                // The surface lets every device in as a guest, so a staff device asks for the
+                // sign-in screen itself; the client reconnects signed in and joins again
+                view.Column([Card.Default, "gap-3 p-4 w-72"], content: col =>
+                {
+                    col.Text([Text.Body], "This screen is for staff.");
+                    col.Button([Button.PrimaryMd], text: "Staff sign in", onClick: async () => await ClientFunctions.LoginShowAsync("Sign in with a staff account"));
+                });
                 break;
             case Screen.Staff:
                 RenderStaff(view);

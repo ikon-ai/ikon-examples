@@ -20,7 +20,7 @@ internal sealed class FileUploadToVision : IPatternDemo
     {
         view.Column(["gap-3 max-w-md"], content: col =>
         {
-            // On a phone, capture: "environment" offers the back camera beside the photo library
+            // On a phone, capture: "environment" asks the browser to open the back camera
             col.FileUpload(accept: ["image/jpeg", "image/png"], capture: "environment", maxFileSize: 15 * 1024 * 1024,
                 disabled: _identifying.Value,
                 // No start hook: a photo is small, so it arrives as a temp file that is read once

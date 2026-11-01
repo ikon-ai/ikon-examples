@@ -24,7 +24,7 @@ internal sealed class NavigationChrome : IPatternDemo
                 .Select((label, index) => new BreadcrumbItem(
                     label,
                     // The reactive list's mutation set is specific -- Add, AddRange, Insert,
-                    // Remove, RemoveAt, RemoveAll, Clear, ReplaceAll, Sort, Update, Mutate, plus the
+                    // Remove, RemoveAt, RemoveAll, ReplaceWhere, Clear, ReplaceAll, Sort, Update, Mutate, plus the
                     // indexer and Value setters. There is no RemoveRange, so truncating is a
                     // ReplaceAll (or a Mutate).
                     OnClick: async () => _path.ReplaceAll(_path.Take(index + 1).ToList())))

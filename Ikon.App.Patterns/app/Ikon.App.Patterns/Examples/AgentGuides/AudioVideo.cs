@@ -34,7 +34,8 @@ file sealed class AudioExamples(IApp<SessionIdentity, ClientParameters> app)
         Audio.Play(MediaTargets.Everyone, samples, sampleRate, channelCount,
             new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music", Loop = true });
 
-        //    An AudioClip (a decoded file, AudioSound.Clip) plays as it is; clip.Samples is memory, not a span.
+        //    An AudioClip (a decoded file, or the one a sound was made from: an AudioSound does not
+        //    give it back, so keep it) plays as it is; clip.Samples is memory, not a span.
         Audio.Play(MediaTargets.Everyone, clip);
 
         // 2a. Music or a long recording from a URL: decoded as it plays, looped by decoding it again.

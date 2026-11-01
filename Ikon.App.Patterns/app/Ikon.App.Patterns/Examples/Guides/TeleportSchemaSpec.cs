@@ -19,7 +19,7 @@ file static class TeleportSpecExamples
         string toml = config.ToToml();
 
         // extraLinesBySection appends raw lines: "" targets the root block, a section field name that
-        // section, and any other key becomes a trailing [Key] block.
+        // section, a list-of-sections field name is dropped, and any other key becomes a trailing [Key] block.
         string annotated = config.ToToml(new Dictionary<string, IReadOnlyList<string>>
         {
             [""] = ["# written by the deploy step"],

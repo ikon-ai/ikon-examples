@@ -355,6 +355,7 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
 #pragma warning restore IKON025, IKON033
     }
 
+#pragma warning disable IKON025 // the example shows the unstyled trigger
     public async Task PxMergeSemanticsTheDefaultMarker2(UIView view)
     {
         #region example:px-merge-semantics-the-default-marker-2
@@ -363,6 +364,7 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
         view.DatePicker(triggerStyle: ["w-full"]);                // an unstyled trigger; popover still themed
         #endregion
     }
+#pragma warning restore IKON025
 
     public async Task PxMergeSemanticsTheDefaultMarker3(UIView view)
     {

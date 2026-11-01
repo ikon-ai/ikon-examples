@@ -41,8 +41,8 @@ internal sealed class DeviceIngest(IAppBase app) : IPatternDemo
     // The last reading of each sensor, which every open dashboard draws
     private readonly ReactiveDictionary<string, LatestReading> _latest = new();
 
-    // POST https://{app}.ikonai.app/api/readings with an X-Device-Key header. Public, because a
-    // device cannot carry a signed grant: the shared key is the authorization.
+    // POST https://{app}.ikonai.app/api/readings with an X-Device-Key header. Public, because the
+    // shared key is the authorization: a key the app can rotate, or give each device on its own.
     [HttpPost("/readings", Auth = EndpointAuth.Public)]
     public async Task<HttpResult> PostReading(SensorReading reading, Ikon.App.HttpRequest request)
     {

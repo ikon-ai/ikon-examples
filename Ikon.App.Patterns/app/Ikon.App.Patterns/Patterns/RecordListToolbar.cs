@@ -15,14 +15,22 @@ internal sealed class RecordListToolbar : IPatternDemo
     private readonly ReactiveList<Contact> _contacts = new();
 
     public RecordListToolbar()
-    {
-        _contacts.AddRange(
+        : this(
         [
             new Contact("1", "Aino Virtanen", "Kolme Studios", DateTime.UtcNow.AddDays(-2)),
             new Contact("2", "Marcus Reed", "Northwind Freight", DateTime.UtcNow.AddDays(-11)),
             new Contact("3", "Priya Raman", "Lumen Health", DateTime.UtcNow.AddDays(-40)),
-        ]);
+        ])
+    {
     }
+
+    private RecordListToolbar(IEnumerable<Contact> contacts)
+    {
+        _contacts.AddRange(contacts);
+    }
+
+    // The strip over an empty store, where Export has nothing to write
+    internal static RecordListToolbar WithoutContacts() => new([]);
 
     private static string BuildCsv(IReadOnlyList<Contact> rows) =>
         string.Join("\n", rows.Select(c => $"{c.Name},{c.Company},{c.LastTouched:yyyy-MM-dd}"));
@@ -84,18 +92,31 @@ internal sealed class RecordListToolbar : IPatternDemo
                 ]);
             });
 
-            // Export exists here ONLY because this build really writes the file.
-            view.ActionButton([Button.OutlineMd], action: ActionKind.DownloadFile,
-                options: new DownloadFileActionOptions
-                {
-                    FileName = "contacts.csv",
-                    Data = Encoding.UTF8.GetBytes(BuildCsv(visible)),
-                },
-                content: v => v.Row([Layout.Row.Xs], content: inner =>
+            // Export exists here ONLY because this build really writes the file. A DownloadFile
+            // with empty Data throws at render, so with no rows to export the button stays in its
+            // place, disabled, and its label says why.
+            if (visible.Count > 0)
+            {
+                view.ActionButton([Button.OutlineMd], action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions
+                    {
+                        FileName = "contacts.csv",
+                        Data = Encoding.UTF8.GetBytes(BuildCsv(visible)),
+                    },
+                    content: v => v.Row([Layout.Row.Xs], content: inner =>
+                    {
+                        inner.Icon([Icon.Sm], name: "download");
+                        inner.Text([Text.Caption], text: $"Export {visible.Count}");
+                    }));
+            }
+            else
+            {
+                view.Button([Button.OutlineMd], disabled: true, content: v => v.Row([Layout.Row.Xs], content: inner =>
                 {
                     inner.Icon([Icon.Sm], name: "download");
-                    inner.Text([Text.Caption], text: $"Export {visible.Count}");
+                    inner.Text([Text.Caption], text: "Nothing to export");
                 }));
+            }
         });
 
         // An active filter the user cannot see is a bug report waiting to happen: show each one

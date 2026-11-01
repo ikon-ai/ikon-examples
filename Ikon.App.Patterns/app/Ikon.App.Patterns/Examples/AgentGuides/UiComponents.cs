@@ -171,6 +171,7 @@ file sealed class InputsExamples
         view.Checkbox(bind: _checked, label: "Enable feature");  // label: renders a clickable trailing label
         view.Switch(bind: _enabled, label: "Notifications");
         view.Slider(bind: _slider, min: 0, max: 100, step: 1, label: "Volume");  // scalar single-thumb; pass value: [a, b] lists for multi-thumb
+        // An empty bound value shows nothing selected: placeholder: is the text shown then
         view.Select(bind: _selected, ariaLabel: "Plan", placeholder: "Choose...", triggerStyle: [Input.DefaultSm, "w-40"],
             options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
         view.RadioGroup(label: "Plan", bind: _radio,
@@ -223,6 +224,7 @@ file sealed class InputsExamples
             onUploadComplete: async args => { /* args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
             onUploadProgress: async args => { /* args.ProgressPercentage, args.BytesUploaded */ },
             onDragActiveChange: async isDragging => { _isDragging.Value = isDragging; },
+            onLinkDrop: async link => { /* a web address dragged or pasted in as text, which uploads no file */ },
             zoneStyle: [FileUpload.Zone.Base],
             activeStyle: [FileUpload.Zone.Active],
             content: v => v.Text([Text.Caption], "Drop files here"));
@@ -813,6 +815,7 @@ internal sealed partial class AgentGuideExamples
         view.Badge("Ready", tone: SemanticTone.Success, size: BadgeSize.Sm);  // Size is a parameter: there is no Badge.Sm; tones are Neutral, Brand, Success, Warning, Error, Info (no Danger)
         view.Badge([Badge.BrandSm], "New");                // Or a token that names tone and size
         view.Alert("Card declined", tone: SemanticTone.Error, description: "Try another card.");  // The first argument is the title; an error is Error, not Danger
+        view.StatCard("Revenue", "1,204", delta: "+12%", trend: StatTrend.Up, trendLabel: "vs last month", icon: "trending-up");  // label, value, then the optional delta, trend, trendLabel, icon and sparkline; there is no description: (CS1739), put a caption in a Text beside it
         #endregion
     }
 
