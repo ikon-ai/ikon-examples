@@ -23,7 +23,6 @@ public partial class Validation
                 new ValidationHeartbeat { LastHeartbeatUtc = timestamp, Schedule = HeartbeatSchedule },
                 new JsonSerializerOptions { WriteIndented = true });
             await Asset.Instance.SetTextAsync(HeartbeatUri, json);
-            _lastHeartbeatUtc.Value = timestamp;
             Log.Instance.Info($"Validation heartbeat written at {timestamp}");
         }
         catch (Exception ex)
@@ -109,12 +108,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(heartbeat?.LastHeartbeatUtc))
                 {
-                    // Never move the timestamp backwards: a cron tick may have written between
-                    // the read starting and this update landing.
-                    if (_lastHeartbeatUtc.Value is null)
-                    {
-                        _lastHeartbeatUtc.Value = heartbeat.LastHeartbeatUtc;
-                    }
+                    _lastHeartbeatUtc.Value = heartbeat.LastHeartbeatUtc;
                 }
             }
             catch

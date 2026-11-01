@@ -195,7 +195,7 @@ public partial class Validation
 
             if (!removal.Succeeded)
             {
-                // A guest has no account to erase, so the backend refusing is the expected answer there.
+                // A local run, or a client without a page, is refused; a deployed guest is scheduled like any user.
                 _accountRemovalScheduledFor.Value = "unknown";
                 _accountRemovalResult.Value = $"REFUSED {removal.Error}";
                 return;
