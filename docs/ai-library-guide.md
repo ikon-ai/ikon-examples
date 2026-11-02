@@ -1,4 +1,4 @@
-<!-- checked-against: b614c48113f5a8f95782e6bc -->
+<!-- checked-against: 66f27258d8cf14f49a252e7e -->
 
 # Ikon.AI Library Overview
 
@@ -434,7 +434,7 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 `Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or several images of the same object (up to 4 on Meshy, 5 on Rodin). The result contains signed URLs for the generated model — Meshy returns GLB, FBX, OBJ and USDZ at once and expires them after roughly three days; Rodin returns the one format `OutputFormat` asks for and expires it after seven. Download the files promptly.
 
-Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Rodin does not rig or skin a mesh; its `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
+Two providers sit behind it. **Meshy** (`Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Rodin does not rig or skin a mesh; its `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
 
 Rodin runs on your app's own Hyper3D API key, because the platform does not provide one. Store the key as an app secret with `ikon secret set IKON_HYPER3D_API_KEY`. Ikon.AI picks the secret up by itself, and a running app gets it within 5 minutes. Rodin calls run in the app's process and are billed to that key. Without the key, a Rodin call throws a `MissingApiKeyException` whose message says this.
 

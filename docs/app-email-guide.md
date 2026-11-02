@@ -1,4 +1,4 @@
-<!-- checked-against: 3bdc3e0ee0133b05024025a6 -->
+<!-- checked-against: c45d0f08e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -222,7 +222,7 @@ Instead of sweeping the inbox on a schedule, listen for the platform's `EmailRec
 backend delivers every stored message to the app's userless instance — starting one when none is
 running — and keeps the event until the handler returns. That is the instance whose session identity
 has no values. In an app whose `SessionIdentity` record has no fields, it is the instance every
-visitor is in (the first shard of a `[Sharded]` app), so what the handler changes shows on their
+visitor is in (the first shard of a sharded app), so what the handler changes shows on their
 screens at once. In an app keyed by user or by room, only a visitor with no user or no `?room=` is
 in it: keep what the handler records in a database and read it from there. The wake-up itself is best-effort: if the
 backend fails to create the event, the message is still stored and readable through `app.Email` but

@@ -1,4 +1,4 @@
-<!-- checked-against: b6db20b24554531bf25ad001 -->
+<!-- checked-against: 257e98804554531bf25ad001 -->
 
 # IKON C# SDK
 
@@ -476,6 +476,8 @@ await client.DisconnectAsync();
 // Or dispose (also disconnects)
 await client.DisposeAsync();
 ```
+
+A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the client on another shard; when none has room, `ConnectAsync` throws an `HttpRequestException` saying the app is full.
 
 ### Automatic Reconnection
 

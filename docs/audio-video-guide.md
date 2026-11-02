@@ -1,4 +1,4 @@
-<!-- checked-against: db70f20649ecbfeaf0ffa95e -->
+<!-- checked-against: 8a6540bd49ecbfeaf0ffa95e -->
 
 # IKON Audio & Video Guide
 
@@ -352,7 +352,7 @@ Rules that are easy to get wrong:
 
 The platform routes **encoded** video frames; it never decodes or encodes them. Video comes from a client's camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), from a machine client sending its own encoded frames (a drone, a robot), or from an encoder the app runs itself (an ffmpeg process, a headless browser). Captured video always goes to the app on the server, never straight to other clients; the app decides who sees what by playing it on **surfaces**.
 
-Audio and video reach only the clients of the app instance that plays them. Nothing relays media to another instance or to another shard of a `[Sharded]` identity, so a stage that every viewer must see and hear is one unsharded instance, with `app.MaxClients` set to what it has been measured to hold.
+Audio and video reach only the clients of the app instance that plays them. Nothing relays media to another instance or to another shard of a sharded identity, so a stage that every viewer must see and hear is one unsharded instance, with `MaxClients` in `ikon-config.toml` set to what it has been measured to hold.
 
 ### Surfaces
 

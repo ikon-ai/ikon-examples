@@ -1,4 +1,4 @@
-<!-- checked-against: 057dbc6121fcec31e3b0c442 -->
+<!-- checked-against: 21d7ab575f16bedde3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -539,7 +539,9 @@ While the app's server is starting, a connect retries for about 15 seconds. When
 the connect token because it was issued for a server that has since been replaced, or because it has
 expired, the connect stops retrying and asks `/init` for a new token once. If that one is refused
 too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
-connect again later.
+connect again later. A connect refused by a full server asks `/init` again up to three times, naming
+the servers that refused it, so a sharded app places the person on another shard; then it throws
+`ServerFullException`.
 
 ## Links and Notification Taps
 

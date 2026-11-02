@@ -1,4 +1,4 @@
-<!-- checked-against: f756f73328cc97181e03f5af -->
+<!-- checked-against: 625159f628cc97181e03f5af -->
 
 # Crosswind Motion Spec
 
@@ -78,6 +78,8 @@ motion-[ <step>( , <step> )* ]
   **Rule:** all steps in one block MUST use the same time basis (percent **or** duration).
 * **Step utilities:** one or more **utility tokens**, separated by spaces.
   A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a registered utility with arbitrary value `name-[value]` (e.g., `translate-y-[8px]`). A name that is not a registered Crosswind utility is dropped from the step with an "Unknown utility" warning. The arbitrary-property form `[prop:value]` passes only when `prop` is also a utility name (`[opacity:0.5]` emits `opacity: 0.5`); any other property is dropped with the same warning.
+* **No motion:** `motion-none` (or `motion-[none]`) sets the track's `animation-name` to `none`, so the track plays no keyframes.
+* A malformed step is logged once per distinct class, however often the class is compiled.
 
 Examples:
 

@@ -1,4 +1,4 @@
-<!-- checked-against: e061cc08b7b8f72ffbcf5206 -->
+<!-- checked-against: 642a7c479ee168b121102f8a -->
 
 # IKON Platform Events
 
@@ -66,7 +66,7 @@ failure is watched until it clears on its own, and a credit failure clears only 
 limit is a limit enforced on purpose, and reports as `expected`.
 
 A model-operation failure event also carries `failureKind`, which says the same thing one level finer
-(`Transient`, `Unavailable`, `AccessDenied`, `CreditExhausted`, `Quality`, `Unknown`) and matches
+(`Transient`, `Unavailable`, `AccessDenied`, `CreditExhausted`, `NotAllowed`, `Quality`, `Unknown`) and matches
 `Ikon.AI.ModelFailureKind`.
 
 Your own events can join the same taxonomy — `Ikon.Common.Core.EventFailureClass` holds the
@@ -91,7 +91,7 @@ Log.Instance.Event("invoice_export_failed", new
 | `server_initialized` | `CORE_SERVER_INIT` message processing finished — plugins + extensions loaded | `durationMs` (block duration), `pluginsInitMs`, `extensionsInitMs` |
 | `server_started` | Server is fully started and accepting traffic | `elapsedTimeMs` |
 | `server_stopped` | Server has shut down cleanly | `stopDurationMs` |
-| `server_failed` | Uncaught exception in the server entry point | `class`, `type`, `message`, `stackTrace` |
+| `server_failed` | Uncaught exception in the server entry point | `class` (`dependency` when the backend, the network or a database failed under it, else `defect`), `type`, `message`, `stackTrace` |
 
 ## Client / session lifecycle
 
@@ -126,7 +126,7 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 | Event | When | Payload |
 |---|---|---|
 | `app_initialized` | The IKON app has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them is synchronous work on the cold-start path, which delays readiness on a single-core container. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
-| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, the app's seed run threw, or an `app.OnStarting` handler threw) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
+| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, the app's seed run threw, or an `app.OnStarting` handler threw) — distinct from the process-level `server_failed` | `class` (as on `server_failed`), `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
 
@@ -210,7 +210,7 @@ trace id, so a connect without a trace id produces no rows at all.
 
 | Event | Source | Payload |
 |---|---|---|
-| `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
+| `client_connect_timeline` | TypeScript SDK in the browser, once per connect: when it has connected and its media has settled, when it fails, or when the page closes first | `connectTraceId`, `tabId`, `outcome`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
 | `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
@@ -236,8 +236,9 @@ assets are missing from the byte and cache counts. It is reported separately rat
 be cached, because a withheld timing and a cache hit look identical (both report zero bytes), and
 counting them together would show a perfect cache rate for assets that were downloaded in full.
 
-This describes only visitors whose page load finished; someone who gave up part-way never runs the
-code that reports it. See `app_page_served` for the count that includes them.
+This describes only visitors whose page got as far as asking the backend for a session. A visitor
+who closes the page after that is reported with `outcome` `abandoned`, and one who leaves before it
+never runs the code that reports it. See `app_page_served` for the count that includes them.
 
 `server_connect_timeline` and `app_connect_timeline` exist only on the warm prestart-swap path, so a
 cold connect has at most three tiers.
@@ -259,24 +260,27 @@ zero of them. Successful calls are not tracked individually.
 `errorKind` taxonomy (server side): `Timeout`, `Cancelled`, `NotFound`, `LocalVisibility`,
 `VersionMismatch`, `PolicyDenied`, `PolicyError`, `ArgumentBinding`, `Execution`, `InvalidArgument`.
 `class` follows from it. `NotFound`, `VersionMismatch`, `ArgumentBinding` and `InvalidArgument` mean
-the caller asked wrongly and are `user_error`. `PolicyDenied` (a limit enforced on purpose) and
-`Cancelled` (the caller cancelled its own call) are `expected`. The rest are `dependency`, except
-an `Execution` failure that an AI operation inside the function already recorded: it takes the class
-of that operation's `{eventName}_failed` row, so a request the model rejected stays `user_error`.
+the caller asked wrongly and are `user_error`. `ArgumentBinding` is only an argument that could not be
+converted to its parameter's type; an `ArgumentException` the function itself throws is `Execution`.
+`PolicyDenied` (a limit enforced on purpose) and `Cancelled` (the caller cancelled its own call) are
+`expected`. The rest are `dependency`, except an `Execution` failure that an AI operation inside the
+function already recorded: it takes the class of that operation's `{eventName}_failed` row, so a
+request the model rejected stays `user_error`. A platform function that names the caller's mistake
+itself, such as subscribing to a reactive the server does not have, is `user_error` too.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
 `RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`,
 for a call the caller cancelled itself, and for a spend limit or policy denial the far side enforced
 on purpose. A denial whose limit check itself failed stays `dependency`, as on the server. Any other
 call that `failed` is classed by the error the far side threw, using the same rule as the AI
-operation's own `{eventName}_failed` row (below): a refused prompt is `expected`, a request the model rejects is `user_error`, an empty provider account
+operation's own `{eventName}_failed` row (below): a refused prompt, and a plan, credit or spend limit that denied the call on purpose, are `expected`, a request the model rejects is `user_error`, an empty provider account
 is `provider_credit`, and everything else is `dependency`.
 
 ## Resource and health
 
 | Event | When | Payload |
 |---|---|---|
-| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`dependency` when the host ran short of memory, `expected` when the app outgrew its own limit), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
+| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`expected` when the app outgrew its own memory limit, `dependency` when the host ran short of memory, which is always the case for a server with no limit of its own), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
 | `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
@@ -306,9 +310,11 @@ cost can be matched. When an LLM call moves to another provider after its first 
 also carries `statusCode`, the provider's HTTP status as an integer, when there was one.
 
 `failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
-`AccessDenied`, `CreditExhausted`, `Quality` or `Unknown`. It is finer than `class`, and it tells a
-provider that is down from one whose account has no credit left. Both stop the call, but only the
-first is fixed by waiting.
+`AccessDenied`, `CreditExhausted`, `NotAllowed`, `Quality` or `Unknown`. It is finer than `class`, and
+it tells a provider that is down from one whose account has no credit left. Both stop the call, but
+only the first is fixed by waiting. `NotAllowed` is a model your organisation may not call: its plan
+does not include the model, its admin blocked the model, or the model reached the monthly credit cap
+the admin set for it. Another model may be allowed. A `NotAllowed` failure has the class `expected`.
 
 **A persisting failure is logged once, not once per call.** Every failed call still writes its `_failed`
 row, so event counts stay correct. The log line that goes with them drops to debug after the first
@@ -405,7 +411,7 @@ method was declined.
 ## Tool errors
 
 Top-level crash markers for the platform's CLI / utility processes. All carry `class` (`defect` — an
-unhandled exception reached the entry point; `tool_failed` also uses `dependency`, below), `type`,
+unhandled exception reached the entry point; `tool_failed` also uses `dependency` and `expected`, below), `type`,
 `message`, `stackTrace`.
 
 | Event | Source |
@@ -413,7 +419,6 @@ unhandled exception reached the entry point; `tool_failed` also uses `dependency
 | `tool_failed` | `IkonTool` (the `ikon` CLI) |
 | `build_util_failed` | `BuildUtil` |
 | `codegen_docs_gen_failed` | `CodegenDocsGen` |
-| `stress_tester_failed` | `StressTester` |
 | `proxy_server_failed` | `IkonProxyServer` |
 | `host_server_failed` | `IkonHostServer` |
 
@@ -423,8 +428,8 @@ The CLI reports a command that rejected your input separately from one that brok
 
 | Event | When | `class` |
 |---|---|---|
-| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, a program such as `npm` that exited non-zero, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases |
-| `tool_rejected` | The command refused the input and said why (an app that does not compile among them), or the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422) | `user_error` |
+| `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, a program such as `npm` that exited non-zero, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases, or `expected` when the backend rate-limited the request (429) |
+| `tool_rejected` | The command refused the input and said why (an app that does not compile among them), the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422), or the database refused a statement as written (SQLSTATE class 42: a syntax error, an undefined table, column or function) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 

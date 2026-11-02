@@ -1,4 +1,4 @@
-<!-- checked-against: 0d19fc89470f7ae4e3b0c442 -->
+<!-- checked-against: ff28094c3ce89338e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -107,7 +107,9 @@ While the app's server is starting, `Connect()` keeps retrying for up to `connec
 the server refuses the connect token because it was issued for a server that has since been replaced,
 or because it has expired, `Connect()` stops retrying and asks `/init` for a new token once. If that
 one is refused too, it throws `ServerChangedException`. The API key is still valid, so call `Connect()`
-again later.
+again later. When a server answers that it is full, `Connect()` asks `/init` again up to three times,
+naming the full servers so a sharded app places the person on another shard, and then throws
+`ServerFullException`.
 
 ### Local Development
 

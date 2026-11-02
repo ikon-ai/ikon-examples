@@ -1,4 +1,4 @@
-<!-- checked-against: 3c254b19f50598ade3b0c442 -->
+<!-- checked-against: 79db4f3ded2e924de3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -322,6 +322,8 @@ if (client.lastError) {
   console.error(client.lastError);
 }
 ```
+
+A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the person on another shard; when none has room, `connect()` throws `ServerFullError`.
 
 ### Automatic Reconnection
 
@@ -972,6 +974,16 @@ creating a new client session. On the server this arrives as `app.Navigation.Pat
 one router handles both link clicks and history gestures. A cold load or reload raises no event; its
 path is in `app.Navigation.CurrentPath`.
 
+The server draws the new page some time after the press, so the page scrolls when that page is
+drawn, not at the press: to the top after a link, and back to where the visitor left it after Back
+or Forward. Until then the page being left stays where it was. The client remembers the window's
+position for each history entry and sets `history.scrollRestoration` to `manual`, because the
+browser would restore it while the page being left is still on screen. The positions are kept in
+`sessionStorage`, so a reload, or a return from another site, opens the entry where the visitor left
+it. A fragment link on the page shown is left to the browser. A move whose page changes nothing on
+screen scrolls after one second. `IkonUiCore` provides the wait; a UI layer of your own provides it
+with `IkonClient.setRouteScrollScheduler`, and a client used without one scrolls at once.
+
 Each history entry the SDK adds (a link click, the server's `Navigation.SetPathAsync`) records in
 `history.state` how many in-app entries lie behind it. The server's `Navigation.BackAsync` uses that
 count. When the entry behind is the app's own, the client calls `history.back()`. On the entry the
@@ -1053,7 +1065,7 @@ The SDK has a typed error for each kind of failure:
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
 | `SpaceNotFoundError` | No app found for the given domain (exported, but the SDK does not currently raise it) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
-| `ServerFullError` | Server at its client limit, connection rejected (terminal, no retry) |
+| `ServerFullError` | Every instance the connect may use is at its client limit, after asking /init for another up to three times (terminal) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
 | `NoMatchingEndpointTypeError` | `?ikon-transport` / `?ikon-proxy` pin a combination the server did not offer (terminal, exposes `pinnedTransport`, `pinnedTier`, `offeredTypes`) |
 | `AppStartupFailedError` | The app's server failed during startup (terminal) |
@@ -1158,7 +1170,7 @@ const client = new IkonClient({
 | `ProvisioningTimeoutError` | Provisioning timeout |
 | `SpaceNotFoundError` | No app found (not currently raised) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
-| `ServerFullError` | Server at its client limit (terminal, no retry) |
+| `ServerFullError` | No instance with room (terminal) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |
 | `NoMatchingEndpointTypeError` | Pinned transport/tier not offered by the server (terminal) |
 | `AppStartupFailedError` | App server failed during startup (terminal) |
