@@ -4,24 +4,6 @@ using Ikon.App.Cells;
 // No namespace: inside Ikon.App.*, `Cells` would name the Ikon.App.Cells namespace, not the class an
 // app (which has no namespace) reaches through its using.
 
-internal static class ScalingSharedInstanceExamples
-{
-    #region example:scaling-sharded-shared-instance
-    // Everyone shares one instance; past 500 connected clients new ones go to a second shard.
-    [Sharded(500)]
-    public record SessionIdentity();
-    #endregion
-}
-
-internal static class ScalingShardedRoomExamples
-{
-    #region example:scaling-sharded-room
-    // One instance per room. A room with more than 500 clients spills into shards of its own,
-    // at most four of them.
-    public record SessionIdentity([property: Sharded(500, MaxShards = 4)] string? Room);
-    #endregion
-}
-
 #region example:scaling-cell
 // The cell's surface is an interface: on a cloud run Connect returns a proxy that implements it.
 public interface IScoreboardCell
