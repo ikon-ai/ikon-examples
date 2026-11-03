@@ -18,7 +18,7 @@ Media = "atConnect"  # "atConnect" opens WebRTC audio and video; "none" never do
 Presence = true  # Whether clients learn who else is in the session; false for a public page
 Seeds = []  # What a route paints while it connects, as "pattern:variantId" rules, e.g. ["/**:shell"]
 Placement = "shared"  # "shared": the instance the visitor's identity selects; "own": an instance of its own
-Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks
+Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks; "seamless" keeps the page and reconnects to a new session when the visitor is back, for public pages
 
 # Who may enter the surface
 [Surface.Auth]
