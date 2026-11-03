@@ -1,4 +1,4 @@
-<!-- checked-against: 79db4f3ded2e924de3b0c442 -->
+<!-- checked-against: 83867e0b1777ad16e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -208,7 +208,9 @@ behind the connection changes, and passes the new token to the running client wh
 credential changed.
 
 To open a second session next to the app connection — a media leg to a cell room, say — use
-`createSibling`, which keeps the sibling's credential in step with this client's:
+`createSibling`, which keeps the sibling's credential in step with this client's. A client can join
+a cell only when the cell is declared `[Cell(Access = CellAccess.Clients)]`, or was built before cells
+declared their access. Any other cell admits only the app's own instances and refuses the connect:
 
 <!-- ikon-example: ts-sdk-create-sibling -->
 ```ts
@@ -231,7 +233,7 @@ The client tracks its connection state via the `connectionState` property. Live 
 | `connecting` | Authentication and connection in progress |
 | `connected` | Protocol channels connected; the session is joined (GlobalState received, `onJoined` run) shortly after |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
-| `offline` | Disconnected (timeout, server stopped, user-initiated). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
+| `offline` | Disconnected (timeout, server stopped, user-initiated, or a session that could not be resumed with `reconnectToNewSession: false`). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
 
 The `ConnectionState` union also includes deprecated states (`connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
 
@@ -343,6 +345,8 @@ const client = new IkonClient({
 ```
 
 The first reconnect attempt is immediate; each later one waits a fixed delay (2s by default).
+
+With `reconnectToNewSession: false` the client only ever resumes the session it has. Where it would authenticate a new one, it goes `offline` with `client.sessionLost` set, and the caller decides when to connect again. The React layer sets it for a surface with `Recovery = "seamless"`.
 
 Renewing the access token is not a reason to reconnect — see `updateAuthToken` above.
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 642a7c479ee168b121102f8a -->
+<!-- checked-against: 1837936818071d004437abd4 -->
 
 # IKON Platform Events
 
@@ -152,6 +152,42 @@ counting them would inflate the denominator of any completion rate built on this
 its platform subdomain, even when the page was served on a custom domain; the app's id is on the row
 itself.
 
+## Screens and entries
+
+What Insights › Traffic in Studio counts: which screens the app's clients open and which ways
+into the app are used. None of these rows names a person, and the `user` field that
+`client_joined` carries is deliberately absent here. A visit is one browser tab. The web client
+names its tab with `tabId`, a random id that stays the same across reloads in that tab and is
+different in another tab, so a reload or a reconnect is not a new visit. A client with no tab (the
+phone app) is counted by the session id its server gave it, which is new every session.
+
+A visitor who asked not to be tracked (the browser's Do Not Track setting or the Global Privacy
+Control signal, which the SDK sends as `ClientEnvironment.DoNotTrack`) produces no `screen_opened`
+or `web_vitals` at all, and sends no tab or referrer. Their `client_connect_timeline` is still
+sent, because it is how the platform finds connects that fail. It carries `doNotTrack: true` in
+place of `tabId` and none of the hardware or network details, and no figure an app owner sees
+includes it.
+
+| Event | When | Payload |
+|---|---|---|
+| `screen_opened` | A client's recorded path changed: it followed a link or a `path:` control, used back or forward, or the app moved it with `Navigation.SetPathAsync` and the client acknowledged the move. The first screen of a session counts too, once. Emitted by the app's server for every kind of client, so the web and the phone app count the same way | `clientSessionId`, `tabId` (the web client's tab; absent for other clients), `path` (query string removed), `from` (the previous path, or null for the first screen), `referrer` (first screen only: the origin of the site that linked to the page, never its page; absent when the browser named none or the link came from the app itself), `clientType` (`DesktopWeb`, `MobileWeb`, `MobileApp`, `DesktopApp`, `Unknown`), `contextType`, `sdk`, `surface`, `country` (as `client_geo` places it; empty when not placed) |
+| `web_vitals` | The web visitor's Core Web Vitals, as the browser measured them with no script of ours on the frame. Sent once per page load that showed the app, at the earlier of ten seconds after the first paint or the page being hidden | `tabId`, `lcpMs` (largest contentful paint), `clsScore` (cumulative layout shift, unexpected shifts only), `inpMs` (the slowest interaction to next paint); a vital the browser could not measure is left out |
+| `endpoint_calls` | The app's HTTP endpoints answered calls. One row per method, route and status class every five minutes in which there were calls, and one more when the app stops | `method`, `route` (the declared route, so an id in the path groups with its siblings), `statusClass` (`1xx` … `5xx`, or `other` for a status outside them), `count`, `durationMsSum`, `durationMsMax`, `windowSeconds` (how long the row covers) |
+| `mcp_tool_called` | An MCP tool of the app ran for an agent | `tool`, `outcome` (`ok` / `failed` / `cancelled`), `durationMs`; never the arguments |
+| `cron_ran` | A `[Cron]` function ran on its schedule | `function`, `outcome` (`ok` / `failed`), `durationMs` |
+| `message_received` | A text message reached the app's number | `handled` (whether the app subscribes to messages); never the number or the text |
+| `call_received` | A phone call reached the app's number | `handled` (whether the app answers calls); never the numbers |
+
+The platform's own snapshot capture and internal connections open no screens. A path is recorded
+as the client sent it, so a screen whose path carries an id (`/orders/8731`) is one row per id; an
+app that wants them grouped puts the id in the query string, which is removed, or reads
+`Navigation.PathChangedAsync` and counts its own `Log.Instance.Event`.
+
+`web_vitals` is sent through the same authenticated channel as the SDK's logs, so it carries the
+space and the session like every other row. The Flutter SDK sends no `web_vitals`, tab or referrer,
+because a phone app has no browser to measure and no page that links to it. Its screens reach
+`screen_opened` through the same path report the web client makes.
+
 ## Client placement
 
 | Event | When | Payload |
@@ -210,7 +246,7 @@ trace id, so a connect without a trace id produces no rows at all.
 
 | Event | Source | Payload |
 |---|---|---|
-| `client_connect_timeline` | TypeScript SDK in the browser, once per connect: when it has connected and its media has settled, when it fails, or when the page closes first | `connectTraceId`, `tabId`, `outcome`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
+| `client_connect_timeline` | TypeScript SDK in the browser, once per connect: when it has connected and its media has settled, when it fails, or when the page closes first | `connectTraceId`, `tabId` (or `doNotTrack: true` in its place, see [Screens and entries](#screens-and-entries)), `outcome`, `firstPaintMs` (the first live UI arrived, from navigation start), `firstPaintOfPage` (`true` only for the page's first live UI; a later client in the same page measures from the same start), `firstFrameMs` (the start of the frame that shows it; sent by apps on the React SDK), `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
 | `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |

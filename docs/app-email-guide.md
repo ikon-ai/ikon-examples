@@ -1,4 +1,4 @@
-<!-- checked-against: c45d0f08e0133b05024025a6 -->
+<!-- checked-against: a0a3a529e0133b05024025a6 -->
 
 # Ikon.App.Email Guide
 
@@ -269,3 +269,10 @@ The ikon tool sends the same test message without code: `ikon inbox send --subje
 sends it to `test@` at the app's own hostname (`--to` names another address at a receiving domain, and no
 other), as the app's own sent mail. `ikon inbox list` shows it once it arrives, and
 `ikon inbox delete <id>`, or `--all`, removes test mail from the inbox.
+
+## In Studio
+
+The app's Settings › Email card shows the domains the app sends from and receives at, turns
+receiving on or off per domain, and reads the inbox: each message with its text and attachments,
+a reply sent from the address the message came to, and delete. It reads the mail as the app does,
+with a token for the app's space, so the mail never passes through Studio's own account.

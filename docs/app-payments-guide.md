@@ -1,4 +1,4 @@
-<!-- checked-against: da08fdcdbb0b21e7592ff225 -->
+<!-- checked-against: 09666a75bb0b21e7592ff225 -->
 
 # Ikon.App.Payments Guide
 
@@ -36,6 +36,10 @@ The merchant's owner is your account name unless `--owner-name` says otherwise. 
 (zero-config, IKON-managed). `--default` picks the active provider when an app has more than one enabled.
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag: payments is on once a provider
 is configured.
+
+With Stripe, a payment link or one-off payment is refused until Stripe has enabled charges on the merchant
+account. The refusal says the account can't take payments yet, and `ikon payments status` shows what is
+left. You can create offers before that.
 
 Mollie's onboarding has two halves. Approving the connection makes Mollie email a confirmation link to the
 merchant contact email (your account email unless `--contact-email` names another; `enable` prints which);
