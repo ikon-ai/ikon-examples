@@ -18,7 +18,7 @@ MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the a
 # Presence = true  # Whether clients learn who else is in the session; false for a public page
 # Seeds = []  # What a route paints while it connects, as "pattern:variantId" rules, e.g. ["/**:shell"]
 # Placement = "shared"  # "shared": the instance the visitor's identity selects; "own": an instance of its own
-# Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks
+# Recovery = "attended"  # "attended" waits for a tap after a lost connection; "unattended" reloads by itself, for kiosks; "seamless" keeps the page and reconnects to a new session when the visitor is back, for public pages
 # Who may enter the surface
 # [Surface.Auth]
 # Methods = ["google", "apple", "microsoft", "email", "passkey", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
