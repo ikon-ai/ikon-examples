@@ -1,7 +1,7 @@
 public partial class Validation
 {
-    // How long the Slow item's handler holds the press, so the battery can see the menu and the page's
-    // skeleton move before the server answers.
+    // How long the Slow item's handler holds the press, so the battery can see the menu move and the
+    // outlet hold the page being left before the server answers.
     private static readonly TimeSpan AppNavSlowPageDelay = TimeSpan.FromMilliseconds(800);
 
     private const string AppNavPath = "/app-nav";
@@ -40,7 +40,7 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-1"], "NavBar and NavOutlet");
                 view.Text([Text.BodySm, "text-tertiary mb-4"],
-                    "The pressed item turns selected and the page area shows the page's skeleton before the server answers. The Slow item's handler waits 800 ms before the app routes.");
+                    "The pressed item turns selected and the page area keeps the page being left, dimmed, until the server answers. The Slow item's handler waits 800 ms before the app routes.");
 
                 view.Column(["h-[420px] rounded-lg border border-secondary overflow-hidden"], content: phone =>
                 {

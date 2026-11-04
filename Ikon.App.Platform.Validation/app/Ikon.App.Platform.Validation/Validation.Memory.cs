@@ -117,7 +117,7 @@ public partial class Validation
     {
         if (int.TryParse(_maxClientsOverride.Value, out var maxClients) && maxClients >= 0)
         {
-            app.MaxClients = maxClients;
+            app.OverrideMaxClients(maxClients);
             _maxClientsVersion.Value++;
         }
 

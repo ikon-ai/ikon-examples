@@ -27,6 +27,11 @@ class IkonAppConfig {
   /// never gets past its gate. Injected at launch; ignored when deployed.
   static const String devUserId = String.fromEnvironment('IKON_DEV_USER_ID');
 
+  /// Also play and capture over a WebRTC peer, as an app that enables it does. Off unless
+  /// injected, so the frontend keeps checking the protocol-channel path it ships with; the WebRTC
+  /// chaos battery turns it on to put the Dart peer through its faults.
+  static const bool webRtcMedia = bool.fromEnvironment('IKON_WEBRTC_MEDIA');
+
   static bool get isDeployed => spaceId.isNotEmpty;
 
   /// Names this app's kept start-up screen: one per deployed space, or per local server.
@@ -135,7 +140,11 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
         _uiCore = IkonUiCore(client);
         _audioPlayback = enableIkonAudioPlayback(client);
         _audioCapture = enableIkonAudioCapture(client);
-        _mediaManager = IkonMediaManager(audioPlayback: _audioPlayback, audioCapture: _audioCapture);
+        _mediaManager = IkonMediaManager(
+          audioPlayback: _audioPlayback,
+          audioCapture: _audioCapture,
+          webRtcMedia: IkonAppConfig.webRtcMedia ? enableIkonWebRtcMedia(client) : null,
+        );
 
         if (mounted) {
           setState(() {

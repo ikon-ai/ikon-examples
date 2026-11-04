@@ -413,11 +413,20 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-1"], "Funnel and heat map");
-                view.Text([Text.Caption, "mb-4"], "view.FunnelChart shows each step's share of the one before it. view.HeatMap leaves Saturday afternoon empty because it has no data.");
+                view.Text([Text.Caption, "mb-4"], "view.FunnelChart shows each step's share of the one before it. The second funnel's step names are long: they get up to 40% of the width, and a longer one is shortened with its full name on hover. view.HeatMap leaves Saturday afternoon empty because it has no data.");
                 view.Grid(["grid grid-cols-1 lg:grid-cols-2 gap-6"], content: grid =>
                 {
                     grid.FunnelChart(["w-full"],
                         data: SignupFunnel.Select(s => new FunnelStep { Id = s.Step, Value = s.Count }),
+                        valueUnit: "people");
+                    grid.FunnelChart(["w-full"],
+                        data:
+                        [
+                            new FunnelStep { Id = "Looked at IKON Connect", Value = 120 },
+                            new FunnelStep { Id = "Downloaded IKON Desktop", Value = 64 },
+                            new FunnelStep { Id = "Signed in on their own computer and opened an app", Value = 21 },
+                            new FunnelStep { Id = "Worked in the app", Value = 9 },
+                        ],
                         valueUnit: "people");
                     grid.HeatMap(["w-full"],
                         data: VisitsByWeekdayAndHour(),
@@ -438,6 +447,7 @@ public partial class Validation
                     grid.StatCard("Median build", ValueUnits.Format(252_000, "milliseconds"), delta: "-6%", trend: StatTrend.DownGood, trendLabel: "vs last week",
                         sparkline: [300, 290, 285, null, 270, 260, 252]);
                     grid.StatCard("Spend", ValueUnits.Format(12_431.5, "usd"), sparkline: [9_000, 9_800, 10_400, 11_200, 12_431.5]);
+                    grid.StatCard("Median wait", ValueUnits.Format(4.9, ValueUnits.Infer("median_wait_minutes") ?? ""), sparkline: [6.2, 5.8, 5.5, 5.1, 4.9]);
                 });
 
                 var maxBuilds = 412.0;
@@ -454,6 +464,23 @@ public partial class Validation
                         new DataTableRow("a1", [Cell.Text("Weather dashboard for sailing clubs on the west coast"), Cell.Bar(412, maxBuilds), Cell.Sparkline([30, 42, 55, null, 61, 70, 82], text: "Builds rising"), Cell.Badge("Good", SemanticTone.Success)]),
                         new DataTableRow("a2", [Cell.Text("Recipe planner"), Cell.Bar(187, maxBuilds), Cell.Sparkline([40, 35, 30, 28, 22, 26, 24], text: "Builds falling"), Cell.Badge("Warn", SemanticTone.Warning)]),
                         new DataTableRow("a3", [Cell.Text("Quiz night"), Cell.Bar(23, maxBuilds), Cell.Sparkline([2, 3, 2, 4, 3, 5, 4], text: "Builds steady"), Cell.Badge("Bad", SemanticTone.Error)]),
+                    ]);
+
+                view.Text([Text.Caption, "mt-6 mb-2"], "A table wider than its card keeps its first column (Sticky) in place while the others scroll sideways. Narrow the window to see it.");
+                view.DataTable(
+                    columns:
+                    [
+                        new DataTableColumn("App", Flex: 2, MinWidth: "9rem", Wrap: true) { Sticky = true },
+                        new DataTableColumn("Builds", Flex: 1, MinWidth: "7rem", Align: ColumnAlign.Right),
+                        new DataTableColumn("Failures", Flex: 1, MinWidth: "7rem", Align: ColumnAlign.Right),
+                        new DataTableColumn("Median build", Flex: 1, MinWidth: "8rem", Align: ColumnAlign.Right),
+                        new DataTableColumn("Last 7 days", Flex: 2, MinWidth: "9rem"),
+                        new DataTableColumn("Health", Flex: 1, MinWidth: "7rem"),
+                    ],
+                    rows:
+                    [
+                        new DataTableRow("s1", [Cell.Text("Weather dashboard for sailing clubs"), Cell.Text("412"), Cell.Text("12"), Cell.Text(ValueUnits.Format(252_000, ValueUnits.Milliseconds)), Cell.Sparkline([30, 42, 55, null, 61, 70, 82]), Cell.Badge("Good", SemanticTone.Success)]),
+                        new DataTableRow("s2", [Cell.Text("Recipe planner"), Cell.Text("187"), Cell.Text("31"), Cell.Text(ValueUnits.Format(4.9, ValueUnits.Minutes)), Cell.Sparkline([40, 35, 30, 28, 22, 26, 24]), Cell.Badge("Warn", SemanticTone.Warning)]),
                     ]);
             });
 

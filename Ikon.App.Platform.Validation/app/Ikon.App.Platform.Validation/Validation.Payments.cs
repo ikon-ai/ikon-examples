@@ -26,9 +26,19 @@ public partial class Validation
 
     private readonly Reactive<IReadOnlyList<PaymentOffer>> _payOffers = new([]);
     private readonly Reactive<bool> _payOffersLoaded = new(false);
-    private readonly Reactive<IReadOnlyList<PaymentSubscription>> _paySubs = new([]);
-    private readonly Reactive<IReadOnlyList<Payment>> _payHistory = new([]);
-    private readonly Reactive<bool> _payCustomerLoaded = new(false);
+    // Subscriptions and payments belong to one customer, so each client has its own. A client's load is
+    // dropped when the same client has started a later one, so a join's load that finishes late cannot
+    // replace what a refresh loaded
+    private readonly ClientReactive<IReadOnlyList<PaymentSubscription>> _paySubs = new([]);
+    private readonly ClientReactive<IReadOnlyList<Payment>> _payHistory = new([]);
+    private readonly ClientReactive<bool> _payCustomerLoaded = new(false);
+    private readonly ClientReactive<int> _payCustomerLoad = new(0);
+
+    // The catalog is the same for every client, so joins share one load while it runs. A load is dropped
+    // when a later one has started
+    private readonly Lock _offersLoadLock = new();
+    private Task? _joinOffersLoad;
+    private int _offersLoad;
 
     private readonly Reactive<bool> _payBusy = new(false);
     private readonly Reactive<string> _payEntitlement = new("");
@@ -51,11 +61,14 @@ public partial class Validation
 
         // The joining client carries the user scope the SDK's customerKey default
         // resolves from, so the catalog and the signed-in user's billing data are
-        // ready without pressing anything.
-        app.OnClientJoined(async ctx =>
+        // ready without pressing anything. The loads call the provider, which can
+        // take seconds, and a join handler that slow holds back what the join sets
+        // for the client. The snapshot's capture client waits for them, so that the
+        // snapshot shows the data.
+        app.OnClientJoined(ctx =>
         {
-            await RunPaymentsActionAsync(RefreshOffersAsync);
-            await RunPaymentsActionAsync(ReloadCustomerAsync);
+            var loads = LoadOnJoinAsync(ctx.SessionId);
+            return ctx.IsSnapshot ? loads : Task.CompletedTask;
         });
         await Task.CompletedTask;
     }
@@ -487,10 +500,42 @@ public partial class Validation
         await OpenLinkAsync(link);
     });
 
+    // Not through RunPaymentsActionAsync: its busy flag disables every client's buttons while a clicked
+    // action runs, and through it every join would disable them for as long as the provider takes
+    private async Task LoadOnJoinAsync(int clientSessionId)
+    {
+        Task offers;
+
+        lock (_offersLoadLock)
+        {
+            offers = _joinOffersLoad is { IsCompleted: false } running ? running : _joinOffersLoad = LogFailureAsync(RefreshOffersAsync());
+        }
+
+        await Task.WhenAll(offers, LogFailureAsync(LoadCustomerAsync(customer: null, clientSessionId)));
+    }
+
+    private async Task LogFailureAsync(Task load)
+    {
+        try
+        {
+            await load;
+        }
+        catch (Exception ex)
+        {
+            LogPayments($"Error: {ex.Message}");
+        }
+    }
+
     private async Task RefreshOffersAsync()
     {
-        _payOffers.Value = await app.Payments.ListOffersAsync();
-        _payOffersLoaded.Value = true;
+        int load = Interlocked.Increment(ref _offersLoad);
+        var offers = await app.Payments.ListOffersAsync();
+
+        if (load == Volatile.Read(ref _offersLoad))
+        {
+            _payOffers.Value = offers;
+            _payOffersLoaded.Value = true;
+        }
     }
 
     private async Task CreateValidationOffersAsync()
@@ -630,11 +675,24 @@ public partial class Validation
         }
     }
 
-    private async Task ReloadCustomerAsync()
+    private Task ReloadCustomerAsync() => LoadCustomerAsync(CustomerOverrideOrNull, ReactiveScope.ClientId);
+
+    // The client is named, because a join's load runs on after its handler returned, and a client that
+    // left meanwhile gets nothing: a write would create its values again after they were dropped
+    private async Task LoadCustomerAsync(string? customer, int clientSessionId)
     {
-        _paySubs.Value = await app.Payments.ListSubscriptionsAsync(CustomerOverrideOrNull);
-        _payHistory.Value = await app.Payments.ListPaymentsAsync(CustomerOverrideOrNull);
-        _payCustomerLoaded.Value = true;
+        int load = 0;
+        _payCustomerLoad.UpdateFor(clientSessionId, count => load = count + 1);
+        var subscriptions = app.Payments.ListSubscriptionsAsync(customer);
+        var payments = app.Payments.ListPaymentsAsync(customer);
+        await Task.WhenAll(subscriptions, payments);
+
+        if (app.GlobalState.GetClientContext(clientSessionId) != null && load == _payCustomerLoad.ValueFor(clientSessionId))
+        {
+            _paySubs.SetFor(clientSessionId, subscriptions.Result);
+            _payHistory.SetFor(clientSessionId, payments.Result);
+            _payCustomerLoaded.SetFor(clientSessionId, true);
+        }
     }
 
     private static readonly IReadOnlyList<SelectOption> CurrencyOptions =
