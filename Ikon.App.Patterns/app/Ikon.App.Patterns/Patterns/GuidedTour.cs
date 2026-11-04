@@ -46,9 +46,12 @@ internal sealed class GuidedTour : IPatternDemo
         new("export", "Export to PDF", "Any project prints to a PDF from its menu.", "file-down", () => true),
     ];
 
-    // On arrival: the tour once per person, else this version's highlights once.
-    private void OnSignedIn()
+    // On arrival: the tour once per person, else this version's highlights once. A join handler runs
+    // before the stored set has loaded, so await it first or every visit looks like the first.
+    private async Task OnSignedInAsync(string userId)
     {
+        await _seenGuides.LoadForAsync(userId);
+
         if (!_seenGuides.Contains("tour"))
         {
             _seenGuides.Add("tour");
@@ -100,5 +103,5 @@ internal sealed class GuidedTour : IPatternDemo
 
     // Outside the example: the gallery has no sign-in, so the arrival hook is referenced here to keep
     // the warnings-as-errors build from flagging it.
-    private void KeepPatternMembersReferenced() => OnSignedIn();
+    private void KeepPatternMembersReferenced() => _ = OnSignedInAsync("demo-user");
 }

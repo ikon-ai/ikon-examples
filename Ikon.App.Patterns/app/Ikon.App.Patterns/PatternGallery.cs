@@ -135,6 +135,7 @@ public static class PatternGallery
         new ReviewAndApprovalWorkflow(app),
         new RightRailTabsWithAttentionDots(),
         new RoleTaggedTranscriptFeed(),
+        new RosterEmailMatch(app),
         new RunTraceAndCost(),
         new SampleStillsToVision(app),
         new SavedRunsSidebar(app),

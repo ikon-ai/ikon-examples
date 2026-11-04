@@ -124,6 +124,21 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private static async Task DocSpeechRecognizeFileAsync(byte[] bytes)
+    {
+        #region example:speech-recognize-file
+        using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.Default);
+
+        var transcript = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+        {
+            Data = bytes,
+            MimeType = "audio/mp4",
+        });
+
+        Log.Instance.Info($"{transcript.Language}: {transcript.Text}");
+        #endregion
+    }
+
     private static async Task DocPronunciationAssessmentAsync(float[] samples, int sampleRate)
     {
         #region example:speech-pronunciation-assessment
