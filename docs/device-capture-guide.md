@@ -1,4 +1,4 @@
-<!-- checked-against: b1aad4e6e37ec52601be9203 -->
+<!-- checked-against: b1aad4e6e37ec5269032421e -->
 
 # IKON Device Capture Guide
 

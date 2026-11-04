@@ -1,4 +1,4 @@
-<!-- checked-against: 21d7ab572b2a0db5e3b0c442 -->
+<!-- checked-against: 29c245f82f6b6f79e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -497,7 +497,8 @@ final result = await auth.authenticateApiKey(
 );
 
 // What the connect* helpers do for you: wire reauth, connect, register the built-in client
-// functions, then send the ready message without which the app never sees the client join.
+// functions, send the ready message without which the app never sees the client join, and
+// reconnect at once when the app returns to the foreground.
 // Without configureReauth a reconnect never re-authenticates once the cached tickets expire,
 // and client.assetBaseUrl resolves root-relative images against the per-session socket host.
 final client = IkonClient(IkonClientConfig.fromAuthResult(result));
@@ -509,6 +510,8 @@ client.configureReauth(
 await client.connect();
 registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
 client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
+// Keep the listener and dispose it with the client in an app that replaces its client
+AppLifecycleListener(onResume: client.reconnectNow);
 ```
 
 ### Entering a surface
@@ -650,7 +653,8 @@ A Flutter app reacts to a tap before the server answers, with no app code:
   last showed it, without taking taps. A page the phone has not shown yet appears as a skeleton
   drawn from the deploy's capture for the route on the surface the client entered, with the
   styles that capture carries. The capture is the surface's own snapshot of the route, or else
-  the file of its first matching seed rule. Without one, the page appears as placeholder bars.
+  the file of its first matching seed rule. Without one, or when the capture's outlet is empty,
+  the page being left stays, dimmed and not taking taps, until the new page arrives.
 
 An app can also start on the screen it showed last time instead of a blank one. Give the view a
 `liveSnapshotKey`, one per app and environment such as its space id, and while connecting show

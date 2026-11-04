@@ -1,4 +1,4 @@
-<!-- checked-against: 88518472733da022d34ae461 -->
+<!-- checked-against: b88b05a2733da022d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -284,8 +284,13 @@ writable again (unless it is over its storage quota), and `ikon db list` shows t
 `failed` (it does not print why). Nothing needs cleaning up before you try again, to the same tier or
 another. A database holding a single row too large to move — tens of megabytes as text on the
 shared tiers — is refused before anything changes, as is one larger than the target tier's storage
-(1 GB on `shared`, 10 GB on `dedicated-small`) or one with tables under row-level security or
+(1 GB on `shared`, 225 GB on `dedicated-small`) or one with tables under row-level security or
 extensions installed outside the `public` schema.
+
+A database that grows past its tier's storage becomes read-only: writes fail and reads keep
+working. Writes come back once it is below the limit again, or once it moves to a larger tier.
+The size is checked every few minutes, so a database can go a little past its limit before
+writes stop.
 
 A database on `dedicated-small` can be put back to any moment in the last seven days:
 
@@ -295,10 +300,11 @@ ikon db restore --at 2026-11-01T06:30:00Z
 
 The platform clones the database's instance as it was at that moment and switches the app to the
 clone, so everything written after the moment is gone and open connections drop briefly, as in a
-tier move. The instance it left is kept for a day. A moment within the last minute, older than seven
-days or before the database reached its current instance is refused before anything changes, and
-so is a database on a shared tier: move it to `dedicated-small` first. The same restore is in
-Studio under Settings › Data.
+tier move. The instance it left is kept for a day. `ikon db list` shows each dedicated database's
+last backup and the earliest moment it can be restored to. A moment within the last minute, older
+than seven days, before that earliest moment or before the database reached its current instance is
+refused before anything changes, and so is a database on a shared tier: move it to
+`dedicated-small` first. The same restore is in Studio under Settings › Data.
 
 ## The `key:` parameter — loops and refactor-proof state
 

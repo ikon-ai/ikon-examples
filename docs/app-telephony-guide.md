@@ -1,4 +1,4 @@
-<!-- checked-against: d5c7370ab5bc0cd0ecb18f56 -->
+<!-- checked-against: 9645bb5f101bffea6d2e07cf -->
 
 # Ikon.App.Telephony Guide
 
@@ -130,6 +130,14 @@ destinations are refused for messages and calls alike, before the provider is co
 | `From` | The number the message was sent from |
 | `Parts` | Billable segments — a long message is split, and non-GSM characters roughly halve what fits in one. Text over 2000 characters is refused, not split |
 | `Replyable` | Whether the recipient can answer — see below |
+
+To test a texting flow before the app has a number, run it locally with `ikon run --sms-sink`. No SMS
+is sent and no number is needed: each text is written to the app's `build/sms/` folder as a JSON file
+with its recipient, text and estimated `Parts`, and the send returns `Status` `written`. A text a real
+send would refuse (a number that is not bare E.164, a `from` the app does not hold, over 2000
+characters) is refused there too. `GetStatusAsync()` still reports only the numbers the app holds, so
+a screen the app hides while `Enabled` is false stays hidden on that run until the app has a number. A
+deployed app has no sink.
 
 ## Markets, and why `Replyable` matters
 
@@ -327,3 +335,5 @@ if (!status.Enabled)
 `GetStatusAsync` is the supported way to find out whether the app has any number, instead of
 discovering it from a failed send or assuming. When it has none, sending or calling
 throws `TelephonyNumberNotAvailableException`, whose message names the command that fixes it.
+On a local run with `ikon run --sms-sink`, a send succeeds without a number, but `Enabled` and
+`Numbers` still report only real numbers, and a call still needs one.

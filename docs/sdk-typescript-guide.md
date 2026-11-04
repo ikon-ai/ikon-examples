@@ -1,4 +1,4 @@
-<!-- checked-against: 83867e0b1777ad16e3b0c442 -->
+<!-- checked-against: 4e9217c784148fcbe3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -1075,6 +1075,8 @@ The SDK has a typed error for each kind of failure:
 | `AppStartupFailedError` | The app's server failed during startup (terminal) |
 | `SsoRequiredError` | The app requires signing in through the organisation's SSO (extends `AccessDeniedError`, exposes `connectionId`) |
 | `CredentialRejectedError` | Backend rejected the presented credential, HTTP 401 (terminal) |
+| `SdkUpgradeRequiredError` | The platform no longer accepts this SDK version, HTTP 426: update the app's IKON packages with `ikon update` and deploy it again (terminal, exposes `reason`, the platform's message) |
+| `AppUpgradeRequiredError` | The platform no longer runs the app's deployed bundle, HTTP 426, because it was built on IKON libraries that are too old: the app's developer runs `ikon update` and deploys again (terminal, exposes `reason`) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
 | `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal, exposes `spaceId` and `retryAfterMs`, the backend's suggested wait) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
@@ -1180,6 +1182,8 @@ const client = new IkonClient({
 | `AppStartupFailedError` | App server failed during startup (terminal) |
 | `SsoRequiredError` | Organisation SSO sign-in required |
 | `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |
+| `SdkUpgradeRequiredError` | SDK version no longer accepted, HTTP 426 (terminal) |
+| `AppUpgradeRequiredError` | App bundle built on IKON libraries too old to run, HTTP 426 (terminal) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal) |
 | `ServerUnavailableError` | Backend HTTP 5xx (retried) |
 | `ServerRateLimitedError` | HTTP 429 from a rate limiter (retried after its wait, 30 s at most) |

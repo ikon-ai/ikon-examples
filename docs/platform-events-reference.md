@@ -1,4 +1,4 @@
-<!-- checked-against: 1837936818071d004437abd4 -->
+<!-- checked-against: 3e5ac9dc18071d004437abd4 -->
 
 # IKON Platform Events
 
@@ -15,9 +15,21 @@ Events are scoped to an app, and you can read your own three ways:
 
 | | |
 |---|---|
-| `ikon` CLI | `ikon events` — defaults to the app in the current directory and the last 7 days. `--days` or `--start`/`--end`, `--event-name` substring filter, `--limit` page size (1-10000, default 1000), `--all` to page through everything, `--format table\|json\|csv`, `--output <file>` |
+| `ikon` CLI | `ikon events` — defaults to the app in the current directory and the last 7 days. `--days` (1-90) or `--start`/`--end`, `--event-name` substring filter, `--limit` page size (1-10000, default 1000), `--all` to page through everything, `--format table\|json\|csv`, `--output <file>` |
 | Portal | the app's **Events** page — a range picker (24 hours to 90 days), a name filter, per-event detail, and CSV export of the whole filtered range rather than just the page on screen, capped at the first 10000 events |
-| REST | `GET /spaces/:id/events`, the id being the app's — `days` (default 7) or `start`/`end`, `eventName` substring filter, `limit`, cursor-paginated |
+| REST | `GET /spaces/:id/events`, the id being the app's — `days` (1-90, default 7) or `start`/`end`, `eventName` substring filter, `limit`, cursor-paginated |
+
+Each event is deleted once its retention period has passed, so a range reaching further back returns
+only what is still kept:
+
+| Events | Kept for |
+|---|---|
+| Your app's own events (`Log.Instance.Event`), and any name this page does not list | 30 days |
+| Visits and requests: `client_joined`, `client_left`, `ikon_session_started`, `screen_opened`, `endpoint_calls`, `mcp_tool_called`, `cron_ran`, `message_received`, `call_received` | 90 days. Insights in Studio, the Portal's traffic view and `ikon traffic` keep anonymous daily totals of them for longer |
+| Where clients connected from: `client_geo`, `app_page_served` | 90 days |
+| Sign-ins, accounts and profiles | 13 months |
+| Billing | Kept with the billing records |
+| The platform's diagnostics: every other event on this page | 30 days |
 
 Every event carries a timestamp, its name, the app and session it belongs to, and a `parameters`
 object. Every payload field named below is a key inside `parameters`.
@@ -84,6 +96,8 @@ Log.Instance.Event("invoice_export_failed", new
 
 ## Server lifecycle
 
+Kept 30 days.
+
 | Event | When | Payload |
 |---|---|---|
 | `server_initializing` | Core server starts initialising | `isPrestart`, `isHosted` |
@@ -94,6 +108,8 @@ Log.Instance.Event("invoice_export_failed", new
 | `server_failed` | Uncaught exception in the server entry point | `class` (`dependency` when the backend, the network or a database failed under it, else `defect`), `type`, `message`, `stackTrace` |
 
 ## Client / session lifecycle
+
+`client_joined` and `client_left` are kept 90 days, the others 30 days.
 
 | Event | When | Payload |
 |---|---|---|
@@ -123,12 +139,16 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 
 ## App lifecycle
 
+Kept 30 days.
+
 | Event | When | Payload |
 |---|---|---|
 | `app_initialized` | The IKON app has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them is synchronous work on the cold-start path, which delays readiness on a single-core container. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
 | `app_failed` | App initialisation failed unrecoverably (`Main()` threw, a cell-host spawn failed, the app's seed run threw, or an `app.OnStarting` handler threw) — distinct from the process-level `server_failed` | `class` (as on `server_failed`), `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
+
+Kept 90 days.
 
 | Event | When | Payload |
 |---|---|---|
@@ -153,6 +173,8 @@ its platform subdomain, even when the page was served on a custom domain; the ap
 itself.
 
 ## Screens and entries
+
+Kept 90 days, `web_vitals` 30 days. The daily totals Insights shows are kept after that.
 
 What Insights › Traffic in Studio counts: which screens the app's clients open and which ways
 into the app are used. None of these rows names a person, and the `user` field that
@@ -190,6 +212,8 @@ because a phone app has no browser to measure and no page that links to it. Its 
 
 ## Client placement
 
+Kept 90 days.
+
 | Event | When | Payload |
 |---|---|---|
 | `client_geo` | A client opened an app session, and the network edge was able to place it | `appSession`, `authSession`, `country` (ISO 3166-1 alpha-2), `subdivision`, `city`, `rttMsec` |
@@ -212,6 +236,8 @@ session views join on. A client who moves between sessions therefore gets a plac
 session instead of one fixed at sign-in.
 
 ## Server session provisioning
+
+Kept 90 days.
 
 | Event | When | Payload |
 |---|---|---|
@@ -239,6 +265,8 @@ on them shows the old names. If you query the raw events directly, you have to h
 alongside the `ikonTool*` pair. Prefer the `ikonTool*` keys in anything new.
 
 ## Connect latency timeline
+
+Kept 30 days.
 
 `*_connect_timeline` events break a single client-triggered server provision/boot into per-tier
 timings, joined on `connectTraceId`. Each tier is emitted only when the client's connect supplied a
@@ -281,6 +309,8 @@ cold connect has at most three tiers.
 
 ## RPC / function calls
 
+Kept 30 days.
+
 `rpc_*_call_failed` events are emitted only when something goes wrong — a healthy platform produces
 zero of them. Successful calls are not tracked individually.
 
@@ -314,6 +344,8 @@ is `provider_credit`, and everything else is `dependency`.
 
 ## Resource and health
 
+Kept 30 days.
+
 | Event | When | Payload |
 |---|---|---|
 | `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`expected` when the app outgrew its own memory limit, `dependency` when the host ran short of memory, which is always the case for a server with no limit of its own), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
@@ -322,6 +354,8 @@ is `provider_credit`, and everything else is `dependency`.
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
 
 ## AI and model operations — `EventLogHelper`
+
+Kept 30 days.
 
 `Ikon.AI.Utils.EventLogHelper.RunAsync` and `RunAsyncEnumerable` instrument an async operation with
 a fixed set of events, derived from the `eventName` argument the caller supplies:
@@ -379,6 +413,8 @@ so 75 concrete event names.
 
 ## Users and authentication
 
+Kept 13 months.
+
 Emitted by the backend, not by the server.
 
 | Event | When | Payload |
@@ -402,6 +438,8 @@ one is known, `sso` sign-ins carry `space` and `ssoConnection`, and `ticket` sig
 
 ## Profiles
 
+Kept 13 months.
+
 | Event | When | Payload |
 |---|---|---|
 | `profile_created` | A profile was created in an app | `user`, `role` |
@@ -410,6 +448,8 @@ one is known, `sso` sign-ins carry `space` and `ssoConnection`, and `ticket` sig
 | `lead_created` | A profile was forwarded to a CRM integration | `user`, `integration` |
 
 ## Session issue analysis
+
+Kept 30 days.
 
 App-scoped, emitted by the backend for apps with session analysis enabled.
 
@@ -422,6 +462,8 @@ App-scoped, emitted by the backend for apps with session analysis enabled.
 issue is something the analysis found in the logs. It does not mean an operation failed.
 
 ## Billing
+
+Kept with the billing records.
 
 Organisation-scoped, emitted by the backend. All carry `organisation`.
 
@@ -446,6 +488,8 @@ method was declined.
 
 ## Tool errors
 
+Kept 30 days, deploys included.
+
 Top-level crash markers for the platform's CLI / utility processes. All carry `class` (`defect` — an
 unhandled exception reached the entry point; `tool_failed` also uses `dependency` and `expected`, below), `type`,
 `message`, `stackTrace`.
@@ -467,18 +511,31 @@ The CLI reports a command that rejected your input separately from one that brok
 | `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, a program such as `npm` that exited non-zero, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases, or `expected` when the backend rate-limited the request (429) |
 | `tool_rejected` | The command refused the input and said why (an app that does not compile among them), the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422), or the database refused a statement as written (SQLSTATE class 42: a syntax error, an undefined table, column or function) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
+| `tool_command_finished` | Every command, when it ends: `outcome` (`succeeded`, `failed`, `rejected`, `cancelled` or `confirmation`), `exitCode` and `durationMs` | — |
+| `tool_installed` | The first run after an installer finished, with the installer's result: `ok`, `code`, `signedIn`, `components` (each one's `component`, `status` and `version`), `installer` and `finishedAt` | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 
-Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
-without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it
-failed before one was picked), `toolVersion`, `os`, `isCi` and `isInteractive`. A command that acted
-on an app — through `--app-id`, or by running inside a linked app project — also carries that app's id
-as `spaceId`. The row's own space column stays empty, because the CLI signs in as a person, not as an
-app.
+**These rows are sent only with consent.** The CLI asks once in a terminal, after you sign in.
+`ikon telemetry status|enable|disable` shows and sets the answer, and `DO_NOT_TRACK=1` or
+`IKON_TELEMETRY=0|1` overrides it. Until someone answers, nothing is sent. They are kept for 30 days,
+in a table of their own with no space or session column.
 
-When the backend is what failed or refused, `tool_failed` or `tool_rejected` also carries `statusCode`, `requestId`, and `route` —
+The rows of a command carry `verb` (the verb that was running, or `(unresolved)` when it failed before
+one was picked) and `phase` (`startup`, `sign-in` or `verb`: where the run was when it ended), so a
+command's failures can be found without matching on message text. Every `tool_*` row carries the run
+context: `toolVersion`, `os`, `isCi`, `isInteractive`, `isLocalBuild` (a tool built from the
+platform's own source) and `isHosted` (the tool ran on an app's token, as the platform's hosted runner
+starts it).
+
+Before a row is sent, the home folder becomes `<home>`, the app project's folder `<project>`, a
+person's account name `<user>` and an email address `<email>`. A person's row names no app: it has no
+`spaceId` or `bundleId`, and an id inside a message becomes `<id>`. Rows from a hosted run or from the
+platform's own CI keep `spaceId`, `bundleId` and the ids.
+
+When the backend is what failed or refused, `tool_failed` or `tool_rejected` also carries `statusCode` and `route` —
 the path with its ids replaced by `:id`, so every caller of one broken endpoint groups into one row
-rather than into as many rows as there were ids.
+rather than into as many rows as there were ids. `requestId` is kept only where the backend failed
+(`class` `dependency` or `defect`), which is how that request is found in the backend's logs.
 
 When a program the command ran exited non-zero (such as `npm`), `message` is only which program
 failed and with what code, because its output holds local paths. A build of the app that failed is a
@@ -494,15 +551,17 @@ open a file the command needed, `tool_failed` carries `blockedBy`: `app-control`
 Every deploy, from `ikon deploy` or from Studio, writes exactly one `deploy_finished` row when it ends,
 whatever the outcome, so a failure rate is a count over one event. A deploy from the command line that
 fails also writes a `tool_failed` or `tool_rejected` row; count deploys from `deploy_finished` alone.
-Only a process killed outright (closing the terminal, running out of memory) writes nothing.
+Only a process killed outright (closing the terminal, running out of memory) writes nothing. A
+command-line deploy's row follows the CLI's rules above: sent only with consent, masked, and kept 30
+days.
 
 | Field | Meaning |
 |---|---|
 | `outcome` | `succeeded`, `failed` or `cancelled` (Ctrl+C, or Studio giving up on a deploy that ran too long) |
 | `step` | How far it got: `prepare` (config, the credit check, assets), `build` (app, boot snapshot capture, frontend), `package`, `upload`, `activate`, `finish` (after activation, such as restarting the person's own sessions) |
 | `durationMs` | From the start of the deploy to its end |
-| `spaceId` | The app deployed to, once it is known |
-| `bundleId`, `sizeMb` | The deployment, once the backend registered it, and the package size |
+| `spaceId` | The app deployed to, once it is known. Left out of a person's command-line deploy, like every app id in the CLI's rows |
+| `bundleId`, `sizeMb` | The deployment, once the backend registered it (left out with `spaceId`), and the package size |
 | `fromPackage`, `noActivate` | The deploy uploaded a package `ikon bundle` made (`--bundle`), or did not activate it (`--no-activate`) |
 | `wsl` | The package was built in WSL (`--wsl`, Windows only) |
 | `warnings` | The codes of every warning the deploy printed, such as `BOOT_SNAPSHOT_SKIPPED` (`--no-boot-snapshots` deployed without capturing), `APP_START_FAILED` (the app did not start in the boot snapshot capture and `--ignore-start-failure` deployed it anyway), `TOOLS_DANGLING_LINK`, `HASH_UNCHANGED` (the build matched the active deployment), `NOT_SAVED` (saving to version control failed) and `LOW_CREDITS` (the organisation had under 10 credits left once the deployment was active) |
