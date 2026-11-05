@@ -1,4 +1,4 @@
-<!-- checked-against: 3e5ac9dc18071d004437abd4 -->
+<!-- checked-against: 7979511d18071d004437abd4 -->
 
 # IKON Platform Events
 
@@ -24,7 +24,7 @@ only what is still kept:
 
 | Events | Kept for |
 |---|---|
-| Your app's own events (`Log.Instance.Event`), and any name this page does not list | 30 days |
+| Your app's own events (`Log.Instance.Event`), and any name this page does not list | 90 days |
 | Visits and requests: `client_joined`, `client_left`, `ikon_session_started`, `screen_opened`, `endpoint_calls`, `mcp_tool_called`, `cron_ran`, `message_received`, `call_received` | 90 days. Insights in Studio, the Portal's traffic view and `ikon traffic` keep anonymous daily totals of them for longer |
 | Where clients connected from: `client_geo`, `app_page_served` | 90 days |
 | Sign-ins, accounts and profiles | 13 months |
@@ -348,7 +348,7 @@ Kept 30 days.
 
 | Event | When | Payload |
 |---|---|---|
-| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`expected` when the app outgrew its own memory limit, `dependency` when the host ran short of memory, which is always the case for a server with no limit of its own), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest `podman stats` reading, inactive page cache excluded), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs` |
+| `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`expected` when the app outgrew its own memory limit, `dependency` when the host ran short of memory, which is always the case for a server with no limit of its own), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest working set the host's 5-second polls read from the server's cgroup: `memory.current` less inactive page cache, shared memory included), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs`, and from the kernel's counters of the dead container, null when they could not be read: `memoryLimitReached` (how often usage reached the limit), `oomKillCount` (the processes killed for memory; more than 1 means a child process was killed before the server), `shmemAtExitBytes` (shared memory still charged to the container after its processes ended, such as files in a tmpfs or `/dev/shm`) and `fileAtExitBytes` (the page cache still charged, shared memory included) |
 | `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
@@ -513,6 +513,7 @@ The CLI reports a command that rejected your input separately from one that brok
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
 | `tool_command_finished` | Every command, when it ends: `outcome` (`succeeded`, `failed`, `rejected`, `cancelled` or `confirmation`), `exitCode` and `durationMs` | — |
 | `tool_installed` | The first run after an installer finished, with the installer's result: `ok`, `code`, `signedIn`, `components` (each one's `component`, `status` and `version`), `installer` and `finishedAt` | — |
+| `tool_updated` | After `ikon self update`, an automatic update or `ikon self reset` replaced the tool, with the result of the script that replaced it, sent by the next run of the tool (on macOS and Linux, the command that started the script): `ok`, `step` (where a failed one stopped: `remove`, `install`, `finish` or `after-install`), `kind` (`update` or `reset`), `automatic`, `fromVersion`, `toVersion`, `channel` (`stable` or `dev`), `switched` (it moved between the two), `fallback` (`dotnet tool update` failed and a fresh install was tried) and `finishedAt` | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 
 **These rows are sent only with consent.** The CLI asks once in a terminal, after you sign in.
@@ -521,8 +522,9 @@ The CLI reports a command that rejected your input separately from one that brok
 in a table of their own with no space or session column.
 
 The rows of a command carry `verb` (the verb that was running, or `(unresolved)` when it failed before
-one was picked) and `phase` (`startup`, `sign-in` or `verb`: where the run was when it ended), so a
-command's failures can be found without matching on message text. Every `tool_*` row carries the run
+one was picked; `self update` when the tool updated itself instead of running the command, and then
+also `automatic` true; `--finish-install` for the run an update makes of the new install) and
+`phase` (`startup`, `sign-in` or `verb`: where the run was when it ended), so a command's failures can be found without matching on message text. Every `tool_*` row carries the run
 context: `toolVersion`, `os`, `isCi`, `isInteractive`, `isLocalBuild` (a tool built from the
 platform's own source) and `isHosted` (the tool ran on an app's token, as the platform's hosted runner
 starts it).
@@ -574,7 +576,10 @@ days.
 
 Consumption — tokens spent, images generated, database seconds, egress — is metered separately and
 is what billing and cost reporting are based on. It does not appear in your events, so an event
-query is the wrong place to look for it. Use the cost and usage views in the Portal instead.
+query is the wrong place to look for it. Use the cost and usage views in the Portal instead. They
+show the credits each usage was charged at the time, going back up to 25 months, which is how long
+each use is kept. After that, only daily totals per app and usage name are kept, as billing records,
+until six full years have passed after the end of the year they belong to.
 
 The AI events above are the nearest equivalent: `llm_succeeded` and its siblings record that a model
 call happened and how long it took, and carry token counts in their completion details. Treat those

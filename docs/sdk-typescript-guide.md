@@ -1,4 +1,4 @@
-<!-- checked-against: 4e9217c784148fcbe3b0c442 -->
+<!-- checked-against: 4e9217c7d28cf7dae3b0c442 -->
 
 # IKON TypeScript SDK
 

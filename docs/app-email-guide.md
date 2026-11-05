@@ -1,4 +1,4 @@
-<!-- checked-against: a0a3a529e0133b05024025a6 -->
+<!-- checked-against: b9ccbdddcd076dc39cd61743 -->
 
 # Ikon.App.Email Guide
 
@@ -51,6 +51,8 @@ up:
 - With `ikon run --host-public` it is the IKON relay address, which opens anywhere.
 
 To test links that must keep working, send the email from a deployed app.
+
+A staging copy (`ikon link --target staging`) never delivers mail. `app.Email` accepts the send and records it for the owner to count, and nothing reaches the recipient or the inbox. Test inbox flows (`ikon inbox send`, a welcome mail someone replies to) on the default target.
 
 Limits, enforced by the backend and, except the metadata key count, also checked in the client:
 
@@ -244,6 +246,10 @@ internal async Task OnEmailReceivedAsync(TriggerContext context, CancellationTok
     await RememberLastEventAsync(context, message.Subject);
 }
 ```
+
+`envelope.Id` is a string. `app.Email.GetMessageAsync(string)` returns an `InboundEmailDetail` (`Subject`, `BodyText`, `Attachments`: each with `Id`, `Filename`, `MimeType`, `Size`). The `ImapMessageId` overload belongs to the IMAP connector, not to this inbox.
+
+The trigger fires only for mail stored while the active bundle declares it, so mail that arrived before the first deploy with the trigger is not replayed: read it with `app.Email` once.
 
 The payload is an `EmailReceivedPayload` — the envelope only (`Id`, `Recipient`, `From`, `ReceivedAt`,
 `AttachmentCount`, `SpamScore`, `Tag`); read the subject, bodies and attachments with the message id.

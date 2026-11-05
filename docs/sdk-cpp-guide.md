@@ -1,4 +1,4 @@
-<!-- checked-against: ff28094c509ae145e3b0c442 -->
+<!-- checked-against: 6b17cb06658f4362e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -110,6 +110,17 @@ one is refused too, it throws `ServerChangedException`. The API key is still val
 again later. When a server answers that it is full, `Connect()` asks `/init` again up to three times,
 naming the full servers so a sharded app places the person on another shard, and then throws
 `ServerFullException`.
+
+When the platform no longer accepts the client, `Connect()` throws at once, and a reconnect reports it
+through `ErrorOccurred` and goes offline, because only a new build fixes it:
+
+| Exception | What is too old | The fix |
+|---|---|---|
+| `SdkUpgradeRequiredException` | This version of the C++ SDK | Update the SDK and rebuild |
+| `AppUpgradeRequiredException` | The IKON libraries the app's deployed server was built on | The app's developer runs `ikon update` and deploys again |
+
+Both derive from `ClientUpgradeRequiredException`, whose `reason` is the platform's message and
+`minimum` the oldest version it accepts.
 
 ### Local Development
 

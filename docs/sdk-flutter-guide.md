@@ -1,4 +1,4 @@
-<!-- checked-against: 29c245f82f6b6f79e3b0c442 -->
+<!-- checked-against: b4068a7a33f74205e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -545,6 +545,18 @@ too, it throws `ServerChangedException`. The sign-in is still valid, so keep the
 connect again later. A connect refused by a full server asks `/init` again up to three times, naming
 the servers that refused it, so a sharded app places the person on another shard; then it throws
 `ServerFullException`.
+
+### When the platform no longer accepts the client
+
+Only a new build fixes these, so the connect throws at once and a reconnect goes offline with the
+exception in `IkonClient.lastError`:
+
+| Exception | What is too old | The fix |
+|---|---|---|
+| `SdkUpgradeRequiredException` | This version of `ikon_sdk` | Update the package and ship a new build of the app |
+| `AppUpgradeRequiredException` | The IKON libraries the app's deployed server was built on | The app's developer runs `ikon update` and deploys again |
+
+`reason` is the platform's message and `minimum` the oldest version it accepts.
 
 ## Links and Notification Taps
 

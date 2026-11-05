@@ -1,4 +1,4 @@
-<!-- checked-against: 257e98807e194415f25ad001 -->
+<!-- checked-against: bc58de419cd6ea366ab9f1c9 -->
 
 # IKON C# SDK
 
@@ -478,6 +478,15 @@ await client.DisposeAsync();
 ```
 
 A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the client on another shard; when none has room, `ConnectAsync` throws an `HttpRequestException` saying the app is full.
+
+When the platform no longer accepts the client, `ConnectAsync` throws, and the SDK neither retries nor reconnects, because only a new build fixes it:
+
+| Exception | What is too old | The fix |
+|---|---|---|
+| `SdkUpgradeRequiredException` | This version of the `Ikon.Sdk` package | Update the package and rebuild the program |
+| `AppUpgradeRequiredException` | The IKON libraries the app's deployed bundle was built on | The app's developer runs `ikon update` and deploys again |
+
+Both are `HttpRequestException`s carrying 426. `Reason` is the platform's message and `Minimum` the oldest version it accepts. A reconnect that meets either one stops and raises `ErrorOccurredAsync` with it.
 
 ### Automatic Reconnection
 

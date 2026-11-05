@@ -1,4 +1,4 @@
-<!-- checked-against: b88b05a2733da022d34ae461 -->
+<!-- checked-against: 391d7d53733da022d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -255,13 +255,15 @@ Backend and scope are chosen independently. Scope decides who sees the value; ba
 
 ### Database tiers
 
-Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
-`dedicated-small` — which decides how densely it is packed onto an instance and how many
-connections it gets. `ikon db create` takes `--tier shared` or `--tier dedicated-small` and defaults to `shared`; the built-in `app` database starts on `shared-dense`.
+Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or a dedicated
+tier from `dedicated-nano` to `dedicated-large` — which decides how densely it is packed onto an
+instance and how many connections it gets. `ikon db tiers` lists the tiers `ikon db create --tier`
+takes, with each tier's storage, connections and backups. `--tier` defaults to `shared`, and the
+built-in `app` database starts on `shared-dense`.
 
 The app reaches a database through a connection pooler, which runs its queries on 1 server
 connection on `shared-dense`, 3 on `shared` and 48 on `dedicated-small`, shared by every instance
-of the app. Queries beyond that wait at the pooler for a free one. Persistent state loads a joining
+of the app. Queries beyond that wait at the pooler for a free one, except on `shared-dense`: it runs one query at a time, and a second concurrent query is refused with "too many connections" (SQLSTATE 53300) instead of waiting. Persistent state loads a joining
 user's values with one query per database, however many values the user has.
 
 A live database can move to another tier without redeploying:
@@ -270,18 +272,18 @@ A live database can move to another tier without redeploying:
 ikon db tier dedicated-small
 ```
 
-A database moves to `shared` or `dedicated-small`, the tiers `ikon db create` offers, so the
-built-in database can leave `shared-dense` but none can move onto it. With several declared
+A database moves to any tier `ikon db create` offers, so the built-in database can leave
+`shared-dense` but none can move onto it. With several declared
 databases, name the one to move with `--name <name>`. The platform
 copies the data to an instance of the new tier, verifies it, and switches connections over —
 the database keeps its name and credentials, but expect open connections to drop briefly while
 the data moves (sessions reconnect automatically). Writes are refused while the data is copied;
 reads keep working. `ikon db list` shows each database's tier and the state of an in-flight
-migration.
+migration, and `ikon db tier dedicated-small --wait` waits for the move to finish.
 
 A move that cannot finish is undone: the database stays on its current tier, unchanged and
 writable again (unless it is over its storage quota), and `ikon db list` shows the move as
-`failed` (it does not print why). Nothing needs cleaning up before you try again, to the same tier or
+`failed`, and `ikon db show` says why. Nothing needs cleaning up before you try again, to the same tier or
 another. A database holding a single row too large to move — tens of megabytes as text on the
 shared tiers — is refused before anything changes, as is one larger than the target tier's storage
 (1 GB on `shared`, 225 GB on `dedicated-small`) or one with tables under row-level security or
@@ -305,6 +307,15 @@ last backup and the earliest moment it can be restored to. A moment within the l
 than seven days, before that earliest moment or before the database reached its current instance is
 refused before anything changes, and so is a database on a shared tier: move it to
 `dedicated-small` first. The same restore is in Studio under Settings › Data.
+
+`ikon db import <dump>` loads a `pg_dump --format=custom` archive, such as a database file of
+`ikon export create`, into a database with no tables; `--clear` drops the tables first, after
+asking. `ikon db copy --from default --to staging` copies a database from one app to another, and
+each side can be a target name or an app id. Use it to move data into a staging copy, or into a new
+app before it goes live. Both run on the platform, so you need no Postgres tools and the copied
+data never passes through your machine. `--wait` waits until they finish. If a connection string
+leaks, `ikon db rotate` gives the database a new password, ends the connections that used the old
+one, and stops the app's sessions so the new ones connect with the new password.
 
 ## The `key:` parameter — loops and refactor-proof state
 
@@ -335,7 +346,7 @@ Without `key:`, a field's stored value is found by its declaring source file's p
 These are the rules for `PersistentReactive`, `PersistentUserReactive` and their collections. The
 global types are sent on their own schedule ("Global values", above).
 
-- **Load**: parallel for all persistent reactives that exist once the app instance is constructed, as the app starts. The app waits at most 1.5 s for them before `Main()` runs and clients connect. When storage answers later, `Main()`, the `OnStarting` handlers and the first frames see the initial values, and each stored value replaces its initial value when it arrives, so whatever read it renders again. Code that needs the stored value, such as seeding a list only when nothing is stored, first awaits `LoadAsync()` on that reactive. An `Update` or a collection change made during the load is applied again to the stored value; a plain set made during it is replaced by the stored value, and a warning names the reactive. Nothing saves a value while its load runs. A failed load logs an error, keeps the initial value, and skips saving that value for the run, so the stored value is kept until you fix the cause; the app starts anyway, also when the store cannot be reached or the database credentials are stale. A load also fails when the code cannot read the stored payload: the type changed, or the error says `stored state was captured as …` and names the type the value was saved as. Make the type readable again, or give the reactive a new `key:` to start it fresh. (User-scoped reactives load per user. The primary user's partition loads as the app starts, within the same wait. A connected user's partition loads before their first render and before `OnClientJoined` runs. If that takes over 1.5 s, the client renders and `OnClientJoined` runs with the initial values, and the stored values replace them when the load finishes. Any other user's partition loads the first time their scope is touched, and until it arrives `ValueFor` returns the initial value. With autosave on, a user's partition also leaves memory a minute after their last client left, once it is stored, and loads again the same way. Background code (a cron, a webhook) that reads a user's value to work out what to write should await `LoadForAsync(userId)` first. An `UpdateFor`, `AddFor` or other change made during that load is applied again to the stored value when it arrives; a plain `SetFor` made during it is replaced by the stored value, and a warning names the reactive.)
+- **Load**: parallel for all persistent reactives that exist once the app instance is constructed, as the app starts. The app waits at most 1.5 s for them before `Main()` runs and clients connect. When storage answers later, `Main()`, the `OnStarting` handlers and the first frames see the initial values, and each stored value replaces its initial value when it arrives, so whatever read it renders again. Code that needs the stored value, such as seeding a list only when nothing is stored, first awaits `LoadAsync()` on that reactive. That holds in `OnClientJoined` as much as in `Main` and `OnStarting`: the first join can run before an app-level load finishes, so a join that checks the list and adds its member works on the initial value, and the stored list then arrives with that member already in it (a duplicate in a roster). An `Update` or a collection change made during the load is applied again to the stored value; a plain set made during it is replaced by the stored value, and a warning names the reactive. Nothing saves a value while its load runs. A failed load logs an error, keeps the initial value, and skips saving that value for the run, so the stored value is kept until you fix the cause; the app starts anyway, also when the store cannot be reached or the database credentials are stale. A load also fails when the code cannot read the stored payload: the type changed, or the error says `stored state was captured as …` and names the type the value was saved as. Make the type readable again, or give the reactive a new `key:` to start it fresh. (User-scoped reactives load per user. The primary user's partition loads as the app starts, within the same wait. A connected user's partition loads before their first render and before `OnClientJoined` runs. If that takes over 1.5 s, the client renders and `OnClientJoined` runs with the initial values, and the stored values replace them when the load finishes. Any other user's partition loads the first time their scope is touched, and until it arrives `ValueFor` returns the initial value. With autosave on, a user's partition also leaves memory a minute after their last client left, once it is stored, and loads again the same way. Background code (a cron, a webhook) that reads a user's value to work out what to write should await `LoadForAsync(userId)` first. An `UpdateFor`, `AddFor` or other change made during that load is applied again to the stored value when it arrives; a plain `SetFor` made during it is replaced by the stored value, and a warning names the reactive.)
 - **Autosave**: a persistent reactive assigned, or changed through its collection methods, is written within about two seconds, together with any other changes in that time. A value is written only when its payload differs from what this instance last loaded or wrote, and a value still at its initial value is not written while nothing is stored for it. A failed write logs a warning and is retried for that user alone, 4, 8 and 16 seconds later. After 4 failed writes in a row the value is dropped: a warning names it, and it is written again only once it changes. When the platform answers that it is busy, every write of the instance waits as long as it asks. A value mutated in place (`_state.Value.Items.Add(x)` on a plain record) does not tell the reactive it changed; it is written by the next explicit save or at shutdown.
 - **Explicit save**: `await app.SavePersistentStateAsync()` writes every value and completes when they are stored, except a value still at its initial value with nothing stored for it. That includes a value mutated in place, and a value this instance stored before and has not changed since, because another process running the same identity (a local run beside the deployed app) may have changed the stored copy. It throws the storage error when a write fails, and an error naming the value when its stored value is still loading. Await it before a UI says "Saved". Set `app.AutosavePersistentState = false` in `Main` to write only on this call and at shutdown, for an app that wants to choose its save points or changes a value many times a second.
 - **Save at shutdown**: for all persistent reactives, at most six writes at a time, on `StoppingAsync` (graceful shutdown), writing only the values whose payload differs from what this instance last loaded or wrote; a value it only read is not written back, nor one still at its initial value with nothing stored for it, nor a dropped value that has not changed since. The stop waits at most 5 seconds for these writes (a local `ikon run` waits for all of them). A value not stored by then is named in an error, and its changes are lost if the process stops before the write ends. Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.

@@ -1,4 +1,4 @@
-<!-- checked-against: 19e459a05d753426e3b0c442 -->
+<!-- checked-against: 35669eb25d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -129,9 +129,10 @@ What an app may do is a set of **grants**, checked on your computer:
 | `browser` | Use the computer's signed-in browser, which every connected app shares |
 | `terminal` | Open a terminal — keyboard access to the computer |
 | `bridges` | Call the programs registered on the computer with `ikon connect bridge add` |
+| `activity` | See which coding agents are changing your IKON apps' files on the computer: the app, folder, branch and changed paths, never file contents or prompts |
 
 Run inside a repository, an app gets `repo`, `agents`, `files` and `devices`; elsewhere, `agents`,
-`files` and `devices`. `browser`, `terminal` and `bridges` are never given by default. A command that needs a
+`files` and `devices`. `browser`, `terminal`, `bridges` and `activity` are never given by default. A command that needs a
 grant the app lacks is refused on the computer, and the app is told which grant is missing.
 
 | Option | What it does |
