@@ -87,8 +87,8 @@
     <!-- The examples show EF Core and Dapper against an app database. EF's design-time package
          is kept out of the output; the two CodeAnalysis pins resolve its internally mismatched Roslyn
          versions (NU1107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
@@ -99,8 +99,8 @@
     <!-- barcode-scan decodes with ZXing.Net's core reader, which needs no image library binding. -->
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
     <!-- rendered-video-feed draws its frames with Skia; the Linux assets are the ones a deployed app needs. -->
-    <PackageReference Include="SkiaSharp" Version="4.153.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp" Version="4.154.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Ikon.Agent.Test" />
@@ -138,6 +138,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\data\**\*" CopyToOutputDirectory="Always" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="..\..\data\**\*" CopyToOutputDirectory="Always" CopyToPublishDirectory="PreserveNewest" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

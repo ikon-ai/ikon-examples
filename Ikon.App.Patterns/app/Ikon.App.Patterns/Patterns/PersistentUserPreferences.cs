@@ -20,7 +20,7 @@ internal sealed class PersistentUserPreferences : IPatternDemo
     public partial class SentinelApp(IApp<SessionIdentity, ClientParameters> app)
     {
         // Per-user, persists across sessions — sidebar state, view mode, sub-tabs
-        private readonly PersistentUserReactive<bool> _sidebarCollapsed = new(false);
+        private readonly PersistentUserReactive<bool> _sidebarCollapsed = new(false, key: "prefs.sidebar");
         private readonly PersistentUserReactive<string> _camerasViewMode = new("grid");
         private readonly PersistentUserReactive<bool> _camerasGroupByRole = new(false);
         private readonly PersistentUserReactive<string> _settingsSubTab = new("general");

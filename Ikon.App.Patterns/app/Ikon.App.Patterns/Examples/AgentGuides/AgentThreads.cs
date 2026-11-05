@@ -110,6 +110,18 @@ public static class AgentThreadExamples
     }
     #endregion
 
+    #region example:agent-pass-budget
+    // MaxTurns counts passes, so with UntilStable it stops a pipeline that keeps calling tools: the
+    // thread fails with "budget exceeded: MaxTurns" and DriveAsync returns DriveOutcome.Failed.
+    public static async Task<DriveOutcome> RunPipelineAsync(Orchestrator orchestrator, AgentThread thread, CancellationToken ct)
+    {
+        orchestrator.AddPersona(new Persona("pipeline", "Work through the steps, then call done.", [Built.Termination],
+            new Reasoning(), Budget: new Budget(BudgetAction.Stop, MaxTurns: 8)));
+
+        return await thread.DriveAsync(DriveMode.UntilStable, ct: ct);
+    }
+    #endregion
+
     #region example:agent-thread-options
     public static Task<AgentPlan> StartReviewAsync(AgentApp app, CancellationToken ct)
     {

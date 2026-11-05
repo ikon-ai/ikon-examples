@@ -12,6 +12,7 @@ internal sealed class VideoCallTiles : IPatternDemo
     private Video Video => throw new NotImplementedException();
 
     #region example:pattern-video-call-tiles
+    // Video is an instance property of the app class (created with new Video(app)), not a static class
     // Shared by everyone: every client draws the same tiles, in the order the cameras started
     private readonly ReactiveList<CallTile> _tiles = new();
 

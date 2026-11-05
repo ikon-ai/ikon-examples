@@ -18,6 +18,8 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
     private readonly ClientReactive<string> _draftTitle = new("");
     private readonly ClientReactive<string> _draftBody = new("");
     private readonly ClientReactive<string> _saveStatus = new("");
+    // What the store holds for this client; a save is skipped while the fields still equal it
+    private readonly ClientReactive<string> _savedText = new("");
     private ClientReactiveEffect? _autosave;
 
     /// <summary>
@@ -31,6 +33,15 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
         {
             await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken);
 
+            // Loading a saved note into the fields counts as a change; set _savedText to the loaded text
+            // first, and this run then finds nothing new to save
+            var currentText = $"{_draftTitle.Value}\n{_draftBody.Value}";
+
+            if (currentText == _savedText.Value)
+            {
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_draftTitle.Value))
             {
                 _saveStatus.Value = "Not saved yet: the title is required";
@@ -39,6 +50,7 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
 
             _saveStatus.Value = "Saving…";
             await SaveDraftAsync(ReactiveScope.UserId, _draftTitle.Value, _draftBody.Value, cancellationToken);
+            _savedText.Value = currentText;
             _saveStatus.Value = $"Saved at {DateTime.UtcNow:HH:mm:ss} UTC";
         }, _draftTitle, _draftBody);
     }

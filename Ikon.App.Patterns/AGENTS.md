@@ -27,7 +27,7 @@ A deployed instance has 1 CPU and 512 MB; its image has .NET and `ffmpeg`, no Py
 ## Running and checking the app
 
 `ikon run --detach` starts the app, returns when ready; a plain
-`ikon run` blocks. A first build takes minutes: no short `timeout` or `| tail` on `build`, `link --new-app`, `deploy` or `run --detach`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+`ikon run` blocks. A first build takes minutes: no short `timeout` or `| tail` on `build`, `link --new-app`, `deploy` or `run --detach`. Run these in the background with the shell's longest timeout: its background limit kills `link` and `deploy` while they are queued or building (`ikon deployment list` shows what finished). `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
@@ -59,7 +59,7 @@ the local run or the deployed app, and
 without them they drive the local run, else the linked deployed app. The page signs in as you when
 the app offers the method you used for `ikon login` (or email, for your organisation's app); `--as-guest` is a new guest each run, `--guest-name <name>` the same one; on a
 local run `--as-user <name>` acts as a named test user (`--role`), and `as <name>+<role>:` as another up to the
-next `as` (`as me:` is the run's own). Deployed, `as <name>:` is that guest. When
+next `as` (`as me:` is the run's own). Deployed, `as <name>:` is that guest, without a page: it cannot upload, and a room it hosts ends with the run. When
 a surface lists "global", every guest is one shared user, which a deployed app's page cannot
 join: use `--text-only` there, a local run for `look`, or list "guest". `click <name>` is a real mouse click.
 

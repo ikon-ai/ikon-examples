@@ -104,6 +104,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
         {
             // input.Id, input.Kind (Camera/Screen/Other), input.ClientSessionId, input.Codec, input.Width
             // Everyone but the owner, who previews its camera locally; later joiners included
+            // The surface name is app-wide, so give each input its own name or the last one replaces the others
             Video.Play(MediaTargets.EveryoneExcept(input.ClientSessionId), $"camera-{input.Id}", input);
         };
         Video.InputEndedAsync += async input => { /* drop the tile; its playback ends on its own, maybe just after */ };

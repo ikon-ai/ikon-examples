@@ -97,7 +97,9 @@ internal sealed class GuidedTour : IPatternDemo
             onOpenChange: async open => { if (!open) { _openGuide.Value = null; } },
             onIndexChange: async index => _guideStep.Value = index,
             onFinish: async () => _openGuide.Value = null,
-            onSkip: guide == "tour" ? async () => _openGuide.Value = null : null);
+            onSkip: guide == "tour" ? async () => _openGuide.Value = null : null,
+            // The words are English unless the app passes its own; translate all six for a translated app.
+            labels: new StepDialogLabels(Back: "Back", Next: "Next", Done: "Done", Skip: "Skip", StepOf: "{0} of {1}", Close: "Close"));
     }
     #endregion
 

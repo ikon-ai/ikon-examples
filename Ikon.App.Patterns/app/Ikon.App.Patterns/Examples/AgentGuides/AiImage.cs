@@ -41,6 +41,22 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private static async Task DocImageEditConfigAsync(byte[] photoBytes)
+    {
+        #region example:image-edit-input
+        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+        var results = await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
+        {
+            Prompt = "Edit the provided image. Keep its composition and people; change only the lighting to sunset.",
+            InputImages = [new InputImage { Data = photoBytes, MimeType = "image/jpeg", Type = InputImageType.Normal }],
+            Width = 0,  // 0 and 0: keep the input's shape instead of the 1024 x 1024 square
+            Height = 0
+        });
+        #endregion
+
+        _ = results;
+    }
+
     private static async Task<string> GenerateImageOneShotAsync(string prompt)
     {
         #region example:image-generate-one-shot

@@ -13,6 +13,7 @@ internal sealed class SampleStillsToVision(IAppBase app) : IPatternDemo
     public void RenderDemo(IView view) => Render((UIView)view);
 
     #region example:pattern-sample-stills-to-vision
+    // Audio is an instance property of the app class (created with new Audio(app)), not a static class
     private sealed record Feedback(string Speech, string Presence);
 
     private sealed record Take(string Id, string Transcript, Feedback Feedback);

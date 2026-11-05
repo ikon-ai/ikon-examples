@@ -202,4 +202,33 @@ internal sealed class DeviceIngest(IAppBase app) : IPatternDemo
         });
     }
     #endregion
+
+    #region example:pattern-device-ingest-per-user
+    private sealed record SensorStatus(string SensorId, double? Temperature, DateTime ReceivedAt);
+
+    // This instance's copy of each sensor's last reading, which its dashboard draws
+    private readonly ReactiveDictionary<string, SensorStatus> _sensorStatus = new();
+
+    // One number every instance reads. PostReading adds 1 after each insert:
+    //     _readingsRevision.Update(revision => revision + 1);
+    private readonly GlobalReactive<long> _readingsRevision = new(0, key: "readings-revision");
+
+    private ReactiveEffect? _reloadSensorStatus;
+
+    // Run in every instance from app.OnStarting, after the readings table exists. The effect runs once
+    // at once, then again each time _readingsRevision changes.
+    private void WatchSensorStatus()
+    {
+        _reloadSensorStatus = new ReactiveEffect(async cancellationToken =>
+        {
+            await using var db = await app.DatabaseAsync();
+            await db.OpenAsync(cancellationToken);
+            var rows = await db.QueryAsync<SensorStatus>("""
+                SELECT DISTINCT ON (sensor_id) sensor_id AS SensorId, temperature AS Temperature, received_at AS ReceivedAt
+                FROM readings ORDER BY sensor_id, received_at DESC
+                """);
+            _sensorStatus.ReplaceAll(rows.Select(row => KeyValuePair.Create(row.SensorId, row)));
+        }, _readingsRevision);
+    }
+    #endregion
 }

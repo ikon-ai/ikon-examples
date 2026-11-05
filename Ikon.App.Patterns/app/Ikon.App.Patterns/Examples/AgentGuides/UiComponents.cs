@@ -466,7 +466,8 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
     {
         #region example:bottom-tab-bar
         // Root and panel are a flex column with a definite height; the list container comes last in
-        // the column (order-last) and scrolls sideways, so five tabs still fit a 390px phone;
+        // the column (order-last) and scrolls sideways, so more than four tabs scroll
+        // (use NavBar for five or more);
         // md:max-w-md md:mx-auto keeps the bar from spanning a wide desktop window
         view.Tabs(
             defaultValue: "home",
@@ -488,6 +489,7 @@ file sealed class EventCalendarExamples
     private sealed record CalendarEvent(DateOnly Day, string Title);
 
     private readonly ClientReactive<DateOnly> _month = new(new DateOnly(2026, 10, 1));
+    private readonly ClientReactive<DateOnly> _selected = new(new DateOnly(2026, 10, 1));
     private readonly ReactiveList<CalendarEvent> _events = new();
 
     public void Render(UIView view)
@@ -522,20 +524,35 @@ file sealed class EventCalendarExamples
                 var day = new DateOnly(first.Year, first.Month, number);
                 var label = number.ToString();
 
-                grid.Box([Card.Default, "flex min-h-20 min-w-0 flex-col gap-1 p-1"], key: day.ToString("yyyy-MM-dd"), content: cell =>
+                grid.Box([Card.Default, "flex min-h-14 min-w-0 flex-col gap-1 p-1"], key: day.ToString("yyyy-MM-dd"), onClick: async () => _selected.Value = day, content: cell =>
                 {
                     cell.Text([Text.Caption], label);
 
-                    foreach (var calendarEvent in _events)
+                    // A dot per event: at 390 px a cell is about 50 px wide and shows four letters of a title
+                    cell.Row(["flex-wrap gap-0.5"], content: dots =>
                     {
-                        if (calendarEvent.Day == day)
+                        var dotIndex = 0;
+
+                        foreach (var calendarEvent in _events)
                         {
-                            cell.Text([Text.BodySm, "truncate"], calendarEvent.Title);
+                            if (calendarEvent.Day == day)
+                            {
+                                dots.Box(["h-1.5 w-1.5 rounded-full bg-brand-solid"], key: $"dot-{dotIndex++}");
+                            }
                         }
-                    }
+                    });
                 });
             }
         });
+
+        // The tapped day's events, with room for the full titles
+        foreach (var calendarEvent in _events)
+        {
+            if (calendarEvent.Day == _selected.Value)
+            {
+                view.Text([Text.Body], calendarEvent.Title);
+            }
+        }
         #endregion
     }
 }
@@ -701,6 +718,17 @@ file sealed class EditorsExamples
             row.Button([Button.OutlineSm], text: "Clear", onClick: async () => _clearPad.Value++);
             row.Button([Button.PrimarySm], text: "Check", onClick: async () => _savePad.Value++);
         });
+        #endregion
+    }
+
+    public void RenderPhotoMarkup(UIView view, string photoUrl)
+    {
+        #region example:image-editor-photo-markup
+        // With src: the box needs a size of its own. A bare editor draws about 106 x 150 px.
+        view.ImageEditorCanvas(["w-full aspect-[4/3] rounded-lg border"], src: photoUrl,
+            tool: ImageEditorTool.Arrow, brushColor: "#dc2626", fitContainer: true, highResolution: true,
+            triggerSave: _savePad.Value,
+            onSave: async args => { _drawing.Value = args.ImageData; });
         #endregion
     }
 }
