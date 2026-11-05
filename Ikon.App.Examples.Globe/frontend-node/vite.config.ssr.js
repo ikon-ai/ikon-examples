@@ -82,7 +82,7 @@ export default defineConfig(({ mode }) => {
       ssr: entry,
       outDir: resolve(__dirname, 'build/prerender'),
       emptyOutDir: true,
-      target: 'node20',
+      target: 'node26',
       rollupOptions: {
         output: {
           format: 'es',
