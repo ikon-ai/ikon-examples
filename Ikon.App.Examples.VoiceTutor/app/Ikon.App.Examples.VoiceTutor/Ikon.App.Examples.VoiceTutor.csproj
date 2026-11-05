@@ -69,7 +69,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.89" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/../../schema')">
@@ -105,6 +105,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\data\**\*" CopyToOutputDirectory="Always" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="..\..\data\**\*" CopyToOutputDirectory="Always" CopyToPublishDirectory="PreserveNewest" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
