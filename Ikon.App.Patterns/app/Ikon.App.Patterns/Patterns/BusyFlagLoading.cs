@@ -13,8 +13,8 @@ internal sealed class BusyFlagLoading : IPatternDemo
     private Task SlowOperationAsync() => throw new NotImplementedException();
 
     #region example:pattern-busy-flag-loading
-    private readonly Reactive<bool> _busy = new(false);
-    private readonly Reactive<string?> _error = new(null);
+    private readonly ClientReactive<bool> _busy = new(false);
+    private readonly ClientReactive<string?> _error = new(null);
 
     private async Task DoWorkAsync()
     {

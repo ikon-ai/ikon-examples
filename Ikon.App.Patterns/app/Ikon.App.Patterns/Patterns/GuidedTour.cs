@@ -46,8 +46,8 @@ internal sealed class GuidedTour : IPatternDemo
         new("export", "Export to PDF", "Any project prints to a PDF from its menu.", "file-down", () => true),
     ];
 
-    // On arrival: the tour once per person, else this version's highlights once. A join handler runs
-    // before the stored set has loaded, so await it first or every visit looks like the first.
+    // On arrival: the tour once per person, else this version's highlights once. A join handler already
+    // waits for the user's stored values; LoadForAsync is needed only when this runs outside one.
     private async Task OnSignedInAsync(string userId)
     {
         await _seenGuides.LoadForAsync(userId);

@@ -82,7 +82,8 @@ file sealed class PgVectorExamples(IApp<SessionIdentity, ClientParameters> app)
     #region example:pgvector-search
     private sealed record PassageHit(long Id, string DocumentId, int Page, string Text, double Similarity);
 
-    // Run once from app.OnStarting. 1536 is the length of a default EmbeddingGenerator vector; a model that returns
+    // Run once from app.OnStarting. The column's length is the embedding model's own: 1536 for the default
+    // OpenAI3Small, 768 for GoogleTextEmbedding5 (the table in the ai-web-and-data guide). A model that returns
     // 3072 numbers needs EmbeddingGeneratorConfig.OutputDimensions = 1536, since an HNSW index holds at most 2000.
     private async Task CreatePassagesTableAsync()
     {

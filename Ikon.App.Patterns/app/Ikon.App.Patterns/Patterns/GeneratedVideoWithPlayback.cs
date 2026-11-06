@@ -11,8 +11,8 @@ internal sealed class GeneratedVideoWithPlayback : IPatternDemo
 
     #region example:pattern-generated-video-with-playback
     private readonly Reactive<string?> _videoUrl = new(null);
-    private readonly Reactive<bool> _busy = new(false);
-    private readonly Reactive<string?> _error = new(null);
+    private readonly ClientReactive<bool> _busy = new(false);
+    private readonly ClientReactive<string?> _error = new(null);
 
     private async Task GenerateAsync(string prompt)
     {

@@ -5,13 +5,13 @@ MaxClients = 0  # Clients an instance admits, and a shard's size with [Sharding]
 
 # More instances, called shards, for one identity value that fills its instance (scaling guide, "Sharding")
 [Sharding]
-Enabled = false  # true: a client that finds its instance full joins another instance of the same identity, instead of being refused with 429
+Enabled = false  # true: a client that finds its instance full joins another instance of the same identity, instead of being refused with 429; live audio and video stay within one shard (scaling guide)
 MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the app's own
 
-# The kinds of visitor, one [[Surface]] each; with none, one surface admits guests at "/" (app-structure guide, "Surfaces")
+# The kinds of visitor, one [[Surface]] each; with none, one surface admits guests at "/". With several, exactly one that is not a SignIn page has neither Routes nor Host, and it serves every other path (app-structure guide, "Surfaces")
 # [[Surface]]
 # Name = ""  # Unique in the app; a handler reads it as Context.Surface
-# Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy
+# Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; with one surface, list every page's path
 # Host = ""  # A hostname label of its own: "admin" serves it only at <space>-admin; empty selects it by route
 # Connect = "atLoad"  # "atLoad"; "onAction" connects on the visitor's first action; "none" never connects
 # Media = "atConnect"  # "atConnect" opens WebRTC audio and video; "none" never does
@@ -22,7 +22,7 @@ MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the a
 # Who may enter the surface
 # [Surface.Auth]
 # Methods = ["google", "apple", "microsoft", "email", "passkey", "guest"]  # Sign-in providers, and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
-# Roles = []  # Roles a signed-in person must hold, e.g. ["admin"]; empty admits every signed-in person
+# Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. With Roles set, every external function needs [Surface("name")]
 # SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
 # The emailed sign-in code, how long a browser stays signed in, and the sign-in screen's text (app-structure guide)
