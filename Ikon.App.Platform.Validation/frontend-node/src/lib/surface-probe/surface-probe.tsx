@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { ContextType, EntrypointType, FunctionCallError, type IkonClient } from '@ikonai/sdk';
+import { ContextType, EntrypointType, FunctionCallError, type GlobalState, type IkonClient } from '@ikonai/sdk';
 import { type IkonUiComponentResolver, type UiComponentRendererProps, useUiNode } from '@ikonai/sdk-react-ui';
 import { panelStyles } from '../identity/panel-styles';
 
@@ -16,7 +16,8 @@ function peerCount(client: IkonClient | null): number | null {
     return null;
   }
 
-  return Object.entries(clients).filter(([sessionId, context]) => Number(sessionId) !== client.sessionId && context.ContextType === ContextType.Browser).length;
+  // The entry type is written out because `ikon bundle` type-checks a copy of this app whose SDK types give the entries as unknown
+  return (Object.entries(clients) as [string, GlobalState['Clients'][number]][]).filter(([sessionId, context]) => Number(sessionId) !== client.sessionId && context.ContextType === ContextType.Browser).length;
 }
 
 function endpointName(client: IkonClient | null): string {
