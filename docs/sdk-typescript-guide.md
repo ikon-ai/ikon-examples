@@ -1,4 +1,4 @@
-<!-- checked-against: 4e9217c7d28cf7dae3b0c442 -->
+<!-- checked-against: 760b9fc6d28cf7dae3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -167,7 +167,7 @@ id, not a signed-in user, so a `[RequireLogin]` function of an app that lets no 
 connection. Pass `apiKey` (a space API key from `ikon api-key create`) inside `local`, together with
 `spaceId` and `backendType`: `local: { host: 'localhost', httpsPort, spaceId, apiKey, backendType }`.
 The key is exchanged for a backend token, as in `apiKey` mode. It is ignored when `userId` or `token`
-is also set.
+is also set. A `local` connection that names `userId` is a guest under that id (a local run accepts any id), so a `[RequireLogin]` function refuses it; use `apiKey` for a signed-in call.
 
 A local run serves a development certificate. Browsers trust it once `ikon install certificate` has
 added it to the computer's certificate store, but Node reads only its own list of authorities, so

@@ -1,4 +1,4 @@
-<!-- checked-against: 08ce1a2801df42d954df3331 -->
+<!-- checked-against: a49aae8d49c255c254df3331 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -51,7 +51,7 @@ each run afterwards returns its result without calling the model again.
 
 | Event | Description |
 |-------|-------------|
-| `ModelText<T>` | Text from the model, delivered as it is produced. Text delivered before a `Retry<T>` is superseded by the text after it |
+| `ModelText<T>` | Text from the model, delivered as it is produced. Text delivered before a `Retry<T>` is superseded by the text after it. When the pass uses JSON (`UseJson`, the default for a `T` other than `string`), the text is the JSON being produced, so show the result from `Completed<T>` |
 | `ToolCallPlanned<T>` | Tool call detected (contains `FunctionCall`) |
 | `ToolCallResult<T>` | Tool execution completed (contains `Call`, `Events`, `Result`) |
 | `Stage<T>` | Pattern stage boundary (e.g., "Candidate:0", "Critic") |

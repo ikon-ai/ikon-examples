@@ -1,4 +1,4 @@
-<!-- checked-against: 8d84a8448bb65a8aeb6a4c42 -->
+<!-- checked-against: 8d84a844f0f303eecc9be523 -->
 
 # Browser Connector Guide
 

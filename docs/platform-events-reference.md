@@ -1,4 +1,4 @@
-<!-- checked-against: 7979511d18071d004437abd4 -->
+<!-- checked-against: cd5e64d618071d004437abd4 -->
 
 # IKON Platform Events
 
@@ -152,7 +152,7 @@ Kept 90 days.
 
 | Event | When | Payload |
 |---|---|---|
-| `app_page_served` | Periodic count of pages the frontend router served, one row per country | `tenant`, `country`, `served`, `rttMsecSum`, `rttSamples`, `windowSeconds` |
+| `app_page_served` | Periodic count of pages the frontend router served, one row per country | `tenant`, `country`, `served`, `doNotTrack`, `rttMsecSum`, `rttSamples`, `windowSeconds` |
 
 Your app's `index.html` is served `no-store`, so **every** page load reaches the platform even when
 the CDN holds every other file. That makes this a count of everyone who arrived — including the
@@ -164,13 +164,54 @@ visitor. `rttMsecSum` and `rttSamples` are summed rather than averaged so they s
 re-aggregate across countries or days: divide the two yourself, at whatever grouping you want. Not
 every request can be measured, which is why the sample count is separate from `served`.
 
-Crawlers are excluded, because a large share of what reaches the router is vulnerability scanners, and
-counting them would inflate the denominator of any completion rate built on this.
+Only page loads are counted: a `GET` the browser marks as loading a page in the window or in a
+frame (`Sec-Fetch-Dest: document` or `iframe`), and not a prefetch or prerender. A browser too old
+to send that header (Safari before 16.4, Chrome before 76, Firefox before 90) is not counted.
+Crawlers are excluded too. A large share of what reaches the router is vulnerability scanners and
+scripted clients, and counting them would inflate the denominator of any completion rate built on
+this.
+
+`doNotTrack` is how many of the `served` page loads sent `DNT: 1` or `Sec-GPC: 1`. They are counted
+in `served` like any other, but their pages send no boot report, so subtract them before comparing
+`served` with `app_page_booted`.
 
 `country` is resolved at the network edge from the connection, never from an IP address, and is
 `unknown` when the edge could not place the client. `tenant` is your app's tenant name, the label of
 its platform subdomain, even when the page was served on a custom domain; the app's id is on the row
 itself.
+
+## Page boots
+
+Kept 30 days.
+
+| Event | When | Payload |
+|---|---|---|
+| `app_page_booted` | Periodic count of how far the pages the frontend router served got, one row per outcome, browser and country | `tenant`, `country`, `browser`, `stage`, `ended`, `error`, `unsupported`, `pageCounted`, `count`, `windowSeconds` |
+
+The router adds a small inline script to every `index.html` it serves. The script sends one report
+per page load: when the app's UI shows, when the page is hidden or closed first, or after 30 seconds
+if neither happened. `app_page_served` counts the pages that arrived. `app_page_booted` counts what
+happened to them, including the pages where your bundle never ran, so nothing else could report.
+
+| Field | Values |
+|---|---|
+| `stage` | How far the page got: `html` (the bundle never ran), `bundle` (it ran but asked the backend for no session), `sign-in` (it showed the sign-in screen and did not connect), `connect` (it asked for a session, but no UI showed), `shown` |
+| `ended` | `shown`, `hidden` (the visitor hid or left the page first), `stuck` (still visible after 30 seconds without the UI) |
+| `error` | The first failure the page saw: `exception`, `rejection` (an unhandled promise rejection), `script-load`, `stylesheet-load`, or empty |
+| `unsupported` | The browser lacks `WebSocket`, `fetch` or `BigInt`, which the SDK needs |
+| `browser` | `chrome`, `safari`, `firefox`, `edge`, `samsung`, `opera` or `other`, from the user agent |
+| `pageCounted` | The browser sends the headers `app_page_served` needs, so the page load is in `served`. It is `false` for the old browsers that `app_page_served` leaves out |
+
+`shown` means the first UI update from your app's server arrived. An older SDK does not report that,
+so for its pages `shown` means the page drew something in `#root`. `sign-in` needs an
+`@ikonai/sdk-react-ui` that reports the sign-in screen; with an older one, a visitor who stays on the
+sign-in screen is reported at `bundle`.
+
+Visitors who send `DNT: 1` or `Sec-GPC: 1` are not reported, and neither is a page the browser
+prerendered or one whose browser lacks `navigator.sendBeacon`. A report the browser never delivers is
+lost too, so the reports with `pageCounted` true add up to a little less than `served` minus
+`doNotTrack`. Only pages the frontend router serves carry the script, so an app embedded elsewhere, a
+local `ikon run` and a Flutter app send no boot reports.
 
 ## Screens and entries
 
@@ -577,9 +618,10 @@ days.
 Consumption — tokens spent, images generated, database seconds, egress — is metered separately and
 is what billing and cost reporting are based on. It does not appear in your events, so an event
 query is the wrong place to look for it. Use the cost and usage views in the Portal instead. They
-show the credits each usage was charged at the time, going back up to 25 months, which is how long
-each use is kept. After that, only daily totals per app and usage name are kept, as billing records,
-until six full years have passed after the end of the year they belong to.
+show the credits each usage was charged at the time. Each use is kept for 25 months. After that,
+only daily totals per app and usage name are kept, as billing records, until six full years have
+passed after the end of the year they belong to. For those older days the Portal shows the daily
+totals, which cannot be broken down by scope or by hour.
 
 The AI events above are the nearest equivalent: `llm_succeeded` and its siblings record that a model
 call happened and how long it took, and carry token counts in their completion details. Treat those

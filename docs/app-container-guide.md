@@ -1,4 +1,4 @@
-<!-- checked-against: d267cbc8c6c3498ddb3691ae -->
+<!-- checked-against: 4ef2187ad6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -153,7 +153,9 @@ into `$IKON_BUNDLE_APP_DIR/Data/`; a binary or `#!` script written under `IKON_B
 build and before the bundle is zipped. Like `FetchTools`, a command starts without a shell, and
 `python3` at its start runs `python` on Windows. A command that fails stops the bundle or the
 deploy and prints its output. A command string is split on spaces, with quotes grouping words.
-`ikon run` does not run `PrePackage`; it runs only `FetchTools`.
+`ikon run` does not run `PrePackage`; it runs only `FetchTools`. `ikon build` runs neither.
+
+A program that must run on every compile (it writes code or data the app compiles in or reads at start) is an MSBuild target in the app's csproj, not a `[Scripts]` step: `<Target Name="Generate" BeforeTargets="BeforeBuild"><Exec Command="node scripts/gen.mjs" /></Target>`. It runs on the machine that builds, so that machine needs the program.
 
 ```toml
 [Scripts]
