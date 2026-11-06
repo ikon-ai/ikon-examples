@@ -28,7 +28,7 @@ const ikonPreloadIcons = {
     handler: (_html, { bundle }) =>
       Object.values(bundle ?? {})
         .filter((chunk) => chunk.type === 'chunk' && chunk.isDynamicEntry && /[\\/]lucide-react[\\/]/.test(chunk.facadeModuleId ?? ''))
-        .map((chunk) => ({ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: '', fetchpriority: 'low', href: `/${chunk.fileName}` }, injectTo: 'head' })),
+        .map((chunk) => ({ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: true, fetchpriority: 'low', href: `/${chunk.fileName}` }, injectTo: 'head' })),
   },
 };
 
@@ -46,6 +46,13 @@ const ikonThemeFonts = (publicDir) => ({
     }
   },
 });
+
+// Keeps an inline <style> as written instead of minified onto one line, unless it has a url(), @import or %ENV% that Vite must rewrite
+const inlineStyles = [];
+const ikonKeepInlineStyles = [
+  { name: 'ikon-hold-inline-styles', apply: 'build', buildStart: () => { inlineStyles.length = 0; }, transformIndexHtml: { order: 'pre', handler: (html) => html.replace(/<style(\s[^>]*)?>([\s\S]*?)<\/style>/gi, (style, _, css) => (/url\(|@import|%\w+%/i.test(css) ? style : `<!--ikon-inline-style-${inlineStyles.push(style) - 1}-->`)) } },
+  { name: 'ikon-restore-inline-styles', apply: 'build', transformIndexHtml: { order: 'post', handler: (html) => html.replace(/<!--ikon-inline-style-(\d+)-->/g, (_, index) => inlineStyles[Number(index)]) } },
+];
 
 const ikonBootTable = (env) => {
   const value = (name) => process.env[name] || env[name] || '';
@@ -136,7 +143,7 @@ export default defineConfig(({ mode }) => {
   // Fallback for apps not yet migrated to the root public/
   const publicDir = existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : resolve(__dirname, 'public');
 
-  const plugins = [ikonBoot(ikonBootTable(env)), ikonEmbedHeaders, ikonThemeFonts(publicDir), ikonAppName(publicDir, appName), ikonPreloadIcons, react()];
+  const plugins = [ikonBoot(ikonBootTable(env)), ...ikonKeepInlineStyles, ikonEmbedHeaders, ikonThemeFonts(publicDir), ikonAppName(publicDir, appName), ikonPreloadIcons, react()];
 
   if (!hasCertificate && !isTunneled) {
     plugins.push(basicSsl());
