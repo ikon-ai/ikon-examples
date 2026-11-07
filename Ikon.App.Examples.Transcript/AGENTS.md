@@ -22,8 +22,9 @@ A deployed instance has 1 CPU, 512 MB; its image has .NET and `ffmpeg`, no Pytho
 
 ## Running and checking the app
 
-`ikon run --detach` starts the app, returns when ready; a plain
-`ikon run` blocks. A first build takes minutes: no short `timeout` or `| tail` on `build`, `link --new-app`, `deploy` or `run --detach`. A shell's time limit kills `link` and `deploy` while they are queued or building, so add `--detach` to both and wait with `ikon status --wait --timeout 80`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+`ikon run --format text` blocks. `ikon run --detach` returns ready or still starting.
+Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
+and `deploy`, then poll `ikon status --wait --timeout 80`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
@@ -36,7 +37,7 @@ ikon browse --steps "fill Message hello; tap Send; wait-absent 60s Thinking; wai
 ikon browse --steps 'tap Host; capture code /Room (\w+)/; as bob: fill Room code ${code}; tap Join'
 ```
 
-`browse --help` lists steps and options; `--full` prints whole texts. Acting steps print only what changed; `click`,
+`browse --help` lists steps; `--full` prints whole texts. Acting steps print only what changed; `click`,
 `eval` and `console` reach custom React components; `observe` lists a canvas or custom node as one line; its `content` prop adds a text summary. `look` is for pixels only. A run starts at `/`: `--path /room/7` opens another page in the run's own client, which uses up a one-time `?k=v` link before any `as` client. `wait 15s Sent` returns once the text shows, or if it showed before
 the last tap, once the tap's handlers return. `--new` waits for new text. A bare `wait 15s` ends at the
 app's first update or when those handlers return: not a pause, only `sleep 15s` pauses. A bare number is milliseconds. Each run is a new
@@ -63,12 +64,13 @@ a surface lists "global", every guest is one shared user, which `browse` cannot 
 
 ## The ikon tool's commands
 
-`ikon help --json` covers every command, how the app and environment are chosen, and
-the shape of `--format json` output. An unknown command a doc names
-was renamed. `ikon deploy` commits and pushes first (`--no-save`: neither). Settings: `ikon-config.toml`,
+`ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`.
+`--format text|json` overrides defaults; `IKON_OUTPUT_FORMAT` sets the preference.
+Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
+On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first (`--no-save`: neither). Settings: `ikon-config.toml`,
 each commented: `ikon-config.development.toml` for an app on the development
 platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
-On Windows, edit files with your file tools: PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII.
+Use file tools. PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII.
 IKON bugs: `ikon report create`.
 
 Root folders (`app-structure`): `app/`, `frontend-node/`, `frontend-flutter/`, `data/`,
