@@ -1,4 +1,4 @@
-<!-- checked-against: 4ef2187ad6f3c7e0db3691ae -->
+<!-- checked-against: 8b386833d6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -187,5 +187,5 @@ the app from it on `localhost` as a plain run does. It differs from a plain run 
 - C# changes do not hot-reload. Stop the run and start it again to pick one up.
 - The frontend is served from the published SDK packages, and its dependencies are installed for
   Linux into a volume of their own, so the first start runs `npm install`.
-- `--host`, `--host-lan`, `--host-public`, `--mail-sink`, `--sms-sink`, `--mock-ai-script` and the `--flutter`
-  options are not available.
+- `--host`, `--host-lan`, `--host-public`, `--mail-sink`, `--sms-sink`, `--whatsapp-sink`, `--mock-ai-script` and
+  the `--flutter` options are not available.

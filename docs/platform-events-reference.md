@@ -1,4 +1,4 @@
-<!-- checked-against: cd5e64d618071d004437abd4 -->
+<!-- checked-against: f487443218071d004437abd4 -->
 
 # IKON Platform Events
 
@@ -15,7 +15,7 @@ Events are scoped to an app, and you can read your own three ways:
 
 | | |
 |---|---|
-| `ikon` CLI | `ikon events` — defaults to the app in the current directory and the last 7 days. `--days` (1-90) or `--start`/`--end`, `--event-name` substring filter, `--limit` page size (1-10000, default 1000), `--all` to page through everything, `--format table\|json\|csv`, `--output <file>` |
+| `ikon` CLI | `ikon events` — defaults to the app in the current directory and the last 7 days. `--days` (1-90) or `--start`/`--end`, `--event-name` substring filter, `--limit` page size (1-10000, default 1000), `--all` to page through everything, `--format text\|json\|csv`, `--output <file>` |
 | Portal | the app's **Events** page — a range picker (24 hours to 90 days), a name filter, per-event detail, and CSV export of the whole filtered range rather than just the page on screen, capped at the first 10000 events |
 | REST | `GET /spaces/:id/events`, the id being the app's — `days` (1-90, default 7) or `start`/`end`, `eventName` substring filter, `limit`, cursor-paginated |
 
@@ -513,7 +513,7 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 | `billing_checkout_created` | A checkout session was opened | `paymentProvider`, `session`, `customer`, `planType`, `mode` |
 | `billing_checkout_completed` | Checkout completed | `paymentProvider`, `session`, `customer`, `paymentIntent`, `amountPaid`, `currency`, `product`, `price`, `planType`, `tier`, `paymentStatus` |
 | `billing_checkout_failed` | A checkout session expired, or its payment failed after the customer submitted it | `class`, `paymentProvider`, and the failure details |
-| `billing_invoice_payment_failed` | A subscription invoice payment failed | `class`, `paymentProvider`, `subscription`, `invoice`, `amountDue`, `currency` |
+| `billing_invoice_payment_failed` | A subscription invoice payment failed | `class`, `paymentProvider`, `subscription`, `invoice`, `amountDue`, `currency`, `reason` (`renewal`, or `upgrade` for a plan upgrade waiting on its invoice) |
 | `billing_async_payment_completed` | A deferred payment method settled later | `paymentProvider`, and the settlement details |
 | `billing_invoice_paid` | An invoice was paid | the invoice and period details |
 | `billing_credits_added` | Credits were added to an organisation | `source`, `credits`, `subscriptionRemaining`, `purchasedRemaining` |
@@ -552,7 +552,7 @@ The CLI reports a command that rejected your input separately from one that brok
 | `tool_failed` | An unhandled exception, a backend request that failed, or a recognised environment failure (missing file, refused connection, timeout, a program such as `npm` that exited non-zero, a file Windows refused to open) | `defect`, or `dependency` for the backend and environment cases, or `expected` when the backend rate-limited the request (429) |
 | `tool_rejected` | The command refused the input and said why (an app that does not compile among them), the backend refused the request as the caller's fault (400, 401, 403, 404, 409 or 422), or the database refused a statement as written (SQLSTATE class 42: a syntax error, an undefined table, column or function) | `user_error` |
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
-| `tool_command_finished` | Every command, when it ends: `outcome` (`succeeded`, `failed`, `rejected`, `cancelled` or `confirmation`), `exitCode` and `durationMs` | — |
+| `tool_command_finished` | Every command, when it ends: `outcome` (`succeeded`, `failed`, `rejected`, `cancelled` or `confirmation`), `exitCode`, `durationMs` and `outputFormat` (`default`, `auto`, `text`, `json`, `csv` or `other`; never the raw argument) | — |
 | `tool_installed` | The first run after an installer finished, with the installer's result: `ok`, `code`, `signedIn`, `components` (each one's `component`, `status` and `version`), `installer` and `finishedAt` | — |
 | `tool_updated` | After `ikon self update`, an automatic update or `ikon self reset` replaced the tool, with the result of the script that replaced it, sent by the next run of the tool (on macOS and Linux, the command that started the script): `ok`, `step` (where a failed one stopped: `remove`, `install`, `finish` or `after-install`), `kind` (`update` or `reset`), `automatic`, `fromVersion`, `toVersion`, `channel` (`stable` or `dev`), `switched` (it moved between the two), `fallback` (`dotnet tool update` failed and a fresh install was tried) and `finishedAt` | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
@@ -568,7 +568,10 @@ also `automatic` true; `--finish-install` for the run an update makes of the new
 `phase` (`startup`, `sign-in` or `verb`: where the run was when it ended), so a command's failures can be found without matching on message text. Every `tool_*` row carries the run
 context: `toolVersion`, `os`, `isCi`, `isInteractive`, `isLocalBuild` (a tool built from the
 platform's own source) and `isHosted` (the tool ran on an app's token, as the platform's hosted runner
-starts it).
+starts it). When another program ran the command, its rows also carry `caller`: the name and version
+that program set in the `IKON_CALLER` environment variable (`ikon-desktop/1.2.0` for IKON Desktop).
+The CLI sends `caller` only for a program it knows, with an optional version made of numbers and
+dots. A program the CLI starts itself, such as a coding agent, does not inherit `IKON_CALLER`.
 
 Before a row is sent, the home folder becomes `<home>`, the app project's folder `<project>`, a
 person's account name `<user>` and an email address `<email>`. A person's row names no app: it has no

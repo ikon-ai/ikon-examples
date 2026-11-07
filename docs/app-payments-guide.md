@@ -1,4 +1,4 @@
-<!-- checked-against: 09666a75bb0b21e7592ff225 -->
+<!-- checked-against: 134fd227bb0b21e7592ff225 -->
 
 # Ikon.App.Payments Guide
 
@@ -7,8 +7,8 @@ backend. The **IKON backend** owns the payment store, drives the provider (Molli
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
 sends commands and reacts to events: there is no webhook to host and no payment state to persist.
 
-> This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon credits` / the
-> Canvas AI-credit system that funds the platform) — different system, different money.
+> This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon credits`,
+> `ikon plan show`: the organisation's credits and plan that pay for the platform). They are separate systems, and the money in them is separate too.
 
 ## Enable a provider (once per app)
 

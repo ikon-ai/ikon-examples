@@ -1,4 +1,4 @@
-<!-- checked-against: 4698f86e0e88fb1186259f7b -->
+<!-- checked-against: d0baeb0b0e88fb1186259f7b -->
 
 # Ikon.Parallax Library Overview
 
@@ -341,7 +341,7 @@ Form controls take a `bind:` parameter as the two-way form — TextField/TextAre
 
 <!-- ikon-example: px-two-way-binding -->
 ```csharp
-view.TextField(["flex-1"], label: "Name", bind: _name);
+view.TextField(["default", "flex-1"], label: "Name", bind: _name);
 view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
 ```
 

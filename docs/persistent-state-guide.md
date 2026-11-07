@@ -1,4 +1,4 @@
-<!-- checked-against: 391d7d53733da022d34ae461 -->
+<!-- checked-against: 14b0cbd0733da022d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -261,9 +261,14 @@ instance and how many connections it gets. `ikon db tiers` lists the tiers `ikon
 takes, with each tier's storage, connections and backups. `--tier` defaults to `shared`, and the
 built-in `app` database starts on `shared-dense`.
 
-The app reaches a database through a connection pooler, which runs its queries on 1 server
-connection on `shared-dense`, 3 on `shared` and 48 on `dedicated-small`, shared by every instance
-of the app. Queries beyond that wait at the pooler for a free one, except on `shared-dense`: it runs one query at a time, and a second concurrent query is refused with "too many connections" (SQLSTATE 53300) instead of waiting. Persistent state loads a joining
+The shared tiers are for development and promise no backups, so a database on one cannot be
+restored. If it is lost, its data is gone. Put a database you cannot lose on a dedicated tier, which
+keeps backups and can be restored to any moment of the last seven days. The smallest is
+`dedicated-nano`.
+
+The app reaches a database through a connection pooler, which runs its queries on 2 server
+connections on `shared-dense`, 3 on `shared` and 48 on `dedicated-small`, shared by every instance
+of the app. Queries beyond that wait at the pooler for a free one, except on `shared-dense`: it runs two queries at a time, and a third concurrent query is refused with "too many connections" (SQLSTATE 53300) instead of waiting. Persistent state loads a joining
 user's values with one query per database, however many values the user has.
 
 A live database can move to another tier without redeploying:
@@ -294,7 +299,7 @@ working. Writes come back once it is below the limit again, or once it moves to 
 The size is checked every few minutes, so a database can go a little past its limit before
 writes stop.
 
-A database on `dedicated-small` can be put back to any moment in the last seven days:
+A database on a dedicated tier can be put back to any moment in the last seven days:
 
 ```bash
 ikon db restore --at 2026-11-01T06:30:00Z
@@ -305,8 +310,11 @@ clone, so everything written after the moment is gone and open connections drop 
 tier move. The instance it left is kept for a day. `ikon db list` shows each dedicated database's
 last backup and the earliest moment it can be restored to. A moment within the last minute, older
 than seven days, before that earliest moment or before the database reached its current instance is
-refused before anything changes, and so is a database on a shared tier: move it to
-`dedicated-small` first. The same restore is in Studio under Settings › Data.
+refused before anything changes, and so is a database on a shared tier, which has no backups to
+restore from: move it to a dedicated tier, such as `dedicated-nano`, before you need one. When a
+database has just reached a new dedicated instance, because it was created, moved or restored, it
+can be restored only after the instance's first backup, a few minutes later. Until then
+`ikon db list` shows no last backup. The same restore is in Studio under Settings › Data.
 
 `ikon db import <dump>` loads a `pg_dump --format=custom` archive, such as a database file of
 `ikon export create`, into a database with no tables; `--clear` drops the tables first, after
