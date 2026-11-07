@@ -44,7 +44,6 @@ internal sealed partial class AgentGuideExamples
     private async Task DocSpeakAsync(int clientSessionId)
     {
         #region example:speak-one-call
-        // Audio is the app class property: private Audio Audio { get; } = new(app);
         // Generate speech and play it to clients — one call that returns at once. A new line
         // crossfades out the speech still playing (the interrupt behavior a voice app wants).
         // The ElevenLabs default voice is "Sarah", soft and modern. Name another when the product

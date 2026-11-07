@@ -17,6 +17,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Patterns" />
     <title>Patterns</title>
+
     <style>
       :root { --ikon-boot-bg: #fcfcfc; --ikon-boot-fg: #161618; --ikon-boot-dim: #6e6e74; }
       @media (prefers-color-scheme: dark) {
@@ -34,19 +35,22 @@
   </head>
   <body>
     <div id="root"></div>
+
     <noscript>
       <div class="ikon-boot"><div class="ikon-boot-inner">
         <div class="ikon-boot-title">JavaScript is required</div>
         <div class="ikon-boot-body">This app needs JavaScript to run. Please enable JavaScript in your browser settings and reload the page.</div>
       </div></div>
     </noscript>
+
     <script>
-      // Shows a message instead of a blank page when the app cannot start. Add ?ikon-logs to the URL to show the console output on the page.
       (function () {
         var logs = /[?&]ikon[-_]logs\b/.test(location.search), first = null, box, ran = false, over = null, watch = 0;
+
         function esc(v) { return String(v).replace(/[&<>]/g, function (c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'; }); }
         function str(v) { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch (e) { return String(v); } }
         function root() { return document.getElementById('root'); }
+
         function paint(title, body) {
           var host = root();
           if (!host || over) return;
@@ -55,11 +59,13 @@
           over.innerHTML = '<div class="ikon-boot-inner"><div class="ikon-boot-title">' + title +
             '</div><div class="ikon-boot-body">' + esc(body) + '</div><div class="ikon-boot-agent">' + esc(navigator.userAgent) + '</div></div>';
         }
+
         function shown() {
           var host = root();
           for (var n = host && host.firstElementChild; n; n = n.nextElementSibling) if (n !== over) return true;
           return !!document.getElementById('ikon-prerender') && !document.documentElement.hasAttribute('data-ikon-prerender-skip');
         }
+
         function log(kind, message) {
           if (!logs) return;
           if (!box) {
@@ -73,7 +79,9 @@
           line.textContent = kind.toUpperCase() + '  ' + message;
           box.scrollTop = box.scrollHeight;
         }
+
         function fail(what) { first = first || str(what); log('error', str(what)); }
+
         if (logs) {
           ['log', 'info', 'warn', 'error'].forEach(function (kind) {
             var was = console[kind];
@@ -81,6 +89,7 @@
           });
           log('info', navigator.userAgent);
         }
+
         addEventListener('error', function (e) {
           var el = e.target;
           if (!el || !el.tagName) fail(e.message + ' @ ' + (e.filename || '?') + ':' + e.lineno);
@@ -88,9 +97,11 @@
         }, true);
         addEventListener('unhandledrejection', function (e) { fail(e.reason); });
         document.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'SCRIPT') ran = true; }, true);
+
         if (typeof WebSocket === 'undefined' || typeof fetch === 'undefined' || typeof BigInt === 'undefined') {
           paint('Browser not supported', 'This app needs a more recent browser to run. Please update your browser or device software and try again.');
         }
+
         addEventListener('load', function () {
           var since = Date.now();
           watch = setInterval(function () {
@@ -107,6 +118,7 @@
         });
       })();
     </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
