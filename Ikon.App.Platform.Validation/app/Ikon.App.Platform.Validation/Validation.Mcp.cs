@@ -317,7 +317,7 @@ public partial class Validation
                 }
                 catch (Exception ex)
                 {
-                    _mcpCheckResults[check.Key] = $"FAIL {ex.Message}";
+                    _mcpCheckResults[check.Key] = $"FAIL {DescribeException(ex)}";
                 }
             }
         }
@@ -325,6 +325,20 @@ public partial class Validation
         {
             _mcpChecking.Value = false;
         }
+    }
+
+    // A TLS failure reaches here as "The SSL connection could not be established, see inner exception",
+    // and which fault it was (a certificate, a reset, a timeout) is in the inner exceptions
+    private static string DescribeException(Exception ex)
+    {
+        var messages = new List<string>();
+
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            messages.Add($"{current.GetType().Name}: {current.Message}");
+        }
+
+        return string.Join(" -> ", messages);
     }
 
     private async Task<string> CheckMcpToolListAsync()

@@ -26,19 +26,67 @@ public partial class Validation
         }
     }
 
+    // A hot reload starts the new instance while the old one still listens on the same loopback port,
+    // and the old one lets go of it only when it stops
+    private static readonly TimeSpan PortBindWait = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan PortBindRetryDelay = TimeSpan.FromMilliseconds(250);
+
+    private static async Task<T?> BindPortAsync<T>(AppPort port, Func<T> bind, CancellationToken stopping) where T : class
+    {
+        var deadline = DateTime.UtcNow + PortBindWait;
+
+        while (true)
+        {
+            try
+            {
+                return bind();
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse && DateTime.UtcNow < deadline)
+            {
+                Log.Instance.Debug($"Port {port.Name} waits for loopback port {port.LocalPort}: {ex.Message}");
+            }
+            catch (SocketException ex)
+            {
+                Log.Instance.Error($"Port {port.Name} cannot listen on loopback port {port.LocalPort}: {ex.Message}");
+                return null;
+            }
+
+            try
+            {
+                await Task.Delay(PortBindRetryDelay, stopping);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+        }
+    }
+
     private async Task RunTcpEchoAsync(AppPort port, CancellationToken stopping)
     {
-        var listener = new TcpListener(IPAddress.Loopback, port.LocalPort);
+        var listener = await BindPortAsync(port, () =>
+        {
+            var started = new TcpListener(IPAddress.Loopback, port.LocalPort);
 
-        try
+            try
+            {
+                started.Start();
+                return started;
+            }
+            catch
+            {
+                started.Dispose();
+                throw;
+            }
+        }, stopping);
+
+        if (listener is null)
         {
-            listener.Start();
-        }
-        catch (SocketException ex)
-        {
-            Log.Instance.Error($"Port {port.Name} cannot listen on loopback port {port.LocalPort}: {ex.Message}");
             return;
         }
+
+        // Closed as the token fires, not when the accept loop next runs, so the next instance can bind
+        using var stopListening = stopping.Register(listener.Stop);
 
         try
         {
@@ -67,9 +115,10 @@ public partial class Validation
                 _ = EchoLinesAsync(port.Name, client, stopping);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is OperationCanceledException || stopping.IsCancellationRequested)
         {
-            // The app is stopping, which is the only way the listener ends
+            // The app is stopping, which is the only way the listener ends; closing it under a pending
+            // accept can fail that accept with something other than a cancellation
         }
         finally
         {
@@ -132,19 +181,15 @@ public partial class Validation
 
     private static async Task RunUdpEchoAsync(AppPort port, CancellationToken stopping)
     {
-        UdpClient udp;
+        var udp = await BindPortAsync(port, () => new UdpClient(new IPEndPoint(IPAddress.Loopback, port.LocalPort)), stopping);
 
-        try
+        if (udp is null)
         {
-            udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, port.LocalPort));
-        }
-        catch (SocketException ex)
-        {
-            Log.Instance.Error($"Port {port.Name} cannot listen on loopback port {port.LocalPort}: {ex.Message}");
             return;
         }
 
         using var _ = udp;
+        using var stopListening = stopping.Register(udp.Close);
 
         while (!stopping.IsCancellationRequested)
         {
@@ -160,8 +205,10 @@ public partial class Validation
 
                 await udp.SendAsync(Encoding.UTF8.GetBytes(answer), received.RemoteEndPoint, stopping);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ex is OperationCanceledException || stopping.IsCancellationRequested)
             {
+                // The app is stopping, and closing the socket under a pending receive can fail it with
+                // something other than a cancellation
                 return;
             }
             catch (SocketException ex)

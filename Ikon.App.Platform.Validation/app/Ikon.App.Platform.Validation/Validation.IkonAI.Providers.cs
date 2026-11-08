@@ -201,7 +201,7 @@ public partial class Validation
     {
         if (AIMocksSwitchedOn())
         {
-            return "SKIP provider class: this run is on the AI mocks (ikon run --mock-ai), which answer before any provider";
+            return "SKIP provider class: this run is on the AI mocks (ikon run --ai mock), which answer before any provider";
         }
 
         var name = $"validation-provider-{Guid.NewGuid():N}"[..28];
@@ -320,7 +320,7 @@ public partial class Validation
 
         if (AIMocksSwitchedOn())
         {
-            return "SKIP own key: this run is on the AI mocks (ikon run --mock-ai), which reach no provider";
+            return "SKIP own key: this run is on the AI mocks (ikon run --ai mock), which reach no provider";
         }
 
         using var capture = new AICallCapture(fragment: OwnKeyApiModelName);
