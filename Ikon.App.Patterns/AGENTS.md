@@ -59,8 +59,12 @@ local run `--as-user <name>` acts as a named test user (`--role`), and `as <name
 next `as` (`as me:` is the run's own). Deployed, `as <name>:` is a guest (none on a private app), pageless, no upload; a room it hosts ends with it. When
 a surface lists "global", every guest is one shared user, which `browse` cannot open a page as: use `--text-only` there, a local run for `look`, or list "guest". `click <name>` is a real mouse click.
 
-`ikon link --target staging` makes a staging app; `--target staging` aims `deploy`, `browse`,
-`test` and `logs` at it.
+Develop on the primary app first. When existing users or data need isolation,
+`ikon link --target staging` makes a separately billed staging app; `--target staging` selects it
+for `deploy`, `browse`, `test` and `logs`. Cloud staging runs real AI and delivers real messages.
+Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages send|capture`
+(overridden by `--email`, `--sms`, `--whatsapp`) and `--cron auto|manual`. They never change cloud execution.
+Delete unused staging apps with `ikon app delete --target staging`; stopping sessions does not remove database charges.
 
 ## The ikon tool's commands
 
