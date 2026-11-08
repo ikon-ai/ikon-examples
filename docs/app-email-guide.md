@@ -1,4 +1,4 @@
-<!-- checked-against: b9ccbdddcd076dc39cd61743 -->
+<!-- checked-against: 80307dc9c1eeb534e5068899 -->
 
 # Ikon.App.Email Guide
 
@@ -39,8 +39,8 @@ backend and surface as a `UserException`.
 A local `ikon run` does not refuse a reserved-domain recipient: it writes the message to
 a folder of its own under `build/mail/` in the app folder, named by the UTC time, the recipient
 (`@` as `_`) and a random suffix (`message.json`, `body.html`, `attachments/`), and the send succeeds, so the success path can be tested without sending anything.
-`ikon run --mail-sink` writes every message there, whatever its recipient. A `--container` run has
-no such folder and sends as a deployed app does, and it does not take `--mail-sink`.
+`ikon run --email capture` writes every message there, whatever its recipient. A `--container` run has
+no such folder and sends as a deployed app does, and it does not take `--email capture`.
 
 Any other recipient of a local `ikon run` gets real email from the app's cloud space, but in a local run `app.PublicUrl`
 and `app.JoinUrl` are the address of that run, so a link built from them works only while the run is
@@ -52,7 +52,7 @@ up:
 
 To test links that must keep working, send the email from a deployed app.
 
-A staging copy (`ikon link --target staging`) never delivers mail. `app.Email` accepts the send and records it for the owner to count, and nothing reaches the recipient or the inbox. Test inbox flows (`ikon inbox send`, a welcome mail someone replies to) on the default target.
+Primary and staging apps both deliver real mail. Use staging when an inbox flow needs separate platform-managed data, and configure intended test recipients explicitly. Local capture saves outgoing messages without delivery. Use `--email capture` or `--messages capture`; reserved-domain recipients are captured automatically.
 
 Limits, enforced by the backend and, except the metadata key count, also checked in the client:
 
@@ -122,9 +122,11 @@ chooses the identity:
 - **`SenderDomain`** — for an app with more than one verified sending domain: name the one to send
   from. It must be a verified sending domain of the app.
 
-With no `SenderDomain`, the platform picks the app's sending domain deterministically: the domain
-designated as the app's **email sender** — chosen when the domain is set up — wins; without a
-designation, a domain of your own beats the platform-provided one, then the earliest verified one.
+With no `SenderDomain`, the platform picks the app's sending domain in this order. The domain
+designated as the app's **email sender** (`ikon email sending primary <hostname>`) comes first, once
+its sending is verified. Without a designation, a domain of your own beats the platform-provided one,
+and then the earliest verified one wins. `ikon email sending status` shows which domain the app's mail
+goes from.
 
 ### When the sender identity cannot be honoured
 
@@ -149,14 +151,31 @@ catch (EmailSenderNotAvailableException)
 A request with **no** sender identity fields never hits this: it sends from the app's verified
 domain when one exists and from the platform's default address otherwise.
 
-## Sending from your own domain
+## Sending from the app's own hostname
 
 Out of the box an app with no verified sending domain sends from the platform's default address, so
-the examples above work with no DNS setup at all. Sending from a domain of your own — so the From address reads `reports@yourfirm.com` —
-is arranged with IKON rather than configured in the app: ask your IKON contact to add the domain to
-your app, and you will be given the records to publish.
+the examples above work with no DNS setup at all. To send from the app's own hostname instead (the
+host of its URL, so the From address reads `noreply@<app>.<platform domain>`), run:
 
-They come in two rounds:
+```bash
+ikon email sending enable
+```
+
+The platform publishes that hostname's records itself, so there is nothing to add to DNS.
+`ikon email sending status` shows when sending is verified, which usually takes a few minutes, and
+`ikon email sending disable` switches it off again.
+
+## Sending from your own domain
+
+To send from a domain of your own, so the From address reads `reports@yourfirm.com`, add the domain
+to the app with sending switched on:
+
+```bash
+ikon hostname create yourfirm.com --email-send
+```
+
+For a domain the app already has, `ikon email sending enable yourfirm.com` switches sending on. The
+domain counts against your plan's hostname allowance. You publish its records yourself, in two rounds:
 
 | Round | Record | What it does |
 | --- | --- | --- |
@@ -175,8 +194,9 @@ If the sending records you are given include no `DMARC` policy, a `_dmarc.<your-
 your own and it takes precedence.
 
 A verified domain is what the `SenderDomain`, `SenderLocalPart` and `SenderDisplayName` fields above
-resolve against. A domain is verified for one environment at a time, so development keeps using the
-platform default sender.
+resolve against. A domain of your own is verified for one environment at a time, so verify it where
+the app's users are. Each environment gives the app its own platform hostname, so
+`ikon email sending enable` works in each.
 
 ## Read the inbox
 

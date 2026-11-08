@@ -1,4 +1,4 @@
-<!-- checked-against: f487443218071d004437abd4 -->
+<!-- checked-against: 66b4c9c9375c29364437abd4 -->
 
 # IKON Platform Events
 
@@ -405,7 +405,7 @@ a fixed set of events, derived from the `eventName` argument the caller supplies
 - `{eventName}_cancelled`
 - `{eventName}_failed`
 
-A call the AI mocks answer (`AIMocks.Use()`, `ikon run --mock-ai`) emits none of them; only its debug log lines record it.
+A call the AI mocks answer (`AIMocks.Use()`, `ikon run --ai mock`) emits none of them; only its debug log lines record it.
 
 Payload (same for all three): `modelName`, `elapsedSeconds`, `callId` when the operation ran inside a
 function call (it joins the `rpc_*_call_failed` rows), plus caller-defined additional fields as

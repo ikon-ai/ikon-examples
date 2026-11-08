@@ -1,4 +1,4 @@
-<!-- checked-against: d0baeb0b0e88fb1186259f7b -->
+<!-- checked-against: 845f5c2ae8614d1ad5af717c -->
 
 # Ikon.Parallax Library Overview
 
@@ -1027,6 +1027,8 @@ if (view.CanOpenFeedback())
 ```
 
 `OpenFeedbackAsync` opens the same sheet the platform's button does, with the screenshot taken at the click. `view.CanOpenFeedback()` is false for anyone the setting does not reach, so the control is left out for them rather than shown and doing nothing; it turns true a moment after the person joins, and the view re-renders when it does. A link with `?ikon-feedback` opens the sheet as well, for pointing a tester straight at it.
+
+A client's `Context.FeedbackAdmission` is the `FeedbackAdmission` the backend decided when the client connected (`Admitted` or `Refused`), and `Unknown` in a local run or when the backend did not decide. Call `view.CanOpenFeedback()` instead, because it also covers a local run and a client with no page to draw the sheet on.
 
 ## Architecture Summary
 

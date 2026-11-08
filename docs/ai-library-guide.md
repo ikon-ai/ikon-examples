@@ -1,4 +1,4 @@
-<!-- checked-against: 28e0326a44622fe7eb66b76d -->
+<!-- checked-against: 54fd93df4f80252383d969f2 -->
 
 # Ikon.AI Library Overview
 
@@ -200,7 +200,7 @@ var reply = await Emerge.AskAsync("Hello", "my-llama");
 - **The platform does the rest of the call.** An LLM provider streams `LLMProviderOutput.Text`, `Reasoning`, `ToolCall` (name and JSON arguments) and an optional `Usage`; the platform binds the tool calls to the context's functions, emits the usual `LLMEvent`s, and fails a turn that produced nothing. A tool's schema for your request is `FunctionSchema.ToJson(function)`. Image results are measured and watermarked like any provider's, embeddings are split into batches of the provider's `MaxInputCount` and their lengths checked, and speech chunks get their first and last flags.
 - **Declared capabilities are enforced.** What a provider declares is read once at registration. A request the capabilities rule out, such as two images from a provider without `SupportsMultipleOutputs` or word timings from a recognizer that has none, is refused before your code runs. If your code cannot honour a request field, throw `InvalidRequestException` instead of ignoring the field. Speech recognition providers serve batch recognition only.
 - **Region.** The third argument says where the provider serves its calls. Leave it at `ModelRegion.Global` when you don't know. A call to a `Global` model from an organisation whose AI region policy is EU-only throws `AIRegionPolicyViolationException`. A custom model has this one route, so a region list passed to a call does not move it elsewhere.
-- **Mocks.** Under `AIMocks.Use()` or `ikon run --mock-ai`, the family's mock answers instead of your provider.
+- **Mocks.** Under `AIMocks.Use()` or `ikon run --ai mock`, the family's mock answers instead of your provider.
 - One provider instance serves every call concurrently, so make it thread-safe. The platform never disposes it.
 
 Key behaviors of every custom model:

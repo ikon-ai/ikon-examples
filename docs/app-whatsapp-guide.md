@@ -1,4 +1,4 @@
-<!-- checked-against: 76c846ee6d14676cea33f4ee -->
+<!-- checked-against: 5ad835b066f0fa0ebbbd8377 -->
 
 # Ikon.App.WhatsApp Guide
 
@@ -46,7 +46,7 @@ the app removes WhatsApp first; after the move, the new organisation connects a 
 
 ### Testing before a number is connected
 
-`ikon run --whatsapp-sink` runs the app locally without sending anything, so it needs no number, no
+`ikon run --whatsapp capture` runs the app locally without sending anything, so it needs no number, no
 template push and no approval. Each send is written to the app's `build/whatsapp/` folder as a JSON
 file (`to`, `from`, `kind`, then the text, media, content or template fields) and returns `Status`
 `Written`. A template send reads `whatsapp/<key>.json` and writes the `body` with its values filled
@@ -166,15 +166,14 @@ A send with a missing or unknown variable, or a value holding a newline, a tab o
 spaces in a row, throws `WhatsAppSendRefusedException` with `Reason` `TemplateValuesInvalid`.
 Meta does not fall back between languages, so the platform does: a language with no approved
 version sends in the first language of the file that has one, and `WhatsAppSendResult.Language`
-names it. With no approved language the send throws with `TemplateNotApproved`. A staging copy
-records a template send without checking it, since it has no WhatsApp of its own.
+names it. With no approved language the send throws with `TemplateNotApproved`. Primary and staging
+apps use the same validation and delivery rules, with their own WhatsApp configuration.
 
 ## Delivery status
 
-A send returns a `WhatsAppSendResult` with the message id and `Status` `Queued`. A staging copy of
-the app (`ikon link --target staging`) returns `Recorded`: the message is neither sent nor stored,
-so no listing or read finds it.
-A local run started with `ikon run --whatsapp-sink` returns `Written` (see "Testing before a number
+A send returns a `WhatsAppSendResult` with the message id and `Status` `Queued`, on both primary
+and staging apps.
+A local run started with `ikon run --whatsapp capture` returns `Written` (see "Testing before a number
 is connected"). Later status changes arrive as `TriggerEventType.WhatsAppStatus` events whose payload is a
 `WhatsAppStatusPayload`: `Delivered`, `Read`, or `Failed` and `Undelivered` with the provider's
 `ErrorCode`.
@@ -212,7 +211,7 @@ internal async Task OnWhatsAppReceivedAsync(TriggerContext context, Cancellation
 Delivery is at-least-once: a handler that throws sees the same event again after a backoff, so key
 the work on the message id and do it once. The trigger fires only in a deployed app; a local
 `ikon run` receives no events, and sends real messages through the platform unless it was started
-with `--whatsapp-sink`.
+with `--whatsapp capture`.
 
 ## Reading and deleting messages
 

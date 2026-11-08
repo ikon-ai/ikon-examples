@@ -1,4 +1,4 @@
-<!-- checked-against: a49aae8d49c255c254df3331 -->
+<!-- checked-against: cdab2c9836f67df154df3331 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -466,7 +466,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 - `MaxResults` - Maximum sections to return (default: 5)
 - `Navigator(Action<EmergeScope<NavigationDecision>>)` - Configure navigator
 
-The navigator model must support function calling: it is offered three tools: `tree_get_children(nodeId)`, `tree_get_content(nodeId)` and `tree_mark_relevant(nodeId, reason)`. Under `--mock-ai-script`, script a `tool` turn for `tree_mark_relevant` to get a section back (`ai-models` guide).
+The navigator model must support function calling: it is offered three tools: `tree_get_children(nodeId)`, `tree_get_content(nodeId)` and `tree_mark_relevant(nodeId, reason)`. Under `--ai-script`, script a `tool` turn for `tree_mark_relevant` to get a section back (`ai-models` guide).
 
 **Tree indexing types:**
 

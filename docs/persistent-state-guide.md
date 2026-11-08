@@ -1,4 +1,4 @@
-<!-- checked-against: 14b0cbd0733da022d34ae461 -->
+<!-- checked-against: 0d357dbc733da022d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -296,8 +296,12 @@ extensions installed outside the `public` schema.
 
 A database that grows past its tier's storage becomes read-only: writes fail and reads keep
 working. Writes come back once it is below the limit again, or once it moves to a larger tier.
-The size is checked every few minutes, so a database can go a little past its limit before
-writes stop.
+The size is checked every two minutes, so a database can go a little past its limit before
+writes stop. A database that is still written to after it turns read-only (by overriding the
+read-only setting), or that grows to 1.5 times its limit, is locked: every connection is refused
+until it moves to a larger tier. The organisation's admins are emailed at 80% of the limit, at
+the limit and at a lockout, and `ikon status`, `ikon run` and `ikon deploy` say so too.
+`ikon db set --auto-tier <tier>` moves a database on its own at 80% of its limit.
 
 A database on a dedicated tier can be put back to any moment in the last seven days:
 
@@ -308,13 +312,14 @@ ikon db restore --at 2026-11-01T06:30:00Z
 The platform clones the database's instance as it was at that moment and switches the app to the
 clone, so everything written after the moment is gone and open connections drop briefly, as in a
 tier move. The instance it left is kept for a day. `ikon db list` shows each dedicated database's
-last backup and the earliest moment it can be restored to. A moment within the last minute, older
-than seven days, before that earliest moment or before the database reached its current instance is
-refused before anything changes, and so is a database on a shared tier, which has no backups to
-restore from: move it to a dedicated tier, such as `dedicated-nano`, before you need one. When a
-database has just reached a new dedicated instance, because it was created, moved or restored, it
-can be restored only after the instance's first backup, a few minutes later. Until then
-`ikon db list` shows no last backup. The same restore is in Studio under Settings › Data.
+last backup and the earliest moment it can be restored to, both in UTC. `--at` also reads a time
+written without a zone as UTC. A moment within the last minute, older than seven days, before that
+earliest moment or before the database reached its current instance is refused before anything
+changes, and so is a database on a shared tier, which has no backups to restore from: move it to a
+dedicated tier, such as `dedicated-nano`, before you need one. When a database has just reached a new
+dedicated instance, because it was created, moved or restored, it can be restored only once the
+instance has its first backup and a restore point, a few minutes later. Until then `ikon db list` shows no "Restorable from" moment. The same
+restore is in Studio under Settings › Data.
 
 `ikon db import <dump>` loads a `pg_dump --format=custom` archive, such as a database file of
 `ikon export create`, into a database with no tables; `--clear` drops the tables first, after
@@ -360,6 +365,7 @@ global types are sent on their own schedule ("Global values", above).
 - **Save at shutdown**: for all persistent reactives, at most six writes at a time, on `StoppingAsync` (graceful shutdown), writing only the values whose payload differs from what this instance last loaded or wrote; a value it only read is not written back, nor one still at its initial value with nothing stored for it, nor a dropped value that has not changed since. The stop waits at most 5 seconds for these writes (a local `ikon run` waits for all of them). A value not stored by then is named in an error, and its changes are lost if the process stops before the write ends. Locally, `ikon stop` asks the app to shut down and waits for it, so a run's changes are saved there too. It kills an app that has not exited within 30 seconds, or whose IKON libraries are too old to handle the request, and says so; that run's changes are then lost, as in a crash.
 - **A local run shares the deployed app's state.** `ikon run` loads and saves persistent reactives in the space the app is linked to, through that space's databases or its asset storage, under the same keys as the deployed app in that space. So a local and a cloud instance of the same identity (`?room=A` in both) read and write the same values while both use the same state database ("Backends", above), and the local run shares every `PersistentGlobal…` value with the deployed app. Stopping a local run saves the values it changed over the deployed app's, and the run logs this once at startup. The keys are the same wherever the app runs, because the platform's user-data erasure matches these keys. Once an app holds real data, test changes that write state with care.
 - **A crash loses what was not yet written**: up to two seconds of changes with autosave on, everything since the last explicit save with it off. Records that must never be lost, or that several instances change at once, go in postgres directly through `app.DatabaseAsync()`.
+- **A full database stops the saves**: the postgres-backed storage is stored in the `app` database unless `StateDatabase` names another, so when that database reaches its storage limit and turns read-only, every save fails until it moves to a larger tier with `ikon db tier` ("Database tiers", above).
 
 ## Erasing a user's state
 

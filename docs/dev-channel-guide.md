@@ -1,4 +1,4 @@
-<!-- checked-against: a8c442249d0cbed8e3b0c442 -->
+<!-- checked-against: 9f920a549d0cbed8e3b0c442 -->
 
 # IKON Dev Channel Guide
 
@@ -117,7 +117,9 @@ A dev build **stops working seven days after it was published**, matching the fe
 last day it warns on every command; once expired it refuses everything except `ikon self update`, `ikon self reset`,
 `ikon login`, `ikon logout` and `ikon --version`. Auto-update keeps an interactive dev install at most a day behind, and
 an expired build run in a terminal while you are signed in updates itself, so you normally never see
-either. If no newer dev build has been published, `ikon self update` says so and points you at
+either. When a coding agent runs an ikon command, the tool never updates itself. If a newer build
+is out, the command prints a warning on stderr that tells the agent to run `ikon self update` first.
+If no newer dev build has been published, `ikon self update` says so and points you at
 `ikon self update stable`. `ikon --version` prints the build's expiry on stderr.
 
 If a dev build is ever too broken to update itself, leave the channel by hand:
