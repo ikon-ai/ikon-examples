@@ -51,6 +51,7 @@ global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core.Scope;
 global using Ikon.Common.Core.Signing;
 global using Ikon.Common.Core.Telephony;
+global using Ikon.Common.Core.WhatsApp;
 global using Ikon.Common.Core;
 global using Ikon.Common;
 global using Ikon.Crosswind;
