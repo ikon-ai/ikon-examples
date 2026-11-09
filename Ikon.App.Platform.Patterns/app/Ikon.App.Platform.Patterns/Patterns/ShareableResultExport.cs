@@ -1,0 +1,108 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: shareable-result-export — see docs/patterns/shareable-result-export.md.
+// The example region below is the canonical body the doc extracts.
+internal sealed class ShareableResultExport : IPatternDemo
+{
+    public string Slug => "shareable-result-export";
+    public string Title => "Shareable image or PDF of a result";
+    public string Category => "Web & data";
+    public void RenderDemo(IView view) => Render(view);
+
+    // The gallery runs on the WebScraper and FileConverter mocks, which accept any address.
+    private string PublicResultUrl() => "https://example.com/results/demo";
+
+    #region example:pattern-shareable-result-export
+    private readonly Reactive<byte[]?> _png = new(null);
+    private readonly Reactive<byte[]?> _pdf = new(null);
+    private readonly Reactive<bool> _busy = new(false);
+
+    /// <summary>
+    /// Screenshot a page the app itself serves. Jina is hosted, so it works in a deployed app and
+    /// needs a URL reachable from the internet. FullPage captures past the viewport, and
+    /// JavaScript runs in the page before the shot -- the hook for hiding chrome that should not
+    /// appear in a shared image.
+    /// </summary>
+    private async Task RenderPngAsync(string url)
+    {
+        using var scraper = new WebScraper(WebScraperModel.Jina);
+
+        var shot = await scraper.TakeScreenshotAsync(new ScreenshotConfig
+        {
+            Url = url,
+            FullPage = true,
+            JavaScript = "document.querySelectorAll('.no-export').forEach(e => e.remove());",
+        });
+
+        _png.Value = shot.Data;
+    }
+
+    /// <summary>
+    /// PDF is a conversion, not a screenshot: hand FileConverter a Url, Data or AssetUri and it
+    /// returns a ConvertedFile. Its Kind says whether the bytes are inline in Data or behind a
+    /// signed Url; GetDataAsync returns them either way.
+    /// </summary>
+    private async Task RenderPdfAsync(string url)
+    {
+        using var converter = new FileConverter(FileConverterModel.ConvertApi.ToString());
+
+        // A URL source is detected from the URL itself; FileName names the input format only
+        // when the bytes are supplied as Data.
+        var file = await converter.ConvertToPdfAsync(new FileConverterConfig { Url = url });
+
+        // Data is null when the result was delivered as a Url -- GetDataAsync downloads it then.
+        _pdf.Value = await file.GetDataAsync();
+    }
+
+    private async Task ExportAsync()
+    {
+        if (_busy.Value)
+        {
+            return;
+        }
+
+        using var busy = _busy.AsToken();
+        var url = PublicResultUrl();
+
+        try
+        {
+            await RenderPngAsync(url);
+            await RenderPdfAsync(url);
+        }
+        catch (Exception ex) when (ex is AIException or HttpRequestException or InvalidDataException)
+        {
+            // The render or the download of its file failed; the results themselves are untouched and
+            // the user can retry.
+        }
+    }
+
+    private void Render(IView view)
+    {
+        view.Row(["gap-2"], content: row =>
+        {
+            row.Button(
+                disabled: _busy.Value,
+                onClick: ExportAsync,
+                content: v => v.Text(text: _busy.Value ? "Preparing…" : "Prepare export"));
+
+            // Download is a declarative ActionButton, never a server call -- the bytes are already
+            // on the client by the time the button renders.
+            if (_png.Value is { } png)
+            {
+                row.ActionButton(
+                    action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions { FileName = "results.png", Data = png },
+                    content: v => v.Text(text: "PNG"));
+            }
+
+            if (_pdf.Value is { } pdf)
+            {
+                row.ActionButton(
+                    action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions { FileName = "results.pdf", Data = pdf },
+                    content: v => v.Text(text: "PDF"));
+            }
+        });
+    }
+    #endregion
+}

@@ -1,0 +1,55 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: audio-reactive-visuals — see docs/patterns/audio-reactive-visuals.md.
+// The example region below is the canonical body the doc extracts.
+internal sealed class AudioReactiveVisuals(IAppBase app) : IPatternDemo
+{
+    public string Slug => "audio-reactive-visuals";
+    public string Title => "Visuals that move with the audio";
+    public string Category => "Voice & audio";
+
+    // Render draws app.lipSyncAvatar, a custom node this gallery's frontend registers no component
+    // for, so the demo describes the pattern instead of painting an unregistered-node placeholder.
+    public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
+        "Attaches a viseme analyzer to speech so each audio frame carries mouth-shape values, and a custom client component animates an avatar from them in step with playback. The avatar needs its React component registered in the app's frontend. See the source and docs/patterns/audio-reactive-visuals.md.");
+
+    #region example:pattern-audio-reactive-visuals
+    // An instance member: Audio.CreateSoundAsync or Audio.Speak on the type is CS0120
+    private Audio Audio { get; } = new(app);
+
+    // One analyzer instance for the app, not one per utterance: it declares the shape set once
+    // and the client matches frames to that declaration by SetId.
+    private readonly VisemeAnalyzer _visemes = new();
+
+    /// <summary>
+    /// Attaching an analyzer is the whole server side. The shape values ride ALONG with the audio
+    /// in each PcmAudioFrame -- AnalysisResults for the per-frame numbers, ShapeSetDeclarations
+    /// for what those numbers mean -- so the visual stays in sync with playback for free. The
+    /// server never sees them; a custom client component reads them from client.viseme.
+    /// </summary>
+    private void SpeakWithLipSync(string text)
+    {
+        Audio.Speak(MediaTargets.Everyone, text, options: new PlayOptions { Analyzers = [_visemes] });
+    }
+
+    private void Render(IView view)
+    {
+        view.Column(["gap-3"], content: col =>
+        {
+            col.Button(
+                onClick: () => SpeakWithLipSync("Hello there."),
+                content: v => v.Text(text: "Speak"));
+
+            // The avatar/visualizer is a custom node: it reads the shape values from client.viseme,
+            // which times them against the audio itself. Driving it from server-side Reactive state instead would
+            // arrive a frame late and flood the channel. The prop tells it which slot's speaker to follow;
+            // Speak plays in "speech" unless PlayOptions.Slot names another. The prop is not named "slot"
+            // because the parent overwrites that prop name with its own child slot.
+            col.AddNode("app.lipSyncAvatar", props: new Dictionary<string, object>
+            {
+                ["audioSlot"] = "speech",
+            });
+        });
+    }
+    #endregion
+}

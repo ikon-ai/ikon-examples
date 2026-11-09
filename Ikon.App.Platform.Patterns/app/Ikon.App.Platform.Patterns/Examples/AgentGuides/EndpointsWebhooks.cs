@@ -1,0 +1,158 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Net.WebSockets;
+
+namespace Ikon.App.Platform.Patterns.Examples;
+
+file sealed class EndpointsExamples
+{
+    private static bool VerifyStripe(string? signature, string body) => signature != null && body.Length > 0;
+
+    #region example:http-endpoints
+    // The JSON body binds to your typed parameter. Missing fields default and unknown fields are
+    // ignored, but a body with only fields the type does not have returns 400, and so do {} and an
+    // empty body when the type has a required member. Bad input returns a 4xx (it never throws a 500).
+    // No Auth: the default Grant, so callers need a minted URL (the bare address answers 401).
+    [HttpPost("/sum")]
+    public HttpResult Sum(SumRequest req) => req.A < 0 || req.B < 0
+        // A 4xx with a JSON body; BadRequest(reason) sends its reason as text/plain
+        ? HttpResult.Json(new { error = "a and b must not be negative" }, 400)
+        : HttpResult.Ok(new { sum = req.A + req.B });
+
+    // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
+    // Also the default Grant.
+    [HttpGet("/health")]
+    public string Health() => "ok";
+
+    // A third-party webhook is a normal [HttpPost]. It must be Auth = Public: the default (Grant)
+    // makes the gateway reject the bare URL with 401 before the handler runs, and a provider like
+    // Stripe calls a fixed URL it cannot carry a grant on. Read the signature header + raw body from
+    // the injected Ikon.App.HttpRequest and verify it yourself — the signature IS the authorization.
+    [HttpPost("/stripe", Auth = EndpointAuth.Public)]
+    public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
+    {
+        // TryGetValue, not the indexer: a missing header would throw and turn the 401 into a 500
+        if (!req.Headers.TryGetValue("Stripe-Signature", out var signature) || !VerifyStripe(signature, req.Body)) return HttpResult.Unauthorized();
+        // ... process req.Body ...
+        return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
+    }
+
+    // A plain <form method="post"> on another site, answered with a page the person sees. ReadForm()
+    // is null unless the body is form-encoded. HTML-encode anything you echo back into the page.
+    [HttpPost("/subscribe", Auth = EndpointAuth.Public)]
+    public HttpResult Subscribe(Ikon.App.HttpRequest req) =>
+        req.ReadForm() is { } form && form.TryGetValue("email", out var email)
+            ? HttpResult.Html($"<p>Check {System.Net.WebUtility.HtmlEncode(email)} for a confirmation link.</p>")
+            : HttpResult.BadRequest("Expected a form with an email field");
+
+    // An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
+    [Mcp(Name = "add_numbers", Description = "Adds two integers")]
+    public int AddNumbers(int a, int b) => a + b;
+    #endregion
+}
+
+#region example:http-request-record
+public record SumRequest(int A, int B);
+#endregion
+
+file sealed class MintingExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    [HttpGet("/docs/{documentId}")]
+    public string GetDocument(string documentId) => documentId;
+
+    [HttpGet("/docs/{documentId}/alias")]
+    public string GetDoc(string documentId) => documentId;
+
+    [HttpPost("/docs/{documentId}")]
+    public string UpdateDoc(string documentId) => documentId;
+
+    [HttpPost("/sum-alias")]
+    public string Sum() => "ok";
+
+    public async Task MintAsync()
+    {
+        #region example:url-minting
+        // Pin the {documentId} of the path into the signed grant. DocumentId is not a SessionIdentity
+        // field, so it selects no instance, and the URL reaches the instance with an empty identity
+        MintedUrl minted = await app.MintUrlAsync(nameof(GetDocument), new { DocumentId = "doc-42" });
+        string url = minted.Url;   // https://{space}.ikonai.app/api/...?ikon-grant=...
+
+        // On an app-class endpoint, omit the identity to pin THIS instance's own identity (the URL
+        // routes back here); on a [Cell] endpoint omitting it pins nothing:
+        MintedUrl self = await app.MintUrlAsync(nameof(Sum));
+
+        // Batch several endpoints under one identity in a single backend round-trip:
+        IReadOnlyDictionary<string, MintedUrl> urls = await app.MintUrlsAsync(
+            new[] { nameof(GetDoc), nameof(UpdateDoc) }, new { DocumentId = "doc-42" });
+        #endregion
+
+        Log.Instance.Debug($"{url} {self} {urls.Count}");
+    }
+}
+
+internal sealed partial class AgentGuideExamples
+{
+
+    private async Task DocEndpointWebSocketAsync()
+    {
+        #region example:endpoint-websocket
+        var endpoint = new AppEndpointHost(app);
+
+        endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
+        {
+            var buffer = new byte[4096];
+            while (webSocket.State == WebSocketState.Open)
+            {
+                var result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+                if (result.MessageType == WebSocketMessageType.Close) { break; }
+                await webSocket.SendAsync(buffer.AsMemory(0, result.Count), result.MessageType, true, CancellationToken.None);
+            }
+        });
+
+        await endpoint.StartAsync();
+        #endregion
+    }
+
+    private static void DocEndpointMapGet(AppEndpointHost endpoint)
+    {
+#pragma warning disable IKON005 // the guide teaches the raw host's catch-all MapGet, which an [HttpGet] method cannot replace
+        #region example:endpoint-mapget
+        // Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
+        // — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
+        // generated app and produces CS1061. Write UTF-8 bytes to the body stream.
+        endpoint.MapGet("/stream/{**path}", async ctx =>
+        {
+            ctx.Response.ContentType = "text/plain";
+            await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
+        });
+        #endregion
+#pragma warning restore IKON005
+    }
+
+    private void DocRawEndpoint()
+    {
+        #region example:raw-endpoint
+        // ikon-config.toml declares [[Port]] Name = "game", Protocol = "udp"
+        if (!app.Ports.TryGetValue("game", out var game))
+        {
+            return;
+        }
+
+        var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, game.LocalPort));
+        // The port is opened after Main returns, so the address arrives through AddressChanged
+        game.AddressChanged += port => Log.Instance.Info($"Game server listening at udp://{port.Address}");
+        #endregion
+
+        udp.Dispose();
+    }
+
+    private void DocEndpointCleanup(IAsyncDisposable endpoint)
+    {
+        #region example:endpoint-cleanup
+        app.OnStopping(async () =>
+        {
+            await endpoint.DisposeAsync();
+        });
+        #endregion
+    }
+}

@@ -1,0 +1,111 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: best-of-with-rubric — see docs/patterns/best-of-with-rubric.md.
+// The example region below is the canonical body the doc extracts.
+internal sealed class BestOfWithRubric : IPatternDemo
+{
+    public string Slug => "best-of-with-rubric";
+    public string Title => "Best-of with a weighted rubric";
+    public string Category => "Conversational AI";
+    public void RenderDemo(IView view) => Render(view);
+
+    #region example:pattern-best-of-with-rubric
+    private sealed record Tagline(string Text, IReadOnlyList<string> Keywords);
+
+    // What a reader makes of a tagline, each axis in [0, 1]. A capable judge model fills it, so the
+    // rubric never measures the text itself -- a character count would call a Chinese tagline
+    // three times shorter than its English twin.
+    private sealed class TaglineReading
+    {
+        // Written before the scores so the judge has to find the flaws first; a judge that scores
+        // first tends to rate every draft 1.0.
+        [Description("The concrete faults in this tagline, one per line. Name at least one, or write 'none found' only after checking each axis.")]
+        public string Faults { get; set; } = "";
+
+        [Description("How quickly it lands: 1 is a line said in one breath, 0.5 needs a second read, 0 is a sentence.")]
+        public double Brevity { get; set; }
+
+        [Description("How much of the brief it carries: 1 when every key idea is felt, 0.5 when about half are, 0 when none is.")]
+        public double BriefFit { get; set; }
+    }
+
+    private readonly Reactive<string?> _winner = new(null);
+    private readonly Reactive<string?> _breakdown = new(null);
+
+    // A rubric of named, weighted metrics beats one opaque number: the critic can be told which
+    // metric was weakest, and the breakdown is readable when a choice looks wrong.
+    private static readonly ScoreBreakdownBuilder<TaglineReading> Rubric = new ScoreBreakdownBuilder<TaglineReading>()
+        // EVERY metric must return [0, 1]. A rubric left on a 0..10 scale clamps to 1.0 for every
+        // candidate and the ranking silently stops discriminating -- the judge is asked for the
+        // range and clamped here.
+        .Metric("brevity", 0.4, reading => Math.Clamp(reading.Brevity, 0, 1))
+        .Metric("brief fit", 0.6, reading => Math.Clamp(reading.BriefFit, 0, 1));
+
+    private static async Task<ScoreBreakdown> JudgeAsync(Tagline candidate, string brief)
+    {
+        // A small judge model rates everything near 1.0 and the ranking turns into a tie. Use a
+        // stronger judge, define what 0, 0.5 and 1 mean, and say that most drafts sit in between.
+        var reading = await Emerge.Run<TaglineReading>(LLMModel.Claude55Sonnet, pass =>
+        {
+            pass.SystemPrompt = "You judge taglines against a brief. Read the tagline in whatever language it is written. List its faults first, then rate each axis: 0 fails the axis, 0.5 is acceptable but unremarkable, 1 is the best tagline you could write for the brief. Most taglines belong between 0.3 and 0.8; give 1 almost never.";
+            pass.Command = $"Brief: {brief}\nTagline: {candidate.Text}\nKeywords it claims to carry: {string.Join(", ", candidate.Keywords)}";
+            pass.Temperature = 0;
+        });
+
+        return Rubric.Score(reading);
+    }
+
+    private async Task GenerateAsync(string brief)
+    {
+        // A list, not a dictionary keyed by the record: records compare by value, so two equal drafts
+        // (or a critic rewrite equal to the winner) would share one entry.
+        var judged = new List<(Tagline Candidate, ScoreBreakdown Breakdown)>();
+
+        var best = await Emerge.BestOf<Tagline>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
+        {
+            options.Command = brief;
+            options.Count = 4;
+
+            // ScoreDetailedAsync is the judge's rubric: it ranks the candidates and hands the
+            // breakdown to the critic. With Count above 1 and no scorer, BestOf throws before
+            // the first candidate rather than pay for runs it could not tell apart.
+            options.ScoreDetailedAsync = async (candidate, _) =>
+            {
+                var breakdown = await JudgeAsync(candidate, brief);
+                judged.Add((candidate, breakdown));
+                return breakdown;
+            };
+
+            // Configuring the critic also ENABLES it; an explicitly configured critic that never
+            // ran was the trap this shape avoids. The string replaces the critic's whole Command,
+            // and the critic sees nothing else, so it carries the brief and the winner itself.
+            options.BuildCriticFeedback = (candidate, breakdown) =>
+                $"Brief: {brief}\nTagline: {candidate.Text}\nWeakest: {breakdown?.Weakest?.Name}. Improve it without losing the rest.";
+            options.CriticMustImprove = true;
+
+            // Candidates diverge by Seed -- not a sampler seed and not reproducible, just a
+            // nudge so four runs do not return four copies.
+            options.CandidateConfig = candidate => candidate.Seed = candidate.Index;
+        });
+
+        _winner.Value = best.Text;
+        _breakdown.Value = judged.Last(entry => ReferenceEquals(entry.Candidate, best)).Breakdown.FormatBreakdown();
+    }
+
+    private void Render(IView view)
+    {
+        view.Column(["gap-2"], content: col =>
+        {
+            col.Button(
+                onClick: async () => await GenerateAsync("a tagline for a calm budgeting app"),
+                content: v => v.Text(text: "Generate"));
+
+            if (_winner.Value is { } winner)
+            {
+                col.Text([Text.H3], text: winner);
+                col.Text(["text-muted-foreground text-xs whitespace-pre"], text: _breakdown.Value);
+            }
+        });
+    }
+    #endregion
+}

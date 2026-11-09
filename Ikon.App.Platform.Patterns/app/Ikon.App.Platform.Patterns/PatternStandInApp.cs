@@ -1,0 +1,52 @@
+using Ikon.Common.Core.Protocol;
+using Ikon.Common.Core.Signing;
+
+namespace Ikon.App.Platform.Patterns;
+
+// Stand-in IAppBase for the render smoke-test: the app-ctor patterns store the handle but only reach
+// into it on interaction, never during a default-state render, so every member here throws. If a
+// pattern ever dereferences the app from its render path, the smoke-test surfaces it as a throw.
+public sealed class PatternStandInApp(IApp<SessionIdentity, ClientParameters>? live = null) : IApp<SessionIdentity, ClientParameters>
+{
+    public SessionIdentity SessionIdentity => throw new NotImplementedException();
+    public IClientCollection<ClientParameters> Clients => throw new NotImplementedException();
+    public int SessionId => throw new NotImplementedException();
+    public ValueTask SendMessageAsync(ProtocolMessage message) => throw new NotImplementedException();
+    public ValueTask SendMessageAsync(IProtocolMessagePayload payload) => throw new NotImplementedException();
+    public IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null) => throw new NotImplementedException();
+    // Backed rather than thrown: a pattern that builds a `UI` (or other app-bound object) in a field
+    // initializer touches these at construction time, before any render, and the AGENTS.md examples
+    // render a join URL from the session's space.
+    // A space URL of its own, so an example that renders the app's PublicUrl as a QR code or a link
+    // draws one; with the empty default, QR draws nothing at all.
+    public AppGlobalState GlobalState { get; } = new(new GlobalState { SpaceUrl = "https://patterns.example.com" });
+    private readonly Reactive<IReadOnlyList<string>> _mounts = new(["ikon-ui"]);
+    public IReadOnlyList<EndpointInfo> Endpoints => throw new NotImplementedException();
+    public IReadOnlyList<DatabaseConnectionInfo> Databases => throw new NotImplementedException();
+    public string DataDirectory => throw new NotImplementedException();
+    public ReactiveRoot ReactiveRoot => throw new NotImplementedException();
+    public BackgroundWork BackgroundWork => throw new NotImplementedException();
+    public int MaxMemoryLimitMb => throw new NotImplementedException();
+    public int MaxClients { get; set; }
+    public bool UdpEnabled { get; set; }
+    // Forwarded when the gallery runs inside the live Patterns app, so an example that routes on
+    // interaction (tabs that set the path) reaches the URL; Navigation cannot be built here, its
+    // constructor is internal. The app routes nothing by path, so a move never leaves the demo.
+    public Navigation Navigation => live?.Navigation ?? throw new NotImplementedException();
+    public Reactive<IReadOnlyList<string>> Mounts => _mounts;
+    public Secrets Secrets => throw new NotImplementedException();
+    public EmailService Email => throw new NotImplementedException();
+    public TelephonyService Telephony => throw new NotImplementedException();
+    public CostsService Costs => throw new NotImplementedException();
+    public NotificationService Notifications => throw new NotImplementedException();
+    public Ikon.App.Payments.PaymentsService Payments => throw new NotImplementedException();
+    public event AsyncEventHandler<StartingEventArgs> StartingAsync { add { } remove { } }
+    public event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync { add { } remove { } }
+    public event AsyncEventHandler<StoppingEventArgs> StoppingAsync { add { } remove { } }
+    public event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync { add { } remove { } }
+    public event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync { add { } remove { } }
+    public event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync { add { } remove { } }
+    public Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
+    public Task<StepUpResult> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default) => throw new NotImplementedException();
+}

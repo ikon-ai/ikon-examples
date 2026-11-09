@@ -1,0 +1,134 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: ensemble-of-perspectives — see docs/patterns/ensemble-of-perspectives.md.
+// The example region below is the canonical body the doc extracts.
+internal sealed class EnsembleOfPerspectives : IPatternDemo
+{
+    public string Slug => "ensemble-of-perspectives";
+    public string Title => "Ensemble of named perspectives";
+    public string Category => "Conversational AI";
+
+    private sealed record Review(string Summary, IReadOnlyList<string> Risks);
+
+    // The gallery never calls the model: the demo starts with the kind of merged review three
+    // reviewers would produce for one proposal.
+    private static readonly Review SampleReview = new(
+        "Magic-link sign-in is sound if links are single-use and short-lived, the email is readable without images, and sending is kept off the request path.",
+        [
+            "Security: a link that stays valid after use or for more than 15 minutes can be replayed from a forwarded email",
+            "Security: the sign-in endpoint needs per-address rate limiting, or it becomes a way to flood an inbox",
+            "Accessibility: the email's call to action must be a real link with descriptive text, not an image button",
+            "Performance: sending the email inline adds the mail provider's latency to every sign-in request; queue it",
+        ]);
+
+    public EnsembleOfPerspectives() => _review.Value = SampleReview;
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-3 max-w-xl"], content: col =>
+        {
+            col.Text(["text-xs text-zinc-400"],
+                "A sample merged review of \"let users sign in with a magic link\" from a security, an accessibility and a performance reviewer; no model is called");
+            Render(col);
+        });
+    }
+
+    #region example:pattern-ensemble-of-perspectives
+    private readonly Reactive<Review?> _review = new(null);
+
+    // BestOf picks one candidate; EnsembleMerge MERGES several. Reach for this when the answer
+    // should contain every perspective rather than the best single one. Each reviewer here has its
+    // own perspective and its own model, because different models miss different things.
+    private static readonly (string Role, LLMModel Model)[] Reviewers =
+    [
+        ("the security reviewer", LLMModel.Claude55Sonnet),
+        ("the accessibility reviewer", LLMModel.Gpt55),
+        ("the performance reviewer", LLMModel.Gemini31Pro),
+    ];
+
+    private async Task ReviewAsync(string proposal)
+    {
+        // All or nothing: if any solver produces no result the run stops without merging. The
+        // await throws EmergenceStoppedException when a solver stopped, and the model call's own
+        // exception when a solver's call failed after its retries.
+        var merged = await Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
+        {
+            options.Command = proposal;
+            options.SolverCount = Reviewers.Length;
+
+            // MaxParallel must be at least 1 -- there is no "unbounded" sentinel, and 0 is a
+            // configuration error rather than a request for no limit.
+            options.MaxParallel = 3;
+
+            options.SolverConfig = solver =>
+            {
+                var reviewer = Reviewers[solver.Index % Reviewers.Length];
+
+                // AgentScope.Role is added to that solver's system prompt, which is what makes the
+                // members differ. Left unset they default to Solver0, Solver1 … and differ only by
+                // that generic name, which is a much weaker form of divergence.
+                solver.Role = reviewer.Role;
+
+                // A solver's own Model overrides the one EnsembleMerge was given. The merger
+                // still runs on the EnsembleMerge model.
+                solver.Model = reviewer.Model;
+            };
+
+            // The merger inherits these options, its own settings on top -- unset, its Command is
+            // the proposal, answered once from the reviews' best points. Its own Command replaces
+            // that and decides how the perspectives combine.
+            options.Merger(merger =>
+                merger.Command = "Combine the reviews. Keep every distinct risk; drop duplicates.");
+        });
+
+        _review.Value = merged;
+    }
+
+    private void Render(IView view)
+    {
+        if (_review.Value is not { } review)
+        {
+            return;
+        }
+
+        view.Column(["gap-2"], content: col =>
+        {
+            col.Text(text: review.Summary);
+
+            foreach (var risk in review.Risks)
+            {
+                col.Text(["text-muted-foreground text-sm"], key: risk, text: risk);
+            }
+        });
+    }
+    #endregion
+
+    #region example:pattern-ensemble-member-answers
+    private readonly ReactiveList<(string Role, Review Review)> _memberReviews = new();
+
+    // Enumerating the run instead of awaiting it also yields each member's own answer, so a screen
+    // can show every reviewer's review beside the merged one.
+    private async Task ReviewWithMemberAnswersAsync(string proposal)
+    {
+        _memberReviews.Clear();
+
+        await foreach (var ev in Emerge.EnsembleMerge<Review>(LLMModel.Claude55Sonnet, new KernelContext(), options =>
+        {
+            options.Command = proposal;
+            options.SolverCount = Reviewers.Length;
+            options.SolverConfig = solver => solver.Role = Reviewers[solver.Index % Reviewers.Length].Role;
+        }))
+        {
+            switch (ev)
+            {
+                case SolverResult<Review> member:
+                    _memberReviews.Add((member.Role, member.Result));
+                    break;
+                case Completed<Review> { HasResult: true } done:
+                    _review.Value = done.Result;
+                    break;
+            }
+        }
+    }
+    #endregion
+}

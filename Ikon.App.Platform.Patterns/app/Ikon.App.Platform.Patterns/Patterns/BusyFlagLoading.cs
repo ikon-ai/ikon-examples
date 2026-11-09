@@ -1,0 +1,54 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: busy-flag-loading — see docs/patterns/busy-flag-loading.md.
+// The example region below is the canonical body the doc extracts; the stub outside it stands in
+// for the caller's real async work.
+internal sealed class BusyFlagLoading : IPatternDemo
+{
+    public string Slug => "busy-flag-loading";
+    public string Title => "Busy-flag loading";
+    public string Category => "State";
+    public void RenderDemo(IView view) => Render(view);
+
+    private Task SlowOperationAsync() => throw new NotImplementedException();
+
+    #region example:pattern-busy-flag-loading
+    private readonly ClientReactive<bool> _busy = new(false);
+    private readonly ClientReactive<string?> _error = new(null);
+
+    private async Task DoWorkAsync()
+    {
+        if (_busy.Value)
+        {
+            return;
+        }
+
+        _error.Value = null;
+        using var busy = _busy.AsToken(); // flips _busy true here, false on dispose
+
+        try
+        {
+            await SlowOperationAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Instance.Warning($"Slow operation failed, user can retry: {ex.Message}");
+            _error.Value = "That didn't work. Try again.";
+        }
+    }
+
+    private void Render(IView view)
+    {
+        view.Button(
+            [Button.Default, "transition-colors duration-150 hover:opacity-90", _busy.Value ? "opacity-50 cursor-wait" : ""],
+            disabled: _busy.Value,
+            onClick: DoWorkAsync,
+            content: v => v.Text(text: _busy.Value ? "Working…" : "Do thing"));
+
+        if (_error.Value is string err)
+        {
+            view.Alert(err, tone: SemanticTone.Error);
+        }
+    }
+    #endregion
+}

@@ -1,0 +1,107 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: skeleton-while-loading — see docs/patterns/skeleton-while-loading.md.
+// The example region below is the canonical body the doc extracts. The demo's buttons move it
+// between its three states: loading, loaded, and loaded but empty.
+internal sealed class SkeletonWhileLoading : IPatternDemo
+{
+    public string Slug => "skeleton-while-loading";
+    public string Title => "Skeleton while loading";
+    public string Category => "Status & feedback";
+
+    private static readonly Article[] SampleArticles =
+    [
+        new("a-1", "Heat pumps in older wooden houses", "What a 1950s house in Kuopio needed before the switch paid off."),
+        new("a-2", "Winter tyres: studded or friction?", "Braking distances from a test track in Ivalo, compared on ice and slush."),
+        new("a-3", "Composting through the winter", "Keeping a bin warm enough to work at minus twenty."),
+    ];
+
+    public void RenderDemo(IView view)
+    {
+        view.Column(["gap-4 max-w-xl"], content: col =>
+        {
+            col.Row(["gap-2 flex-wrap"], content: row =>
+            {
+                row.Button([Button.OutlineSm], text: "Loading", onClick: async () =>
+                {
+                    _articles.Clear();
+                    _loading.Value = true;
+                });
+                row.Button([Button.OutlineSm], text: "Loaded", onClick: async () =>
+                {
+                    _articles.ReplaceAll(SampleArticles);
+                    _loading.Value = false;
+                });
+                row.Button([Button.OutlineSm], text: "Loaded, empty", onClick: async () =>
+                {
+                    _articles.Clear();
+                    _loading.Value = false;
+                });
+            });
+            Render(col);
+        });
+    }
+
+    private sealed record Article(string Id, string Title, string Summary);
+
+    #region example:pattern-skeleton-while-loading
+    private readonly ClientReactive<bool> _loading = new(true);
+    private readonly ClientReactiveList<Article> _articles = new();
+
+    /// <summary>
+    /// A skeleton stands in for the SHAPE of what is coming, so it mirrors the real row rather
+    /// than being a generic grey bar. Same container, same gaps, same circle for the avatar --
+    /// that is what stops the layout jumping when the content lands.
+    /// </summary>
+    private static void RenderPlaceholderRow(IView view)
+    {
+        view.Row(["gap-3 items-center"], content: row =>
+        {
+            // A circle needs an explicit square size: SkeletonSize sets only the height, and with no
+            // width the flex row squeezes it to nothing. shrink-0 keeps the row from narrowing it.
+            row.Skeleton(["w-10 h-10 shrink-0"], shape: SkeletonShape.Circle);
+
+            row.Column(["gap-2 flex-1"], content: col =>
+            {
+                col.Skeleton(["w-1/3"], size: SkeletonSize.Sm);
+                col.Skeleton(["w-full"], size: SkeletonSize.Sm);
+            });
+        });
+    }
+
+    private void Render(IView view)
+    {
+        view.Column(["gap-4"], content: col =>
+        {
+            if (_loading.Value)
+            {
+                // A fixed small number of placeholder rows: enough to read as "content is coming",
+                // not so many that they promise a page that may turn out to be empty.
+                for (var i = 0; i < 3; i++)
+                {
+                    RenderPlaceholderRow(col);
+                }
+
+                return;
+            }
+
+            // Loaded and empty is a DIFFERENT state from loading, and needs its own designed
+            // screen -- a skeleton that never resolves is the worst of both.
+            if (_articles.Count == 0)
+            {
+                col.EmptyState([EmptyState.RootSm], title: "No articles yet", description: "Articles you add appear here.");
+                return;
+            }
+
+            foreach (var article in _articles)
+            {
+                col.Column(["gap-1"], key: article.Id, content: item =>
+                {
+                    item.Text([Text.H3], text: article.Title);
+                    item.Text(["text-muted-foreground"], text: article.Summary);
+                });
+            }
+        });
+    }
+    #endregion
+}

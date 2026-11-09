@@ -1,0 +1,143 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: chatbot-streaming — see docs/patterns/chatbot-streaming.md.
+// This example is self-contained: the example region carries the whole conversation state, the
+// streaming send, and the transcript/input UI.
+internal sealed class ChatbotStreaming : IPatternDemo
+{
+    public string Slug => "chatbot-streaming";
+    public string Title => "Chatbot streaming";
+    public string Category => "Chat";
+    public void RenderDemo(IView view) => Render(view);
+
+    #region example:pattern-chatbot-streaming
+    public sealed record ChatMessage(string Role, string Text);
+
+    private readonly ReactiveList<ChatMessage> _transcript = new();
+    // User scope: a reload starts a new client session, and a half-typed message should survive it.
+    private readonly UserReactive<string> _draft = new("");
+    private readonly Reactive<bool> _busy = new(false);
+    private readonly Reactive<string> _streaming = new("");
+    private KernelContext _ctx = new();
+
+    // The composer's onSubmit passes the field's text, on Enter and on a Send click alike.
+    private async Task SendAsync(string input)
+    {
+        var text = input.Trim();
+
+        if (string.IsNullOrEmpty(text) || _busy.Value)
+        {
+            return;
+        }
+
+        _transcript.Add(new ChatMessage("You", text));
+        _draft.Value = "";
+        _streaming.Value = "";
+        using var busy = _busy.AsToken();
+
+        try
+        {
+            // Streaming: iterate Emerge.Run's event stream. Each ModelText<T>
+            // event is the next chunk of the model's own output — append to
+            // _streaming so the UI re-renders token-by-token. Completed<T>
+            // fires once with the final result + the new KernelContext.
+            //
+            // Run<string> is what makes those chunks readable. Every other T
+            // turns JSON mode on, and then the chunks ARE the JSON: the bubble
+            // fills up with {"Reply":"He… instead of the reply.
+            _ctx = _ctx.Add(new MessageBlock(MessageBlockRole.User, text));
+            var sb = new System.Text.StringBuilder();
+            await foreach (var ev in Emerge.Run<string>(LLMModel.Claude55Sonnet, _ctx, pass =>
+            {
+                pass.SystemPrompt = "You are a helpful assistant. Reply concisely.";
+            }))
+            {
+                if (ev is ModelText<string> token)
+                {
+                    sb.Append(token.Text);
+                    _streaming.Value = sb.ToString();
+                }
+                else if (ev is Retry<string>)
+                {
+                    // The generation starts over; text streamed before the Retry is superseded.
+                    sb.Clear();
+                    _streaming.Value = "";
+                }
+                else if (ev is Completed<string> done)
+                {
+                    _ctx = done.Context;
+
+                    if (!string.IsNullOrWhiteSpace(done.Result))
+                    {
+                        _transcript.Add(new ChatMessage("Assistant", done.Result));
+                    }
+
+                    _streaming.Value = "";
+                }
+                else if (ev is Stopped<string>)
+                {
+                    // Enumerating a run hands back a stop as an event, not an exception.
+                    _transcript.Add(new ChatMessage("System", "The assistant didn't answer — send it again."));
+                    _streaming.Value = "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Instance.Warning($"Chat reply for client {ReactiveScope.ClientId} failed, user can send again: {ex.Message}");
+
+            // Visible, and in the reader's language — never the exception text, which names a
+            // provider and a socket to someone who wanted an answer.
+            _transcript.Add(new ChatMessage("System", "Couldn't reach the assistant — send it again."));
+            _streaming.Value = "";
+        }
+    }
+
+    private void Render(IView view)
+    {
+        // ChatLog scrolls the messages and keeps the composer pinned under them; the key makes it
+        // follow the newest message and the streaming reply as they grow.
+        view.ChatLog(["h-[32rem] gap-3"],
+            autoScrollKey: $"{_transcript.Count}:{_streaming.Value.Length}",
+            content: view => view.Column(["gap-3 p-4"], content: view =>
+            {
+                foreach (var msg in _transcript)
+                {
+                    var isUser = msg.Role == "You";
+                    // bg-brand-solid, not bg-primary: in the IKON semantic set bg-primary is the
+                    // PAGE surface, so a bubble painted with it disappears into the page. The reply is
+                    // bg-tertiary, which shows on the page and on a card, where bg-card would vanish.
+                    // A model writes markdown (lists, **bold**), which Text would show as raw marks.
+                    view.Box([isUser ? "self-end bg-brand-solid text-primary-on-brand" : "self-start bg-tertiary", "rounded-lg p-3 max-w-[80%]"], content: v =>
+                    {
+                        if (isUser)
+                        {
+                            v.Text(text: msg.Text);
+                        }
+                        else
+                        {
+                            v.Markdown(msg.Text);
+                        }
+                    });
+                }
+
+                // In-flight streaming bubble: reading _streaming.Value here
+                // registers a dependency, so this re-renders on every ModelText
+                // event. Empties when Completed fires above.
+                if (!string.IsNullOrEmpty(_streaming.Value))
+                {
+                    view.Box(["self-start bg-tertiary rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
+                        v.Markdown(_streaming.Value));
+                }
+            }),
+            // Composer is the whole input bar: a text field that grows with its text, Enter to send,
+            // and a Send button that is disabled while busy: is true.
+            footer: view => view.Composer(
+                value: _draft.Value,
+                placeholder: "Type a message…",
+                busy: _busy.Value,
+                onValueChange: async v => _draft.Value = v,
+                onSubmit: SendAsync));
+    }
+    #endregion
+}

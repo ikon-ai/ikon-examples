@@ -1,0 +1,68 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: sheet-and-drawer — see docs/patterns/sheet-and-drawer.md.
+// The example region below is the canonical body the doc extracts.
+internal sealed class SheetAndDrawer : IPatternDemo
+{
+    public string Slug => "sheet-and-drawer";
+    public string Title => "Sheet and drawer: edge-anchored overlays";
+    public string Category => "Modals & overlays";
+    public void RenderDemo(IView view) => Render(view);
+
+    #region example:pattern-sheet-and-drawer
+    private readonly ClientReactive<bool> _filtersOpen = new(false);
+    private readonly ClientReactive<bool> _actionsOpen = new(false);
+    private readonly ClientReactive<bool> _detailOpen = new(false);
+    private readonly ClientReactive<bool> _detailExpanded = new(false);
+
+    private void Render(IView view)
+    {
+        view.Row(["gap-2"], content: row =>
+        {
+            // Sheet slides from an EDGE you choose and is the desktop shape: filters, details, a
+            // settings panel beside the content it belongs to. Both Sheet and Drawer own their
+            // header, so title:/description: are parameters, not something to render inside.
+            row.Sheet(
+                open: _filtersOpen.Value,
+                onOpenChange: async open => _filtersOpen.Value = open,
+                side: Side.Right,
+                title: "Filters",
+                description: "Narrow the list",
+                trigger: t => t.Button(content: v => v.Text(text: "Filters")),
+                content: panel => panel.Text(text: "…filter controls…"),
+                footer: f => f.Button([Button.PrimaryMd],
+                    onClick: () => _filtersOpen.Value = false,
+                    content: v => v.Text(text: "Apply")));
+
+            // Drawer comes from the BOTTOM with a handle bar, which is the touch idiom: an
+            // action sheet, a picker, a confirm the thumb can reach. The handle is only a visual
+            // cue -- nothing drags, so each action closes the drawer itself.
+            row.Drawer(
+                open: _actionsOpen.Value,
+                onOpenChange: async open => _actionsOpen.Value = open,
+                title: "Actions",
+                showHandle: true,
+                trigger: t => t.Button(content: v => v.Text(text: "Actions")),
+                content: panel => panel.Column(["gap-2"], content: list =>
+                {
+                    list.Button(onClick: () => _actionsOpen.Value = false, content: v => v.Text(text: "Share"));
+                    list.Button(onClick: () => _actionsOpen.Value = false, content: v => v.Text(text: "Duplicate"));
+                }));
+
+            // snapPoints: makes a bottom panel draggable: it opens at 60% of the screen height and
+            // drags up into a full page, where its content scrolls; dragged below 60% it closes.
+            row.Drawer(
+                open: _detailOpen.Value,
+                onOpenChange: async open => _detailOpen.Value = open,
+                title: "Details",
+                snapPoints: [0.6, 1],
+                onSnapChange: async snap => _detailExpanded.Value = snap.Index == 1,
+                trigger: t => t.Button(content: v => v.Text(text: "Details")),
+                content: panel => panel.Text(text: _detailExpanded.Value ? "Full page" : "Drag up for more"));
+
+            // modal: false lets the page behind stay interactive -- right for an inspector the
+            // user consults while working, wrong for anything that must be answered.
+        });
+    }
+    #endregion
+}

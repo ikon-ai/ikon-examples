@@ -1,0 +1,119 @@
+namespace Ikon.App.Platform.Patterns.Patterns;
+
+// Pattern: nav-and-menu-rows — see docs/patterns/nav-and-menu-rows.md.
+// The example region is the three navigation surfaces side by side — page tabs, a sidebar rail
+// and a menu row — because the point of the pattern is which token each one takes. The stubs
+// outside it stand in for the sections a real app would route between.
+internal sealed class NavAndMenuRows : IPatternDemo
+{
+    public string Slug => "nav-and-menu-rows";
+    public string Title => "Nav and menu rows";
+    public string Category => "Layout";
+
+    public void RenderDemo(IView view) => RenderShell(view);
+
+    private sealed record Section(string Key, string Label, string Icon);
+
+    private static readonly Section[] Sections =
+    [
+        new("overview", "Overview", "layout-dashboard"),
+        new("activity", "Activity", "activity"),
+        new("files", "Files", "folder"),
+    ];
+
+    private static void RenderSectionBody(IView view, string label) =>
+        view.Text([Text.Body, "p-4"], text: label);
+
+    #region example:pattern-nav-and-menu-rows
+    private readonly ClientReactive<string> _section = new("overview");
+    private readonly ClientReactive<bool> _menuOpen = new(false);
+    private readonly ClientReactive<string> _density = new("Comfortable");
+
+    private void RenderShell(IView view)
+    {
+        // Page navigation between peer panels: content-width tabs on a shared rail. Not a
+        // segmented control — Tabs.List/Tabs.Trigger would set the labels on a tinted pill row and
+        // fill the active one with the brand colour, and the row would read as buttons.
+        // NavListPage lines the first label up with a Layout.PageWidth header; use NavList elsewhere.
+        view.Tabs(
+            value: _section.Value,
+            onValueChange: async value => _section.Value = value,
+            listStyle: [Tabs.NavListPage],
+            triggerStyle: [Tabs.NavTriggerMd],
+            tabs: Sections.Select(s =>
+                new TabItem(s.Key, s.Label, v => RenderSectionBody(v, s.Label))));
+
+        // The same destinations as a sidebar rail. NavItem carries the whole row: transparent at
+        // rest, tinted on hover, and the active row differs in WEIGHT as well as colour.
+        view.Column([NavPanel.Border, "w-56"], content: view =>
+        {
+            foreach (var s in Sections)
+            {
+                bool active = _section.Value == s.Key;
+
+                view.Button([NavItem.Md, active ? NavItem.Active : NavItem.Default],
+                    onClick: async () => _section.Value = s.Key,
+                    content: v =>
+                    {
+                        v.Icon([NavItem.Icon], name: s.Icon);
+                        v.Text([NavItem.Label], text: s.Label);
+                    });
+            }
+        });
+
+        // The same rows as a horizontal top nav. The size token sets w-full for a vertical list,
+        // so in a row each item adds w-auto after the token, where it overrides w-full.
+        view.Row([Layout.Row.Xs, "border-b border-secondary px-2 py-1"], content: view =>
+        {
+            foreach (var s in Sections)
+            {
+                bool active = _section.Value == s.Key;
+
+                view.Button([NavItem.Md, active ? NavItem.Active : NavItem.Default, "w-auto"],
+                    text: s.Label,
+                    onClick: async () => _section.Value = s.Key);
+            }
+        });
+
+        // A menu row is a Button wearing Menu.Item — a full-width transparent row that highlights
+        // on hover. DropdownMenu paints Menu.Content itself; a custom contentStyle: without it (or
+        // "default") renders the panel transparent.
+        view.DropdownMenu(
+            open: _menuOpen.Value,
+            onOpenChange: async open => _menuOpen.Value = open,
+            contentStyle: [Menu.Content],
+            trigger: v => v.Button([Button.OutlineMd], text: "Density"),
+            content: v =>
+            {
+                v.Text([Menu.Label], text: "Row density");
+
+                string[] options = ["Comfortable", "Compact"];
+
+                foreach (var option in options)
+                {
+                    v.Button([Menu.Item], text: option, onClick: async () =>
+                    {
+                        _density.Value = option;
+                        _menuOpen.Value = false;
+                    });
+                }
+            });
+
+        RenderDensityToggle(view);
+    }
+
+    // A segmented control IS the right answer when the choices are parallel values of ONE setting,
+    // and that is the only place the filled treatment belongs.
+    private void RenderDensityToggle(IView view) =>
+        view.Tabs(
+            value: _density.Value,
+            onValueChange: async value => _density.Value = value,
+            listStyle: [Tabs.List, "w-full"],
+            triggerStyle: [Tabs.Trigger, "flex-1"],
+            tabs:
+            [
+                new TabItem("Comfortable", "Comfortable", _ => { }),
+                new TabItem("Compact", "Compact", _ => { }),
+            ]);
+    #endregion
+}
