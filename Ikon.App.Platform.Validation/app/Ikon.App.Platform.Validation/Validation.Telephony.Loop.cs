@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
 public partial class Validation
 {
     private static readonly TimeSpan TelSmsLoopTimeout = TimeSpan.FromSeconds(90);
@@ -16,13 +19,29 @@ public partial class Validation
     private static readonly TimeSpan TelInterruptToneLength = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan TelInterruptLimit = TimeSpan.FromSeconds(4);
 
+    // How often the sending instance looks for what the receiving instance wrote
+    private static readonly TimeSpan TelLoopPoll = TimeSpan.FromSeconds(2);
+
+    private const string TelArmedCallAsset = "call-armed.json";
+    private const string TelCallResultAsset = "call-result.json";
+    private static readonly Regex TelLoopToken = new(@"IKONLOOP\d{6}", RegexOptions.CultureInvariant);
+
     private readonly Reactive<bool> _telLoopBusy = new(false);
     private readonly Reactive<string> _telLoopProgress = new("");
     private readonly ReactiveDictionary<string, string> _telLoopResults = new();
     private readonly SemaphoreSlim _telLoopGate = new(1, 1);
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<SmsMessage>> _telSmsLoopWaiters = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<SmsReceivedPayload>> _telSmsLoopWaiters = new();
     private TelLoopCall? _telLoopCall;
     private volatile string? _telLoopRunning;
+
+    // The two ends of a loop run in different instances: the browser that presses the button has its
+    // own, and a text or a call reaches the shared one. What the receiving end saw is handed over
+    // through small cloud JSON assets under this prefix.
+    private AssetUri TelLoopUri(string name) => new(AssetClass.CloudJson, $"validation/telephony/{name}", spaceId: app.GlobalState.SpaceId);
+
+    private sealed record TelLoopArrival(string From, string To, string Text, string Id);
+
+    private sealed record TelArmedCall(string CallerNumber, string CalleeNumber);
 
     private static readonly (string Key, string Label, bool Sms, bool Back)[] TelLoops =
     [
@@ -112,7 +131,6 @@ public partial class Validation
         _telLoopBusy.Value = true;
         _telLoopResults.Remove(key);
         _telLoopProgress.Value = "Reading the space's numbers…";
-        bool resetAfter = false;
 
         try
         {
@@ -135,13 +153,6 @@ public partial class Validation
 
             var (from, to) = back ? (b!, a!) : (a!, b!);
 
-            // Inbound goes to the shared instance unless something bound it, and a browser is in a
-            // session of its own, so the receiving end would land where nothing waits for it. Put
-            // back afterwards when nothing had bound it before.
-            resetAfter = _telNumbers.All(n => n.SessionIdentity.Count == 0);
-            _telLoopProgress.Value = "Binding inbound here…";
-            await app.Telephony.BindInboundToThisInstanceAsync();
-
             _telLoopResults[key] = sms
                 ? await RunSmsLoopAsync(from, to)
                 : await RunCallLoopAsync(from, to);
@@ -157,20 +168,6 @@ public partial class Validation
         }
         finally
         {
-            if (resetAfter)
-            {
-                try
-                {
-                    await app.Telephony.ResetInboundAsync();
-                }
-                catch (Exception ex)
-                {
-                    // The verdict above stands; a binding left on this identity only moves where the
-                    // next inbound lands, and the next loop binds again anyway.
-                    Log.Instance.Warning($"Validation telephony loop could not reset the inbound binding: {ex.GetType().Name}: {ex.Message}");
-                }
-            }
-
             _telLoopProgress.Value = "";
             _telLoopBusy.Value = false;
             _telLoopRunning = null;
@@ -182,7 +179,7 @@ public partial class Validation
     private async Task<string> RunSmsLoopAsync(TelephonyNumber a, TelephonyNumber b)
     {
         var token = $"IKONLOOP{Random.Shared.Next(100000, 999999)}";
-        var waiter = new TaskCompletionSource<SmsMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waiter = new TaskCompletionSource<SmsReceivedPayload>(TaskCreationOptions.RunContinuationsAsynchronously);
         _telSmsLoopWaiters[token] = waiter;
         var started = DateTime.UtcNow;
 
@@ -193,25 +190,48 @@ public partial class Validation
             var sentMs = (DateTime.UtcNow - started).TotalMilliseconds;
             _telLoopProgress.Value = $"Accepted as {sent.MessageId} after {sentMs:0} ms, waiting for it on {b.Number}…";
 
-            var arrived = await Task.WhenAny(waiter.Task, Task.Delay(TelSmsLoopTimeout));
+            // The text reaches the shared instance, which writes its arrival; this instance gets it
+            // in memory only when it is the shared one itself
+            var arrival = await WaitForSmsLoopArrivalAsync(token, waiter.Task, started + TelSmsLoopTimeout);
 
-            if (arrived != waiter.Task)
+            if (arrival == null)
             {
-                return $"FAIL sms loop {a.Number}→{b.Number}: sent (id {sent.MessageId}, {sent.Parts} part, status {sent.Status}) but not received here within {TelSmsLoopTimeout.TotalSeconds:0} s";
+                return $"FAIL sms loop {a.Number}→{b.Number}: sent (id {sent.MessageId}, {sent.Parts} part, status {sent.Status}) but not received by the app within {TelSmsLoopTimeout.TotalSeconds:0} s";
             }
 
-            var message = waiter.Task.Result;
             var totalMs = (DateTime.UtcNow - started).TotalMilliseconds;
 
-            return $"PASS sms loop {a.Number}→{b.Number} in {totalMs:0}ms (accepted after {sentMs:0} ms, {sent.Parts} part, replyable {sent.Replyable}, arrived from {message.From} to {message.To})";
+            return $"PASS sms loop {a.Number}→{b.Number} in {totalMs:0}ms (accepted after {sentMs:0} ms, {sent.Parts} part, replyable {sent.Replyable}, arrived from {arrival.From} to {arrival.To} as {arrival.Id})";
         }
         finally
         {
             _telSmsLoopWaiters.TryRemove(token, out _);
+            await DeleteTelLoopAssetAsync($"loop/{token}.json");
         }
     }
 
-    private void CompleteSmsLoop(SmsMessage message)
+    private async Task<TelLoopArrival?> WaitForSmsLoopArrivalAsync(string token, Task<SmsReceivedPayload> inMemory, DateTime deadlineUtc)
+    {
+        while (DateTime.UtcNow < deadlineUtc)
+        {
+            if (inMemory.IsCompletedSuccessfully)
+            {
+                var message = inMemory.Result;
+                return new TelLoopArrival(message.From, message.To, message.Text, message.Id);
+            }
+
+            if (await ReadTelLoopAssetAsync<TelLoopArrival>($"loop/{token}.json") is { } written)
+            {
+                return written;
+            }
+
+            await Task.WhenAny(inMemory, Task.Delay(TelLoopPoll));
+        }
+
+        return null;
+    }
+
+    private void CompleteSmsLoop(SmsReceivedPayload message)
     {
         foreach (var (token, waiter) in _telSmsLoopWaiters)
         {
@@ -219,6 +239,52 @@ public partial class Validation
             {
                 waiter.TrySetResult(message);
             }
+        }
+    }
+
+    // A loopback text names its token, and the instance that sent it polls for this file
+    private async Task RecordSmsLoopArrivalAsync(SmsReceivedPayload message)
+    {
+        if (TelLoopToken.Match(message.Text) is not { Success: true } match)
+        {
+            return;
+        }
+
+        var arrival = new TelLoopArrival(message.From, message.To, message.Text, message.Id);
+        await Asset.Instance.SetTextAsync(TelLoopUri($"loop/{match.Value}.json"), JsonSerializer.Serialize(arrival));
+    }
+
+    private async Task<T?> ReadTelLoopAssetAsync<T>(string name) where T : class
+    {
+        var uri = TelLoopUri(name);
+
+        try
+        {
+            if (!await Asset.Instance.ExistsAsync(uri))
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<T>(await Asset.Instance.GetTextAsync(uri));
+        }
+        catch (Exception ex)
+        {
+            // The other end may be writing the file this moment; the next poll reads it whole
+            Log.Instance.Debug($"Validation telephony loop could not read {name} yet: {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task DeleteTelLoopAssetAsync(string name)
+    {
+        try
+        {
+            await Asset.Instance.DeleteAsync(TelLoopUri(name));
+        }
+        catch (Exception ex)
+        {
+            // A file that was never written, or is already gone; the next loop overwrites what is left
+            Log.Instance.Debug($"Validation telephony loop could not delete {name}: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -230,6 +296,11 @@ public partial class Validation
 
         try
         {
+            // The call rings the shared instance, which reads this to know the call is the loop's and
+            // where to write what it heard; in memory for the case where this is the shared instance
+            await DeleteTelLoopAssetAsync(TelCallResultAsset);
+            await Asset.Instance.SetTextAsync(TelLoopUri(TelArmedCallAsset), JsonSerializer.Serialize(new TelArmedCall(a.Number, b.Number)));
+
             _telLoopProgress.Value = $"Calling {b.Number} from {a.Number}…";
             await using var call = await app.Telephony.CallAsync(b.Number, TelCallLoopRing, a.Number);
             var connectedMs = (DateTime.UtcNow - started).TotalMilliseconds;
@@ -265,14 +336,12 @@ public partial class Validation
             var interrupt = await CheckInterruptAsync(call);
             await call.HangUpAsync();
 
-            var callee = await Task.WhenAny(loop.Result.Task, Task.Delay(TelCallLoopCalleeWait)) == loop.Result.Task
-                ? loop.Result.Task.Result
-                : null;
+            var callee = await WaitForCalleeResultAsync(loop.Result.Task, DateTime.UtcNow + TelCallLoopCalleeWait);
 
             var totalMs = (DateTime.UtcNow - started).TotalMilliseconds;
             string aHeard = $"A heard B's tone {meter.ToneSeconds:0.0} s{(meter.FirstToneAfterMs is { } first ? $" (first after {first:0} ms)" : "")}";
             string bHeard = callee == null
-                ? "B's side never answered on this instance (inbound binding?)"
+                ? "B's side never reported answering (did the call reach the app's shared instance?)"
                 : $"B heard A's tone {callee.ToneSeconds:0.0} s ({callee.Summary})";
 
             bool pass = meter.ToneSeconds >= TelLoopToneSecondsNeeded && callee != null && callee.ToneSeconds >= TelLoopToneSecondsNeeded && interrupt.Ok;
@@ -282,7 +351,43 @@ public partial class Validation
         finally
         {
             _telLoopCall = null;
+            await DeleteTelLoopAssetAsync(TelArmedCallAsset);
+            await DeleteTelLoopAssetAsync(TelCallResultAsset);
         }
+    }
+
+    private async Task<TelLoopCallee?> WaitForCalleeResultAsync(Task<TelLoopCallee> inMemory, DateTime deadlineUtc)
+    {
+        while (DateTime.UtcNow < deadlineUtc)
+        {
+            if (inMemory.IsCompletedSuccessfully)
+            {
+                return inMemory.Result;
+            }
+
+            if (await ReadTelLoopAssetAsync<TelLoopCallee>(TelCallResultAsset) is { } written)
+            {
+                return written;
+            }
+
+            await Task.WhenAny(inMemory, Task.Delay(TelLoopPoll));
+        }
+
+        return null;
+    }
+
+    // The shared instance's side of a loop another instance started: the armed file names the numbers,
+    // and is taken once so a second call does not read as the loop's
+    private async Task<TelLoopCall?> TryTakeArmedLoopCallAsync(IVoiceCall call)
+    {
+        if (await ReadTelLoopAssetAsync<TelArmedCall>(TelArmedCallAsset) is not { } armed
+            || !(SameNumber(call.From, armed.CallerNumber) || SameNumber(call.To, armed.CalleeNumber)))
+        {
+            return null;
+        }
+
+        await DeleteTelLoopAssetAsync(TelArmedCallAsset);
+        return new TelLoopCall(armed.CallerNumber, armed.CalleeNumber, reportThroughAsset: true);
     }
 
     // Starts a tone far longer than the limit, interrupts it, and expects playback to be reported
@@ -381,19 +486,37 @@ public partial class Validation
                 Log.Instance.Debug($"Hang-up of validation loop call {call.CallId}: {ex.Message}");
             }
 
-            loop.Result.TrySetResult(new TelLoopCallee(meter.ToneSeconds, meter.Describe()));
+            var callee = new TelLoopCallee(meter.ToneSeconds, meter.Describe());
+            loop.Result.TrySetResult(callee);
+
+            if (loop.ReportThroughAsset)
+            {
+                try
+                {
+                    await Asset.Instance.SetTextAsync(TelLoopUri(TelCallResultAsset), JsonSerializer.Serialize(callee));
+                }
+                catch (Exception ex)
+                {
+                    // The caller's side then reports B as never answering, which is this failure's verdict
+                    Log.Instance.Warning($"Validation loop callee on {call.CallId} could not report what it heard: {ex.GetType().Name}: {ex.Message}");
+                }
+            }
+
             AddCallLog(new TelCallEntry(DateTime.UtcNow, "loop", call.CallId, call.From, call.To, meter.Describe()));
         }
     }
 }
 
-internal sealed class TelLoopCall(string callerNumber, string calleeNumber)
+internal sealed class TelLoopCall(string callerNumber, string calleeNumber, bool reportThroughAsset = false)
 {
     private int _taken;
 
     public string CallerNumber { get; } = callerNumber;
 
     public string CalleeNumber { get; } = calleeNumber;
+
+    /// <summary>The caller waits in another instance, so the result is written to the shared asset as well.</summary>
+    public bool ReportThroughAsset { get; } = reportThroughAsset;
 
     public TaskCompletionSource<TelLoopCallee> Result { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

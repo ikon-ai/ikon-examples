@@ -15,21 +15,19 @@ public partial class Validation
     private readonly Reactive<bool> _telSmsBusy = new(false);
     private readonly Reactive<string> _telSmsResult = new("");
 
-    // Inbound
-    private readonly ReactiveList<TelSmsEntry> _telInbox = new();
-    private readonly Reactive<string> _telBindResult = new("");
+    // Inbound. Global, because the trigger handler runs in the shared instance and the Inbound card
+    // is open in a user's own.
+    private readonly GlobalReactiveList<TelSmsEntry> _telInbox = new(key: "validation-tel-inbox");
+    private readonly GlobalReactive<TelSmsEntry?> _telLastSms = new(null, key: "validation-tel-last-sms");
     private readonly Reactive<string> _telHandlerStatus = new("Not registered yet");
 
     private void InitTelephony()
     {
-        // Subscribing costs nothing and must happen at startup: an inbound message can cold-start
-        // an instance, and one with no subscriber drops the message.
-        app.Telephony.SmsReceived += OnTelephonySmsReceivedAsync;
-
-        // Also at startup rather than on first unlock, for the same reason: a call that wakes a
-        // stopped instance is answered only if Main registered the handler. It installs the handler
-        // on the one endpoint host the MCP surface also uses, waiting for that host's start, so it
-        // works the same with no numbers or on a local run.
+        // At startup rather than on first unlock: a call that wakes a stopped instance is answered
+        // only if Main registered the handler. It installs the handler on the one endpoint host the
+        // MCP surface also uses, waiting for that host's start, so it works the same with no numbers
+        // or on a local run. Texts need no registration: the declared trigger below is what makes the
+        // platform deliver them.
         _ = RegisterCallHandlerAsync();
     }
 
@@ -47,17 +45,25 @@ public partial class Validation
         }
     }
 
-    private async Task OnTelephonySmsReceivedAsync(SmsMessage message)
+    // Delivered to the shared instance, at least once. The loop that sent a text waits in a browser's
+    // instance, so the arrival is written where every instance can read it.
+    [Trigger(TriggerEventType.SmsReceived, MaxParallelism = 4)]
+    internal async Task OnSmsReceivedAsync(TriggerContext context, CancellationToken ct)
     {
-        _telInbox.Insert(0, new TelSmsEntry(DateTime.UtcNow, message.From, message.To, message.Text, message.MessageId));
+        var message = context.GetPayload<SmsReceivedPayload>();
+        var entry = new TelSmsEntry(message.ReceivedAt.UtcDateTime, message.From, message.To, message.Text, message.Id);
+
+        _telInbox.Insert(0, entry);
 
         while (_telInbox.Count > TelLogCap)
         {
             _telInbox.RemoveAt(_telInbox.Count - 1);
         }
 
+        _telLastSms.Value = entry;
         CompleteSmsLoop(message);
-        await Task.CompletedTask;
+        await RecordSmsLoopArrivalAsync(message);
+        Log.Instance.Info($"Validation received SMS {message.Id} from {message.From} to {message.To} ({message.Parts} part)");
     }
 
     private void RenderTelephonySection(UIView view)
@@ -115,7 +121,7 @@ public partial class Validation
                                 view.Badge("default", SemanticTone.Success);
                             }
 
-                            view.Text([Text.Caption], $"{string.Join(", ", number.Capabilities)} · inbound to {DescribeInboundIdentity(number.SessionIdentity)}");
+                            view.Text([Text.Caption], $"{string.Join(", ", number.Capabilities)} · calls to {DescribeInboundIdentity(number.SessionIdentity)}");
                         });
                     }
                 });
@@ -282,43 +288,13 @@ public partial class Validation
     {
         view.Box([Card.Default, "p-6"], content: view =>
         {
-            view.Text([Text.H3, "mb-4"], "Inbound");
+            view.Text([Text.H3, "mb-2"], "Inbound");
+            view.Text([Text.Caption, "mb-3"], "Texts reach the app's shared instance as ikon.sms.received events. The latest, then the last 50, shared with every instance:");
 
-            view.Row([Layout.Row.Md, "items-center flex-wrap mb-3"], content: view =>
+            if (_telLastSms.Value is { } last)
             {
-                view.Button([Button.PrimaryMd], text: "Bind here", props: TestId("tel-bind"), onClick: async () =>
-                {
-                    try
-                    {
-                        await app.Telephony.BindInboundToThisInstanceAsync();
-                        _telBindResult.Value = "PASS bound here";
-                        await RefreshTelephonyAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _telBindResult.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
-                    }
-                });
-
-                view.Button([Button.OutlineMd], text: "Reset", props: TestId("tel-reset"), onClick: async () =>
-                {
-                    try
-                    {
-                        await app.Telephony.ResetInboundAsync();
-                        _telBindResult.Value = "PASS reset to the shared instance";
-                        await RefreshTelephonyAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _telBindResult.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
-                    }
-                });
-
-                if (_telBindResult.Value.Length > 0)
-                {
-                    view.Text([Text.Body], _telBindResult.Value, props: TestId("tel-bind-result"));
-                }
-            });
+                view.Text([Text.Body, "mb-3"], $"{last.AtUtc:yyyy-MM-dd HH:mm:ss} {last.From} → {last.To}: {last.Text}", props: TestId("tel-last-sms"));
+            }
 
             if (_telInbox.Count == 0)
             {

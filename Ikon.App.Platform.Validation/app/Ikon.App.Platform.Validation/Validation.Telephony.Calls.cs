@@ -328,6 +328,12 @@ public partial class Validation
             return;
         }
 
+        if (await TryTakeArmedLoopCallAsync(call) is { } armedLoop)
+        {
+            await AnswerLoopCallAsync(call, armedLoop);
+            return;
+        }
+
         string mode = _telIncomingMode.Value;
         string result;
 
