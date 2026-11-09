@@ -4,13 +4,13 @@
 
 ## Quick start
 
-1. New app, in order: (1) `ikon docs product-design --section "First build checklist"`, then write `branding/brand.md`; (2) `ikon docs --search "<request words>"` and the patterns it names (`ikon docs _start --section "By kind of app"`); (3) write the app; (4) `ikon link --target staging --new-app --detach`, then `ikon run --target staging --mock-ai --detach` and `ikon browse --steps "observe"`; (5) `ikon deploy` only when asked. Converting: `ikon docs convert` first.
-2. Pick a visual direction (below), the language (not English: write the C# text in it or use `multilingual-csharp-ui`; set `<html lang>` and add `src/i18n/xx.ts` for sign-in; `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for one shared room use `SessionIdentity()`, `SessionIdentity(string? Room)` one per `?room=`.
+1. New app: read `ikon docs product-design --section "First build checklist"`, write `branding/brand.md`, read `ikon docs --search "<request words>"` and its patterns. Write the app, run `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Deploy when asked. For conversions, read `ikon docs convert`.
+2. Pick a visual direction (below), the language (not English: write the C# text in it or use `multilingual-csharp-ui`; set `<html lang>`, add `src/i18n/xx.ts` for sign-in and list it in `app.tsx` (`translations`, `defaultLanguage`); `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for one shared room use `SessionIdentity()`, `SessionIdentity(string? Room)` one per `?room=`.
    Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; none holds `admin` by default (`first-user-becomes-admin`). Signed-out visitors: `app-structure`.
 3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`).
-4. A local run reads and writes the deployed app's databases, files and persistent state. Test on a staging copy (`app.Seed` runs on staging and gym copies after `OnStarting`, so reload there a list loaded in it; the deployed app opens empty: give lists and charts empty states). Set `[[Surface]]` before linking: staging takes it then; later changes go in every `ikon-config*.toml`.
-5. `browse` without `--target` drives the local run; a deployed copy spends credits. `ikon db query` acts on the live app unless `--target` names one.
-   `--mock-ai`: an `Emerge.Run<T>` array gets one item; `[Description("...", minArrayItems: 4)]` on each list property sets four. No tool is called unless the run started with `--mock-ai-script turns.json` scripting `tool` turns, and a typed call needs a `{"json": {...}}` turn (`ai-models`).
+4. A local run uses the app's cloud data (`databases`). Put required rows in `OnStarting`; request samples with `ikon db seed --profile demo`. Update surfaces in `ikon-config*.toml`.
+5. `browse` without `--target` drives the local run. Database commands select the linked app unless `--target` names another.
+   `--ai mock` calls no tools. Use `--ai-script turns.json` for typed replies and tool calls; see `ai-models` for list sizes.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit 
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
 `ikon status --wait` returns once the reload has applied or failed); a `.csproj`
-or `ikon-config.toml` change needs `ikon stop` and a new run. Check the app as text first (`--text-only` needs no browser):
+or `ikon-config.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
 ikon browse --text-only --steps "observe"  # text + [id] handles
@@ -59,12 +59,8 @@ local run `--as-user <name>` acts as a named test user (`--role`), and `as <name
 next `as` (`as me:` is the run's own). Deployed, `as <name>:` is a guest (none on a private app), pageless, no upload; a room it hosts ends with it. When
 a surface lists "global", every guest is one shared user, which `browse` cannot open a page as: use `--text-only` there, a local run for `look`, or list "guest". `click <name>` is a real mouse click.
 
-Develop on the primary app first. When existing users or data need isolation,
-`ikon link --target staging` makes a separately billed staging app; `--target staging` selects it
-for `deploy`, `browse`, `test` and `logs`. Cloud staging runs real AI and delivers real messages.
 Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages send|capture`
 (overridden by `--email`, `--sms`, `--whatsapp`) and `--cron auto|manual`. They never change cloud execution.
-Delete unused staging apps with `ikon app delete --target staging`; stopping sessions does not remove database charges.
 
 ## The ikon tool's commands
 
@@ -106,7 +102,7 @@ empty (`view.EmptyState`), loading and error states; action buttons beside a tit
   Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`.
 - **Databases**: Dapper and EF Core are scaffolded; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`), records too; `bigserial`, `bigint`, `count(*)` read as `long`, not `int`; `timestamptz` reads as `DateTime` (UTC), never `DateTimeOffset`, and `date` as `DateOnly`.
 - **Logging**: `Log.Instance.Info/Warning/Error/Debug($"…")`, not `app.Logger` (CS1061).
-- **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(options: [new SelectOption(v, l)])`, not `items:`.
+- **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(ariaLabel: "x", options: [new SelectOption(v, l)])`.
 - **Colours**: `bg-primary` is the page surface, not the brand: brand fill is `bg-brand-solid`, brand text `text-brand-secondary`; the tone is `SemanticTone.Error`, no `Danger`.
 - **Structure**: keep the `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Every extra .cs file wraps its code in `public partial class <App>`; members outside a class give CS0106/CS8803. Keep the `__IKON_APP_NAME__` marker in `index.html` and the manifest.
 
@@ -121,7 +117,7 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 - **ai-image**: image generation, upscaling, depth maps, segmentation and 3D meshes
 - **ai-models**: choosing an LLM model; KernelContext
 - **ai-speech-and-audio**: text to speech, speech recognition, sound effects and music
-- **ai-video**: video generation and enhancement; playing a video file
+- **ai-video**: video generation and enhancement; Video Playback
 - **ai-web-and-data**: web search and scraping, classification, decisions, OCR, embeddings, retrieval
 - **app-api-reference**: the signatures of IApp and the host services
 - **app-container**: the cloud server image; bringing programs, fonts and packages
@@ -158,6 +154,7 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 - **scaling**: instances, shards and cells for many users
 - **secrets**: secrets and credentials
 - **sso**: enterprise single sign-on
+- **staging**: separate test apps, only when the person asks for one
 - **styling-and-motion**: Crosswind classes, theme tokens, colour tokens and motion
 - **tailwind-reference**: every Tailwind utility Crosswind supports
 - **telephony**: SMS and phone calls
@@ -165,6 +162,7 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 - **ui-api-reference**: the parameters every component shares; where signatures are
 - **ui-components**: every UI component with examples: layout, inputs, overlays, drag and drop
 - **utilities**: retries, embedded resources, fuzzy matching, logger providers
+- **whatsapp**: WhatsApp messaging
 
 
 ## Playbooks
