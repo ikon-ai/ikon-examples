@@ -271,7 +271,7 @@ cornering load are all in the accelerometer and none of them are in a speed trac
 carries about 2 MB an hour where the undecimated one carried 21.
 
 The uploaded file is kept as an asset, so it is also the gait corpus —
-`platform-dotnet/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md` explains why one is needed and what
+`platform-dotnet/apps/examples/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md` explains why one is needed and what
 would be trained on it. **The labels are still missing**, and they remain the real obstacle rather
 than the classifier: nothing in the app yet asks the rider what gait they were in.
 
@@ -371,7 +371,7 @@ window, which no per-window decision can do however good its features are.
 **The thresholds come from what the gaits are, not from fitted data.** No labelled riding was
 available to tune them against, so this is a well-founded reading rather than a measured fact, and
 the boundaries should be expected to move once real rides can be checked against it —
-`platform-dotnet/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md` is what that would take. It is
+`platform-dotnet/apps/examples/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md` is what that would take. It is
 verified against synthetic traces built from each gait's actual beat structure, including the case
 that matters: a collected canter and an extended trot at an identical 5 m/s, which every speed-band
 classifier calls the same thing and this one does not.

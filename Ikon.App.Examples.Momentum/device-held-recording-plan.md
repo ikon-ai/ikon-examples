@@ -1,7 +1,7 @@
 # Device-held recording
 
 Plan, written 2026-08-25. **Implemented the same day** — see the "device-held recording" section of
-`platform-dotnet/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` for the as-built, which is what to trust. Kept for
+`platform-dotnet/apps/examples/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` for the as-built, which is what to trust. Kept for
 the reasoning behind the shape.
 
 ## The idea
@@ -30,7 +30,7 @@ Three things fall out at once, and the third is the one that matters:
 2. **The corpus stops being lossy.** It is written to disk at full rate with every sensor asked for,
    because the wire is no longer in the way. Chunks dropped during an outage — which the current
    design counts and shrugs at — stop happening.
-3. **A ride survives an outage.** This is the real prize. `platform-dotnet/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` records
+3. **A ride survives an outage.** This is the real prize. `platform-dotnet/apps/examples/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` records
    on-device fix buffering as a known gap: the server-side recording survives a *server* restart but
    not a *network* one, so a tunnel, a dead spot or a flat cell puts a hole in the rider's track that
    nothing can repair. A phone that holds its own fixes repairs it.

@@ -140,7 +140,7 @@ gaits are known.
 
 Steps 1 and part of 2 landed the same day, as `MotionCorpus` — the gyroscope is on for horse outings
 and every real outing writes its raw stream to per-activity assets. See the "motion corpus" section of
-`platform-dotnet/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` for the as-built. Steps 3–6 — rider labelling,
+`platform-dotnet/apps/examples/Ikon.App.Examples.Momentum/momentum-tracker-app-spec.md` for the as-built. Steps 3–6 — rider labelling,
 clustering, a classifier, Viterbi smoothing — are not built.
 
 ## Sources
