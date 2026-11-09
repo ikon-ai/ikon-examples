@@ -1,4 +1,4 @@
-<!-- checked-against: 0d357dbc733da022d34ae461 -->
+<!-- checked-against: 734d5e63733da022d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -323,9 +323,9 @@ restore is in Studio under Settings › Data.
 
 `ikon db import <dump>` loads a `pg_dump --format=custom` archive, such as a database file of
 `ikon export create`, into a database with no tables; `--clear` drops the tables first, after
-asking. `ikon db copy --from default --to staging` copies a database from one app to another, and
-each side can be a target name or an app id. Use it to move data into a staging copy, or into a new
-app before it goes live. Both run on the platform, so you need no Postgres tools and the copied
+asking. `ikon db copy --from <target> --to <target>` copies a database from one app to another, and
+each side can be a target name or an app id. Use it to move data into a new app before it goes
+live. Both run on the platform, so you need no Postgres tools and the copied
 data never passes through your machine. `--wait` waits until they finish. If a connection string
 leaks, `ikon db rotate` gives the database a new password, ends the connections that used the old
 one, and stops the app's sessions so the new ones connect with the new password.
@@ -419,7 +419,7 @@ migration you write in your partial class, so forgetting it is a compile error, 
 // schema/PlayerProfile.tp generated the other half of this class in <Project>.Protocol (or the
 // namespace its [namespaces] csharp line names, as here). A partial half must be in the same
 // namespace, so this file is the one app file that declares a namespace.
-namespace Ikon.App.Patterns.Protocol;
+namespace Ikon.App.Platform.Patterns.Protocol;
 
 public sealed partial class PlayerProfile
 {

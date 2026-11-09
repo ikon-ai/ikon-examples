@@ -1,4 +1,4 @@
-<!-- checked-against: 80307dc9c1eeb534e5068899 -->
+<!-- checked-against: dffecfabc1eeb534e5068899 -->
 
 # Ikon.App.Email Guide
 
@@ -52,7 +52,7 @@ up:
 
 To test links that must keep working, send the email from a deployed app.
 
-Primary and staging apps both deliver real mail. Use staging when an inbox flow needs separate platform-managed data, and configure intended test recipients explicitly. Local capture saves outgoing messages without delivery. Use `--email capture` or `--messages capture`; reserved-domain recipients are captured automatically.
+A deployed app delivers real mail, so configure intended test recipients explicitly. Local capture saves outgoing messages without delivery. Use `--email capture` or `--messages capture`; reserved-domain recipients are captured automatically.
 
 Limits, enforced by the backend and, except the metadata key count, also checked in the client:
 

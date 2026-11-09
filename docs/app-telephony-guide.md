@@ -1,4 +1,4 @@
-<!-- checked-against: f9694324dfa15d856d2e07cf -->
+<!-- checked-against: 391c2fab73be22217e839439 -->
 
 # Ikon.App.Telephony Guide
 
@@ -26,9 +26,10 @@ ikon phone markets
 ikon phone buy --country se --provider 46elks --yes
 ```
 
-It picks a number in that market and connects it to your app. Incoming messages and calls can only
-be pointed at a deployed app, so a number bought before the first deploy receives nothing until you
-deploy and run `ikon phone bind`, as the command then says. A number **rents monthly** for as long as
+It picks a number in that market and connects it to your app. Incoming texts reach your app's
+handler as soon as it is deployed. Incoming calls can only be pointed at a deployed app, so a number
+bought before the first deploy rings nowhere until you deploy and run `ikon phone bind`, as the
+command then says. A number **rents monthly** for as long as
 the app holds it, charged to the app's credits, so the command asks for confirmation before
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
 when an agent runs it). The cost shows up in `ikon costs` like any other usage.
@@ -94,8 +95,8 @@ and releasing a number frees its slot.
 ikon phone list
 ```
 
-lists every number the app holds — market, provider, which is the default sender, and where each
-one's incoming traffic goes — and every regulatory review not yet behind a number: one in review, one rejected (with the command
+lists every number the app holds — market, provider, which is the default sender, whether its texts
+are delivered, and where each one's incoming calls go — and every regulatory review not yet behind a number: one in review, one rejected (with the command
 that resubmits it) or one approved but not yet bought under (with the command that buys it). `--format json`
 or `--format csv` gives the numbers to a script.
 
@@ -126,7 +127,8 @@ destinations are refused for messages and calls alike, before the provider is co
 
 | Field | What it tells you |
 | --- | --- |
-| `MessageId` | The provider's id, for correlating delivery reports |
+| `Id` | The platform's id for the stored message; the `SmsStatus` event that reports its delivery carries it |
+| `MessageId` | The provider's id |
 | `From` | The number the message was sent from |
 | `Parts` | Billable segments — a long message is split, and non-GSM characters roughly halve what fits in one. Text over 2000 characters is refused, not split |
 | `Replyable` | Whether the recipient can answer — see below |
@@ -226,16 +228,27 @@ race the caller hanging up.
 
 ## Receiving
 
-You declare no webhook. The platform owns the endpoints an incoming message and an incoming call
-arrive at, so what you write is a handler:
+You declare no webhook. A text to one of your numbers goes to the platform, which stores it and
+delivers it to your app as a `TriggerEventType.SmsReceived` event; a call rings a platform-owned
+endpoint inside your app. What you write is a handler for each:
 
 <!-- ikon-example: telephony-inbound -->
 ```csharp
-app.Telephony.SmsReceived += async message =>
+[Trigger(TriggerEventType.SmsReceived, MaxParallelism = 4)]
+internal async Task OnSmsReceivedAsync(TriggerContext context, CancellationToken ct)
 {
-    await app.Telephony.SendSmsAsync(message.From, $"Thanks — we got: {message.Text}");
-};
+    // The text travels in the payload, so there is nothing to fetch before answering
+    var message = context.GetPayload<SmsReceivedPayload>();
 
+    await app.Telephony.SendSmsAsync(message.From, $"Thanks — we got: {message.Text}", ct: ct);
+
+    // Returning acknowledges the event; throwing leaves it pending for redelivery with backoff,
+    // so work that must happen once is keyed on message.Id
+}
+```
+
+<!-- ikon-example: telephony-calls -->
+```csharp
 await app.Telephony.HandleCallsAsync(async call =>
 {
     await foreach (var audio in call.ListenAsync())
@@ -245,19 +258,50 @@ await app.Telephony.HandleCallsAsync(async call =>
 });
 ```
 
-Because a message can arrive while the app is idle, the platform cold-starts an instance to deliver
-one. You do not authenticate anything yourself: the platform registers a **signed URL** with the
-provider, so an unsigned request to the same path is rejected before it reaches your app.
+`SmsReceivedPayload` carries the whole message: `From` and `To` in E.164, `Text`, `ReceivedAt`,
+`Parts`, the provider's `MessageId` and the platform's `Id`. The event is delivered **at least
+once**: a handler that throws, or an instance that stops in the middle of one, gets the same event
+again with backoff, so anything that must not happen twice (a reply, a database row) is keyed on
+`Id`. The handler runs in the app's shared instance, the one that gets nothing identifying a user,
+and a text that arrives while the app is idle starts it; the event waits until the app is up. Which
+of your users owns the sending number is for your app to decide, from `From`.
+
+The platform keeps the stored message for 31 days. `GetMessageAsync(id)` returns it with its text,
+`GetMessagesAsync(new SmsMessageQuery { Counterpart = "+358401234567" })` pages one conversation,
+newest first and without text, and `DeleteAsync(id)` removes the text before the 31 days are up.
+
+Delivery of a text you sent comes back as a `TriggerEventType.SmsStatus` event when the provider
+reports it `delivered`, `undelivered` or `failed`; the states before those are not announced.
+`SmsStatusPayload.Id` is the `SmsSendResult.Id` the send returned, and `ErrorCode` is the
+provider's code when it failed.
 
 You reply with an ordinary `SendSmsAsync`, which is priced, metered and can be refused like any other
 send. A handler does not return a reply string, because one provider would bill that reply inside its own
 network, where the platform could not account for it.
 
-### Choosing which instance receives inbound
+A call that arrives while the app is idle starts an instance too; the caller hears ringing while it
+boots. You authenticate nothing yourself: the platform registers a **signed URL** with the provider
+for calls, so an unsigned request to the same path is rejected before it reaches your app. Texts go
+to the platform's own webhook, which accepts them only from the provider before storing them: a
+Twilio text by its signature, a 46elks text by the provider's published source addresses.
 
-An incoming message carries no proof of who sent it beyond a phone number, and only your app knows
+Triggers fire only in a deployed app, so a local `ikon run` receives no real texts and answers no
+calls. To try the handler locally, deliver a test text to the run:
+
+```bash
+ikon phone receive --from +358401234567 --text "Is the table free tonight?"
+```
+
+It fires the handler with that payload, waits for it to end, and fails with what it threw. Nothing
+is sent or stored, so the payload's `Id` is not a message `GetMessageAsync` can read; repeat a
+command with `--id <same>` to see your de-duplication at work. A reply the handler sends is a real
+text, or a file under `build/sms/` when the run was started with `--sms capture`.
+
+### Choosing which instance answers calls
+
+An incoming call carries no proof of who is calling beyond a phone number, and only your app knows
 which of its users owns that number — so the platform cannot pick the destination for you. By
-default inbound goes to the app's **shared instance**, the one an app gets when nothing identifies
+default a call rings the app's **shared instance**, the one an app gets when nothing identifies
 the caller.
 
 ```bash
@@ -265,7 +309,7 @@ ikon phone bind --identity '{"UserId":"alice"}'
 ```
 
 points **every** number the app holds at that identity. If the chosen instance is not running, the
-message starts one.
+call starts one.
 
 **Each number can go somewhere different.** Name one and the rest stay where they are:
 
@@ -275,18 +319,13 @@ ikon phone bind +46766861234  --identity '{"UserId":"bob"}'
 ```
 
 That is how one app answers as several users: a number per user, each routed to that user's own
-instance. `ikon phone list` shows where each number currently points, and
-`GetNumbersAsync` reports the same to the app.
+instance. `ikon phone list` shows where each number's calls currently go, and `GetNumbersAsync`
+reports the same `SessionIdentity` to the app. Texts are never routed by identity. Every text reaches
+the shared instance's handler whichever number it was sent to, and `To` says which number that was.
 
-A running app can also claim inbound for itself with
-`app.Telephony.BindInboundToThisInstanceAsync()`, which points every number the app holds at it and
-is what a developer uses to receive on their own machine. Like `ikon phone bind`, it is refused for
-an app that has never been deployed. When a local run stops, its binding is
-reverted by sending every number back to the shared instance, so per-number `ikon phone bind` routes
-made before the run are lost. A binding made from a cloud instance outlives the process.
-
-**Inbound messages are free.** An inbound call is charged like one you place, and counts against
-the same concurrent-call and duration limits.
+**An incoming text is free on 46elks and charged at the provider's rate on Twilio.** An inbound
+call is charged like one you place, and counts against the same concurrent-call and duration
+limits.
 
 ## What it costs
 

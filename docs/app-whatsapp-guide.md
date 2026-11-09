@@ -1,4 +1,4 @@
-<!-- checked-against: 5ad835b066f0fa0ebbbd8377 -->
+<!-- checked-against: cd279d427d9ff059ea33f4ee -->
 
 # Ikon.App.WhatsApp Guide
 
@@ -166,13 +166,11 @@ A send with a missing or unknown variable, or a value holding a newline, a tab o
 spaces in a row, throws `WhatsAppSendRefusedException` with `Reason` `TemplateValuesInvalid`.
 Meta does not fall back between languages, so the platform does: a language with no approved
 version sends in the first language of the file that has one, and `WhatsAppSendResult.Language`
-names it. With no approved language the send throws with `TemplateNotApproved`. Primary and staging
-apps use the same validation and delivery rules, with their own WhatsApp configuration.
+names it. With no approved language the send throws with `TemplateNotApproved`.
 
 ## Delivery status
 
-A send returns a `WhatsAppSendResult` with the message id and `Status` `Queued`, on both primary
-and staging apps.
+A send returns a `WhatsAppSendResult` with the message id and `Status` `Queued`.
 A local run started with `ikon run --whatsapp capture` returns `Written` (see "Testing before a number
 is connected"). Later status changes arrive as `TriggerEventType.WhatsAppStatus` events whose payload is a
 `WhatsAppStatusPayload`: `Delivered`, `Read`, or `Failed` and `Undelivered` with the provider's

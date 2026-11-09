@@ -1,4 +1,4 @@
-<!-- checked-against: 66b4c9c9375c29364437abd4 -->
+<!-- checked-against: 7f6b52eb59ae91254fb1f942 -->
 
 # IKON Platform Events
 
@@ -238,7 +238,7 @@ includes it.
 | `endpoint_calls` | The app's HTTP endpoints answered calls. One row per method, route and status class every five minutes in which there were calls, and one more when the app stops | `method`, `route` (the declared route, so an id in the path groups with its siblings), `statusClass` (`1xx` … `5xx`, or `other` for a status outside them), `count`, `durationMsSum`, `durationMsMax`, `windowSeconds` (how long the row covers) |
 | `mcp_tool_called` | An MCP tool of the app ran for an agent | `tool`, `outcome` (`ok` / `failed` / `cancelled`), `durationMs`; never the arguments |
 | `cron_ran` | A `[Cron]` function ran on its schedule | `function`, `outcome` (`ok` / `failed`), `durationMs` |
-| `message_received` | A text message reached the app's number | `handled` (whether the app subscribes to messages); never the number or the text |
+| `message_received` | A text message reached the app's number, as a `TriggerEventType.SmsReceived` event | `handled` (always true: the event reaches only an app that declares a handler); never the number or the text |
 | `call_received` | A phone call reached the app's number | `handled` (whether the app answers calls); never the numbers |
 
 The platform's own snapshot capture and internal connections open no screens. A path is recorded

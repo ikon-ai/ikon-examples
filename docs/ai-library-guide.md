@@ -1,4 +1,4 @@
-<!-- checked-against: 54fd93df4f80252383d969f2 -->
+<!-- checked-against: 9952103bb8c8b82afad94224 -->
 
 # Ikon.AI Library Overview
 
@@ -254,7 +254,7 @@ A size outside the model's range is refused rather than clamped to a nearby one,
 naming what the model accepts; inside the range, Gemini, xAI and FLUX Kontext take only the nearest
 aspect ratio they support, so a 1000x700 request does not come back as 1000x700. The OpenAI
 models list their sizes in `ImageGenerator.GetCapabilities(model).SizeRules`: gpt-image-1.5 and
-gpt-image-2 render 1024x1024, 1536x1024 and 1024x1536 only, while gpt-image-2.5 takes any size with
+gpt-image-2 render 1024x1024, 1536x1024 and 1024x1536 only, while gpt-image-2.5 and 2.6 take any size with
 edges in multiples of 16 up to 3840, shapes up to 3:1 and 0.66 to 8.3 megapixels (above 2560x1440
 OpenAI calls it experimental). `ImageGenerator.FitSize(model, width, height)` returns the nearest
 size those `SizeRules` allow, and the requested size unchanged for a model without them, such as
@@ -1197,6 +1197,8 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 `Jev` is routed through OpenRouter (`typesafe/jev-1.14`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
 
 `Eevo1` is Upright's consequential decision model, reached on the platform's Eevo credential. It answers the same typed questions, and a `Choice` can also name the people the decision affects with `ForStakeholders` and list what each option leads to with `WithConsequences`. The answer then holds one verdict per stakeholder in `ByStakeholder`, with each option's expected value on that stakeholder's own scale when consequences were listed, and deliberately no verdict across them. `AsChoice` returns the option they all chose and throws when they disagree. A question without consequences costs $0.10 per million input tokens with output free, about twice Jev's price, and a question with consequences costs $0.15 a decision. Keep Jev for routing and triage, and use Eevo where the trade-off between people is the question. Upright states each decision's cost, and that stated cost is what is billed; the per-token price applies only to a decision that states none. A question with consequences takes 5 to 70 seconds, and Upright runs at most three of them at once per account. Without consequences it answers in a few seconds. With stakeholders a question takes at most 8 options and 8 stakeholders, 40 consequences in all and 20 per stakeholder, and the question with its state at most 20,000 characters. A consequence's description takes at most 1,000 characters and its label 60, and an option's name with its description, or a stakeholder's description with its values, about 2,000. A request over a limit is refused before it is sent.
+
+`Eevo1` is the newest Eevo 1 version Ikon.AI lists, now `Eevo13`. When Ikon.AI adds a newer version, `Eevo1` moves to it and takes that version's limits and price. Name `Eevo13` to stay on 1.3. When Upright stops serving a version, it answers requests for that version with its newest one, so a named version stays the same only while Upright serves it.
 
 `Decider.GetCapabilities(model)` says which models take stakeholders and consequences (`SupportsStakeholders`, `SupportsConsequences`). A question that names them is refused with a `NotSupportedException` before anything is sent to a model without them, rather than being answered as if it had asked something simpler.
 
