@@ -665,7 +665,7 @@ type Live2DCanvasProps = {
   scale?: number;
   offsetY?: number;
   className?: string;
-  client?: IkonClient;
+  client?: IkonClient | null;
 };
 
 // Custom memo comparison - viseme data comes from audio frame shape sets, not props
@@ -723,7 +723,7 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
   const baseTransformRef = useRef<{ x: number; y: number; scale: number } | null>(null);
   const idleTickerCallbackRef = useRef<(() => void) | null>(null);
   const lipSyncCallbackRef = useRef<(() => void) | null>(null);
-  const clientRef = useRef<IkonClient | undefined>(props.client);
+  const clientRef = useRef<IkonClient | null | undefined>(props.client);
 
   // Picture-in-Picture state
   const [isPip, setIsPip] = useState(false);
@@ -866,6 +866,7 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
           ticker: sharedTicker,
           autoUpdate: true,
           autoFocus: false,
+          autoHitTest: false,
         });
 
         if (destroyed) {
@@ -880,9 +881,6 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
         model.setRenderer(app.renderer);
 
         updateModelTransform(model, modelDimensionsRef.current, scaleRef.current, offsetYRef.current, activeWindowRef.current);
-
-        // Disable default mouse tracking by setting autoInteract to false
-        model.autoInteract = false;
 
         // Store base transform for camera movement
         baseTransformRef.current = {
@@ -927,7 +925,7 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
         sharedTicker.add(idleTickerCallback);
 
         // Inspect model parameters to find mouth/lip sync parameter
-        const internalModel = model.internalModel as Record<string, unknown>;
+        const internalModel = model.internalModel as unknown as Record<string, unknown>;
         const coreModel = internalModel?.coreModel as Record<string, unknown> | undefined;
         const innerModel = coreModel?._model as Record<string, unknown> | undefined;
 
