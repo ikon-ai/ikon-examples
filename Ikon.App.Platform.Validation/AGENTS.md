@@ -28,7 +28,7 @@ and `deploy`, then poll `ikon status --wait --timeout 80`. `build/app/artifacts/
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
-`ikon status --wait` returns once the reload has applied or failed); a `.csproj`
+`ikon status --wait` returns once the reload has applied, or exits 1 if it failed); a `.csproj`
 or `ikon-config.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
@@ -67,7 +67,7 @@ Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages sen
 `ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`.
 `--format text|json` overrides defaults; `IKON_OUTPUT_FORMAT` sets the preference.
 Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
-On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first (`--no-save`: neither). Settings: `ikon-config.toml`,
+On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`,
 each commented: `ikon-config.development.toml` for an app on the development
 platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
 Use file tools. PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII.
