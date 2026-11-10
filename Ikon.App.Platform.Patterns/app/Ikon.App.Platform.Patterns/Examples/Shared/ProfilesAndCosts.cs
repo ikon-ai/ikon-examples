@@ -11,11 +11,25 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
 
     public void ShowRefereeControls()
     {
-        app.OnClientJoined(async ctx =>
+        app.OnClientJoined(ctx =>
         {
-            // The join handler runs in the joining client's scope, so this sets the flag for that client alone
-            var profile = await Profiles.GetProfileAsync(ctx);
-            _isReferee.Value = profile?.HasRole("referee") == true;
+            // The profile lookup runs in the background so the join is not held up by it, and the flag
+            // is written for this client alone
+            var cid = ctx.ClientSessionId;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var profile = await Profiles.GetProfileAsync(ctx);
+                    _isReferee.SetFor(cid, profile?.HasRole("referee") == true);
+                }
+                catch (Exception ex)
+                {
+                    Log.Instance.Warning($"Could not read the referee role of client {cid}: {ex.Message}");
+                }
+            });
+
+            return Task.CompletedTask;
         });
     }
     #endregion

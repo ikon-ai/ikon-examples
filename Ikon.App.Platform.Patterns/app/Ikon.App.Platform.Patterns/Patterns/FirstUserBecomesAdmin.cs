@@ -28,8 +28,8 @@ internal sealed class FirstUserBecomesAdmin(IAppBase app) : IPatternDemo
     {
         app.OnClientJoined(async ctx =>
         {
-            // A guest, or a local run nobody signed in to, has no profile and never claims the app
-            if (ctx.IsAnonymous || await Profiles.GetProfileAsync(ctx) is not { } profile)
+            // A guest, a local run nobody signed in to, or the deploy's boot-snapshot client never claims the app
+            if (ctx.IsAnonymous || ctx.IsSnapshot || await Profiles.GetProfileAsync(ctx) is not { } profile)
             {
                 return;
             }

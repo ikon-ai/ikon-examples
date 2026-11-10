@@ -319,9 +319,15 @@ internal sealed partial class AgentGuideExamples
             await using var command = connection.CreateCommand();
             command.CommandText = "INSERT INTO orders (customer, total) VALUES ('Aino Virtanen', 42.50), ('Mikko Laine', 18.00);";
             await command.ExecuteNonQueryAsync();
+
+            // OnStarting loaded the orders before these rows existed
+            await LoadOrdersAsync();
         });
         #endregion
     }
+
+    // Stands for the app's own load that OnStarting also calls
+    private static Task LoadOrdersAsync() => Task.CompletedTask;
 }
 
 file sealed class ReadOnlyQueryExamples(IApp<SessionIdentity, ClientParameters> app)

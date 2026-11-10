@@ -23,6 +23,7 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
     public void RenderDemo(IView view) => Render((UIView)view);
 
     #region example:pattern-record-then-analyse-audio
+    // Audio is the app class's instance property (Audio Audio { get; } = new(app) there), not a static class
     private sealed record Take(string Id, string Transcript, string Feedback);
 
     // One take runs from opening the microphone to closing it. The samples are collected per stream.

@@ -195,12 +195,13 @@ file sealed class PxBackgroundWorkTheForMethodsExamples(IApp<SessionIdentity, Cl
         #region example:px-background-work-the-for-methods
         var clientSessionId = ReactiveScope.ClientId;   // capture inside the callback
 
-        _ = Task.Run(async () =>
+        // ObserveInBackground logs a fault at error, where ikon logs shows it; a bare _ = Task.Run loses it
+        Task.Run(async () =>
         {
             var draft = await LoadDraftAsync();
             _draft.SetFor(clientSessionId, draft);      // scalar: SetFor / ValueFor / UpdateFor
             _items.AddFor(clientSessionId, item);       // list: AddFor / RemoveFor / ClearFor / UpdateFor
-        });
+        }).ObserveInBackground();
         #endregion
     }
 }

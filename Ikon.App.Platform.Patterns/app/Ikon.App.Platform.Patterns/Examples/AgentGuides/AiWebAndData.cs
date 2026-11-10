@@ -25,6 +25,8 @@ internal sealed partial class AgentGuideExamples
         #region example:embeddings-one-shot
         var embeddings = await EmbeddingGenerator.EmbedAsync(["Hello world", "Goodbye"]);  // OpenAI3Small (cheap+fast) by default
         // embeddings[0] is float[] vector
+        // OpenAI3Small runs globally only; to stay in the EU, embed with
+        // new EmbeddingGenerator(EmbeddingModel.MistralEmbed, [ModelRegion.Eu])
         #endregion
 
         return embeddings.Count;

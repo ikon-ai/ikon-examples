@@ -3,7 +3,7 @@ namespace Ikon.App.Platform.Patterns.Examples;
 internal sealed partial class AgentGuideExamples
 {
 
-    private async Task DocLocationTrackingAsync(int sessionId)
+    private async Task DocLocationTrackingAsync()
     {
         #region example:location-tracking
         // Observe fixes once (e.g. in Main). Handlers run on the pushing client's scope, so writing
@@ -21,8 +21,8 @@ internal sealed partial class AgentGuideExamples
             IntervalSeconds: 5, DistanceFilterMeters: 10, Background: true,
             NotificationTitle: "Sharing your location", NotificationBody: "Visible while you're delivering."));
 
-        // Stop when the shift ends.
-        await app.Locations.StopTrackingAsync(sessionId);
+        // Stop when the shift ends, in the handler of the courier's own button.
+        await app.Locations.StopTrackingAsync(ReactiveScope.ClientId);
         #endregion
     }
 }

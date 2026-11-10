@@ -225,7 +225,8 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
 
     private readonly GroupAudioMixer _stageMixer = new();
     private readonly ConcurrentDictionary<int, bool> _onStage = new();
-    private readonly ConcurrentDictionary<string, (int SampleRate, int ChannelCount)> _stageFormats = new();
+    private readonly ConcurrentDictionary<string, (int ClientId, int SampleRate, int ChannelCount)> _streams = new();
+    private readonly ConcurrentDictionary<string, bool> _mixed = new();
 
     private void PutOnStage(int clientId)
     {
@@ -237,33 +238,47 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
     {
         _onStage.TryRemove(clientId, out _);
         _stageMixer.RemoveParticipant(clientId);
+
+        foreach (var (streamId, stream) in _streams)
+        {
+            if (stream.ClientId == clientId && _mixed.TryRemove(streamId, out _))
+            {
+                _stageMixer.RemoveStream(streamId);
+            }
+        }
     }
 
     public void Broadcast(CancellationToken ct)
     {
         _stageMixer.AddParticipant(Audience);
 
-        // Only the microphones of people on stage are mixed.
+        // A stream begins before its owner can be put on stage (a button's onCaptureStart fires on
+        // the first frame, after the begin event), so the stage check runs on every frame.
         Audio.AudioInputStreamBeginAsync += async args =>
         {
-            if (_onStage.ContainsKey(args.ClientSessionId))
-            {
-                _stageFormats[args.StreamId] = (args.SampleRate, args.ChannelCount);
-                _stageMixer.AddStream(args.StreamId, args.ClientSessionId);
-            }
+            _streams[args.StreamId] = (args.ClientSessionId, args.SampleRate, args.ChannelCount);
         };
 
         Audio.AudioInputFrameAsync += async args =>
         {
-            if (_stageFormats.TryGetValue(args.StreamId, out var format))
+            if (!_streams.TryGetValue(args.StreamId, out var stream) || !_onStage.ContainsKey(stream.ClientId))
             {
-                _stageMixer.WriteSamples(args.StreamId, args.Samples, format.SampleRate, format.ChannelCount);
+                return;
             }
+
+            if (_mixed.TryAdd(args.StreamId, true))
+            {
+                _stageMixer.AddStream(args.StreamId, stream.ClientId);
+            }
+
+            _stageMixer.WriteSamples(args.StreamId, args.Samples, stream.SampleRate, stream.ChannelCount);
         };
 
         Audio.AudioInputStreamEndAsync += async args =>
         {
-            if (_stageFormats.TryRemove(args.StreamId, out _))
+            _streams.TryRemove(args.StreamId, out _);
+
+            if (_mixed.TryRemove(args.StreamId, out _))
             {
                 _stageMixer.RemoveStream(args.StreamId);
             }

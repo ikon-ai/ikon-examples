@@ -23,8 +23,21 @@ internal sealed class RosterEmailMatch(IAppBase app) : IPatternDemo
     {
         app.OnClientJoined(async ctx =>
         {
+            if (ctx.IsAnonymous)
+            {
+                return;
+            }
+
+            // A row the account claimed before holds it whatever the sign-in method: a passkey sign-in
+            // carries only the address an earlier sign-in gave the account, or none
+            if (await FindClaimedRowAsync(ctx.UserId) is { } claimed)
+            {
+                _rosterName.Value = claimed;
+                return;
+            }
+
             // Only the email sign-in proves the address; Google or Apple may report one they did not verify
-            if (ctx.IsAnonymous || ctx.AuthProvider != "email" || await Profiles.GetProfileAsync(ctx) is not { Email: { Length: > 0 } email })
+            if (ctx.AuthProvider != "email" || await Profiles.GetProfileAsync(ctx) is not { Email: { Length: > 0 } email })
             {
                 return;
             }
@@ -33,17 +46,29 @@ internal sealed class RosterEmailMatch(IAppBase app) : IPatternDemo
         });
     }
 
+    private async Task<string?> FindClaimedRowAsync(string userId)
+    {
+        await using var db = await OpenRosterAsync();
+        return await db.QuerySingleOrDefaultAsync<string>("SELECT name FROM app_roster WHERE user_id = @userId", new { userId });
+    }
+
     // The import fills app_roster once (email, name, role) with user_id empty. The first sign-in with
     // the address claims the row; a second person with the same address, or a repeat join, claims nothing new.
     private async Task<string?> ClaimRosterRowAsync(string userId, string email)
     {
-        await using var db = await app.DatabaseAsync();
-        await db.OpenAsync();
-        await db.ExecuteAsync("CREATE TABLE IF NOT EXISTS app_roster (email text PRIMARY KEY, name text NOT NULL, role text NOT NULL, user_id text)");
+        await using var db = await OpenRosterAsync();
 
         return await db.QuerySingleOrDefaultAsync<string>(
             "UPDATE app_roster SET user_id = @userId WHERE email = lower(@email) AND (user_id IS NULL OR user_id = @userId) RETURNING name",
             new { userId, email });
+    }
+
+    private async Task<System.Data.Common.DbConnection> OpenRosterAsync()
+    {
+        var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+        await db.ExecuteAsync("CREATE TABLE IF NOT EXISTS app_roster (email text PRIMARY KEY, name text NOT NULL, role text NOT NULL, user_id text)");
+        return db;
     }
 
     private void RenderWelcome(UIView view)

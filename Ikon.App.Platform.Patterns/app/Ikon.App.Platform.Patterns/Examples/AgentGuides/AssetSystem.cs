@@ -13,11 +13,11 @@ internal sealed partial class AgentGuideExamples
         _ = (exists, metadata);
     }
 
-    private static async Task DocAssetExpiryAsync(string key, byte[] bytes, string spaceId)
+    private async Task DocAssetExpiryAsync(string key, byte[] bytes)
     {
         #region example:asset-temporary-expiry
         await Asset.Instance.SetBytesAsync(
-            new AssetUri(AssetClass.CloudFile, $"exports/{key}/report.csv", spaceId: spaceId),
+            new AssetUri(AssetClass.CloudFile, $"exports/{key}/report.csv", spaceId: app.GlobalState.SpaceId),
             bytes,
             new AssetMetadata(mimeType: "text/csv", expiresAt: DateTime.UtcNow.AddHours(6)));
         #endregion

@@ -32,7 +32,7 @@ internal sealed class SharedQueueManyScreens(IApp<SessionIdentity, ClientParamet
     }
 
     #region example:pattern-shared-queue-many-screens
-    // Audio is an instance property of the app class (created with new Audio(app)), not a static class
+    // Audio is the app class's instance property (Audio Audio { get; } = new(app) there), not a static class
     private enum Screen { Kiosk, Staff, Display }
 
     private sealed record Ticket(int Number, string Name, bool Called);
