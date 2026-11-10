@@ -220,8 +220,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'es2019',
-      // The SDK alone puts about 1 MB into the entry chunk, so a 1 MB limit warned on every build of
-      // an unchanged app. This limit warns once the app's own code adds about another 1 MB
+      // The SDK alone is about 1 MB of the entry chunk
       chunkSizeWarningLimit: 2048,
       minify: 'oxc',
       reportCompressedSize: false,
