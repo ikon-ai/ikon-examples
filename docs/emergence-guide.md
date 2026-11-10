@@ -1,4 +1,4 @@
-<!-- checked-against: cdab2c9836f67df154df3331 -->
+<!-- checked-against: a88b6eff0e5d0f22e0a348a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -411,7 +411,7 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new K
 - `SolverCount` - Number of parallel solvers (default: 3)
 - `MaxParallel` - Concurrency limit (default: 3; must be at least 1, otherwise the setter throws `ArgumentOutOfRangeException`)
 - `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`, and every scope setting, including `Model`: `s.Model = models[s.Index]` runs each solver on its own model)
-- `Merger(Action<EmergeScope<T>>)` - Configure the merger. Without a `Command` of its own it gets the ensemble's `Command` as the task to answer once, within the task's limits such as a length; its own `Command` replaces that task
+- `Merger(Action<EmergeScope<T>>)` - Configure the merger. Without a `Command` of its own it gets the ensemble's `Command` as the task to answer once, within the task's limits such as a length; its own `Command` replaces that task. A `Command` set only on the solvers never reaches the merger, so put the question in the ensemble's `Command` (`opt.Command`)
 
 **Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. A solver whose model call still fails after its retries also keeps the merger from running, but awaiting the run then throws that provider exception. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
 

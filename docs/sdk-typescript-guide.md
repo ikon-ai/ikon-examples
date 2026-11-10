@@ -1,4 +1,4 @@
-<!-- checked-against: 760b9fc6d28cf7dae3b0c442 -->
+<!-- checked-against: 9c4b299010c4116ce3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -547,6 +547,8 @@ Call functions the app server registers (another browser client's functions are 
 A call made while the client connects, such as one straight after `await client.connect()`, waits
 up to 10 seconds for the app's function list instead of failing with `Not connected`; a name the
 list does not have fails at once.
+`getRemoteFunctions()` is empty until that list arrives, so await `waitForRemoteFunctions()` first,
+which waits the same 10 seconds at most.
 A function that returns a C# record or class resolves to the parsed JSON, with the C# property
 names as they are (`{ Name, SinceUtc }`, PascalCase) and enums as their names, so type the call
 with an interface that has those names:
@@ -558,7 +560,8 @@ import { FunctionCallError } from '@ikonai/sdk';
 // Call a remote function by name
 const result = await client.functionRegistry.call<string>('remoteGreet', ['World']);
 
-// List all remote functions
+// List all remote functions, once the server's list has arrived
+await client.functionRegistry.waitForRemoteFunctions();
 const remoteFuncs = client.functionRegistry.getRemoteFunctions();
 console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
 

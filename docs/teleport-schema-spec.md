@@ -1,4 +1,4 @@
-<!-- checked-against: 9794b224b64ded513293bfa9 -->
+<!-- checked-against: 714951b1b64ded513293bfa9 -->
 
 # Teleport message schema specification
 
@@ -399,6 +399,7 @@ Snapshots     = "SharedTelemetry:type[]"
 - The suffix is required for **every** usage of an external symbol, including entries inside dictionaries or arrays. Apply the annotation to the base type before `[]` or after the key/value type inside `{}`.
 - If the name includes dots before the suffix (e.g. `My.Namespace.TypeName:type`), everything before the final `.` is treated as the namespace, otherwise the current message namespace is assumed.
 - A message declared in another `.tp` file counts as external, even when both files are in the same `schema/` folder, so `Foo[]` for a `Foo` from another file is written `Foo:type[]`.
+- The same holds for an enum: in an app's `schema/` folder, `DockHello.FlightMode:enum` names the `FlightMode` that `DockHello.tp` declares, and the generated TypeScript imports it from that file (`./dock-hello`). The owner prefix can be left out when only one file declares an enum of that name. TypeScript imports the enum under its own name, so one file cannot use two enums of the same name, or declare one with the name of an enum it imports.
 - A single symbol cannot be declared both as `:enum` and `:type` within the same file.
 
 ---

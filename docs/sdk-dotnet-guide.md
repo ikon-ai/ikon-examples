@@ -1,4 +1,4 @@
-<!-- checked-against: bc58de416a5d6c6e6ab9f1c9 -->
+<!-- checked-against: a4fcebd56a5d6c6e6ab9f1c9 -->
 
 # IKON C# SDK
 
@@ -348,6 +348,9 @@ public string RecordVisit(string key, string door)
   `GetProperty("Name")`, or declare a record with the same property names in the program and ask
   for it (`CallAsync<RosterEntry[]>`); the names are matched with their case. A `schema/*.tp` type
   arrives in its binary form instead, and needs the app's generated class.
+- **A function that takes an app type.** The program's argument type must have the app type's full
+  name, namespace and nesting included, so a record nested in the app class does not match a
+  top-level record of the same name; or let the function take primitives.
 - **Keys.** Anyone can join an app that lets guests in, so a function that changes data checks a
   key it is given against an app secret (`ikon secret set KIOSK_KEY`), and the program reads the
   key from its environment.

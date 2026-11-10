@@ -1,4 +1,4 @@
-<!-- checked-against: 734d5e63733da022d34ae461 -->
+<!-- checked-against: d82fa45ed93d56c4d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -10,10 +10,12 @@ How to persist app state across restarts. Read this before reaching for files or
 orders, messages: anything a user would call "my data". Open the app's built-in Postgres database
 with `app.DatabaseAsync()` and write each change before the UI says it is saved. A committed
 database write is durable the moment it returns, and each row is written on its own, so two
-instances that change different records do not overwrite each other.
+instances that change different records do not overwrite each other. A request that says "we keep
+no database" still gets this one, since the platform runs it: thousands of records are rows, never
+one reactive (256 KB at most) or one JSON document (a `CloudJson` write takes at most 2 MB).
 
 A `Persistent…Reactive` is written within about two seconds of a change and again when the app
-stops, so **a crash loses the changes of those last seconds.** Each value is stored whole. Use it for
+stops, so **a crash loses the changes of those last seconds.** Each value is stored whole. It needs no database of yours: the platform keeps it in the app's state database or, when there is none, in the app's file storage ("Backends", below). Use it for
 preferences, drafts, layout, view settings and small app state. A `PersistentReactive` belongs to
 one app instance. For a setting or a short list that every instance reads, use a
 `PersistentGlobalReactive` ("Global values", below).
@@ -251,6 +253,15 @@ app never reads asset storage for a value that has no row. Apps already using a 
 Every load and save logs its destination at debug level (member name, scope, and the postgres
 database or asset path), so "where is my data?" is answered by the app's logs.
 
+To start over, `ikon db state reset` deletes every value saved in the `ikon_reactive_storage` table
+of the app's state database (`--name` picks another database, `--target staging` a staging copy).
+It stops the app's cloud sessions first, since a running session keeps the values it loaded and
+saves the ones it changes; a local run keeps them until it restarts. Your own tables stay, unlike
+with `ikon db reset`. An app with no state database (or `StateDatabase = "ikon-asset-storage"`)
+keeps the values as files under `reactive-storage/` in asset storage, and `ikon db state reset`
+deletes those instead, every user's included. Other values in asset storage are files, which
+`ikon file delete` removes.
+
 Backend and scope are chosen independently. Scope decides who sees the value; backend decides where it is stored. Everything in this section is about `PersistentReactive` and `PersistentUserReactive`: the global types take no backend, because the platform's backend keeps their values.
 
 ### Database tiers
@@ -369,7 +380,7 @@ global types are sent on their own schedule ("Global values", above).
 
 ## Erasing a user's state
 
-`ClearFor(userId)` on any user-scoped persistent reactive erases that user's partition (on a `PersistentGlobalUserReactive`, for every instance): the in-memory value is dropped (the next read sees the initial value) and the persisted copy is deleted from whichever store it routes to. The deletion runs in the background; the user leaves the shutdown save immediately, so a cleared user is never re-persisted.
+`ClearFor(userId)` on any user-scoped persistent reactive erases that user's partition (on a `PersistentGlobalUserReactive`, for every instance): the in-memory value is dropped (the next read sees the initial value) and the copy stored under the calling instance's session identity is deleted from whichever store it routes to. The deletion runs in the background; the user leaves the shutdown save immediately, so a cleared user is never re-persisted.
 
 To erase everything the app has persisted about a user — a user-data-erasure (GDPR) request — use the app-level helper:
 
@@ -378,7 +389,7 @@ To erase everything the app has persisted about a user — a user-data-erasure (
 await app.EraseUserStateAsync(userId);
 ```
 
-It applies `ClearFor` semantics to every registered user-scoped persistent reactive and additionally deletes every stored row under the user's storage scope key — including rows left behind by fields that no longer exist in the code — and completes only when the stored state is gone. The user's `PersistentGlobalUserReactive` values are erased too. `PersistentReactive` and `PersistentGlobalReactive` values are untouched: they are shared state, not per-user data. Each stored value is its own round trip to storage, so when a button starts the erasure, update the UI first and let the erasure finish in the background instead of making the person wait on the click.
+It applies `ClearFor` semantics to every registered user-scoped persistent reactive and additionally deletes every stored row under the user's storage scope key — including rows left behind by fields that no longer exist in the code — and completes only when those deletions have finished. Database rows go under every session identity, but a value stored as a file (an app with no database) goes only under the calling instance's session identity, so with a per-user `SessionIdentity` the files the user's own instance stored stay unless the erasure runs in that instance. The user's `PersistentGlobalUserReactive` values are erased too. `PersistentReactive` and `PersistentGlobalReactive` values are untouched: they are shared state, not per-user data. Each stored value is its own round trip to storage, so when a button starts the erasure, update the UI first and let the erasure finish in the background instead of making the person wait on the click.
 
 ## Schema-versioned state (`.tp` types)
 
@@ -387,7 +398,8 @@ list, dictionary and set forms, so a list whose shape will change goes in one `.
 nested array (`Notes = "Note[]"` in a `NoteBook`, which the generated C# declares as `List<Note>`), held in one `PersistentReactive<NoteBook>`.
 Rows in a database get no schema version from the platform: store each as `jsonb` with a version
 field beside the data (`{"version": 2, "data": {…}}`) and translate older versions when you read a
-row.
+row. Read a row whose version is newer than the build knows for the fields that parse, and never
+write it back, so an older build does not drop the fields it cannot read.
 
 A plain record works fine — until you rename a property. The stored JSON still carries the old
 name, the deserializer doesn't recognize it, and the value silently resets. If a persisted type is

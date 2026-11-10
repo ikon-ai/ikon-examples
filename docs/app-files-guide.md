@@ -1,4 +1,4 @@
-<!-- checked-against: e916caf7af29a0123a0561e2 -->
+<!-- checked-against: a18e871d37ccc4a0f25aa6b8 -->
 
 # App Files Guide
 
@@ -48,11 +48,13 @@ app's own URL.
 A runtime-written file's URL is not built from its path, and it changes on every write: the file
 is stored under a new URL and the old one stops working. Ask `GetUrlAsync` for it after the write,
 and give each version of a file you hand out (a feed entry, a link in an email) a path of its own.
+A running session keeps a URL it loaded into state until it asks again, so after a rewrite or a
+delete it shows the old file or a broken one until the app reloads the URL or restarts.
 
 A root-relative path has no host, so server code cannot fetch it:
 `Audio.Play` takes only absolute http or https URLs and throws `ArgumentException` for any other. A file shipped in `public/` plays from
 `GetAbsoluteUrlAsync(path)` in a local run and in a deployed app. A local run cannot fetch its own
-local address, so it reads the file from the folder instead. To play a file the app wrote, read its bytes and play them as a stream:
+local address, so it reads the file from the folder instead. To play a file the app wrote, read its bytes and play them as a stream (`Audio` is the app class's `private Audio Audio { get; } = new(app);` property):
 
 <!-- ikon-example: app-files-play-written -->
 ```csharp
@@ -161,7 +163,8 @@ use (optimistic concurrency, metadata, streams, custom storage paths).
 
 The pointer scheme itself is `AssetLinkManager`, which the tooling drives over a repository:
 `NormalizeAsync` converts raw binaries to pointers (upload the bytes, write the `.ikonasset`,
-git-ignore the real path) and `MaterializeAsync` puts the real files back, hash-checked and
+git-ignore the real path), throwing `AssetNormalizeException`, whose `NotWritten` lists the binaries
+left raw, after the rest are converted when a pointer cannot be written (a read-only folder), and `MaterializeAsync` puts the real files back, hash-checked and
 idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when a
 blob is missing from the store. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
 platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private

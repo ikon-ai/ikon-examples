@@ -1,4 +1,4 @@
-<!-- checked-against: 391c2fab73be22217e839439 -->
+<!-- checked-against: f81f3d6673be22214b709545 -->
 
 # Ikon.App.Telephony Guide
 
@@ -224,7 +224,18 @@ Two things to design around:
   fifty-second call both cost a full minute.
 
 `HangUpAsync` on a call that has already finished succeeds and does nothing, so you never have to
-race the caller hanging up.
+race the caller hanging up. It waits up to 30 seconds for what you said to reach the provider, so a
+goodbye is heard. Disposing a call that is still up hangs it up as well, without that wait, so an
+exception that skips your `HangUpAsync` does not leave the other person on a silent line. A call
+also ends when the handler you gave `HandleCallsAsync` returns or throws.
+
+`call.Ended` is cancelled when the call ends from either side. Pass it to the model and speech calls
+a reply makes, so they stop when the caller hangs up.
+
+Two `SpeakAsync` calls at once play one after the other, never mixed. `InterruptAsync` also stops
+an utterance that is still being generated, and that `SpeakAsync` call returns normally.
+
+A call carries audio only: key presses (DTMF) and transferring the call elsewhere are not supported.
 
 ## Receiving
 

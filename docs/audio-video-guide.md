@@ -1,4 +1,4 @@
-<!-- checked-against: 8a6540bd180d7b9bf0ffa95e -->
+<!-- checked-against: 02ce08fe09365ec53bbc0d15 -->
 
 # IKON Audio & Video Guide
 
@@ -158,7 +158,7 @@ view.PushToTalkButton(
 
 Handle it — offer typing instead, or point at the browser's site settings. And never gate a mic button behind `disabled:` for permission reasons: a disabled button cannot ask, so the user has no way out of the state. `disabled:` means "the app is busy".
 
-Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so the feedback appears in the same frame as the press instead of a server round trip later — `pressed` fires before the microphone has even finished opening. `Theming.MicButton.Default` renders all of them; a custom style array replaces it, so include `MicButton.States` (or lead with `"default"`) to keep them. Mirroring capture state into a `ClientReactive<bool>` from `onCaptureStart` is the wrong way round and is visibly late.
+Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so the feedback appears in the same frame as the press instead of a server round trip later — `pressed` fires before the microphone has even finished opening. `Theming.MicButton.Default` renders all of them. A custom style array replaces it: a button whose style names no `ikon-capture-state` class gets only the warning colours for `denied` and `unavailable` and keeps its own size, so include `MicButton.States` (or lead with `"default"`) to keep every state. Mirroring capture state into a `ClientReactive<bool>` from `onCaptureStart` is the wrong way round and is visibly late.
 
 Flutter frontends run the same state machine against the OS permission dialog, so a mic button means the same thing in a browser and on a phone.
 

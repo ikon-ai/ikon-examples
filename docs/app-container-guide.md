@@ -1,4 +1,4 @@
-<!-- checked-against: 7527f20bd6f3c7e0db3691ae -->
+<!-- checked-against: 9fe6e148d6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -63,12 +63,19 @@ which would hide `tools/source/`. On Windows `python3` at the start of the comma
 exec "$(dirname "$0")/renode-portable/renode" "$@"
 ```
 
+A program that loads plugins or reads a config folder (ImageMagick's `modules-*/coders` with their
+`.la` files, and its XML config) ships those folders beside it too, and is started with the
+variables that point at them set: in such a launcher, relative to `$(dirname "$0")`, or through
+`ProcessStartInfo.Environment`.
+
 The bundle, tools included, is limited to 512 MB.
 
 ## Custom containers
 
 Custom containers are off for every space until IKON turns them on for it. A deploy with
-`container/` to a space without them stops before anything is built and says so.
+`container/` to a space without them stops before anything is built and says so. Before writing
+a Dockerfile, ask IKON to turn them on with `ikon report create --kind idea` naming the space id,
+and ship the program in `tools/linux-x64/` meanwhile.
 
 ### The Dockerfile
 

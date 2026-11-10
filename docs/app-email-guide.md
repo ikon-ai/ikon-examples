@@ -1,4 +1,4 @@
-<!-- checked-against: dffecfabc1eeb534e5068899 -->
+<!-- checked-against: a1ddff2ab290d5fba8ee3e67 -->
 
 # Ikon.App.Email Guide
 
@@ -267,7 +267,7 @@ internal async Task OnEmailReceivedAsync(TriggerContext context, CancellationTok
 }
 ```
 
-`envelope.Id` is a string. `app.Email.GetMessageAsync(string)` returns an `InboundEmailDetail` (`Subject`, `BodyText`, `Attachments`: each with `Id`, `Filename`, `MimeType`, `Size`). The `ImapMessageId` overload belongs to the IMAP connector, not to this inbox.
+`envelope.Id` is a string. `app.Email.GetMessageAsync(string)` returns an `InboundEmailDetail` (`Subject`, `BodyText`, `Attachments`: a list of `InboundAttachmentInfo`, each with `Id`, `Filename`, `MimeType`, `Size`). The `ImapMessageId` overload belongs to the IMAP connector, not to this inbox.
 
 The trigger fires only for mail stored while the active bundle declares it, so mail that arrived before the first deploy with the trigger is not replayed: read it with `app.Email` once.
 

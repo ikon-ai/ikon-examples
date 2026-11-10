@@ -1,4 +1,4 @@
-<!-- checked-against: 7f6b52eb59ae91254fb1f942 -->
+<!-- checked-against: cf14086b59ae91254fb1f942 -->
 
 # IKON Platform Events
 
@@ -316,7 +316,7 @@ trace id, so a connect without a trace id produces no rows at all.
 | Event | Source | Payload |
 |---|---|---|
 | `client_connect_timeline` | TypeScript SDK in the browser, once per connect: when it has connected and its media has settled, when it fails, or when the page closes first | `connectTraceId`, `tabId` (or `doNotTrack: true` in its place, see [Screens and entries](#screens-and-entries)), `outcome`, `firstPaintMs` (the first live UI arrived, from navigation start), `firstPaintOfPage` (`true` only for the page's first live UI; a later client in the same page measures from the same start), `firstFrameMs` (the start of the frame that shows it; sent by apps on the React SDK), `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, plus the asset fields below |
-| `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
+| `backend_connect_timeline` | Backend `/init`, one row per request, a failed one included, except a join-only request that finds no live session | `connectTraceId`, `status` (`success`, `abandoned`, `not_running`, `startup_failed`, `server_full`, `insufficient_credits`, `failure`), `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId`; `httpStatus` on a request that was answered with an error. A request that failed before it had a session has no `prestarted` or `serverSessionId` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
 | `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `mainMs` |

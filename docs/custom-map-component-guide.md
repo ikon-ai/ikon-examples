@@ -1,4 +1,4 @@
-<!-- checked-against: 34fdf1ecc225ddff4a5dbeb6 -->
+<!-- checked-against: a1345a5ac225ddff4a5dbeb6 -->
 
 # Custom Map Component Guide
 
@@ -144,19 +144,17 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const areasLayerRef = useRef<L.LayerGroup | null>(null);
-  const initialCenterRef = useRef<[number, number] | null>(null);
+  // center and zoom are only the starting view, so the map reads them from a ref and is not rebuilt when they change.
+  const startViewRef = useRef({ center: props.center, zoom: props.zoom });
 
   // Initialize map (runs once)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    if (initialCenterRef.current === null) {
-      initialCenterRef.current = parseCenter(props.center) || [51.505, -0.09];
-    }
-
+    const startView = startViewRef.current;
     const map = L.map(containerRef.current, {
-      center: initialCenterRef.current,
-      zoom: props.zoom ?? 13,
+      center: parseCenter(startView.center) || [51.505, -0.09],
+      zoom: startView.zoom ?? 13,
     });
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -177,7 +175,6 @@ const MyMapInner = memo(function MyMapInner(props: MyMapProps) {
       pinsLayerRef.current = null;
       areasLayerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- center and zoom are only the starting view
   }, []);
 
   // Map click handler
