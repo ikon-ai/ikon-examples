@@ -148,8 +148,8 @@ file sealed class InputsExamples
         // onSubmit's parameter is the submitted value. With bind:, the bound reactive (`_text.Value`)
         // holds that same value while onSubmit runs; a clearing field (the default here) writes "" to
         // it once onSubmit returns, unless the user typed again meanwhile.
-        // Note: both TextField and TextArea clear on submit only when an onSubmit handler is set; a bound field
-        // with no onSubmit keeps its value. Pass clearOnSubmit: true/false to override either way.
+        // A TextField or TextArea with onSubmit clears after submit by default (clearOnSubmit: true); one
+        // without onSubmit keeps its value. Pass clearOnSubmit: false to keep a submitted value.
         // A search box keeps the query on screen after Enter, so it opts out. Beside a button in a row it
         // takes flex-1, placed after "default" so the field keeps its theme (["flex-1"] alone is a bare input, IKON025):
         view.TextField(["default", "flex-1"], bind: _query, placeholder: "Search", clearOnSubmit: false,

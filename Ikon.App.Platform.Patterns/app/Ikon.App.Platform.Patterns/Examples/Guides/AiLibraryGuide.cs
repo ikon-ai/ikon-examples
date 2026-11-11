@@ -821,3 +821,84 @@ internal static class AiRObjectGenerationExamples
         return result;
     }
 }
+
+file static class AiFailureExamples
+{
+    #region example:ai-failure-retry
+    public static async Task<ImageGeneratorResult> GenerateWithRetryAsync(string prompt, CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await ImageGenerator.GenerateAsync(prompt, cancellationToken: ct);
+            }
+            catch (RetryableAIException ex) when (attempt < maxAttempts)
+            {
+                // Longer after each failure, and never shorter than the provider asked for
+                var backoff = TimeSpan.FromSeconds(2 * Math.Pow(2, attempt - 1));
+                var delay = ex.RetryAfter is { } asked && asked > backoff ? asked : backoff;
+                Log.Instance.Warning($"Image generation failed ({ModelFailure.Classify(ex)}), retrying in {delay.TotalSeconds:F0} s: {ex.Message}");
+                await Task.Delay(delay, ct);
+            }
+        }
+    }
+    #endregion
+
+    #region example:ai-failure-model-chain
+    // Tested on this task, each from a different vendor, in the order to try them
+    private static readonly LLMModel[] SummaryChain = [LLMModel.Claude55Sonnet, LLMModel.Gemini38Flash, LLMModel.Gpt56Sol];
+
+    public static async Task<(string Summary, LLMModel Model)> SummariseAsync(string text, CancellationToken ct)
+    {
+        for (int i = 0; ; i++)
+        {
+            try
+            {
+                return (await Emerge.AskAsync($"Summarise in two sentences:\n{text}", SummaryChain[i], ct), SummaryChain[i]);
+            }
+            catch (Exception ex) when (i < SummaryChain.Length - 1 && IsWorthAnotherModel(ex))
+            {
+                Log.Instance.Warning($"Summary could not run on {SummaryChain[i]} ({ModelFailure.Classify(ex)}), trying {SummaryChain[i + 1]}: {ex.Message}");
+            }
+        }
+    }
+
+    // Only a failure that says nothing about the request moves on
+    private static bool IsWorthAnotherModel(Exception ex)
+    {
+        if (ex is OperationCanceledException or ProviderChargedException or ProviderJobAbandonedException or InvalidRequestException)
+        {
+            return false;
+        }
+
+        return ModelFailure.Classify(ex)
+            is ModelFailureKind.Transient
+            or ModelFailureKind.Unavailable
+            or ModelFailureKind.AccessDenied
+            or ModelFailureKind.CreditExhausted
+            or ModelFailureKind.NotAllowed;
+    }
+    #endregion
+
+    #region example:ai-failure-message
+    // The exception's own text is for the log. Only the platform's denials carry a sentence
+    // written for a person.
+    public static string MessageFor(Exception ex) => ex switch
+    {
+        AIPlatformDenialException denial => denial.Message,
+        ProviderChargedException => "The result was made but could not be used, and it was charged.",
+        ProviderJobAbandonedException => "It took too long and was stopped. It may still be charged.",
+        InvalidRequestException => "This request can't be made with this model.",
+        _ => ModelFailure.Classify(ex) switch
+        {
+            ModelFailureKind.Transient => "The AI service is busy. Try again in a minute.",
+            ModelFailureKind.Quality => "The answer came back unusable. Try again or reword the request.",
+            ModelFailureKind.NotAllowed => "Your organisation does not allow this model.",
+            _ => "AI is unavailable right now.",
+        },
+    };
+    #endregion
+}

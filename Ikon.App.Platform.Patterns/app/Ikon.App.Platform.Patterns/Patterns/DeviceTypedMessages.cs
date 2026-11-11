@@ -118,7 +118,6 @@ internal sealed class DeviceTypedMessages(IAppBase app) : IPatternDemo
         TaskCompletionSource<WeatherReportAck>? pendingAck = null;
         using var acks = client.OnMessage<WeatherReportAck>(async (ack, _) => pendingAck?.TrySetResult(ack));
 
-        client.ReadyAsync += async e => await client.SignalReadyAsync();
         await client.ConnectAsync();
 
         var stationKey = Environment.GetEnvironmentVariable("STATION_KEY") ?? "";

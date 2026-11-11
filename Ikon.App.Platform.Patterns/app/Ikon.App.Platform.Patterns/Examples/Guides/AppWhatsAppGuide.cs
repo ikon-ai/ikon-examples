@@ -43,6 +43,27 @@ file sealed class WhatsAppGuideExamples(IApp<SessionIdentity, ClientParameters> 
         #endregion
     }
 
+    public async Task InteractiveAsync(string customer)
+    {
+        #region example:whatsapp-interactive
+        // A reply, so only inside the 24-hour window; the tap comes back with the button's id as ButtonPayload
+        await app.WhatsApp.SendInteractiveAsync(customer, WhatsAppInteractive.WithButtons(
+            "Which day suits you for the test drive?",
+            new WhatsAppReplyButton("tue", "Tuesday"),
+            new WhatsAppReplyButton("wed", "Wednesday"),
+            new WhatsAppReplyButton("later", "Another week")));
+        #endregion
+    }
+
+    public async Task EraseAsync(string customer)
+    {
+        #region example:whatsapp-erase
+        // The person asked to be forgotten: this deletes their messages' text and files, their number and their opt-out
+        var emptied = await app.WhatsApp.DeleteConversationAsync(customer);
+        Log.Instance.Info($"Erased {emptied} WhatsApp messages");
+        #endregion
+    }
+
     #region example:whatsapp-trigger
     [Trigger(TriggerEventType.WhatsAppReceived, MaxParallelism = 4)]
     internal async Task OnWhatsAppReceivedAsync(TriggerContext context, CancellationToken ct)

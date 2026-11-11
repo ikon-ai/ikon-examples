@@ -1,4 +1,6 @@
 using Ikon.App.Sso;
+using Ikon.App.Triggers;
+using Ikon.Common.Core;
 using Ikon.Common.Core.Protocol;
 
 namespace Ikon.App.Platform.Patterns.Examples;
@@ -86,4 +88,43 @@ file sealed class SsoGuideExamples(IApp<SessionIdentity, ClientParameters> app)
         }
         #endregion
     }
+
+    public async Task<SsoProvisioningToken> EnableProvisioningAsync(SsoConnection connection)
+    {
+        #region example:sso-provisioning-enable
+        await app.SsoConnections.UpdateProvisioningAsync(connection.Id, new SsoProvisioningUpdate { Enabled = true });
+
+        // Shown once: the customer's admin pastes both into their directory's provisioning settings.
+        var issued = await app.SsoConnections.RotateProvisioningTokenAsync(connection.Id);
+        Log.Instance.Info($"Tenant URL {issued.ScimUrl}, secret token {issued.Token}");
+        #endregion
+
+        return issued;
+    }
+}
+
+// Abstract so the bundle scan passes it over: this is an example of an app's listener, not a
+// listener of this app.
+file abstract class SsoProvisioningExamples
+{
+    private readonly Dictionary<string, int> _appliedVersions = new();
+
+    #region example:sso-provisioning-trigger
+    [Trigger(TriggerEventType.SsoProvisioning)]
+    internal Task OnSsoProvisioningAsync(TriggerContext context)
+    {
+        var person = context.GetPayload<SsoProvisioningEvent>();
+
+        // A retried event can arrive after a newer one; the newest version wins.
+        if (_appliedVersions.TryGetValue(person.Id, out int applied) && applied >= person.Version)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Create or update the member keyed on person.Id, never on the email, which a
+        // directory may give to someone new. Deactivate them when !person.Active.
+        _appliedVersions[person.Id] = person.Version;
+        return Task.CompletedTask;
+    }
+    #endregion
 }

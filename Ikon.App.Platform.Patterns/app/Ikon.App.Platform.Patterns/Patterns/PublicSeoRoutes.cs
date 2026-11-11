@@ -38,7 +38,12 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
             }
         });
 
-        app.OnClientJoined(async _ => await DescribePageAsync(app.Navigation.CurrentPath ?? "/"));
+        // Not awaited, so the first render does not wait for the browser to answer
+        app.OnClientJoined(context =>
+        {
+            _ = DescribePageAsync(app.Navigation.CurrentPath ?? "/");
+            return Task.CompletedTask;
+        });
         app.Navigation.PathChangedAsync += async args => await DescribePageAsync(args.Path);
     }
 
@@ -59,6 +64,19 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
     // The capture records these for the route's crawler page; in a browser they set the tab title and
     // the share tags as the visitor moves between routes.
     private async Task DescribePageAsync(string path)
+    {
+        try
+        {
+            await SetMetadataAsync(path);
+        }
+        catch (Exception ex)
+        {
+            // The page works without its metadata, and the next path change sets it again
+            Log.Instance.Warning($"Page metadata for {path} was not set: {ex.Message}");
+        }
+    }
+
+    private async Task SetMetadataAsync(string path)
     {
         if (!_articlesByPath.TryGetValue(path, out var article))
         {

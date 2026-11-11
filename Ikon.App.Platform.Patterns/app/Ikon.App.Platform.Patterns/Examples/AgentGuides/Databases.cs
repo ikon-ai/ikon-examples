@@ -135,8 +135,8 @@ file sealed class PgVectorExamples(IApp<SessionIdentity, ClientParameters> app)
 file sealed class VectorArrayExamples(IApp<SessionIdentity, ClientParameters> app)
 {
     #region example:vector-array-column
-    // A class with settable properties, not a positional record: Dapper reads a real[] column as
-    // System.Array, which no record constructor parameter matches.
+    // A class with settable properties reads a real[] column, which Npgsql reports as System.Array,
+    // also in an app without the DapperArrayHandlers.cs the ikon tool writes.
     private sealed class StoredNote
     {
         public long Id { get; set; }
@@ -354,7 +354,8 @@ file sealed class ReadOnlyQueryExamples(IApp<SessionIdentity, ClientParameters> 
 
             // Disposed before the transaction ends, or the rollback fails
             await using var reader = await query.ExecuteReaderAsync();
-            rows = await ResultSet.CreateAsync(reader, maxRows: 200, countAllRows: false);
+            // ToMarkdown writes numbers and dates in this culture, invariant when left out
+            rows = await ResultSet.CreateAsync(reader, maxRows: 200, countAllRows: false, culture: CultureInfo.GetCultureInfo("fi-FI"));
         }
 
         await transaction.RollbackAsync();

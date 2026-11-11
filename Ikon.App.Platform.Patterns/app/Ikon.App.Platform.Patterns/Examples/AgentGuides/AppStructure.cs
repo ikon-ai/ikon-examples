@@ -314,7 +314,16 @@ internal sealed partial class AgentGuideExamples
             {
                 while (!app.StoppingToken.IsCancellationRequested)
                 {
-                    _now.Value = DateTime.UtcNow;
+                    // Nothing awaits this task, so an exception would end the loop with no log line
+                    try
+                    {
+                        _now.Value = DateTime.UtcNow;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Instance.Warning($"Clock tick failed, trying again in a second: {ex.Message}");
+                    }
+
                     await Task.Delay(1000, app.StoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
             });

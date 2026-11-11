@@ -79,7 +79,6 @@ file static class SdkReadmeExamples
         client.ReadyAsync += async e =>
         {
             Console.WriteLine("Connected!");
-            await client.SignalReadyAsync();
         };
 
         client.MessageReceivedAsync += async e =>
@@ -232,6 +231,20 @@ file static class SdkReadmeExamples
 
         Log.Instance.Debug($"{config}");
     }
+
+    public static void CredentialRejected(IkonClient client)
+    {
+        #region example:sdk-credential-rejected
+        client.CredentialRejectedAsync += async e =>
+        {
+            // A UserToken client resumes with a new token; any client can call ConnectAsync again
+            client.UpdateAuthToken(await GetNewTokenAsync());
+        };
+        #endregion
+    }
+
+    // Stands for the program's own way of getting a token
+    private static Task<string> GetNewTokenAsync() => Task.FromResult(string.Empty);
 
     public static async Task SendRawAsync(IkonClient client, IProtocolMessagePayload payload)
     {
@@ -392,7 +405,7 @@ file static class SdkReadmeExamples
         // Get all functions grouped by name (including remote)
         var allFuncs = client.FunctionRegistry.Functions;
 
-        // Find which client sessions have a specific function
+        // Find which sessions (the app's and the server's) have a specific function
         var clientIds = client.FunctionRegistry.GetClientSessionsWithFunction("SharedFunc");
 
         // Wait for a function the app registers to become available (other clients' functions never reach this registry)
@@ -417,7 +430,8 @@ file static class SdkReadmeExamples
         // Void async call
         await client.FunctionRegistry.CallAsync("LogMessage", args: new object?[] { "Hello" });
 
-        // Call a function on a specific remote client (uses targetId parameter)
+        // Call a function on one session (targetId: the app's session id; another client's functions
+        // never reach this registry, so naming its session fails with "Function 'Calculate' not found")
         int remoteSum = await client.FunctionRegistry.CallAsync<int>("Calculate", targetId: 123, args: new object?[] { 5, 10 });
 
         // Streaming results (async enumerable). A [Function] with no Name is registered under its type's full name
@@ -444,12 +458,12 @@ file static class SdkExtraExamples
             Console.WriteLine($"State: {e.State}");
         };
 
-        // Connection established and ready, raised again on every reconnect
+        // Raised once the SDK has told the server this client is ready, and again on every reconnect.
+        // The app knows the client from here on, so calls made here reach it with the client's identity.
         client.ReadyAsync += async e =>
         {
-            // Perform initialization here. e.IsReconnect is false only for the first connect;
-            // e.IsNewSession says the server session changed and its server-side state is gone
-            await client.SignalReadyAsync();  // Signal that this client is ready (mandatory)
+            // e.IsReconnect is false only for the first connect; e.IsNewSession says the server
+            // session changed and its server-side state is gone
         };
 
         // Server is stopping (can still send messages)
@@ -461,7 +475,8 @@ file static class SdkExtraExamples
         // Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
         // the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
         // retrying from Offline, so this is final only when the server is stopping,
-        // BackgroundReconnect is off, or a JoinOnly client found the session ended. Not raised by a failed IkonClient.ConnectAsync (that is the
+        // BackgroundReconnect is off, a JoinOnly client found the session ended, the sign-in was
+        // refused with 401 or 403, or the server requires a newer SDK or app. Not raised by a failed IkonClient.ConnectAsync (that is the
         // call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
         // drop that reconnects
         client.DisconnectedAsync += async e =>
@@ -626,7 +641,6 @@ file static class SdkConsoleClientExamples
             };
 
         await using var client = new IkonClient(config);
-        client.ReadyAsync += async e => await client.SignalReadyAsync();
         await client.ConnectAsync();
 
         // The app looks up a reactive's stable id by the member's name in its [App] class

@@ -374,12 +374,12 @@ file static class SimpleStylingExamples
     public static void Keyboard(UIView view)
     {
         #region example:keyboard-listener
-        // KeyboardListener
-        view.KeyboardListener(global: true,
+        // KeyboardListener: keys: filters the keys; key: is the node's identity, not a filter
+        view.KeyboardListener(global: true, keys: [Key.Enter],
             onKeyDown: async args => { /* args.Key, args.ShiftKey, args.CtrlKey */ },
             content: view => { /* ... */ });
         #endregion
-        PatternDemoNote.RenderCaption(view, "A global keyboard listener is mounted here: it draws nothing and receives every key pressed anywhere on the page, with its modifier state");
+        PatternDemoNote.RenderCaption(view, "A global keyboard listener is mounted here: it draws nothing and receives every Enter pressed anywhere on the page, with its modifier state");
     }
 
     public static async Task OptimisticConcurrencyAsync(AssetUri uri, string modified)

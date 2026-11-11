@@ -11,7 +11,10 @@ public static class PatternGallery
     public static IReadOnlyList<IPatternDemo> Create(IApp<SessionIdentity, ClientParameters> app) =>
     [
         .. ExampleGallery.Create(app),
+        new AiFailFastError(),
+        new AiModelChain(),
         new AiPrefillFormFromDescription(),
+        new AiRetryWithBackoff(),
         new AppHeaderBar(),
         new AnnotationDrawOverlay(),
         new AudioReactiveVisuals(app),
