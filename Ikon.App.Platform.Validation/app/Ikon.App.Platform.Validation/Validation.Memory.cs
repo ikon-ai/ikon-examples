@@ -39,6 +39,11 @@ public partial class Validation
                         content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                 });
                 view.Text([Text.Body], $"Configured limit: {app.MaxMemoryLimitMb} MB");
+                // Process memory grows with the number of CPUs the runtime sees, which is the container's
+                // CPU quota rather than the machine's core count. The validation logs that number and the
+                // server id with each sample
+                string serverId = app.GlobalState.IkonServerId is { Length: > 0 } id ? id : "local";
+                view.Text([Text.Body], $"Server {serverId}, {Environment.ProcessorCount} CPUs visible to the runtime", props: TestId("memory-host"));
                 view.Text([Text.Body], $"Process memory: {processMemoryMb:F1} MB");
                 view.Text([Text.Body], $"Managed memory: {managedMemoryMb:F1} MB");
 
