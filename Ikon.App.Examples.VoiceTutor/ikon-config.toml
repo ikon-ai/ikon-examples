@@ -1,4 +1,4 @@
-ConfigVersion = 12  # Schema version: the ikon tool upgrades an older file and refuses a newer one
+ConfigVersion = 13  # Schema version: the ikon tool upgrades an older file and refuses a newer one
 StateDatabase = ""  # The database PersistentReactive state lives in; empty picks the "app" database (databases guide)
 DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any. Applies to the deployed app, not a local run (sso guide)
 MaxClients = 0  # Clients an instance admits, and a shard's size with [Sharding] on; 0 fits it to the container's memory (scaling guide)
@@ -23,7 +23,7 @@ Recovery = "attended"  # "attended" waits for a tap after a lost connection, for
 # Who may enter the surface
 [Surface.Auth]
 Methods = ["google", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
-Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. With Roles set, every external function needs [Surface("name")]
+Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
 SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
 # The emailed sign-in code, how long a browser stays signed in, and the sign-in screen's text (app-structure guide)
@@ -44,7 +44,7 @@ TermsPath = "/legal/terms"  # The same rules as PrivacyPath
 
 # The platform's feedback sheet; who is offered it is the space's setting, 'ikon feedback set' (parallax-overview guide)
 [Feedback]
-Button = "overlay"  # "overlay" draws a floating feedback button for whoever is offered feedback; "none" draws none
+Button = "overlay"  # "overlay" draws a floating feedback button for whoever is offered feedback, and its text follows the visitor's language; "none" draws none
 
 # Usage measurement, of people who granted ConsentPurposes.UsageMeasurement; only a deployed app sends its events (consent guide)
 [Analytics]
@@ -68,10 +68,20 @@ UIActions = false  # Record each action a person runs, which a report filed from
 # Allow = []  # Source address ranges allowed to connect, e.g. ["203.0.113.0/24"]; empty admits any source
 # Labels = []  # Names IKON issues for a shared Number, one per label: "plant" is reached at <space>-plant.ports-<region>.<relay zone>, verified and routed at deploy with no DNS of your own
 
-# Commands the ikon tool runs in the app root, each started without a shell (app-container guide)
+# Programs the tool downloads into tools/<runtime>/ rather than the app committing them, one [[Tools]] entry per download, each verified against a SHA-256; nothing is executed to fetch them (app-container guide)
+# One download the tool makes into the runtime folder it names
+# [[Tools]]
+# Runtime = "all"  # The runtime folder this fills: "linux-x64" for a deploy, the machine's runtime for a local run, or "all"
+# Url = ""  # The https:// URL to fetch
+# Sha256 = ""  # The SHA-256 of what the URL returns, as 64 hex characters; a mismatch fails the fetch
+# Archive = "none"  # "zip" or "tar.gz" extracts; "none" writes the bytes as one file
+# Strip = 0  # Path components dropped from every entry of an extracted archive, like docker ADD --strip-components
+# Dest = ""  # Where the result goes inside the runtime folder; empty is the folder's root
+# Name = ""  # The written file's name when Archive is "none"; empty takes the URL's last segment
+
+# Commands the ikon tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
 [Scripts]
-FetchTools = []  # Download programs into IKON_TOOLS_DIR before 'ikon run', 'ikon bundle' and 'ikon deploy'
-PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it
+PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'
 
 # The native app the Flutter frontend builds; set it only to update an app already in a store (frontend-fundamentals guide)
 [Flutter]
