@@ -4,19 +4,19 @@
 
 ## Quick start
 
-1. New app: read `ikon docs product-design --section "First build checklist"`, write `branding/brand.md`, read `ikon docs --search "<request words>"` and its patterns. Write the app, run `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Deploy when asked. For conversions, read `ikon docs convert`.
-2. Pick a visual direction (below), the language (not English: write the C# text in it or use `multilingual-csharp-ui`; set `<html lang>`, add `src/i18n/xx.ts` for sign-in and list it in `app.tsx` (`translations`, `defaultLanguage`); `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for one shared room use `SessionIdentity()`, `SessionIdentity(string? Room)` one per `?room=`.
-   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; none holds `admin` by default (`first-user-becomes-admin`). Signed-out visitors: `app-structure`.
-3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`).
-4. A local run uses the app's cloud data (`databases`). Put required rows in `OnStarting`; request samples with `ikon db seed --profile demo`. Update surfaces in `ikon-config*.toml`.
-5. `browse` without `--target` drives the local run. Database commands select the linked app unless `--target` names another.
-   `--ai mock` calls no tools. Use `--ai-script turns.json` for typed replies and tool calls; see `ai-models` for list sizes.
+1. New app: read `ikon docs product-design --section "First build checklist"`, write `branding/brand.md`, read `ikon docs --search "<request words>"` and its patterns. Write the app, run `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Deploy when asked.
+2. Pick the language (not English: write the C# text in it or use `multilingual-csharp-ui`; set `<html lang>`, add `src/i18n/xx.ts` for sign-in and list it in `app.tsx`; `frontend-fundamentals`) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; for one shared room use `SessionIdentity()` (many visitors: add `[Sharding] Enabled = true`, `scaling`), `SessionIdentity(string? Room)` one per `?room=`.
+   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; staff-only screens check a role; none holds `admin` by default (`first-user-becomes-admin`; skip `ctx.IsSnapshot`).
+3. Only `Global*` reactives are shared by every instance; `[Cron]`, MCP tools and endpoints (`[HttpGet("/x")]` serves `/api/x`; never `"/api/x"`) run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`).
+4. A local run uses the app's cloud data (`databases`). Put required rows in `OnStarting`; samples: `ikon db seed --profile demo`. Surfaces are in `ikon-config*.toml`. Once deployed, `--ai mock` needs `--yes` (`confirmation-required`): rows or `app.Files` that mock answers store show in the deployed copy.
+5. Database commands act on the linked app unless `--target` names another.
+   `--ai mock` calls no tools; `--ai-script turns.json` scripts replies and tool calls (`ai-models`).
 
 ## Architecture
 
-A deployed instance has 1 CPU, 512 MB; its image has .NET and `ffmpeg`, no Python or extra fonts. Databases and files stay in the EU (AI: `region-pinned-ai`); media models (music, video, mesh) are global-only (`ikon model list --eu`).
+A deployed instance has 1 CPU, 256 MB by default (larger shapes: `scaling`); its image has .NET and `ffmpeg`, no Python or extra fonts. Databases and files stay in the EU. Only LLM, embedding, classification, OCR, image and speech generation, speech recognition and file conversion have EU models (`ikon model list --eu`, `region-pinned-ai`).
 
-**UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`). 3D (three.js), WebGL and canvas games are custom React nodes (`frontend-fundamentals`, "A 3D scene or a game").
+**UI** is declared in C# inside `UI.Root([Page.Default], content: view => { ... })`. Components are methods on `view` (`UIView`). 3D (three.js), WebGL and canvas games are custom React nodes (`frontend-fundamentals`).
 
 **Styling:** Crosswind, IKON's Tailwind superset (v4 class names), in C# string arrays. Use semantic theme classes and the `Ikon.Parallax.Theming` tokens built from them (`Button.PrimaryMd`, `Text.H1`; `styling-and-motion`), in one array. A missing colour is a theme role, set with `new IkonTheme { ["primary"] = "amber-400", … }` (`theming`); a raw hex (`bg-[#…]`) is IKON013.
 
@@ -24,7 +24,8 @@ A deployed instance has 1 CPU, 512 MB; its image has .NET and `ffmpeg`, no Pytho
 
 `ikon run --format text` blocks. `ikon run --detach` returns ready or still starting.
 Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
-and `deploy`, then poll `ikon status --wait --timeout 80`. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. `ikon build` type-checks
+the frontend too, also while a run is live. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
@@ -65,7 +66,6 @@ Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages sen
 ## The ikon tool's commands
 
 `ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`.
-`--format text|json` overrides defaults; `IKON_OUTPUT_FORMAT` sets the preference.
 Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
 On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`,
 each commented: `ikon-config.development.toml` for an app on the development
@@ -89,22 +89,22 @@ Every control works or is disabled with a visible reason; changes, AI-made too, 
 
 Before the first `view.*` call pick a visual direction, set it with `new IkonTheme { … }`, `["primary"]` included (IKON015; one look, dark or light, only with `Mode = ThemeMode.Fixed`; the scaffold is Adaptive), and write it to `branding/brand.md`, the brand book (`product-design`).
 Then one primary action per screen; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page` (a Column, never a Row; header rows: `Layout.PageWidth`); `view.Card` pads itself: no `p-*` on it or its only child (IKON026). Outside `view.Card`, a `Column` with a `Card.*` token pads nothing and needs `p-5` (IKON034);
-empty (`view.EmptyState`), loading and error states; action buttons beside a title in `Layout.Row.Actions`; a phone is the default client: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, rows that wrap or stack below `md:`, checked at a phone viewport before the first run report (`product-design`, "Every viewport"); tabs: four at most (IKON052), `view.Tabs` + `Tabs.NavList` (IKON039); pages: `view.NavOutlet` + `path:` (`app-structure`).
+empty (`view.EmptyState`), loading and error states; action buttons beside a title in `Layout.Row.Actions`; a phone is the default client: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, rows that wrap or stack below `md:`, checked at a phone viewport before the first report (`product-design`); tabs: four at most (IKON052), `view.Tabs`, `Tabs.NavList` + `Tabs.NavTriggerMd` (IKON039); pages: `view.NavOutlet` + `path:` (`app-structure`).
 
 ## Common Pitfalls
 
 `pitfalls` has each rule in full.
 
 - **State**: reactives are `private readonly` fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `[Client]ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reading `_x.Value` reruns on change: there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031), cannot `await` (CS4034): load in the handler. Outside a handler, name the client: `_x.SetFor(cid, v)`.
-  A field a `TextField`/`Select` binds to is a `ClientReactive`: a plain `Reactive<T>` is shared by every browser of a `SessionIdentity()` instance (IKON018/019 warn only in `build/ikon-run.log`).
+  A field a `TextField`/`Select` binds to is a `ClientReactive`: a plain `Reactive<T>` is shared by every browser of a `SessionIdentity()` instance (IKON018/019).
 - **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`. AI calls throw: catch and show a retry.
 - **View calls**: the leading style array is positional (`CopyField`: `value` first), `"default"` first or the theme goes (IKON025), and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert: `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange: async v => …` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
-  Buttons are one token in an array, `[Button.PrimaryMd]`, with no `variant:`/`size:`.
-- **Databases**: Dapper and EF Core are scaffolded; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`), records too; `bigserial`, `bigint`, `count(*)` read as `long`, not `int`; `timestamptz` reads as `DateTime` (UTC), never `DateTimeOffset`, and `date` as `DateOnly`.
+  A button's style is one token, `[Button.PrimaryMd]`; no `variant:`/`size:`.
+- **Databases**: Dapper and EF Core are scaffolded; a `snake_case` column needs a Dapper alias (`client_id AS ClientId`), records too; `bigserial`, `bigint`, `count(*)` read as `long`, not `int`; `EXTRACT`, `avg` of an integer, `sum` of a `bigint` as `decimal` (cast for a `double`); `timestamptz` reads as `DateTime` (UTC), never `DateTimeOffset`, and `date` as `DateOnly`.
 - **Logging**: `Log.Instance.Info/Warning/Error/Debug($"…")`, not `app.Logger` (CS1061).
 - **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(ariaLabel: "x", options: [new SelectOption(v, l)])`.
 - **Colours**: `bg-primary` is the page surface, not the brand: brand fill is `bg-brand-solid`, brand text `text-brand-secondary`; the tone is `SemanticTone.Error`, no `Danger`.
-- **Structure**: keep the `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Every extra .cs file wraps its code in `public partial class <App>`; members outside a class give CS0106/CS8803. Keep the `__IKON_APP_NAME__` marker in `index.html` and the manifest.
+- **Structure**: keep the `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Every extra .cs file wraps its code in `public partial class <App>`; members outside a class give CS0106/CS8803. `__IKON_APP_NAME__` in `index.html` and the manifest becomes `[Target] Name`.
 
 ## API Reference Guides
 
@@ -174,7 +174,8 @@ A whole job's procedure, `docs/Ikon.Agent.Docs/playbooks/<slug>/SKILL.md` with i
 
 ## API Signatures
 
-Exact signatures of every public platform type are in `docs/Ikon.Agent.Docs/api/`, one file per namespace (`Ikon.App.md`; `-2`, `-3` parts where one needs several, listed in `_index.md`), generated from the assemblies, so they win when a guide disagrees. Grep them by type or member name before guessing a signature (CS1739, CS1061). A type's line is indented two spaces and its members four: `OpenDatabaseAsync` is on `AppServices`, not on `app`. Grep can print `[Omitted long matching line]` for a long signature; read the file at that line instead.
+Exact signatures of every public platform type are in `docs/Ikon.Agent.Docs/api/`, one file per namespace (`Ikon.App.md`; `-2`, `-3` parts listed in `_index.md`), generated from the assemblies; they win over a guide. Grep them by type or member name before guessing a signature (CS1739, CS1061). A type's line is indented two spaces and its members four. Grep can print `[Omitted long matching line]` for a long signature; read the file at that line instead.
+Database in a handler: `await using var conn = await app.DatabaseAsync(); await conn.OpenAsync();`; without `app`: `AppServices.Instance.OpenDatabaseAsync()` (no `app.Services`).
 
 
 ## Code Patterns
