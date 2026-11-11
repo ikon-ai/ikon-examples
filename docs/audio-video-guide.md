@@ -1,4 +1,4 @@
-<!-- checked-against: 02ce08fe09365ec53bbc0d15 -->
+<!-- checked-against: 5b772a11fab769776109a1a5 -->
 
 # IKON Audio & Video Guide
 
@@ -83,7 +83,7 @@ A **slot** is a plain string naming a group of playbacks; nothing is predefined.
 
 So `Speak(targets, text, options: new PlayOptions { Pan = 0.5f })` still replaces in `"speech"`. `Play` with `Replace` or `Queue` and no `Slot` throws `ArgumentException`, because `"default"` holds every unslotted sound. Two live sources at once each need their own slot or `Mode = AudioMixMode.Mix` — left in `"live"`, the second replaces the first. Speech audio you play yourself (a `SpeechGenerator` clip, a recorded line) belongs in `Slot = "speech"` with `Replace`: it then replaces earlier speech and counts as the app speaking for turn detection.
 
-Replace and Queue consider only the playbacks in the slot that the new playback's listeners still hear, which is what makes targeted speech work (below). `PlayOptions.Duck` lowers other slots for each listener while the playback is heard, and they come back by themselves: `Duck = [new SlotDuck("music", 0.15f)]` dips the music to 15 % under a line (200 ms down and 800 ms up by default). Several ducks on one slot apply the lowest; a live playback ducks while audio written to it is playing.
+Replace and Queue consider only the playbacks in the slot that the new playback's listeners still hear, which is what makes targeted speech work (below). `PlayOptions.Duck` lowers other slots for each listener while the playback is heard, and they come back by themselves: `Duck = [new SlotDuck("music", 0.15f)]` dips the music to 15 % under a line (200 ms down and 800 ms up by default). The music starts coming down when the line's audio starts, and speech fades in over 50 ms, so for the first 200 ms the line is heard over music that is still loud; `new SlotDuck("music", 0.15f, Down: TimeSpan.Zero)` lowers it at once. Several ducks on one slot apply the lowest; a live playback ducks while audio written to it is playing.
 
 `PlayOptions.Effects` and `PlayOptions.Analyzers` process one playback's audio, analyzers first; each playback creates its own effect state, so one list can be passed to many playbacks. Pass the same `VisemeAnalyzer` instance to every playback: a client learns the analysis shapes of its stream from the frame that first declares them, and a set it has not seen reopens that client's stream to declare it. Each value is tagged with the playback and slot it came from, so a frontend follows one speaker with `ikonClient.viseme.getCurrentVisemeValues({ slot: 'aria' })` (or `{ playbackId }`, the C# `AudioPlayback.Id`); with no filter it returns the most recently started playback that is speaking. Your own analyzer's values are read the same way by the name of its shape set: `ikonClient.viseme.getShapeSetValues({ setName: 'Spectrum', slot: 'music' })`.
 

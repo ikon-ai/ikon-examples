@@ -1,4 +1,4 @@
-<!-- checked-against: cf14086b59ae91254fb1f942 -->
+<!-- checked-against: b65bd6f8219035384fb1f942 -->
 
 # IKON Platform Events
 
@@ -416,9 +416,10 @@ LLM calls the completion details carry the token counts (`InputTokens`, `OutputT
 
 `usagePrefix` names the route that served the call the way its usage events are named
 (`{kind}.{provider}.{model}.{region}`, such as `llm.groq.gpt-oss-120b.global`), so a call and what it
-cost can be matched. When an LLM call moves to another provider after its first one failed,
-`modelName` is the route it started on and `usagePrefix` the one that answered. A `_failed` event
-also carries `statusCode`, the provider's HTTP status as an integer, when there was one.
+cost can be matched. A call runs on one route and is never moved to another, so a `_failed` event's
+`usagePrefix` is the route that failed. A request with an option its route does not take is refused
+before anything is sent, and reported as a `_failed` event with no `statusCode`. A `_failed` event
+otherwise carries `statusCode`, the provider's HTTP status as an integer, when there was one.
 
 `failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
 `AccessDenied`, `CreditExhausted`, `NotAllowed`, `Quality` or `Unknown`. It is finer than `class`, and
@@ -437,9 +438,7 @@ in another process, the failure is recorded there, by the process that saw it, w
 actually threw. The calling side records nothing, so there is no second row saying
 `FunctionCallException`. What the caller experienced is in `rpc_client_call_failed`, which reports
 once per call with `attemptsMade` and `finalOutcome`, so a call that succeeded on its second attempt
-is one `expected` row and not a failure at all. The exception is a call that moves to the model's next
-route: the route that failed gets its own `_failed` row carrying `movedTo`, the usage prefix of the
-route that took over, even when that route then succeeds.
+is one `expected` row and not a failure at all.
 
 `errorType` is the type the operation threw. Where that reached us over the wire it is the *remote*
 type, unwrapped from the transport exception that carried it, and `stackTrace` is the remote stack —

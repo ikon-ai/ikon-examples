@@ -1,4 +1,4 @@
-<!-- checked-against: a88b6eff0e5d0f22e0a348a6 -->
+<!-- checked-against: c9fd30baf13c10f9e0a348a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -198,9 +198,10 @@ The `EmergePass<T>` configure callback is invoked before every iteration, on the
   the answer, and never under 1024. `ReasoningTokenBudget` sets an exact budget for a model that reads
   one; an OpenAI model that reads an effort logs a warning and drops it, and ignores it silently
   when `ReasoningEffort` is also set; a Gemini 3 model that reads an effort refuses any non-zero budget
-  and fails the request. Asking a model that cannot reason for either fails the request
-  (`NonRetryableLLMException ... does not support reasoning`) rather than being quietly dropped; check
-  `AcceptedReasoningDial` or `ikon model list --capability reasoning` before setting one. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
+  and fails the request. Asking a model that cannot reason for either fails the request before
+  anything is sent (`InvalidRequestException: Reasoning is not supported by ...`) rather than being
+  quietly dropped; a request the provider itself refuses as written, such as a prompt over the
+  model's limit, throws `NonRetryableLLMException` instead. Check `AcceptedReasoningDial` or `ikon model list --capability reasoning` before setting one. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
   which dial a model reads: `ReasoningDial.Effort`, `ReasoningDial.TokenBudget`, or
   `ReasoningDial.None` for a model that takes neither.
 - `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits (10 iterations, 50 tool calls and

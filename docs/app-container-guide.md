@@ -1,4 +1,4 @@
-<!-- checked-against: 9fe6e148d6f3c7e0db3691ae -->
+<!-- checked-against: 38b91cecd6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -41,22 +41,27 @@ Apps that share a server process with other apps (hosted mode) get no `PATH` cha
 programs would shadow another's. Hosted mode is something IKON turns on per space; an app that ships
 tools should stay off it.
 
-A program that is too large to keep in the repository is better downloaded than committed. Name the
-script that downloads it in `ikon-config.toml`, and keep the script in `scripts/`, which is
-committed with the app (`scratch/` is git-ignored, for throwaway scripts):
+A program that is too large to keep in the repository is better downloaded than committed. Declare
+the download in `ikon-config.toml`, one `[[Tools]]` entry per file, and the tool fetches it before
+`ikon run`, `ikon run --container`, `ikon bundle` and `ikon deploy`:
 
 ```toml
-[Scripts]
-FetchTools = ["python3 scripts/fetch_tools.py"]
+[[Tools]]
+Runtime = "all"                      # or "linux-x64" for a deploy only, "win-x64" for a local run only
+Url = "https://files.example.com/renode-1.17.0-portable.tar.gz"
+Sha256 = "4ba7c68b59e2471f188ef4b4b112fcccd2802582c460beedceb63b84e5605a5f"
+Archive = "tar.gz"                   # or "zip", or "none" for a single file
+Strip = 1                            # path components dropped from every entry, like ADD --strip-components
+Dest = "renode"                      # inside tools/<runtime>/; empty is the folder itself
 ```
 
-The tool runs it before `ikon run`, `ikon run --container`, `ikon bundle` and `ikon deploy`, with
-`IKON_TOOLS_RUNTIME` naming the runtime (`linux-x64` for a deploy) and `IKON_TOOLS_DIR` the
-`tools/<runtime>/` folder to fill. It runs every time, so the script keeps its download, checks the
-SHA-256, returns at once when the folder is complete, and does nothing for a runtime it has no
-program for. Add the runtime folders it fills to `.gitignore` (`/tools/linux-x64/`), not `tools/`,
-which would hide `tools/source/`. On Windows `python3` at the start of the command runs
-`python`. A program that needs its whole folder beside it gets a small launcher script there:
+Nothing runs to fetch them: the tool downloads what `Url` names, refuses it unless it hashes to
+`Sha256` (64 hex characters), and extracts it inside `tools/<Runtime>/` only, dropping `Strip` leading
+path components. An entry whose destination already holds what it fetched, by the marker the fetch
+leaves, is skipped, so a second run costs nothing; change `Sha256` to fetch again. Add the runtime
+folders to `.gitignore` (`/tools/linux-x64/`), not `tools/`, which would hide `tools/source/`. A
+zip cannot carry executable bits, and a tar.gz entry that is a link is skipped rather than
+followed; a program that needs its whole folder beside it gets a small launcher script there:
 
 ```sh
 #!/bin/sh
@@ -157,10 +162,17 @@ into `$IKON_BUNDLE_APP_DIR/Data/`; a binary or `#!` script written under `IKON_B
 ### Processing the bundle before it is zipped
 
 `ikon bundle` and `ikon deploy` run each `PrePackage` command in the app root, in order, after the
-build and before the bundle is zipped. Like `FetchTools`, a command starts without a shell, and
-`python3` at its start runs `python` on Windows. A command that fails stops the bundle or the
-deploy and prints its output. A command string is split on spaces, with quotes grouping words.
-`ikon run` does not run `PrePackage`; it runs only `FetchTools`. `ikon build` runs neither.
+build and before the bundle is zipped. A command starts without a shell, and `python3` at its start
+runs `python` on Windows. A command that fails stops the bundle or the deploy and prints its output.
+A command string is split on spaces, with quotes grouping words.
+
+The commands are in the app's own file, which anyone a repository is shared with receives, so they
+run only in a project that has allowed them: a terminal asks once — and keeps the answer — the
+first time `ikon bundle` or `ikon deploy` meets them, and anything without a terminal (a coding
+agent, CI) is refused with the commands it would have run until `ikon scripts enable` is run in the
+app. The allowance covers the exact command list, so editing `PrePackage` asks again. `ikon scripts
+disable` refuses them again. `ikon run` does not run `PrePackage`, and `ikon build` runs neither
+it nor any `[[Tools]]` fetch.
 
 A program that must run on every compile (it writes code or data the app compiles in or reads at start) is an MSBuild target in the app's csproj, not a `[Scripts]` step: `<Target Name="Generate" BeforeTargets="BeforeBuild"><Exec Command="node scripts/gen.mjs" /></Target>`. It runs on the machine that builds, so that machine needs the program.
 

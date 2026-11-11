@@ -1,4 +1,4 @@
-<!-- checked-against: a4fcebd56a5d6c6e6ab9f1c9 -->
+<!-- checked-against: 329762c7ed71f6a8149ea8c0 -->
 
 # IKON C# SDK
 
@@ -46,7 +46,6 @@ await using var client = new IkonClient(config);
 client.ReadyAsync += async e =>
 {
     Console.WriteLine("Connected!");
-    await client.SignalReadyAsync();
 };
 
 client.MessageReceivedAsync += async e =>
@@ -207,8 +206,10 @@ var config = new IkonClientConfig
 person with a session token for the space that was issued elsewhere, through the cloud gateway like
 a browser client. It is how an app's server shows another app inside itself (`view.Portal` in the
 Parallax guide): the backend hands the host a session in the guest app for one of its users, and the
-host connects with it. The token's own lifetime limits the connection: a reconnect after it expires
-fails, and the program that holds the token has to get a new one. `BackendUrl` is the backend that
+host connects with it. The token's own lifetime limits the connection. When a reconnect's token is
+refused, because it expired or the person's sign-in was revoked, the client stops reconnecting and
+raises `CredentialRejectedAsync` (see "When the backend refuses the sign-in" below); the program that
+holds the token gets a new one and passes it to `client.UpdateAuthToken(token)`. `BackendUrl` is the backend that
 issued the token, which `/init` is posted to; `UserType`, `ClientType` and `JoinOnly` have the same
 meaning as in `UserLogin`.
 
@@ -258,7 +259,7 @@ Which authentication mode to use depends on where the app runs:
 
 | The app | Mode | What it needs |
 |---|---|---|
-| A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (8443 unless another run held it), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
+| A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (the project's port from its last run while that is free, else the first free one from 8443), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
 | Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods` |
 | Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
@@ -282,7 +283,6 @@ var config = local
     };
 
 await using var client = new IkonClient(config);
-client.ReadyAsync += async e => await client.SignalReadyAsync();
 await client.ConnectAsync();
 
 // The app looks up a reactive's stable id by the member's name in its [App] class
@@ -362,9 +362,9 @@ public string RecordVisit(string key, string door)
   an ack, is the `device-typed-messages` pattern; see "Receiving Typed Messages" below.
 
 A program that should keep running while the app restarts (`ikon stop` and a new `ikon run`, a
-deploy, `ikon session stop`) connects again itself. The client reconnects by itself after a dropped
-connection, but when the server stops, the client goes `Offline` and stays there. A loop at the end
-of the program connects it again:
+deploy, `ikon session stop`) must connect again itself: the client does not reconnect after the
+server stops. It reconnects by itself after a dropped connection, but when the server stops, it goes
+`Offline` and stays there. A loop at the end of the program connects it again:
 
 <!-- ikon-example: sdk-console-stay-connected -->
 ```csharp
@@ -421,12 +421,12 @@ client.StateChangedAsync += async e =>
     Console.WriteLine($"State: {e.State}");
 };
 
-// Connection established and ready, raised again on every reconnect
+// Raised once the SDK has told the server this client is ready, and again on every reconnect.
+// The app knows the client from here on, so calls made here reach it with the client's identity.
 client.ReadyAsync += async e =>
 {
-    // Perform initialization here. e.IsReconnect is false only for the first connect;
-    // e.IsNewSession says the server session changed and its server-side state is gone
-    await client.SignalReadyAsync();  // Signal that this client is ready (mandatory)
+    // e.IsReconnect is false only for the first connect; e.IsNewSession says the server
+    // session changed and its server-side state is gone
 };
 
 // Server is stopping (can still send messages)
@@ -438,7 +438,8 @@ client.StoppingAsync += async e =>
 // Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
 // the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
 // retrying from Offline, so this is final only when the server is stopping,
-// BackgroundReconnect is off, or a JoinOnly client found the session ended. Not raised by a failed IkonClient.ConnectAsync (that is the
+// BackgroundReconnect is off, a JoinOnly client found the session ended, the sign-in was
+// refused with 401 or 403, or the server requires a newer SDK or app. Not raised by a failed IkonClient.ConnectAsync (that is the
 // call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
 // drop that reconnects
 client.DisconnectedAsync += async e =>
@@ -458,6 +459,22 @@ client.MessageReceivedAsync += async e =>
     Console.WriteLine($"Message: {e.Message.Opcode}");
 };
 ```
+
+### Joining and Ready
+
+A connect has two steps. The client joins the app's session and receives its state, then it signals
+ready. Only at ready does the app hear about the client and learn its user, scopes and roles.
+`ConnectAsync` signals ready itself on every connect and reconnect, before it returns and before
+`ReadyAsync` is raised, so a `ReadyAsync` handler can call functions, subscribe to reactives and send
+messages at once. `SignalReadyAsync` is obsolete: existing programs still build, with a compiler
+warning, and once the client is ready the call does nothing.
+
+Register the program's own functions in `client.FunctionRegistry` before `ConnectAsync`. They are
+sent while joining, so the app has them when it hears the client is ready. Anything else the client
+sends to the app while joining, such as a send from a `MessageReceivedAsync` handler, is held and sent
+right after ready, in order. At most 4096 messages are held per join; later ones are dropped with one
+warning. Audio and video sent then are dropped, and held messages are discarded if the connection
+drops before ready.
 
 ### Connecting and Disconnecting
 
@@ -512,6 +529,32 @@ var config = new IkonClientConfig
 ```
 
 Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted. A `JoinOnly` client whose reconnect finds the session ended does not: it stays `Offline`.
+
+A function call made while the client is reconnecting waits for the reconnect and is sent once the
+client is ready again; see [Calling Functions](#calling-functions).
+
+### When the backend refuses the sign-in
+
+A reconnect signs in again, and the backend can refuse it: with 401 when the token expired or the
+person's sign-in was revoked (for example, their organisation's directory removed them), with 403 when the
+app or surface does not admit them. The same credential would be refused on every retry, so the
+client stops: it raises `ErrorOccurredAsync` and `DisconnectedAsync`, goes `Offline` and does not
+retry in the background. A server that is down or busy (5xx, network errors) is still retried as
+above. On a 401 it also raises `CredentialRejectedAsync`, so the program can act:
+
+<!-- ikon-example: sdk-credential-rejected -->
+```csharp
+client.CredentialRejectedAsync += async e =>
+{
+    // A UserToken client resumes with a new token; any client can call ConnectAsync again
+    client.UpdateAuthToken(await GetNewTokenAsync());
+};
+```
+
+`UpdateAuthToken` works only for a `UserToken` client, and a client waiting after a refusal starts
+reconnecting with the new token at once. Call it whenever the program renews the token, too; a
+connected client uses it the next time it signs in. A first `ConnectAsync` that is refused throws
+the `HttpRequestException` instead.
 
 ## Sending Messages
 
@@ -823,7 +866,7 @@ if (client.FunctionRegistry.HasFunction("MyFunc"))
 // Get all functions grouped by name (including remote)
 var allFuncs = client.FunctionRegistry.Functions;
 
-// Find which client sessions have a specific function
+// Find which sessions (the app's and the server's) have a specific function
 var clientIds = client.FunctionRegistry.GetClientSessionsWithFunction("SharedFunc");
 
 // Wait for a function the app registers to become available (other clients' functions never reach this registry)
@@ -848,7 +891,8 @@ int sum = await client.FunctionRegistry.CallAsync<int>("AddAsync", args: new obj
 // Void async call
 await client.FunctionRegistry.CallAsync("LogMessage", args: new object?[] { "Hello" });
 
-// Call a function on a specific remote client (uses targetId parameter)
+// Call a function on one session (targetId: the app's session id; another client's functions
+// never reach this registry, so naming its session fails with "Function 'Calculate' not found")
 int remoteSum = await client.FunctionRegistry.CallAsync<int>("Calculate", targetId: 123, args: new object?[] { 5, 10 });
 
 // Streaming results (async enumerable). A [Function] with no Name is registered under its type's full name
@@ -857,6 +901,21 @@ await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>($"{t
     Console.WriteLine(item);
 }
 ```
+
+A call to the app waits while the client is connecting or reconnecting (soft, or into a new session)
+and is sent right after the client is ready, after the messages held until then, in the order the calls
+were made. The function is looked up then, so a function the app no longer has fails with
+"Function 'x' not found". The wait counts against the call's 30-minute timeout; if the client is not
+ready by then, the call fails with a `TimeoutException` saying the client was not connected, and it
+is never sent. Pass a `CancellationToken` to wait less. At most 4096 calls wait; later ones fail at
+once.
+
+A call fails at once with a `FunctionCallException` saying the client is not connected when the
+client is not trying to connect: before `ConnectAsync`, after `DisconnectAsync` or `DisposeAsync`,
+when the server is stopping, or `Offline` with no reconnect left (`BackgroundReconnect` off, or a
+failure no retry can fix). A waiting call fails the same way when the client moves into one of those
+states. Calls to the program's own functions run at once whatever the connection state, and a call
+already sent when the connection drops fails, since the server will not answer it.
 
 ### Removing Functions
 
@@ -1008,4 +1067,4 @@ This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
 
 ## Support
 
-For issues and feature requests, contact IKON support or open an issue on GitHub.
+For issues and feature requests, contact IKON support or send a report with `ikon report create`.

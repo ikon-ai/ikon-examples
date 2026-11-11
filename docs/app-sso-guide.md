@@ -1,4 +1,4 @@
-<!-- checked-against: 67913fa6bc0006dd96d9cdde -->
+<!-- checked-against: efb43078bc695024a6bae1b3 -->
 
 # Ikon.App.Sso Guide
 
@@ -214,7 +214,7 @@ Anything else is per customer, job title and department included: name the claim
 `SsoConnection.ProfileClaims` (on create or with `SsoConnectionUpdate.ProfileClaims`) and each is stored in
 the profile's attributes under its own name, read with `ClientProfile.GetAttribute`. Suggest `job_title`
 and `department` when the customer has no naming convention of their own. Up to 20 names, each a letter followed by letters, digits, `_`
-or `-`; an identity claim such as `sub` or `email` is refused. Every other claim in the token is
+or `-`, 64 characters at most; an identity claim such as `sub` or `email`, or a standard claim from the table above, is refused. Every other claim in the token is
 dropped, so the profile holds only what some app asked for.
 
 A claim fills a blank field or attribute and from then on keeps it current, sign-in after sign-in,
@@ -241,6 +241,107 @@ extension attribute.
 
 **Google Workspace** sends `given_name`, `family_name` and `locale` and nothing else.
 **Any other OpenID Connect provider** can send any claim under any name the app captures.
+
+## Provisioning people from the directory
+
+A connection can also let the customer's directory create, update and remove its people over SCIM
+2.0, the standard that the provisioning services of Microsoft Entra ID and Okta use. People then exist in
+the app before they first sign in, their attributes and roles follow the directory, and unassigning
+someone ends their access at once rather than when their session runs out. Each connection has its
+own SCIM address and token, so an app serving many customers turns it on per customer. Provisioning
+is a plan feature of the organisation that owns the app, included in Enterprise. Without it,
+turning provisioning on throws `FeatureNotEnabledException`. On a connection turned on earlier, the
+endpoint answers with a 403 when the directory creates a person or makes a change that leaves someone
+active, until the plan includes provisioning again. The directory can still read, deactivate and
+delete people, so removals still take effect, and the people it deactivated stay deactivated.
+
+<!-- ikon-example: sso-provisioning-enable -->
+```csharp
+await app.SsoConnections.UpdateProvisioningAsync(connection.Id, new SsoProvisioningUpdate { Enabled = true });
+
+// Shown once: the customer's admin pastes both into their directory's provisioning settings.
+var issued = await app.SsoConnections.RotateProvisioningTokenAsync(connection.Id);
+Log.Instance.Info($"Tenant URL {issued.ScimUrl}, secret token {issued.Token}");
+```
+
+`SsoProvisioningToken.Token` is never returned again. Rotating issues a new one and keeps the old one
+working for 24 hours while the admin pastes the new one in; `RevokeProvisioningTokenAsync` ends both
+at once. `GetProvisioningAsync` returns an `SsoProvisioningStatus` for the settings screen: the SCIM
+URL, how many people are active and inactive, and in `SsoProvisioning.LastError` the latest request
+the endpoint refused, which tells the admin why their directory reports a failure. A person's email must be in one of
+the connection's domains, or the directory's request is refused.
+
+**Microsoft Entra ID.** The enterprise application the consent link created signs people in but
+cannot provision them, so create a separate application for provisioning: Enterprise applications → New
+application → Create your own application → "Integrate any other application you don't find in the
+gallery". This works on every Entra plan, including Free. On it, Provisioning → Automatic, enter the
+SCIM URL as the Tenant URL and the token as the Secret Token, then assign the people to provision under
+Users and groups. On Entra's Free plan you can assign only users. Assigning a group needs a P1 or P2
+licence. Entra provisions about every 40 minutes. To check the setup quickly, use Provision on
+demand, which sends one person at once.
+
+In the attribute mappings, map `externalId` from `objectId` instead of the default `mailNickname`: the
+object id is what matches a provisioned person to their sign-in.
+`SsoProvisioningStatus.NonGuidExternalIdCount` above zero means the mapping was left at its default.
+The default mappings send no roles; add a mapping to `roles` to send them. Entra sends a manager as
+the manager's id on this endpoint, which the platform turns into `manager_email`, so the app gets a
+person's manager only once the manager is provisioned too. To send an attribute the SCIM user has no place for, add a
+target attribute named `urn:ikon:params:scim:schemas:extension:claims:2.0:User:<claim>`, where
+`<claim>` is one of the connection's `ProfileClaims`. `job_title`, `department` and `manager_email`
+are not sent this way: map `title`, the enterprise `department` and `manager` instead.
+
+Entra takes a person's email, for the SCIM user and for the `email` claim of their sign-in, from the
+user's Mail attribute, which a user without a mailbox does not have. Set Email on such users in Entra,
+or their sign-in is refused with `sso_email_missing`.
+
+**Okta** and other directories: create a SCIM 2.0 application with the SCIM URL as the base URL and
+the token as an HTTP header bearer token. Okta deactivates people and never deletes them.
+
+**What the platform does.** The directory's attributes become the same claim names an ID token
+carries (`given_name`, `family_name`, `phone_number`, `locale`, the address, `job_title` from `title`,
+`department`, and `manager_email` once the manager is provisioned too), so the profile fields and
+`ProfileClaims` work as for a sign-in. A provisioned person creates no account; their first sign-in
+through the connection links them, and someone who signed in through it before provisioning was
+turned on is linked by their email on the directory's next change. When the directory deactivates or
+deletes someone, the platform refuses their sign-ins, access tokens, refresh and MCP clients through
+the connection before answering the directory, and closes their open connections to the app moments
+later; a page using `useIkonApp` then returns to sign-in. With
+`SsoProvisioningUpdate.Required`, the connection admits only people the directory provisioned. A
+refused sign-in comes back to the app with the reason as its `error`: `sso_identity_deprovisioned` for
+someone the directory removed, `sso_identity_not_provisioned` for someone it never provisioned. A
+sign-in page the app draws in C# receives it as `SignInFailedArgs.Code`.
+None of this covers sessions signed in another way, such as with an email code. `RequiredMode` at
+`Enforce` refuses those; at a lower setting the app must check its own members, as in "Reading how a
+user signed in".
+
+**Keeping the app's own members in step.** Each change arrives as an `ikon.sso.provisioning` event
+carrying the person's current state as an `SsoProvisioningEvent`:
+
+<!-- ikon-example: sso-provisioning-trigger -->
+```csharp
+[Trigger(TriggerEventType.SsoProvisioning)]
+internal Task OnSsoProvisioningAsync(TriggerContext context)
+{
+    var person = context.GetPayload<SsoProvisioningEvent>();
+
+    // A retried event can arrive after a newer one; the newest version wins.
+    if (_appliedVersions.TryGetValue(person.Id, out int applied) && applied >= person.Version)
+    {
+        return Task.CompletedTask;
+    }
+
+    // Create or update the member keyed on person.Id, never on the email, which a
+    // directory may give to someone new. Deactivate them when !person.Active.
+    _appliedVersions[person.Id] = person.Version;
+    return Task.CompletedTask;
+}
+```
+
+`ListProvisionedIdentitiesAsync` reads every `SsoProvisionedIdentity` in the order they last changed,
+deleted ones included for 90 days. Read it once when provisioning is turned on, and keep the
+`SsoProvisionedIdentityPage.NextCursor` to read only what changed since, should the app ever miss
+events. Turning provisioning off refuses the directory's requests, and the platform stops using its
+records, so a person it deactivated can sign in again through the connection.
 
 ## Sessions and offboarding
 

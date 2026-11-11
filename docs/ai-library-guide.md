@@ -1,4 +1,4 @@
-<!-- checked-against: 9952103b7adcfd01318d0c45 -->
+<!-- checked-against: 3ab26b61c396eeb5b9a0299a -->
 
 # Ikon.AI Library Overview
 
@@ -13,7 +13,7 @@ A service that submits a job to its provider and waits for it (video, mesh, musi
 | Service | Default `Timeout` |
 |---|---|
 | LLM calls (`KernelContext`) | 60 seconds; 10 minutes for a reasoning model when `Timeout` is not set |
-| Embeddings, reranking | 10 seconds per request; embeddings add one second per 5,000 characters sent, reranking adds 10 ms per document |
+| Embeddings, reranking | Embeddings 30 seconds and reranking 10 seconds per request; embeddings add one second per 5,000 characters sent, reranking adds 10 ms per document |
 | Speech recognition | 1 minute |
 | Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds; the SerpApi models (Google, Bing, Amazon, YouTube) retry a timed-out request once, so up to 40 |
 | Single-page scrape | 60 seconds |
@@ -24,20 +24,242 @@ A service that submits a job to its provider and waits for it (video, mesh, musi
 | Video enhancement, video segmentation | 30 minutes |
 | Speech generation, file conversion, multi-page scrape | 1 hour |
 
-## Provider keys and fallback
+## Providers and failures
 
-Models run on the platform's provider keys unless the app holds its own. An app secret named after
-the provider's credential, such as `ikon secret set IKON_OPENAI_API_KEY`, makes every model that
-provider serves run on that key, in the app's process, whenever the AI region policy allows that
-provider's route. The provider bills the key, the platform charges its margin, and the call is
-checked against the organisation's credits and spend limits like a call on the platform's keys.
+A model can have several routes: its maker's own API in one or more regions, and sometimes a
+reseller (AWS Bedrock, Azure, or a host such as Groq, Together or OpenRouter). Every call runs on
+one route, and a failure on that route comes back to your code. The platform never moves a failed
+call to another provider or another model, because only the app knows whether another answer is
+acceptable.
 
-Many models have more than one provider. When the provider serving a call fails on its side (an
-outage, throttling, an empty account, a refused key or a retired model) before any output reaches
-the caller, the call moves once to the model's next provider in the allowed regions. These do not
-move: a request the provider refused as written, a job the provider accepted, a result it charged
-for, and a call on the app's own key, which is never moved onto the platform's key. A request with an option the first provider does not take, such as a
-negative prompt, runs on another provider of the model that takes it. It throws only when none can.
+### Which route a call runs on
+
+1. **Your own key first.** An app secret named after a provider's credential, such as
+   `ikon secret set IKON_OPENAI_API_KEY`, runs every model that provider serves on that key, in the
+   app's process, whenever the region policy allows that route. The provider bills the key, the
+   platform charges its margin, and the call passes the same credit and spend-limit checks as any
+   other.
+2. **Then the regions.** The call's `Regions` (`Global` when omitted), narrowed by the organisation's
+   AI region policy. Under an EU-only policy the Claude models run on their AWS Bedrock route in the
+   EU, and `Gpt41` and `Gpt4OmniMini` on Azure's.
+3. **Then the order in the code.** In each allowed region, in the order the call lists them, the
+   first provider the library lists for the model.
+
+Nothing read at runtime changes this order, so the same model, key and policy always give the same
+route. The request does not change the route either. An image, video or speech request with an
+option its route does not take, such as a negative prompt on a FLUX model's first route, throws
+`InvalidRequestException` before anything is sent. The call is refused even when another route of
+the model takes the option. Check the capability (`SupportsNegativePrompt`, `GetCapabilities`) and
+pick a model that has it.
+
+To see the route a call ran on, read its event with `ikon events --event-name llm_` (or the prefix of
+the service, such as `image_generation_`): `usagePrefix` names the route as
+`{kind}.{provider}.{model}.{region}`, and `isUserCredential` says whether it ran on your key. The
+platform events reference (`platform-events-reference.md`) lists every field.
+
+### How the routes of one model differ
+
+The routes of a model run the same model, but not always with the same features or limits.
+`Emerge.GetCapabilities(model, regions)` reports the route a call with those regions runs on. Without
+`regions` it reports the model's declared capabilities, which are its first route's.
+
+- **Options the answer depends on are refused.** A JSON schema, tools, image, audio, video or PDF input,
+  audio output, a GBNF grammar and a reasoning setting the route does not read each throw
+  `InvalidRequestException` before the request is sent. The message names the option, the model and
+  the route, and the capability to check first. A route never answers a weaker request instead.
+- **Options the answer does not depend on are adjusted.** Temperature, user names, stream options
+  and late system messages are left out on a route that does not take them. `MaxOutputTokens` is lowered to
+  the route's limit, and an answer cut off at the limit throws `LLMMaxOutputTokensException`.
+- **JSON schema.** On a route with `SupportsJsonSchema` the provider enforces the shape. Claude models
+  enforce it with reasoning on and with tools offered too, but not every schema: a recursive one, an
+  object open to properties the schema does not name (a `Dictionary` property), more than 16
+  nullable or `anyOf` properties, or many optional ones (over 24, or 12 on Bedrock routes). Such a
+  schema is still enforced in a call with no reasoning and no tools, except on `Claude55Sonnet`,
+  `Claude55Opus` and `Claude51Fable`, and throws otherwise. Claude does not enforce numeric bounds,
+  string lengths, item counts over one or uncommon formats; they reach the model as description
+  text, so check them in the reply. `Emerge.Run<T>` works on every model: where the route
+  does not enforce the schema, it describes the shape in the prompt and checks the reply, retrying
+  one that does not parse. A direct `Emerge.Generate` whose `KernelContext` sets `UseJson` and a
+  `JsonSchema` throws on such a route.
+- **Limits, reasoning, caching.** Context window, output limit, the reasoning setting a route reads
+  (`AcceptedReasoningDial`) and whether it caches the prompt can differ per route, so the same calls
+  can cost or cut off differently on another route.
+- **Resellers.** A host of open-weights models can run them quantised or on other hardware, so its
+  answers and speed can differ from another host's. OpenRouter picks among its own upstream hosts on
+  every call.
+
+### Reading a failure
+
+An AI service throws an `AIException`: a `RetryableAIException` when the same call may work later, a
+`NonRetryableAIException` when it will fail the same way. An awaited `Emerge` run also throws
+`EmergenceStoppedException` when it ends without a result. `ModelFailure.Classify(ex)` says what the
+failure means for the model:
+
+| `ModelFailureKind` | What happened | What the app can do |
+|---|---|---|
+| `Transient` | Timeout, throttling, a provider outage | Retry after a wait, or try another model |
+| `Unavailable` | The provider no longer serves the model, the model is retired (`ModelRetiredException`), or it has no route in the regions the call names (`RegionNotSupportedException`) | Move to another model; the message names the successor of a retired one |
+| `AccessDenied` | The key was missing, refused or not allowed to call the model | Another vendor's model, or tell whoever holds the key |
+| `CreditExhausted` | The provider account behind the key has no credit left | Another vendor's model, or tell whoever pays the account |
+| `NotAllowed` | The organisation's plan, its admin or a monthly cap refuses this model, or its EU-only region policy allows none of the model's routes (`AIRegionPolicyViolationException`) | Another model may be allowed; the `AIAccessDeniedException` message is safe to show |
+| `Quality` | The model answered, and the answer broke the contract (no content, an unusable tool call, a reply that failed validation) | Try again or reword; another vendor mostly gives another rejected answer |
+| `Unknown` | Nothing identified the cause | Treat it as a real failure: show it, do not loop |
+
+A few exceptions say more than their kind. `InvalidRequestException` is a request the model or route
+cannot take: fix the request or the model choice, never retry it. `InsufficientCreditsException`,
+`SpendLimitExceededException` and `AIAccessDeniedException` (all `AIPlatformDenialException`) are the
+platform's refusals; their `Message` is written for a person, and the same call is refused again
+until the account changes. `ContentRefusedException` is a prompt the model declined.
+
+**Calls not to retry blindly.** `ProviderChargedException` means the provider charged for the work
+and the result could not be used. `ProviderJobAbandonedException` means the call stopped waiting (a
+timeout or a cancellation) for a job the provider had accepted. The platform keeps reading that job
+and bills it when the provider finishes, after your call has already failed. Both are non-retryable:
+a retry pays for the work a second time, so ask the person first. Long jobs (video, mesh, music,
+upscaling and the others in "Timeouts") end this way when they outrun `Timeout`.
+
+**Streams.** A stream that fails after it yielded output has shown part of an answer. A retry is a
+new answer, not the rest of the first. `Emerge` retries a retryable failure itself (`pass.MaxRetries`,
+3 by default) and sends a `Retry<T>` event first: drop the text shown before it. In your own retry,
+clear what was shown, or keep it marked as cut off.
+
+**Keep embeddings on one model.** Vectors from two embedding models cannot be compared, so retry a
+failed embedding call on the same model or let it fail.
+
+### Own keys and the region policy
+
+A call on your own key stays on that key. When the provider refuses the key (`AccessDenied`) or the
+account behind it is empty (`CreditExhausted`), the failure is the organisation's to fix with the
+provider; the platform's key never takes over. A plan that does not include own keys refuses the call
+with `AIAccessDeniedException` (`OwnKeysNotEnabled`).
+
+An EU-only policy narrows the routes to the EU ones. A model with no EU route is refused
+(`AIRegionPolicyViolationException`, or `RegionNotSupportedException` when the call names only other
+regions), and a model whose EU route lacks an option the request uses throws
+`InvalidRequestException`. `ikon model list --eu` and `Emerge.GetCapabilities(model, [ModelRegion.Eu])`
+show what is left.
+
+### Model lifecycle
+
+A model the providers are withdrawing is deprecated first: it still runs, and the first service the
+app constructs for it logs a warning naming the day it retires and the model to move to, such as
+`Model X retires on 2026-12-01; move to Y`. The administrators of organisations that call it are told
+by email and in Studio's inbox, and `ikon model list` and Studio's Models page show it.
+
+A retired model no longer runs. Constructing its service with the name throws
+`ModelRetiredException` (`ModelFailureKind.Unavailable`), whose `Successor` and message name the
+model to use instead, and reading the name from JSON throws a `JsonException` with the same message.
+`Emerge.GetCapabilities` for a retired model throws the same exception, and `Emerge.FindModels` leaves it out.
+The Suno names (`SunoV5`, `SunoV55`, `SunoV6`) are retired with `ElevenLabsMusicV25` as their
+successor.
+
+The newest platform release decides which models are deprecated or retired. The platform refuses a
+retired model to apps on older libraries too, and apps on this library read the newest deprecations
+and retirements while they run. A model is never replaced by another one silently.
+
+Name a model with its version (`LLMModel.Claude55Sonnet`) where the answers must stay comparable over
+time. `LLMModel.Default`, `SpeechGeneratorModel.Default`, `ModelResolver.Resolve(capability, family)`
+and an agent persona that names a family move to a newer model when the platform changes them.
+
+### Handling failures
+
+Each app chooses. These are the usual choices, with a pattern for each in
+`docs/Ikon.Agent.Docs/patterns/` in the app.
+
+**Retry with backoff** (`ai-retry-with-backoff`) when the same model is the right one and a short wait
+is acceptable. Retry only a `RetryableAIException`, and wait at least `RetryAfter`. `Emerge` calls
+already retry, so this is for the other services:
+
+<!-- ikon-example: ai-failure-retry -->
+```csharp
+public static async Task<ImageGeneratorResult> GenerateWithRetryAsync(string prompt, CancellationToken ct)
+{
+    const int maxAttempts = 3;
+
+    for (int attempt = 1; ; attempt++)
+    {
+        try
+        {
+            return await ImageGenerator.GenerateAsync(prompt, cancellationToken: ct);
+        }
+        catch (RetryableAIException ex) when (attempt < maxAttempts)
+        {
+            // Longer after each failure, and never shorter than the provider asked for
+            var backoff = TimeSpan.FromSeconds(2 * Math.Pow(2, attempt - 1));
+            var delay = ex.RetryAfter is { } asked && asked > backoff ? asked : backoff;
+            Log.Instance.Warning($"Image generation failed ({ModelFailure.Classify(ex)}), retrying in {delay.TotalSeconds:F0} s: {ex.Message}");
+            await Task.Delay(delay, ct);
+        }
+    }
+}
+```
+
+**A chain of models** (`ai-model-chain`) for unattended work that must finish. Try models you have
+tested on the task, each from a different vendor, and move on only for `Transient`, `Unavailable`,
+`AccessDenied`, `CreditExhausted` and `NotAllowed`. Record which model answered:
+
+<!-- ikon-example: ai-failure-model-chain -->
+```csharp
+// Tested on this task, each from a different vendor, in the order to try them
+private static readonly LLMModel[] SummaryChain = [LLMModel.Claude55Sonnet, LLMModel.Gemini38Flash, LLMModel.Gpt56Sol];
+
+public static async Task<(string Summary, LLMModel Model)> SummariseAsync(string text, CancellationToken ct)
+{
+    for (int i = 0; ; i++)
+    {
+        try
+        {
+            return (await Emerge.AskAsync($"Summarise in two sentences:\n{text}", SummaryChain[i], ct), SummaryChain[i]);
+        }
+        catch (Exception ex) when (i < SummaryChain.Length - 1 && IsWorthAnotherModel(ex))
+        {
+            Log.Instance.Warning($"Summary could not run on {SummaryChain[i]} ({ModelFailure.Classify(ex)}), trying {SummaryChain[i + 1]}: {ex.Message}");
+        }
+    }
+}
+
+// Only a failure that says nothing about the request moves on
+private static bool IsWorthAnotherModel(Exception ex)
+{
+    if (ex is OperationCanceledException or ProviderChargedException or ProviderJobAbandonedException or InvalidRequestException)
+    {
+        return false;
+    }
+
+    return ModelFailure.Classify(ex)
+        is ModelFailureKind.Transient
+        or ModelFailureKind.Unavailable
+        or ModelFailureKind.AccessDenied
+        or ModelFailureKind.CreditExhausted
+        or ModelFailureKind.NotAllowed;
+}
+```
+
+**Continue without the result** when the AI part is optional: catch `AIException` and keep the rest of
+the screen working (see ImageGeneration below, and the `generated-image-with-result` pattern).
+
+**Fail fast and show the error** (`ai-fail-fast-error`) when the person is waiting and decides whether
+to try again. Show a sentence chosen by what failed, and send the exception text to the log:
+
+<!-- ikon-example: ai-failure-message -->
+```csharp
+// The exception's own text is for the log. Only the platform's denials carry a sentence
+// written for a person.
+public static string MessageFor(Exception ex) => ex switch
+{
+    AIPlatformDenialException denial => denial.Message,
+    ProviderChargedException => "The result was made but could not be used, and it was charged.",
+    ProviderJobAbandonedException => "It took too long and was stopped. It may still be charged.",
+    InvalidRequestException => "This request can't be made with this model.",
+    _ => ModelFailure.Classify(ex) switch
+    {
+        ModelFailureKind.Transient => "The AI service is busy. Try again in a minute.",
+        ModelFailureKind.Quality => "The answer came back unusable. Try again or reword the request.",
+        ModelFailureKind.NotAllowed => "Your organisation does not allow this model.",
+        _ => "AI is unavailable right now.",
+    },
+};
+```
 
 ## Emergence
 
@@ -199,7 +421,7 @@ var reply = await Emerge.AskAsync("Hello", "my-llama");
 
 - **The platform does the rest of the call.** An LLM provider streams `LLMProviderOutput.Text`, `Reasoning`, `ToolCall` (name and JSON arguments) and an optional `Usage`; the platform binds the tool calls to the context's functions, emits the usual `LLMEvent`s, and fails a turn that produced nothing. A tool's schema for your request is `FunctionSchema.ToJson(function)`. Image results are measured and watermarked like any provider's, embeddings are split into batches of the provider's `MaxInputCount` and their lengths checked, and speech chunks get their first and last flags.
 - **Declared capabilities are enforced.** What a provider declares is read once at registration. A request the capabilities rule out, such as two images from a provider without `SupportsMultipleOutputs` or word timings from a recognizer that has none, is refused before your code runs. If your code cannot honour a request field, throw `InvalidRequestException` instead of ignoring the field. Speech recognition providers serve batch recognition only.
-- **Region.** The third argument says where the provider serves its calls. Leave it at `ModelRegion.Global` when you don't know. A call to a `Global` model from an organisation whose AI region policy is EU-only throws `AIRegionPolicyViolationException`. A custom model has this one route, so a region list passed to a call does not move it elsewhere.
+- **Region.** The third argument says where the provider serves its calls. Leave it at `ModelRegion.Global` when you don't know. A call to a `Global` model from an organisation whose AI region policy is EU-only throws `AIRegionPolicyViolationException`. A custom model has this one route, and a region list passed to a call is not checked against it; only the organisation's policy is.
 - **Mocks.** Under `AIMocks.Use()` or `ikon run --ai mock`, the family's mock answers instead of your provider.
 - One provider instance serves every call concurrently, so make it thread-safe. The platform never disposes it.
 
@@ -1071,6 +1293,8 @@ var convertedFile = await fileConverter.ConvertToPdfAsync(new FileConverterConfi
 await File.WriteAllBytesAsync("brochure.pdf", await convertedFile.GetDataAsync());
 ```
 
+Under `ikon run --ai mock` the converter calls no service: a PDF passed as bytes comes back unchanged, and anything else comes back as a one-page placeholder PDF that names the file. Check the real conversion (page count, fonts, tables) on a deployed copy or a run without `--ai mock`.
+
 ## OCR
 
 `Ikon.AI.OCR.OCR` extracts selectable text and structural metadata from images, PDFs and Office documents.
@@ -1280,7 +1504,7 @@ foreach (var embedding in embeddings)
 }
 ```
 
-Each provider request may take 10 seconds plus one second per 5,000 characters it carries before the call throws `AITimeoutException`. For a large batch of long texts, pass a longer `timeout:` to `EmbedAsync`; it replaces the 10 seconds.
+Each provider request may take 30 seconds plus one second per 5,000 characters it carries before the call throws `AITimeoutException`. For a large batch of long texts, pass a longer `timeout:` to `EmbedAsync`; it replaces the 30 seconds.
 
 Use the constructor + `GenerateEmbeddingsAsync` for batching control or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
 
@@ -1321,7 +1545,7 @@ context = context.Add(new MessageBlock(MessageBlockRole.User, new IMessagePart[]
 }));
 ```
 
-When the target model runs on Google Vertex (current Gemini models) and the asset is backed by GCS-aware cloud-file storage, the request references the video by its native `gs://bucket/object` URI — the bytes never transit the client. For other backends, a small video is inlined; videos above the inline ceiling throw so you can move them to cloud-file storage. Other providers (Anthropic, OpenAI) do not accept video parts and replace `VideoAssetPart`, as they do `VideoUrlPart`, with a `[video omitted: model does not accept video]` text stub in the same position.
+When the target model runs on Google Vertex (current Gemini models) and the asset is backed by GCS-aware cloud-file storage, the request references the video by its native `gs://bucket/object` URI — the bytes never transit the client. For other backends, a small video is inlined; videos above the inline ceiling throw so you can move them to cloud-file storage. A model whose route does not take video (`Emerge.GetCapabilities(model).SupportsInputVideo` is false, as for the Anthropic and OpenAI models) refuses a `VideoAssetPart` or `VideoUrlPart` with `InvalidRequestException` before anything is sent.
 
 ## Chat
 

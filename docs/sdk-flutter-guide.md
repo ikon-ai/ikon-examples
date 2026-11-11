@@ -1,4 +1,4 @@
-<!-- checked-against: b4068a7ac02818cfe3b0c442 -->
+<!-- checked-against: 60873c2ffd883e56e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -61,7 +61,7 @@ frontend.
 
 ```text
 C# App (unchanged)
-  view.Button(style: ["px-4 py-2 bg-blue-500 rounded"], label: "Go")
+  view.Button(style: ["px-4 py-2 bg-blue-500 rounded"], text: "Go")
        │
        ▼
   Server builds UI tree, diffs it, sends to connected clients
@@ -292,7 +292,8 @@ certificate is trusted only when the URL names this machine or one on its networ
 (`isLocalNetworkHost`). IKON Connect on the computer needs the app's `devices` grant, and its
 `agents` grant because the run checks the app out. The computer needs Flutter (`ikon install flutter`) and the app's git
 needs the `frontend-flutter/` folder, so a frontend added by a task reaches the device after the
-task's work is saved to the app.
+task's work is saved to the app. IKON Connect boots an iOS simulator itself, but refuses an Android
+emulator that is not already running ("Boot the emulator first, then run the app on it").
 
 ## Running on Different Platforms
 
@@ -396,7 +397,10 @@ token to no other kind of address, so a custom-scheme deep link never receives o
 provider's page cannot load because the phone has no connection, the web view says so and offers
 Try again. Email sign-in uses the code the auth service mails. The token is kept in secure storage,
 so the next launch connects straight in as that user. If the server no longer accepts the token, it is dropped and the
-app connects as a guest. `sso:` connections and passkeys are not offered on a phone yet.
+app connects as a guest. The same happens while the app is open: when a reconnect's token is refused
+because the sign-in expired or was revoked (for example, an organisation's directory removed the person), the
+client registered with `signIn.register` signs the person out and `onIdentityChanged` reconnects the
+app as a guest, which shows its sign-in. `sso:` connections and passkeys are not offered on a phone yet.
 
 `ikon bundle --flutter-*` passes every method the app's surfaces list as `IKON_AUTH_METHODS` and, when
 none admits anonymous visitors, `IKON_AUTH_REQUIRE_SIGN_IN=true`. The app template already does this; the essential parts are:
@@ -514,6 +518,33 @@ client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
 AppLifecycleListener(onResume: client.reconnectNow);
 ```
 
+### Joined and ready
+
+A client joins its session in two steps: it connects, then sends `ClientReady`. Only at
+`ClientReady` does the server tell the app the client is there, and only then does the app know who
+the user is. Until then the client sends only its own setup: its function registrations, its
+context, WebRTC signaling, events and analytics, and answers to calls it receives. Everything meant for the app, such as a
+function call, an action or an upload, waits and goes out right after `ClientReady`, in the order it
+was sent. Audio and video sent before `ClientReady` are dropped. Other than function calls, what is
+still waiting when the connection drops is dropped too; an upload resumes after the next `ClientReady`.
+
+A `functionRegistry.call` made while the client is connecting or reconnecting waits for the next
+`ClientReady`, through any number of dropped attempts, and goes out right after it, behind the messages
+held until then. A connection counts as open, and gets `ClientReady`, only once the server's first
+message shows that it accepted the client's ticket. So a waiting call never goes into a session the
+server no longer has, and goes out on the new session that replaces it instead. The wait counts against the call's 30 s timeout; a call that is never
+sent in that time fails with a `TimeoutException` that names the function and says the client was not
+connected. A call fails at once with `IkonNotConnectedException` when the client is not trying to
+connect: it never connected, it was disposed, or it gave up reconnecting (`IkonClient.lastError`). A
+waiting call fails the same way when the client stops trying. A call already sent when the connection
+drops gets no answer and times out.
+
+The `connect*` helpers send `ClientReady` before they return. Every reconnect sends it again, also
+one that resumes the same session. `IkonClient.isReady` says whether the client is ready now, and
+`IkonClient.onReady` fires each time it becomes ready again after a reconnect. A client built from an
+auth result, as above, is not ready until it sends `ClientReady` itself, so nothing it sends for the
+app goes out before then.
+
 ### Entering a surface
 
 `surface:` on `IkonClient.connectWithToken` and `IkonClient.connectGuest` names the `[[Surface]]` of the
@@ -545,6 +576,16 @@ too, it throws `ServerChangedException`. The sign-in is still valid, so keep the
 connect again later. A connect refused by a full server asks `/init` again up to three times, naming
 the servers that refused it, so a sharded app places the person on another shard; then it throws
 `ServerFullException`.
+
+### When the backend refuses the sign-in
+
+A connect whose token the backend refuses throws `IkonAuthRejectedException`. Its `statusCode` is 401
+when the token itself was refused (expired, or the sign-in revoked) and 403 when the app or surface
+does not admit the person. A reconnect that meets either one stops retrying, because the same token
+would be refused again: the client goes `offlineError` with the exception in `IkonClient.lastError`.
+On a 401 it also fires `IkonClient.onCredentialRejected`, so the app can get a new token and pass it
+to `client.updateAuthToken(token)`, which resumes the reconnect with it, or sign the person out.
+`IkonNativeSignIn.register` does the sign-out for you.
 
 ### When the platform no longer accepts the client
 
@@ -692,10 +733,13 @@ return IkonParallaxView(uiCore: uiCore, client: client, liveSnapshotKey: 'my-spa
 A tap outside the focused text field closes the keyboard, and on iOS so does dragging a scrolling
 list. A tap on a button or another field leaves it open, so a chat's Send button keeps the keyboard
 up, and on Android scrolling leaves it open too. The Parallax view applies this to the streamed UI,
-its dialogs and its menus, and the email sign-in page does the same. iOS number pads have no key
-that closes the keyboard, so without it a field in a streamed form could keep the keyboard open over
-the page. Screens an app draws itself get the same behaviour when it wraps them in
-`IkonKeyboardDismissal`:
+its dialogs and its menus, and the email sign-in page does the same. In a dialog or sheet only a tap
+on its panel closes the keyboard; a tap beside the panel closes the dialog. iOS number pads have no
+key that closes the keyboard, so without it a field in a streamed form could keep the keyboard open
+over the page. Screens an app draws itself get the same behaviour when it wraps them in
+`IkonKeyboardDismissal`. By default it takes a tap anywhere in its box, empty space included; pass
+`behavior: HitTestBehavior.deferToChild` to take only taps on the child's own content, so a tap on
+empty space reaches whatever lies underneath:
 
 <!-- ikon-example: flutter-sdk-keyboard-dismissal -->
 ```dart
@@ -776,6 +820,13 @@ final result = await uploader.upload(
   onProgress: (sent, total) => print('$sent / $total'),
 );
 ```
+
+An upload over an `IkonClient` starts once the client is ready, and keeps going when the connection
+drops: when the client is ready again, also after signing in again, it carries on from what the
+server already has. It gives up when the client is not ready again within 45 s. It sizes its chunks to the speed of the link, so a slow mobile connection still
+finishes. `uploadStream` sends a file from disk without loading it into memory. A failed `result`
+says in `retriable` whether sending the same file again is likely to work. It is false when the
+server may already have stored the file.
 
 The file-upload and file-picker nodes the server sends open the phone's own picker. To offer other
 sources, such as recording with an in-app camera, implement `IkonFilePicker` and pass it as

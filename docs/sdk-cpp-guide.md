@@ -1,4 +1,4 @@
-<!-- checked-against: 6b17cb061eb587dee3b0c442 -->
+<!-- checked-against: 276c1fe291ddd174e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -54,10 +54,9 @@ int main()
     // Create and connect the client
     IkonClient client(config, log, httpClient, networkClient);
 
-    client.Ready = [&client]()
+    client.Ready = []()
     {
         std::cout << "Connected!" << std::endl;
-        client.SignalReady();
     };
 
     client.MessageReceived = [](const ProtocolMessage& message)
@@ -147,7 +146,7 @@ The client tracks its connection state via `GetState()`:
 |-------|-------------|
 | `Idle` | Not connected: the initial state, and the state after `Disconnect()` |
 | `Connecting` | Authentication and connection in progress |
-| `Connected` | Fully connected and ready |
+| `Connected` | Joined and ready; `Ready` runs right after |
 | `Reconnecting` | Lost connection, attempting automatic reconnect |
 | `Offline` | Disconnected (connection failed or max retries exceeded) |
 
@@ -161,11 +160,11 @@ client.StateChanged = [](ConnectionState state)
     std::cout << "State: " << static_cast<int>(state) << std::endl;
 };
 
-// Connection established and ready, after Connect() and after every reconnect
-client.Ready = [&client]()
+// Joined and ready, after Connect() and after every reconnect: the app now knows this client's
+// user, and client.Functions() already holds the app's functions
+client.Ready = []()
 {
-    // Perform initialization here
-    client.SignalReady();  // Signal that this client is ready (mandatory)
+    std::cout << "Ready" << std::endl;
 };
 
 // This client is stopping: on Disconnect(), destruction, a dropped connection or before
@@ -214,6 +213,8 @@ client.Disconnect();
 // Or let destructor handle it
 ```
 
+`Disconnect()` and the destructor first tell the server that the client is leaving, so the server ends the session at once instead of holding it for a reconnect. They wait up to a second for that message to be written. `Disconnect()` during an automatic reconnect stops it, and the client goes from `Reconnecting` to `Idle`.
+
 ### Accessing Client State
 
 <!-- ikon-example: cpp-sdk-client-state -->
@@ -242,7 +243,9 @@ std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 
 ## Sending Messages
 
-`SendMessage` queues the message for a send thread and returns. `Disconnect()` closes the connection without waiting for that queue to drain, so a message still queued when it is called is dropped.
+`SendMessage` queues the message for a send thread and returns. `Disconnect()` queues its leaving message behind what is already queued and waits up to a second for the queue to be written up to that message. Anything still queued after that wait is dropped.
+
+The app learns which user a client belongs to only when the client reports ready. `Connect()` and every reconnect report ready as soon as the client has joined, before `Ready` runs. A message sent while the client is joining, from another thread or during a reconnect, waits and goes out right after the client reports ready, in the order it was sent. Audio and video sent then are dropped, and if the connection drops before the client is ready, the waiting messages are dropped too. At most 4096 messages wait for one join; any sent after that are dropped, with one warning in the log.
 
 ### Raw Protocol Messages
 
@@ -272,28 +275,24 @@ client.SendMessage(payload);
 
 ## Shared Functions
 
-`FunctionRegistry` lets a client register functions for the app to call and call the functions the app registers; the server offers a client's functions to the app only, not to other clients. The client owns one and attaches it itself on connect; get it with `client.Functions()`. A `Shared` function is announced only when registered while connected, and is not re-announced after a reconnect, so register it in `Ready` as below. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
+`FunctionRegistry` lets a client register functions for the app to call and call the functions the app registers; the server offers a client's functions to the app only, not to other clients. The client owns one and attaches it itself on connect; get it with `client.Functions()`. Each join waits until the registry holds the app's functions, so they can be called from `Ready` and after `Connect()` returns. Register `Shared` functions before `Connect()`, as below. The client announces them on every join, reconnects included, before it reports ready, so the app has them when it first sees the client. One registered while connected is announced at once. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
 <!-- ikon-example: cpp-sdk-shared-functions -->
 ```cpp
 auto& registry = client.Functions();
 
-client.Ready = [&]()
-{
-    // Register a function the app can call
-    registry.RegisterFunction(
-        "Echo",                                       // name
-        "Echoes back the first argument",             // description
-        [](const nlohmann::json& args) -> nlohmann::json
-        {
-            return args.empty() ? nullptr : args[0];
-        },
-        {{"value", "string", "Value to echo back"}},  // parameters
-        "string",                                     // result type name
-        FunctionVisibility::Shared);
-
-    client.SignalReady();
-};
+// Register a function the app can call. Registered before Connect(), it is announced on
+// every join, before the client reports ready
+registry.RegisterFunction(
+    "Echo",                                       // name
+    "Echoes back the first argument",             // description
+    [](const nlohmann::json& args) -> nlohmann::json
+    {
+        return args.empty() ? nullptr : args[0];
+    },
+    {{"value", "string", "Value to echo back"}},  // parameters
+    "string",                                     // result type name
+    FunctionVisibility::Shared);
 
 client.Connect();
 
@@ -310,6 +309,8 @@ if (registry.WaitForFunction("Add", std::chrono::seconds(15)))
 // Disconnect detaches the registry
 client.Disconnect();
 ```
+
+A call made while the client is connecting or reconnecting waits until the client is ready, then goes out after the messages that waited with it, in the order the calls were made. `CallRemote` counts that wait against its timeout and, if the client is not ready in time, throws `std::runtime_error` saying the call timed out and the client was not connected; the call is never sent. A future from `CallRemoteAsync` has no time limit. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or offline after its reconnects ran out), both throw `std::runtime_error` at once saying the client is not connected, and a call that was waiting fails the same way when the client stops trying. Once the client is ready, the function is looked up in the registry as it is at that moment, so a function the app no longer has throws "Function not found". At most 4096 calls wait at a time; more throw at once, with one warning in the log. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no reply, so it fails then with a `std::runtime_error` saying it was disconnected: `CallRemote` throws at once, and the future from `CallRemoteAsync` carries the error.
 
 Additional members: `Call` (invoke a local function), `HasFunction`, `GetFunctionNames`, `RemoveFunction`, and the `FunctionRegistered` / `FunctionUnregistered` callbacks.
 
@@ -414,6 +415,16 @@ config.timeouts.reconnectBackoffMs = 500;     // Initial backoff (ms), doubled o
 ```
 
 In API-key mode the `/init` request that waits up to `provisioningTimeoutSec` is itself sent with an HTTP timeout of `connectionTimeoutSec`, so raise `connectionTimeoutSec` to at least `provisioningTimeoutSec` for a longer provisioning wait to take effect.
+
+### Reconnection
+
+When a connection the client joined drops, the client reconnects by itself. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one. After `maxReconnectAttempts` failed attempts it goes `Offline`, and only a new `Connect()` connects it again.
+
+Each attempt first tries to resume the session the client had. It opens a new connection to the same server address with that session's auth ticket and does not ask for a new session, so the app still has the client's session and what it keeps for it. The server holds a dropped session for its soft-retry window: 5 minutes by default, or the time the server sends in `AuthResponse.SoftRetryWindowMs`. The attempt starts a new session instead, as `Connect()` does, when the window has passed, or when the server closes the connection before the client has joined, which is how it refuses a session it no longer holds. The server then ends the old session. Once the server has answered a request for a new session, the later attempts start new sessions too.
+
+An attempt that cannot open a connection at all, as while the network is down, costs the server nothing. During the first half of the attempts, the next attempt tries to resume the session again. From the second half on, such an attempt also asks for a new session, so a server that has gone away is replaced. A request for a new session that reaches nothing leaves the old session held, and the next attempt tries to resume it again. With the default 6 attempts and 500 ms backoff, the attempts run about 0.5, 1.5, 3.5, 7.5, 15.5 and 31.5 seconds after the drop, so a client whose network comes back within about 15 seconds returns to the session it had.
+
+A resumed join ends the same way as a new one: the client announces its shared functions, reports ready, and `Ready` runs.
 
 ### Protocol Options
 

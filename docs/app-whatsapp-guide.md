@@ -1,4 +1,4 @@
-<!-- checked-against: cd279d427d9ff059ea33f4ee -->
+<!-- checked-against: 9486e3e30f2e07cae27d8877 -->
 
 # Ikon.App.WhatsApp Guide
 
@@ -87,6 +87,39 @@ else
 Numbers are bare E.164, `+358401234567`. A null `from` uses the space's first online sender; naming a
 number the space does not hold throws with `Reason` `SenderNotHeld`.
 
+## Buttons and lists
+
+Inside the window, `SendInteractiveAsync` sends up to three reply buttons
+(`WhatsAppInteractive.WithButtons`) or a list of up to ten items behind a button
+(`WhatsAppInteractive.WithList`). The person's tap arrives as an ordinary received message (below)
+with `IsButtonReply` set, and the message's `ButtonPayload` is the id of the button or item they
+chose. WhatsApp sends these only as replies, so outside the window the send throws `WindowClosed`.
+To offer choices outside the window, send a template with `quick_reply` buttons.
+
+<!-- ikon-example: whatsapp-interactive -->
+```csharp
+// A reply, so only inside the 24-hour window; the tap comes back with the button's id as ButtonPayload
+await app.WhatsApp.SendInteractiveAsync(customer, WhatsAppInteractive.WithButtons(
+    "Which day suits you for the test drive?",
+    new WhatsAppReplyButton("tue", "Tuesday"),
+    new WhatsAppReplyButton("wed", "Wednesday"),
+    new WhatsAppReplyButton("later", "Another week")));
+```
+
+The body is up to 1024 characters, a button title up to 20, a list item's title up to 24 and its
+description, which a list item needs, up to 72. The list's button text is up to 20 characters, and
+each id up to 128, different for every choice. `WithButtons` and `WithList` throw
+`ArgumentException` for anything past those limits, so nothing reaches WhatsApp that it would refuse.
+
+## How many people a number reaches
+
+Meta limits how many people a business reaches with messages it starts (templates, and anything
+outside the window) in a rolling 24 hours: 250 at first, then 2,000, 10,000, 100,000 and unlimited
+as the business is verified and its messages are well received. Replies inside the window do not
+count. Every number of one business shares the limit, and `ikon whatsapp status` shows it. WhatsApp
+also sends at most one message every 6 seconds to the same person from one number, allowing short
+bursts. A message past either limit is not delivered: it ends `Failed` with `ErrorCode` 63018.
+
 ## Opt-out
 
 A person whose message is only the word `STOP`, `UNSUBSCRIBE`, `CANCEL`, `END`, `QUIT`, `STOPALL`
@@ -94,7 +127,10 @@ or `LOPETA` is opted out of messages from that sender, and every send to them th
 `WhatsAppSendRefusedException` with `Reason` `OptedOut` until they send `START`, `UNSTOP`,
 `SUBSCRIBE` or `ALOITA`. The one exception is a template of category `utility`, which answers
 something the person did, such as an order, and still reaches them. The platform records the
-opt-out itself. The app sees only the refusal and `WhatsAppConversation.OptedOut`.
+opt-out itself. The app sees only the refusal and `WhatsAppConversation.OptedOut`. A person can
+also turn off a business's marketing messages in WhatsApp itself. Meta then delivers no marketing
+template to them, which ends `Failed` with `ErrorCode` 63050, while other messages still reach
+them.
 
 <!-- ikon-example: whatsapp-refused -->
 ```csharp
@@ -152,10 +188,16 @@ ikon whatsapp template list             # each language: approved, pending, reje
 ```
 
 `push` checks every file first and submits nothing if one is wrong, naming the file, the language
-and the field. It submits only the languages that changed, each as a version of its own, and the
-version already approved is still sent until Meta approves the new one, which takes minutes to
-48 hours. A template whose file is gone is deleted from WhatsApp after a confirmation (`--yes`).
-`ikon deploy` warns about a template that is not pushed or not approved yet, and deploys anyway.
+and the field. It submits only the languages that changed, each as a version of its own. Meta's
+review takes minutes to 48 hours. Until then the version already approved is still sent, and the
+new version is sent as soon as Meta approves it. A template whose file is gone is
+deleted from WhatsApp after a confirmation (`--yes`). `ikon deploy` warns about a template that is
+not pushed or not approved yet, and deploys anyway. In the app, `GetTemplatesAsync()` lists each
+language with `CanSend`, so a screen can say which templates are ready.
+
+The organisation's admins get an email when Meta rejects a template, with Meta's reason, when it
+pauses or disables one that sends, or when it moves one to another category. They get one too when
+a number goes offline, its quality rating drops or its messaging limit is lowered.
 
 <!-- ikon-example: whatsapp-template-send -->
 ```csharp
@@ -216,3 +258,16 @@ with `--whatsapp capture`.
 `GetMessagesAsync` lists the space's messages newest first, both directions, without their text;
 `EnumerateMessagesAsync` follows the pages. Messages and their files are kept for 31 days and then
 removed. `DeleteAsync` removes a message's text and files at once.
+
+When a person asks the business to delete what it holds about them, `DeleteConversationAsync`
+removes the text and files of every message with them, their number from those messages, and their
+24-hour window and opt-out. What the app copied into its own storage is the app's to delete.
+
+<!-- ikon-example: whatsapp-erase -->
+```csharp
+// The person asked to be forgotten: this deletes their messages' text and files, their number and their opt-out
+var emptied = await app.WhatsApp.DeleteConversationAsync(customer);
+Log.Instance.Info($"Erased {emptied} WhatsApp messages");
+```
+
+Their opt-out goes with the rest, so do not message them again unless they opt in.

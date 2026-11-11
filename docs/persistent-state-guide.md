@@ -1,4 +1,4 @@
-<!-- checked-against: d82fa45ed93d56c4d34ae461 -->
+<!-- checked-against: a3556832d93d56c4d34ae461 -->
 
 # IKON Persistent State Guide
 
@@ -13,6 +13,10 @@ database write is durable the moment it returns, and each row is written on its 
 instances that change different records do not overwrite each other. A request that says "we keep
 no database" still gets this one, since the platform runs it: thousands of records are rows, never
 one reactive (256 KB at most) or one JSON document (a `CloudJson` write takes at most 2 MB).
+When the request says explicitly that the app must use no database at all, keep its state in a
+`PersistentReactive` with `backend: PersistenceBackend.Private` (the app's private file storage), and
+store records that keep growing (orders, finished batches, reports) one file each under
+`app.Files.Data`, which can be listed.
 
 A `Persistent…Reactive` is written within about two seconds of a change and again when the app
 stops, so **a crash loses the changes of those last seconds.** Each value is stored whole. It needs no database of yours: the platform keeps it in the app's state database or, when there is none, in the app's file storage ("Backends", below). Use it for
@@ -457,8 +461,8 @@ in a rename. A default is part of the field's type string, so a string default c
 quotes inside it: `Title = 'string = "My family"'`.
 
 The generated classes are in the namespace `<Project>.Protocol`, after the app's C# project name,
-unless the schema sets `[namespaces] csharp`. Hyphens become PascalCase and a leading digit gets an underscore, so `pixel-art-collab` gives `PixelArtCollab.Protocol` and `3d-viewer` gives `_3dViewer.Protocol`. The template's `GlobalUsings.cs` does not import it,
-so add `global using <Project>.Protocol;` below its managed block. Then a schema type named like a
+unless the schema sets `[namespaces] csharp`. Hyphens become PascalCase and a leading digit gets an underscore, so `pixel-art-collab` gives `PixelArtCollab.Protocol` and `3d-viewer` gives `_3dViewer.Protocol`. The build imports it for the app
+in `Generated/Protocol/GlobalUsings.g.cs`, so a schema type named like a
 platform type, such as `MotionSample` from `Ikon.App`, is ambiguous (`CS0104`), so give schema
 types names of their own (`DancerMotion`). Put the partial with the
 `UpgradeFrom` steps in a file of its own that declares that namespace, as above: a partial in the

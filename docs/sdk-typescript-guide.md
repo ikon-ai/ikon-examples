@@ -1,4 +1,4 @@
-<!-- checked-against: 9c4b299010c4116ce3b0c442 -->
+<!-- checked-against: 61f991daf34d9048e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -72,7 +72,7 @@ const client = new IkonClient({
   onProtocolMessage: (message) => {
     console.log('Received protocol message');
   },
-  onJoined: async () => {
+  onReady: async () => {
     console.log('Connected and ready!');
   },
 });
@@ -207,6 +207,12 @@ The React layer (`useIkonApp`) already does this for you: it rebuilds the client
 behind the connection changes, and passes the new token to the running client when only the
 credential changed.
 
+When a reconnect presents a token the backend refuses (HTTP 401), because the sign-in was revoked or
+the token expired without being renewed, the client goes `offline` and waits for `updateAuthToken`. It tells the
+host through the `onCredentialRejected` callback. `useIkonApp` answers it by renewing the sign-in, or,
+when the renewal is refused, by signing the person out and reloading the page. While the auth service
+cannot be reached, it tries the renewal again every 30 seconds.
+
 To open a second session next to the app connection — a media leg to a cell room, say — use
 `createSibling`, which keeps the sibling's credential in step with this client's. A client can join
 a cell only when the cell is declared `[Cell(Access = CellAccess.Clients)]`, or was built before cells
@@ -231,7 +237,7 @@ The client tracks its connection state via the `connectionState` property. Live 
 | `idle` | No connection yet: the React layer's state while a page of a surface whose `Connect` is `"onAction"` shows its boot snapshot and waits for the visitor's first action, or forever on a surface whose `Connect` is `"none"`. An `IkonClient` itself never reports it |
 | `waitingForExternalConnectUrl` | Waiting for external connect URL (used in preview mode) |
 | `connecting` | Authentication and connection in progress |
-| `connected` | Protocol channels connected; the session is joined (GlobalState received, `onJoined` run) shortly after |
+| `connected` | Protocol channels connected; the session is joined and ready (GlobalState received, ClientReady sent, `onReady` called) shortly after. Function calls, actions and uploads made before that wait for it |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
 | `offline` | Disconnected (timeout, server stopped, user-initiated, or a session that could not be resumed with `reconnectToNewSession: false`). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
 
@@ -279,10 +285,10 @@ const client = new IkonClient({
     console.error(`Error: ${error.message}`);
   },
 
-  // Connected and ready (called after GlobalState received)
-  onJoined: async () => {
-    // Perform initialization here
-    // SDK sends ClientReady after this callback completes
+  // The server knows this client: calls and actions made from here on reach the app
+  // (called on every join, reconnects included)
+  onReady: async () => {
+    // Load what the page needs from the app here
   },
 
   // Tab visibility changed (browser only)
@@ -306,7 +312,7 @@ console.log(client.connectionState);  // 'connected'
 // Access session ID after connection
 console.log(client.sessionId);
 
-// GlobalState is null until it arrives, which can be after connect() resolves; onJoined marks it
+// GlobalState is null until it arrives, which can be after connect() resolves; onReady marks it
 console.log(client.globalState);
 
 // Notify the server of client context changes (only while connected)
@@ -544,11 +550,23 @@ client.functionRegistry.register(
 ### Remote Function Calling
 
 Call functions the app server registers (another browser client's functions are not reachable).
-A call made while the client connects, such as one straight after `await client.connect()`, waits
-up to 10 seconds for the app's function list instead of failing with `Not connected`; a name the
-list does not have fails at once.
-`getRemoteFunctions()` is empty until that list arrives, so await `waitForRemoteFunctions()` first,
-which waits the same 10 seconds at most.
+A call made while the client connects or reconnects, such as one straight after
+`await client.connect()` or one made while the connection is down, waits until the client has
+sent ClientReady and goes out then, in the order the calls were made. Earlier than `@ikonai/sdk`
+1.17, a call made while reconnecting fails at once with `Not connected`. The function is looked up
+in the list of functions the app sends on that join, after waiting up to 10 seconds for the list,
+so a name the list does not have fails with `Remote function not found`, and so does a function
+the app no longer has after a reconnect into a new session. The wait counts against the call's
+30-second timeout; a call that could not be sent in time fails with
+`Function call '<name>' timed out after 30000ms: the client was not connected`. At most 4096 calls
+wait, and later ones fail at once.
+A call fails at once with `Not connected` when the client is not trying to connect: before
+`connect()`, after `disconnect()`, after the server stopped, or when the reconnect has given up.
+A waiting call fails the same way when the client reaches one of those states. A call already sent when the
+connection drops fails with `Disconnected`.
+`getRemoteFunctions()` is empty until the list arrives, and again from a dropped connection until
+the next join's list arrives, so await `waitForRemoteFunctions()` (`@ikonai/sdk` 1.17 or later)
+first, which waits the same 10 seconds at most.
 A function that returns a C# record or class resolves to the parsed JSON, with the C# property
 names as they are (`{ Name, SinceUtc }`, PascalCase) and enums as their names, so type the call
 with an interface that has those names:
@@ -560,7 +578,7 @@ import { FunctionCallError } from '@ikonai/sdk';
 // Call a remote function by name
 const result = await client.functionRegistry.call<string>('remoteGreet', ['World']);
 
-// List all remote functions, once the server's list has arrived
+// List all remote functions, once the server's list has arrived (waitForRemoteFunctions: @ikonai/sdk 1.17 or later)
 await client.functionRegistry.waitForRemoteFunctions();
 const remoteFuncs = client.functionRegistry.getRemoteFunctions();
 console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
