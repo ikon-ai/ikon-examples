@@ -1,4 +1,4 @@
-<!-- checked-against: 3ab26b61c396eeb5b9a0299a -->
+<!-- checked-against: 9d565461461750f276e23a2a -->
 
 # Ikon.AI Library Overview
 
@@ -141,14 +141,18 @@ show what is left.
 
 ### Model lifecycle
 
-A model the providers are withdrawing is deprecated first: it still runs, and the first service the
-app constructs for it logs a warning naming the day it retires and the model to move to, such as
-`Model X retires on 2026-12-01; move to Y`. The administrators of organisations that call it are told
-by email and in Studio's inbox, and `ikon model list` and Studio's Models page show it.
+A model the providers are withdrawing is deprecated first: it runs until the day it retires, and the
+first service the app constructs for it logs a warning naming that day and the model to move to, such
+as `Model X retires on 2026-12-01; move to Y`. The administrators of organisations that call it are
+told by email and in Studio's inbox, and `ikon model list` and Studio's Models page show it. From
+00:00 UTC on that day the model is retired. Neither the app nor the platform needs a new release for
+that.
 
 A retired model no longer runs. Constructing its service with the name throws
 `ModelRetiredException` (`ModelFailureKind.Unavailable`), whose `Successor` and message name the
-model to use instead, and reading the name from JSON throws a `JsonException` with the same message.
+model to use instead. Reading a name the library no longer lists from JSON throws a `JsonException`
+with the same message. A deprecated name past its day can still be read from JSON, and the call fails
+instead.
 `Emerge.GetCapabilities` for a retired model throws the same exception, and `Emerge.FindModels` leaves it out.
 The Suno names (`SunoV5`, `SunoV55`, `SunoV6`) are retired with `ElevenLabsMusicV25` as their
 successor.

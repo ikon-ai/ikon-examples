@@ -1,4 +1,4 @@
-<!-- checked-against: f81f3d6673be22214b709545 -->
+<!-- checked-against: 1100dd8d73be22214b709545 -->
 
 # Ikon.App.Telephony Guide
 
@@ -367,8 +367,12 @@ releases every number the app holds and stops the billing. Both ask for confirma
 **the number goes back to the carrier and is never given back**. Anyone who
 saved it, printed it, or published it loses the ability to reach your app, permanently.
 
-Deleting the app from the cloud does the same thing automatically, at the end of the platform's
-normal removal grace period.
+A number the app's WhatsApp sends from cannot be released. `ikon phone release <number>` refuses it,
+and `--all` keeps it and goes on billing it. `ikon phone list` shows which numbers WhatsApp uses. Run
+`ikon whatsapp remove` first to give such a number up.
+
+Deleting the app from the cloud releases every number, including those WhatsApp uses, and stops the
+billing. This happens automatically at the end of the platform's normal removal grace period.
 
 ## Checking availability before you offer it
 

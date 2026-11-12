@@ -1,4 +1,4 @@
-<!-- checked-against: c9fd30baf13c10f9e0a348a6 -->
+<!-- checked-against: f9083909878355d0e0a348a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -122,6 +122,8 @@ Patterns handle context in two ways:
 ---
 
 ## Patterns
+
+The examples below that take a context pass `ctx` (or `context`), a `KernelContext`: the conversation the run starts from. Pass `new KernelContext()` for a fresh run.
 
 ### AskAsync — One-Shot Shortcut
 
@@ -414,7 +416,7 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new K
 - `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`, and every scope setting, including `Model`: `s.Model = models[s.Index]` runs each solver on its own model)
 - `Merger(Action<EmergeScope<T>>)` - Configure the merger. Without a `Command` of its own it gets the ensemble's `Command` as the task to answer once, within the task's limits such as a length; its own `Command` replaces that task. A `Command` set only on the solvers never reaches the merger, so put the question in the ensemble's `Command` (`opt.Command`)
 
-**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. A solver whose model call still fails after its retries also keeps the merger from running, but awaiting the run then throws that provider exception. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
+**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt. Each solution is labelled with its solver's `Role` when the solvers were given roles, and with its model when they ran on different models, so the merger can name the members ("the security reviewer says ...") rather than "Solver 2". When the merged answer goes to an end user, give the merger a `Command` that states the task and says not to name solvers, roles or models, or a label from the merge prompt can end up in the answer. A streamed run yields one `SolverResult<T>` per solver, with its own answer, before the merge, for a UI that shows each member beside the merged answer. If any solver stops or produces no result, the merger never runs and the run stops with `SolversFailed` (`NoSolutions` when every solver did), so awaiting it throws `EmergenceStoppedException`. A solver whose model call still fails after its retries also keeps the merger from running, but awaiting the run then throws that provider exception. To merge what the other solvers produced, run them yourself under `Task.WhenAll`, each catching its own failure, and merge the results in one more call.
 
 **`Role` and `Seed`:** both reach the solver's system prompt — `Role` (default `Solver{Index}`) is what differentiates ensemble members, and `Seed` tells a solver to explore a different approach from its siblings. Neither is a sampler seed.
 

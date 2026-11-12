@@ -1,4 +1,4 @@
-<!-- checked-against: 61f991daf34d9048e3b0c442 -->
+<!-- checked-against: e78fa4412b09c7a3e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -96,7 +96,7 @@ lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' require
 when the surface the client enters does not list one. `guest` listed on another surface does not let the
 client in. Leaving out sign-in pages (surfaces another surface names as its sign-in page), the client
 enters the only surface left, else the one with neither `Routes` nor `Host`, else the first declared,
-unless `surface` in the config names another. A program connects to such a private app with an API key. The app must have been deployed once
+unless `surface` names another, in the `guest` (or other connection) block or at the top of the config, where it applies to that block when it names none. A program connects to such a private app with an API key. The app must have been deployed once
 (`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
 ever local is reached with the `local` mode below.
 

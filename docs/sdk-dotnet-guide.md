@@ -1,4 +1,4 @@
-<!-- checked-against: 329762c7ed71f6a8149ea8c0 -->
+<!-- checked-against: 4fd61483fdb631028e2bf45f -->
 
 # IKON C# SDK
 
@@ -335,8 +335,10 @@ public string RecordVisit(string key, string door)
   wrote. An assignment such as `Value++` is last-writer-wins, so two instances counting at once lose
   a visit.
 - **Values.** `SubscribeAsync<T>` reads the value as JSON into `T`: `int` for a `Reactive<int>`, a
-  `List<T>` for a `ReactiveList<T>`, `JsonElement` to look at any of them. A `ClientReactive` gives
-  the program its own copy, not a browser's.
+  `List<T>` for a `ReactiveList<T>`, `JsonElement` to look at any of them. A record value keeps
+  its C# property names (`Celsius`, not `celsius`): a typed `T` matches them in any case, but
+  `JsonElement.GetProperty` needs the exact name. A `ClientReactive` gives the program its own copy,
+  not a browser's.
 - **Who can read a reactive.** Any client that joins the instance, a guest included, can subscribe
   to every reactive of the `[App]` class by its name, private fields too, and to any other reactive
   whose stable id it learns. Nothing marks a reactive as server-only. A `ClientReactive` or

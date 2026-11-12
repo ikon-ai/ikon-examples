@@ -1,4 +1,4 @@
-<!-- checked-against: 60873c2ffd883e56e3b0c442 -->
+<!-- checked-against: bd3a9a70fd883e56e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -268,7 +268,9 @@ flutter run -d chrome --dart-define=IKON_PORT=8443
 
 `ikon run` serves HTTPS on the port the app's last run used while it is free, else on 8443 or the
 next free port, so a run can stay on 8444 after 8443 frees up; pass the port the run printed by hand,
-while the `--flutter-*` flags pass it for you. The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
+while the `--flutter-*` flags pass it for you. `--flutter` opens the page in Chrome: `CHROME_EXECUTABLE`, else the
+browser `ikon browse` uses. On Linux with no display it runs `flutter run -d web-server` instead, and the
+page is at the Flutter address the run prints, for any browser. The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
 `--flutter-android` use the simulator or emulator that is already running, then a plugged-in phone of
 that platform, and boot one only when neither is there (`xcrun simctl boot` on iOS,
 `flutter emulators --launch` on Android). They also pass
@@ -873,6 +875,10 @@ The capture `enableIkonAudioCapture` returns can also be started and stopped by 
 `ClientFunctions.StartAudioCaptureAsync` and `StopCaptureAsync`, as on the web, for a microphone an
 app keeps open across pages. It is one microphone: a start while it captures, or while another
 start waits for the permission prompt, fails on the server and does nothing from a button.
+
+The SDK has no equivalent of the TypeScript SDK's `client.viseme`: it plays the audio but drops the
+shape values an `IAudioAnalyzer` sends with it, so lip-sync avatars and level meters driven by
+`VisemeAnalyzer` or your own analyzer work in the React frontend only.
 
 `IkonMediaManager` combines audio capture, playback, and WebRTC media (and routes
 share/clipboard actions through `IkonShare`) and can be passed to

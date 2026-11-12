@@ -1,4 +1,4 @@
-<!-- checked-against: 714951b1b64ded513293bfa9 -->
+<!-- checked-against: 714951b1402add6840bcedda -->
 
 # Teleport message schema specification
 

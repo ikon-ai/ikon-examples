@@ -1,4 +1,4 @@
-<!-- checked-against: a18e871d46efa9e9f25aa6b8 -->
+<!-- checked-against: 111f39f9ed53091ef25aa6b8 -->
 
 # App Files Guide
 
@@ -46,7 +46,9 @@ app's own URL.
 | Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
 
 A runtime-written file's URL is not built from its path, and it changes on every write: the file
-is stored under a new URL and the old one stops working. Ask `GetUrlAsync` for it after the write,
+is stored under a new URL and the old one stops working (a public one only once caches let it go,
+up to a day, which is why per-user files that account erasure must remove go in `app.Files.Data`).
+Ask `GetUrlAsync` for it after the write,
 and give each version of a file you hand out (a feed entry, a link in an email) a path of its own.
 A running session keeps a URL it loaded into state until it asks again, so after a rewrite or a
 delete it shows the old file or a broken one until the app reloads the URL or restarts.

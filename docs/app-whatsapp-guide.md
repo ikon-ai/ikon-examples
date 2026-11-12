@@ -1,4 +1,4 @@
-<!-- checked-against: 9486e3e30f2e07cae27d8877 -->
+<!-- checked-against: 5695b6d20f2e07cae27d8877 -->
 
 # Ikon.App.WhatsApp Guide
 
@@ -32,13 +32,19 @@ of one app goes into the same WhatsApp Business Account. The Portal's WhatsApp p
 `--purpose` says what the number is for, in a sentence. Meta allows task bots such as support,
 bookings and orders, but not general-purpose AI assistants.
 
+The number can also be one the app bought with `ikon phone buy`, if it can receive SMS. Meta's code
+then arrives as an SMS to the app's number, and the signup page shows it, so choose SMS when Meta
+asks how to send it. While WhatsApp uses the number, `ikon phone release` cannot release it.
+
 A new number usually comes online within minutes. `whatsapp status` shows the state of each number
 and what it is waiting for, such as Meta's review of the display name. Until the business completes Meta's
 own business verification, a number reaches at most 250 people a day with templates.
 
 `whatsapp remove` takes WhatsApp off the app: every number stops, and the app's WhatsApp account at
-the provider is closed and cannot be reopened. The WhatsApp Business Account and its templates stay
-in the business's Meta account. Stored messages are deleted on their 31-day schedule.
+the provider is closed and cannot be reopened. When WhatsApp runs on the account that holds the
+app's phone numbers, that account stays open instead, and the app keeps its phone numbers. The
+WhatsApp Business Account and its templates stay in the business's Meta account. Stored messages are
+deleted on their 31-day schedule.
 
 An app with WhatsApp connected cannot be moved to another organisation, because its numbers belong
 to the WhatsApp Business Account of the business that connected them. The organisation that holds

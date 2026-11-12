@@ -1,4 +1,4 @@
-<!-- checked-against: a3556832d93d56c4d34ae461 -->
+<!-- checked-against: 6950b800caf7eb300e2681d9 -->
 
 # IKON Persistent State Guide
 
@@ -22,7 +22,8 @@ A `Persistent…Reactive` is written within about two seconds of a change and ag
 stops, so **a crash loses the changes of those last seconds.** Each value is stored whole. It needs no database of yours: the platform keeps it in the app's state database or, when there is none, in the app's file storage ("Backends", below). Use it for
 preferences, drafts, layout, view settings and small app state. A `PersistentReactive` belongs to
 one app instance. For a setting or a short list that every instance reads, use a
-`PersistentGlobalReactive` ("Global values", below).
+`PersistentGlobalReactive` ("Global values", below), which takes no `backend:`: the IKON backend
+keeps its value, so it needs no database either.
 
 **Persistent values are best effort.** The platform starts the app and draws a joining user's first
 screen without waiting long for storage, so a stored value can arrive a moment after the first frame
@@ -124,7 +125,10 @@ The platform's backend keeps a global value, and each instance keeps a copy that
   sent at once. When a third comes soon after, it waits a second, and the wait doubles with each
   further such write, up to 60 seconds; the writes made while it waits are sent as one. A value
   written all the time therefore reaches the other instances once a minute, and the app's log shows
-  a warning naming it the first time its wait reaches 8 seconds.
+  a warning naming it the first time its wait reaches 8 seconds. The backend keeps this wait per
+  value across all instances, so when every instance writes the same value (a count each one
+  recomputes in `OnStarting`), their writes add up and each instance's write
+  waits. Write such a value from one place, such as the handler that changes what it counts.
 - **Conflicts.** Assigning `Value` is last-writer-wins. `Update` and every collection operation
   (`Add`, `Remove`, setting a key) are kept: when another instance stored a newer value first, they
   are applied again over it, so the function given to `Update` can run more than once and must have
@@ -137,16 +141,19 @@ The platform's backend keeps a global value, and each instance keeps a copy that
 - **Lifetime.** `GlobalReactive` and `GlobalUserReactive` values belong to the deployed version that
   wrote them, so a new deploy does not see them and starts from the initial values. They are deleted
   7 days after their last write; a read does not extend that, and a rollback to the earlier version
-  sees them again until then.
+  sees them again until then. Each new local `ikon run` has values of its own, so they start from
+  the initial values on every run; a hot reload keeps them.
   `PersistentGlobalReactive` values are never deleted, and `PersistentGlobalUserReactive` values are
   deleted by `ClearFor(userId)` and by user-data erasure.
   A session of a deploy that is not live yet has `Global` values of its own and shares the live
   app's `PersistentGlobal` values. A local `ikon run` shares the `PersistentGlobal` values of the app
   it is linked to and keeps its own `Global` values.
 - **Saving.** A global value is sent on its own schedule, not by autosave, and
-  `app.SavePersistentStateAsync()` does not wait for it. When the instance stops, a write still
-  waiting is sent if its wait ends within 5 seconds; otherwise it is lost and a warning names the
-  reactive. When the backend cannot be reached, reads keep the local value and writes are retried,
+  `app.SavePersistentStateAsync()` does not wait for it. When a deployed instance stops, a write
+  still waiting is sent if its wait ends within 5 seconds; otherwise it is lost and a warning names
+  the reactive. A local `ikon run` waits out the whole wait at a stop and at a hot reload (a value
+  written often waits up to a minute) and logs how long, so the next build loads the change. A count
+  that must survive every stop belongs in the database. When the backend cannot be reached, reads keep the local value and writes are retried,
   waiting longer each time, up to a minute.
 - **Only a value that exists when the app instance is constructed is synced** (a field, or one built
   in the constructor). The global types take `key:` and no `backend:`.
@@ -367,7 +374,7 @@ foreach (var camera in cameras)
 
 Pass a stable identifier the app owns. Not `Guid.NewGuid()` — that changes on every restart and orphans the old data. Don't reuse the same key across different types or scopes.
 
-Without `key:`, a field's stored value is found by its declaring source file's path under the app root, the constructing member's name, `T`, and its order among the reactives of type `T` built in that member, persistent or not. Renaming or moving the file or field, or adding, removing or reordering same-typed reactives built before it in that member (a plain `Reactive<T>` too), silently starts from the initial value and orphans the stored one. That is fine for state you can afford to lose; pass a fixed `key:`, unique within the app, for state that must survive refactoring, and always when constructing reactives in a loop or based on runtime identity. Either way, a stored value is loaded back only into a reactive that exists once the app instance is constructed (a field, or one built in the constructor); one constructed later — in `Main()` or a handler — is saved at shutdown but always starts from its initial value, so run a loop like the one above in the constructor. A global one constructed later is never synced with the other instances.
+Without `key:`, a field's stored value is found by its declaring source file's path under the app root, the constructing member's name, `T` (without assembly versions, so a new version of the app keeps it), and its order among the reactives of type `T` built in that member, persistent or not. Renaming or moving the file or field, or adding, removing or reordering same-typed reactives built before it in that member (a plain `Reactive<T>` too), silently starts from the initial value and orphans the stored one. That is fine for state you can afford to lose; pass a fixed `key:`, unique within the app, for state that must survive refactoring, and always when constructing reactives in a loop or based on runtime identity. Either way, a stored value is loaded back only into a reactive that exists once the app instance is constructed (a field, or one built in the constructor); one constructed later — in `Main()` or a handler — is saved at shutdown but always starts from its initial value, so run a loop like the one above in the constructor. A global one constructed later is never synced with the other instances.
 
 ## Save semantics
 
@@ -522,7 +529,7 @@ Plain records keep today's behavior exactly; nothing opts in until the type is a
 - ❌ Using `Public` backend for anything sensitive — assets get a real URL on the open web.
 - ❌ Constructing AssetUris by hand for state that fits a `PersistentXxxReactive`.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
-- ❌ Writing a reactive from inside a render lambda (`if (_boxes.Count == 0) _boxes.Add(new Box())` in the middle of `UI.Root(...)`). The platform drops the change notification of a write made while it renders — nothing re-renders from it — and logs `update was ignored because it was done within a reactive callback, at <call site>` once per site. Render only reads; create-if-missing belongs in the event handler that needs it (the switch that enables the feature, the button that adds the item) or in a lifecycle callback such as `app.OnClientJoined`. When the render needs something to show before it exists, render a detached placeholder value and let the first edit handler store it.
+- ❌ Writing a reactive from inside a render lambda (`if (_boxes.Count == 0) _boxes.Add(new Box())` in the middle of `UI.Root(...)`). The platform drops the change notification of a write made while it renders — nothing re-renders from it — and logs `update was ignored because it was done within a reactive callback, at <call site>` once per site. Render only reads; create-if-missing belongs in the event handler that needs it (the switch that enables the feature, the button that adds the item) or in a lifecycle callback such as `app.OnClientJoined`. When the render needs something to show before it exists, render a detached placeholder value and let the first edit handler store it. Data the render needs from a load (a backend call, a file) comes from a `Loader` or `UserLoader` field: the render reads `loader.Get(key)`, which shows `Loading` until the platform has loaded the key outside the render.
 - ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
 - ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is read at load and written by autosave, an explicit save and the shutdown save; in between, the value lives in memory. For read-your-writes durability, go through `app.DatabaseAsync()` directly.
 

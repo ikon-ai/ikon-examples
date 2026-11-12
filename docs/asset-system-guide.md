@@ -1,4 +1,4 @@
-<!-- checked-against: 36648e51fc687b637d136c37 -->
+<!-- checked-against: b0408f6ecc937ced7d136c37 -->
 
 # Asset System Developer Guide
 
@@ -200,7 +200,7 @@ await assets.GetOrUpdateWithMetadataAsync<Settings>(
 
 ## Listing assets
 
-Use `ListAsync` with an `AssetQuery` to enumerate a folder. Every backend lists except `CloudJson`, which throws `NotSupportedException`. A `CloudFile` or `CloudFilePublic` listing needs a folder URI that names a space (`new AssetUri(AssetClass.CloudFile, "exports/", spaceId)`), takes no user scope, leaves out uploads that never completed, and fetches the list from the platform a hundred files per request; within an app, `app.Files.Data.ListAsync(folder)` does this for the files the app wrote, `app.Files.Data.ListRepoFiles(folder)` lists the files shipped in `data/`, and neither lists both. The folder prefix is the only filter that applies: a non-empty `Tags` throws `NotSupportedException`, `Limit` caps every listing, and listings are not paged (the query's `NextContinuationToken` is always null), so filter by tag and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one never lists its own files, only the unscoped files at the same bare path.
+Use `ListAsync` with an `AssetQuery` to enumerate a folder. Every backend lists except `CloudJson`, which throws `NotSupportedException`. A `CloudFile` or `CloudFilePublic` listing needs a folder URI that names a space (`new AssetUri(AssetClass.CloudFile, "exports/", spaceId)`), takes no user scope, leaves out uploads that never completed, and fetches the list from the platform in requests of a hundred files, returned as one list, so every call on a large folder costs one request per hundred files; within an app, `app.Files.Data.ListAsync(folder)` does this for the files the app wrote, `app.Files.Data.ListRepoFiles(folder)` lists the files shipped in `data/`, and neither lists both. The folder prefix is the only filter that applies: a non-empty `Tags` throws `NotSupportedException`, `Limit` caps every listing, and listings are not paged (the query's `NextContinuationToken` is always null), so filter by tag and page the returned list yourself. A `LocalFile` listing ignores the query's space and user and matches the prefix against the file's path on disk, so only an unscoped folder URI lists as below; a space- or user-scoped one never lists its own files, only the unscoped files at the same bare path.
 
 <!-- ikon-example: asset-guide-list -->
 ```csharp

@@ -1,4 +1,4 @@
-<!-- checked-against: a1ddff2ab290d5fba8ee3e67 -->
+<!-- checked-against: 80709301d5c2d263cdd04676 -->
 
 # Ikon.App.Email Guide
 
@@ -282,7 +282,12 @@ and the second insert fails on the primary key. Claim the message in one stateme
 only when that statement inserted a row (`ExecuteAsync` returns 1); the path that gets 0 stops there.
 When that work can fail, keep a `processed` flag on the row and have the sweep and the redelivered
 event finish a row that is stored but not processed.
-The trigger fires only in a deployed app; a local `ikon run` can read the inbox but gets no events.
+Real mail fires the trigger only in a deployed app; a local `ikon run` can read the inbox but gets no
+events from it. To try the local run's handler, `ikon inbox receive --from ann@example.com --subject
+"Invoice 42" --text "…" --attach invoice.pdf` delivers a test message to it without sending anything.
+The message is written to the run's `build/mail-received/<id>/`, where the local run's
+`app.Email.GetMessageAsync`, `DownloadAttachmentAsync` and `DeleteAsync` find it by the payload's
+`Id`; the inbox listing does not show it.
 A deployed app can send mail to its own inbox, so the whole path can be tested without an outside
 mail account: once `ikon inbox enable` has run, send to any address at a receiving domain, such as
 `$"test@{(await app.Email.GetInboundDomainsAsync())[0]}"`, with `app.Email.SendAsync`. A handler

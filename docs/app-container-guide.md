@@ -1,4 +1,4 @@
-<!-- checked-against: 38b91cecd6f3c7e0db3691ae -->
+<!-- checked-against: e7aedea8d6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -49,7 +49,7 @@ the download in `ikon-config.toml`, one `[[Tools]]` entry per file, and the tool
 [[Tools]]
 Runtime = "all"                      # or "linux-x64" for a deploy only, "win-x64" for a local run only
 Url = "https://files.example.com/renode-1.17.0-portable.tar.gz"
-Sha256 = "4ba7c68b59e2471f188ef4b4b112fcccd2802582c460beedceb63b84e5605a5f"
+Sha256 = "4ba7c68b59e2447f188ef4b4b112fcccd2802582c460beedceb63b84e5605a5f"
 Archive = "tar.gz"                   # or "zip", or "none" for a single file
 Strip = 1                            # path components dropped from every entry, like ADD --strip-components
 Dest = "renode"                      # inside tools/<runtime>/; empty is the folder itself

@@ -1,4 +1,4 @@
-<!-- checked-against: 26188ebd0bc7ed76d6531655 -->
+<!-- checked-against: 322fe2c80bc7ed76d6531655 -->
 
 # User Data Erasure
 
@@ -99,7 +99,9 @@ erase:
 - Files your app wrote at run time through `app.Files` or the asset API. Write a user's files under a
   folder of their own (`users/{id}/`) and delete it in the listener with
   `app.Files.Data.DeleteFolderAsync($"users/{userId}")`; for a file stored as its own asset, keep its
-  asset URI with the user id when you write it and delete from that record.
+  asset URI with the user id when you write it and delete from that record. Keep these files in `app.Files.Data`, not
+  `app.Files.Public`: a deleted public file stays servable from caches (see "Public asset caches"
+  above), while the private tree's signed URLs stop working at once.
 
 Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
 `[Trigger(TriggerEventType.UserErased)]` method on your app class. Without it the platform does not
