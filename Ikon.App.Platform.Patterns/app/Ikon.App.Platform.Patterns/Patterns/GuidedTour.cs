@@ -32,8 +32,7 @@ internal sealed class GuidedTour : IPatternDemo
     private readonly ClientReactive<int> _guideStep = new(0);
 
     // Each step says who it applies to, so someone with nothing yet is never sent to an empty page.
-    // A step with a target points at the control marked with TourTarget.Props of that name. Any
-    // Target makes the whole tour web-only, so leave targets out of a tour a Flutter client shows.
+    // A step with a target points at the control marked with TourTarget.Props of that name.
     private Step[] TourSteps =>
     [
         new("welcome", "Welcome", "A one-minute look at where things are.", "sparkles", () => true),

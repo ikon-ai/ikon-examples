@@ -29,8 +29,8 @@ the frontend too, also while a run is live. `build/app/artifacts/bin/<App>/debug
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
-`ikon status --wait` returns once the reload has applied, or exits 1 if it failed); a `.csproj`
-or `ikon-config.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
+`ikon status --wait` returns once the reload applied, or exits 1 if it failed; a later save starts another reload, so wait after the last edit); a `.csproj`
+or `ikon-config*.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
 ikon browse --text-only --steps "observe"  # text + [id] handles
@@ -67,17 +67,17 @@ Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages sen
 
 `ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`.
 Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
-On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`,
-each commented: `ikon-config.development.toml` for an app on the development
-platform (`run` and `deploy` read that one file), `ikon-config.<name>.toml` for `--target <name>`.
+On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`
+(`ikon-config.development.toml` on development),
+each commented; `ikon-config.<name>.toml` for `--target <name>`.
 Use file tools. PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII.
 IKON bugs: `ikon report create`.
 
 Root folders (`app-structure`): `app/`, `frontend-node/`, `frontend-flutter/`, `data/`,
 `public/`, `branding/` (replace the placeholder `logo.png`, then `ikon icon`), `emails/`, `legal/`, `router/`, `schema/`, `tools/<runtime>/` (programs the
 app runs; source in `tools/source/`), `container/`, `devices/` (programs on other
-machines), `scripts/` (scripts the app keeps), `scratch/` (git-ignored steps files and throwaway
-scripts, not `/tmp`), `reference/`, `test/`, `release-notes/`, `.ikon/gates/`, generated
+machines), `scripts/` (kept scripts), `scratch/` (git-ignored throwaway
+files, not `/tmp`), `reference/`, `test/`, `release-notes/`, `.ikon/gates/`, generated
 `build/` and `docs/`.
 
 ## What the app must contain
