@@ -9,6 +9,7 @@ Enabled = false  # true: a client that finds its instance full joins another ins
 MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the app's own
 
 # The kinds of visitor, one [[Surface]] each; with none, one surface admits guests at "/". With several, exactly one that is not a SignIn page has neither Routes nor Host, and it serves every other path (app-structure guide, "Surfaces")
+# Replace this block to change surfaces; each name appears once.
 [[Surface]]
 Name = "app"  # Unique in the app; a handler reads it as Context.Surface
 Routes = ["/"]  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; with one surface, list every page's path; with several, the one that serves every other path has none
@@ -23,7 +24,7 @@ Recovery = "attended"  # "attended" waits for a tap after a lost connection, for
 # Who may enter the surface
 [Surface.Auth]
 Methods = ["google", "microsoft", "email", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
-Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
+Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; another role needs `ikon profile role create`. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
 SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
 # The emailed sign-in code, how long a browser stays signed in, and the sign-in screen's text (app-structure guide)
@@ -42,7 +43,7 @@ TermsUrl = ""  # An https:// URL that TermsPath redirects to; empty serves legal
 PrivacyPath = "/legal/privacy"  # Absolute, no file extension, not under /ikon or /api
 TermsPath = "/legal/terms"  # The same rules as PrivacyPath
 
-# The platform's feedback sheet; who is offered it is the space's setting, 'ikon feedback set' (parallax-overview guide)
+# The platform's feedback sheet. A new app offers it to no one (only test-link visitors) until 'ikon feedback set --audience <value>' runs; Button below only draws the way in (parallax-overview guide)
 [Feedback]
 Button = "overlay"  # "overlay" draws a floating feedback button for whoever is offered feedback, and its text follows the visitor's language; "none" draws none
 
@@ -81,7 +82,7 @@ UIActions = false  # Record each action a person runs, which a report filed from
 
 # Commands the ikon tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
 [Scripts]
-PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'
+PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'; a program that must run on every build (ikon build, run and deploy) is an MSBuild BeforeBuild target in the app's csproj instead (guide app-container)
 
 # The native app the Flutter frontend builds; set it only to update an app already in a store (frontend-fundamentals guide)
 [Flutter]
