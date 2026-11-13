@@ -57,11 +57,11 @@ the local run or the deployed app, and
 without them they drive the local run, else the linked deployed app. The page signs in as you when
 the app offers the method you used for `ikon login` (or email, for an organisation app); `--as-guest` is a new guest each run, `--guest-name <name>` the same one; on a
 local run `--as-user <name>` acts as a named test user (`--role`), and `as <name>+<role>:` as another up to the
-next `as` (`as me:` is the run's own). Deployed, `as <name>:` is a guest (none on a private app), pageless, no upload; a room it hosts ends with it. When
+next `as` (`as me:` is the run's own). Deployed, `as <name>:` is a pageless guest (none on a private app: test a second person on the local run); a room it hosts ends with it. When
 a surface lists "global", every guest is one shared user, which `browse` cannot open a page as: use `--text-only` there, a local run for `look`, or list "guest". `click <name>` is a real mouse click.
 
 Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages send|capture`
-(overridden by `--email`, `--sms`, `--whatsapp`) and `--cron auto|manual`. They never change cloud execution.
+(overridden by `--email`, `--sms`, `--whatsapp`) and `--cron auto|manual`.
 
 ## The ikon tool's commands
 

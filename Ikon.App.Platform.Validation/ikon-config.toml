@@ -23,7 +23,7 @@ Recovery = "attended"  # "attended" waits for a tap after a lost connection, for
 
 # Who may enter the surface
 [Surface.Auth]
-Methods = ["google", "apple", "microsoft", "email", "passkey", "sso", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in
+Methods = ["google", "apple", "microsoft", "email", "passkey", "sso", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in, and a button calling ClientFunctions.LoginShowAsync(reason) lets a visitor sign in
 Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; another role needs `ikon profile role create`. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
 SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
