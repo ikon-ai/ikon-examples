@@ -1,4 +1,4 @@
-<!-- checked-against: 5b772a11fab769776109a1a5 -->
+<!-- checked-against: 8a67efabaf5a67a31511969b -->
 
 # IKON Audio & Video Guide
 
@@ -398,7 +398,7 @@ Video.InputEndedAsync += async input =>
 };
 ```
 
-The input's handlers run in its client's scope. `VideoInput` carries `Id` (the stream id the client announced), `Kind` (`Camera`, `Screen`, or `Other` for a machine client), `ClientSessionId` and `ClientContext`, `CorrelationId` (set by the `CaptureButton` that started it), `Codec`, and the current `Width` and `Height` (`ResizedAsync` fires when they change); `Ended` completes when it stops. `Video.InputEndedAsync` fires when a capture stops or its client leaves, and `Video.Inputs` lists every input running now, including ones that began before the `Video` was made. `input.StopAsync()` stops that one capture on its client, leaving its microphone and other captures running; on an `Other` input it throws `NotSupportedException`, since only a browser capture can be stopped from the app.
+The input's handlers run in its client's scope. `VideoInput` carries `Id` (the stream id the client announced), `Kind` (`Camera`, `Screen`, or `Other` for a machine client), `ClientSessionId` and `ClientContext`, `CorrelationId` (set by the `CaptureButton` that started it), `Codec`, and the current `Width` and `Height` (`ResizedAsync` fires when they change); `Ended` completes when it stops. `Video.InputEndedAsync` fires when a capture stops or its client leaves, and `Video.Inputs` lists every input running now, including ones that began before the `Video` was made. `Video.Inputs` is not reactive, so a render that reads it is not redrawn when an input starts or ends: a button that waits for the camera reads a `Reactive<bool>` that `InputStartedAsync` and `InputEndedAsync` set. `input.StopAsync()` stops that one capture on its client, leaving its microphone and other captures running; on an `Other` input it throws `NotSupportedException`, since only a browser capture can be stopped from the app.
 
 ### Showing a surface
 

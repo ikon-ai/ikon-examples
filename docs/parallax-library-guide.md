@@ -1,4 +1,4 @@
-<!-- checked-against: 66d870ada3664d6f03073558 -->
+<!-- checked-against: 5201fead681bcb9751cc70ac -->
 
 # Ikon.Parallax Library Overview
 
@@ -240,6 +240,10 @@ A render only reads, and cannot `await`. Data it shows that has to be loaded fir
 private readonly UserLoader<string, Member?> _members = new(
     (userId, memberId, ct) => FetchMemberAsync(userId, memberId, ct));
 
+// Static: a field initializer that calls an instance method fails with CS0236. A load that needs the
+// app uses the primary constructor's `app` in the lambda, or the loader is a Reactive.Once property
+private static Task<Member?> FetchMemberAsync(string userId, string memberId, CancellationToken ct) => Task.FromResult<Member?>(new Member(memberId));
+
 private void RenderMember(UIView view, string memberId)
 {
     var member = _members.Get(memberId);   // Loading, Ready or Failed; never waits
@@ -264,8 +268,11 @@ private async Task RenameAsync(string memberId, string name)
 - **Each key loads once.** Renders that read a key while it loads share one load, and at most 4 loads of one loader run at once.
 - **The load runs outside the render**, with no client or user in scope, so a render shared by several people never loads one person's data for the others. A `UserLoader` passes the reading user's id to the load; read nothing from `ReactiveScope` inside it.
 - **A failed key is not loaded again on every render.** The next read after 5 s loads it again, and the wait doubles with each failure in a row, up to 60 s.
-- **Changes come from handlers.** After a handler changes the data, `Invalidate(key)` (or `InvalidateEveryUser(key)` on a `UserLoader`) makes the next read load it again, and `Set(key, value)` stores a value the handler already has. `await GetAsync(key)` gives a handler the value, loading it if needed.
-- `new LoaderOptions { Expiry = TimeSpan.FromMinutes(5) }` reloads a value older than that when it is read, showing the old value meanwhile. `MaxEntries` (1000) bounds how many keys it keeps.
+- **Changes come from handlers.** After a handler changes the data, `Invalidate(key)` (or `InvalidateEveryUser(key)` on a `UserLoader`) makes the next read load it again, and `Set(key, value)` stores a value the handler already has. `Update(key, list => [.. list, created])` changes the loaded value, such as adding the row the handler just saved; a key that has not loaded yet is loaded again instead, so the loader never stores a list that holds only the new row. `await GetAsync(key)` gives a handler the value, loading it if needed.
+- **Optimistic saves.** `await _list.UpdateAsync(key, list => [.. list, draft], () => SaveAsync(draft))` shows the change at once and runs the save. No load of the key starts until the save ends, and a failed save puts the old value back, loads the key again and rethrows.
+- **Data that changes elsewhere.** `new LoaderOptions { RefreshInterval = TimeSpan.FromSeconds(30) }` reloads a key a screen is showing once 30 seconds have passed since its last load. The check runs every quarter of the interval, so a reload can start up to 7.5 s late. The screen then shows data that another user, a job or another service changed, with no timer in the app. Keys no screen shows are not reloaded. `Expiry` instead reloads a value older than that only when it is next read, showing the old value meanwhile. `MaxEntries` (1000) bounds how many keys it keeps.
+- **Changing keys.** `GetOrPrevious(key, "case list")` returns what that place showed last, with `IsPrevious` set, while a new page, filter or search loads, instead of `Loading` with no value. It is kept per client (or per group of clients sharing a render), never shown to another client. Put into the place name whatever must match for the old value to be shown, such as the tenant: `$"{tenantId}|case list"`.
+- **A loader built from the app instance** cannot be a field initialiser. Make it on first read with `Reactive.Once(ref field, () => new(...))` in a property, because renders run at the same time and `field ??= new(...)` can build two (warning IKON060).
 
 Work a person starts (a button, an upload) stays in its handler, and its result goes into a reactive or the loader.
 
@@ -331,7 +338,7 @@ The `UIView` class provides extension methods for UI components. One shape for m
 - `view.Breadcrumb()` - Path navigation
 
 **Data:**
-- `view.DataTable()` - Paginated tables with typed cells, row actions, column resize and a `selectedRowId` row shown as selected (per-slot styling via the `DataTableStyles` record on `styles:`)
+- `view.DataTable()` - Paginated tables with typed cells, row actions, column resize, sortable headers (`DataTableColumn.SortKey`, `sort:`, `onSortChange:`) and a `selectedRowId` row shown as selected (per-slot styling via the `DataTableStyles` record on `styles:`)
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
 - `view.ChatLog()` - `ScrollColumn` with auto-scroll on and optional header/footer slots (pass your composer as the footer)
 - `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload when `onAttachmentStart` or `onAttachmentAdded` is wired (a dropped or pasted web address joins the text instead), auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
@@ -561,7 +568,7 @@ There your array is *appended* to that base rather than replacing it, and later 
 <!-- ikon-example: px-merge-semantics-the-default-marker-3 -->
 ```csharp
 view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] md:data-[overflow-y=true]:px-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
+view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] px-8 — still fills and scrolls; padding of px-3 or more replaces the scrollbar gutter
 ```
 
 You never need `"default"` on these, and you cannot remove the base — override it instead (`min-h-[300px]` beats
@@ -640,7 +647,7 @@ view.ScrollArea(
 
 `autoScrollKey:` takes the thing that changes — the reactive collection itself, a count, or a composite string.
 
-The scrollbars float over the content, so the viewport adds a gutter on each axis that overflows (`px-3` beside a vertical bar from the `md` breakpoint up, `pb-3` under a horizontal one) and nothing slides under a scrollbar. On a phone the vertical bar overlays the content with no gutter. Content that fits keeps the full width. Padding of your own in `viewportStyle:` replaces the gutter on that side.
+The scrollbars float over the content, so the viewport adds a gutter on each axis that overflows (`px-3` beside a vertical bar from the `md` breakpoint up, `pb-3` under a horizontal one) and nothing slides under a scrollbar. On a phone the vertical bar overlays the content with no gutter. Content that fits keeps the full width. Padding of your own in `viewportStyle:` replaces the gutter on that side when it is at least as wide (`px-3` or more, `pb-3` or more); narrower padding and an arbitrary value keep the gutter, so content stays clear of the scrollbar.
 
 The content of a `ScrollArea` or `InfiniteScrollView` is at least as tall as its viewport, so a percent height on it resolves as it does in a CSS `overflow-auto` box of fixed height. A `Column(["min-h-full"])` with a `Box(["flex-1"])` spacer before its last child keeps that child at the bottom of a short list, and a long list still grows and scrolls past it.
 

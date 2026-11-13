@@ -1,4 +1,4 @@
-<!-- checked-against: 9d565461461750f276e23a2a -->
+<!-- checked-against: a5bf507a41e66e54ab2cdd65 -->
 
 # Ikon.AI Library Overview
 
@@ -496,20 +496,57 @@ grids and tiers within what they accept.
 ## Provenance and Watermarking
 
 `Ikon.AI.Provenance.ImageProvenance` is what marks a generated image as generated. The image generators and the
-upscaler apply it themselves — `InvisibleWatermark` and `VisibleWatermark` on the config control it —
-so app code normally only *reads* the marks.
+upscaler apply it themselves — `InvisibleWatermark` and `AILabel` on the config control it — so app
+code normally only *reads* the marks.
 
 - `ImageProvenance.GetMarkingSupport(data)` returns a `ProvenanceMarking` for the format: `Full` when
-  the pixel watermark survives a re-encode, `MetadataOnly` when the mark is machine-readable and
-  standards-compliant but strippable by anything that rewrites the file's metadata, and `None` when
-  the format carries neither.
+  the file can carry the pixel watermark as well as the metadata mark, `MetadataOnly` when the mark is
+  machine-readable and standards-compliant but strippable by anything that rewrites the file's
+  metadata, and `None` when the format carries neither. The pixel watermark changes only brightness. It
+  survives JPEG and WebP re-encodes down to about quality 50, resizes from half to one and a half
+  times, crops, small rotations and screenshots. A downscale to a third, or to 512 px followed by
+  heavy JPEG compression, can remove it.
 - `ImageProvenance.ReadMetadataMark(data)` returns the embedded XMP packet, or null.
-- `ImageProvenance.MeasureInvisibleMark(data)` scores the pixel watermark. Scores are
-  normal-deviates: an unmarked image scores |z| ≲ 3, a marked one in the tens to hundreds depending
-  on size and recompression. At or above `ImageProvenance.DetectionThreshold` (12.0) the image
-  carries IKON's mark.
-- `ImageProvenance.Apply(data, model, invisibleWatermark, visibleWatermark)` marks an image yourself,
-  for a path the platform generators did not produce.
+- `ImageProvenance.MeasureInvisibleMark(data)` scores the pixel watermark, including after the crops
+  and resizes it survives. An unmarked image scores about 4 to 6.5 and a marked one
+  about 20 to 27. At or above `ImageProvenance.DetectionThreshold` (8.0) the image carries IKON's mark.
+  Images the platform's AI service generates are marked with that service's own key, which only IKON's
+  own apps hold, so in your app they score as unmarked.
+  It takes about 50 ms for a marked 1024 px image and about a second of one core for an unmarked one,
+  because it then tries every scale.
+- `ImageProvenance.Apply(data, model, invisibleWatermark, label, corner, edited)` marks an image yourself,
+  for a path the platform generators did not produce. It returns a `MarkedImage` with the bytes, the
+  `ProvenanceMarking` they carry and the label drawn.
+
+### The EU AI label
+
+A realistic generated or edited picture of real people, places or events that people outside the app
+will see has to carry a visible label (EU AI Act Article 50(4)), and the label has to stay on the
+picture when it is downloaded or shared. Set `ImageGeneratorConfig.AILabel` and the generator stamps
+the European Commission's AI icon in the top-right corner of the image. The icon's height is about 4.5%
+of the image's short edge, and it is light on a dark corner and dark on a light one:
+
+<!-- ikon-example: ai-image-label -->
+```csharp
+var result = (await new ImageGenerator(ImageGeneratorModel.Gemini3ProImage).GenerateImageAsync(new ImageGeneratorConfig
+{
+    Prompt = prompt,
+    InputImages = [new InputImage { Data = photo, MimeType = "image/jpeg" }],
+    AILabel = AILabel.Auto,
+}))[0];
+```
+
+`AILabel.Auto` stamps "AI GENERATED", or "AI MODIFIED" when `InputImages` is set; `AILabel.AI` is the
+round icon alone. `ImageUpscalerConfig.AILabel` works the same way, and there `Auto` is always "AI
+MODIFIED". `AILabelCorner` on either config moves the label to another corner, for an app whose own
+controls cover the top-right one. `ImageGeneratorResult.AILabel` and `ImageUpscalerResult.AILabel` say which label was drawn.
+Only PNG and JPEG can carry a label, so a WebP image, or an image too small for the label, comes back with `AILabel.None`.
+
+To keep the label off the pictures the app shows and put it only on the files people download,
+generate without it and stamp the download with `ImageProvenance.ApplyLabel(bytes, AILabel.AIModified)`.
+`ApplyLabel` decodes and re-encodes the picture (about 0.1 s for 1024 px) and keeps its metadata mark. It
+throws `ArgumentException` for WebP and for an image too small for the label;
+`ImageProvenance.TryApplyLabel` returns false instead.
 
 `Ikon.AI.Provenance.MediaProvenance` is the same layer for generated video and audio, writing the identical XMP
 packet into the container's standard metadata slot: an XMP `uuid` box for MP4/MOV/M4A, an ID3v2
@@ -562,6 +599,19 @@ One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 <!-- ikon-example: ai-imagesegmentation -->
 ```csharp
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
+
+// The noun found nothing: try a box around the middle half of the picture, where the subject usually is
+if (result.Segments.Count == 0)
+{
+    var (w, h) = ImageUtils.GetImageDimensions(imageBytes);
+    using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam31);
+
+    result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
+    {
+        InputImage = new InputImage { Data = imageBytes, MimeType = "image/png" },
+        BoxPrompts = [new ImageSegmenterConfig.BoxPrompt { XMin = w / 4.0, YMin = h / 4.0, XMax = w * 3 / 4.0, YMax = h * 3 / 4.0 }]
+    });
+}
 
 if (result.Segments.Count > 0)
 {
@@ -1331,6 +1381,8 @@ var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
 
 Log.Instance.Info(result.Text);
 ```
+
+**Line breaks in `Text`** are whatever the provider returns, so a line of the page is not always a line of `Text` (a scanned form's labelled lines can come back joined on one line). To read a document line by line, set `IncludeLines = true` and read `result.Lines`: one `OCRLine` per printed line, its `Content` and box, in reading order within each page. Only `AzureDocumentIntelligence`, the default, fills it; on `MistralOCR41` it stays empty, so read `result.Paragraphs` there.
 
 **Page selection** is 1-based and inclusive on every model — `"1-5"`, `"2"`, `"1-3,7"` all mean the same pages whichever model reads them, and `result.Pages[].PageNumber` numbers them the same way. The one exception is the open-ended `"3-"` form, which Azure accepts and Mistral OCR throws on. A range whose syntax is wrong is rejected before the provider is called rather than being silently read as the whole document.
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 111f39f9ed53091ef25aa6b8 -->
+<!-- checked-against: 7e9a54a1389a3e82b1127136 -->
 
 # App Files Guide
 
@@ -34,7 +34,7 @@ Files **shipped in the repo** redeploy with the app. On a read, a runtime-writte
 shipped file at the same path. A local run reads shipped files straight from the app's `data/` and
 `public/` folders, so a file added there while the app runs is readable at once. In a deployed app, the
 frontend serves the shipped `public/` files, and `app.Files.Public` reads one by fetching it from the
-app's own URL.
+app's own URL and lists them (`ListRepoFiles`) from the file list the deploy wrote.
 
 ## Referencing files
 

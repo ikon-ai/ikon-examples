@@ -1,4 +1,4 @@
-<!-- checked-against: 63ae909559a1df1ae3b0c442 -->
+<!-- checked-against: ab1e568859a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -96,6 +96,8 @@ The install script installs .NET, Node.js, Git and the tool. On a runner (`CI=tr
 ```bash
 curl -fsSL https://ikonai.com/install.sh | bash -s -- --format json > ikon-install.jsonl
 ```
+
+Add the folders to the front of `PATH` one at a time, in the order listed, so the last folder ends up first. Appending them to `$GITHUB_PATH` does this. If you join them into one `PATH` with the first folder first, `ikon` resolves to a program that cannot find .NET.
 
 ### GitHub Actions
 

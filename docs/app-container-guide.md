@@ -1,4 +1,4 @@
-<!-- checked-against: e7aedea8d6f3c7e0db3691ae -->
+<!-- checked-against: 499a444ed6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -30,8 +30,9 @@ Put programs in `tools/<runtime>/` at the app root, one folder per platform they
 | `tools/source/<name>/` | nothing: the source of a program of your own, published into the folders above, never shipped |
 
 `ikon deploy` puts `tools/linux-x64/` in the bundle, and the server puts it first on the app's
-`PATH`, so the app starts a program by name. A `lib/` folder inside it is on `LD_LIBRARY_PATH`, for
-every program the app's server starts. A binary or `#!` script keeps its execute bit; a symbolic link
+`PATH`, with a `bin/` folder inside it right after, so the app starts a program by name. A `lib/`
+folder inside it is on `LD_LIBRARY_PATH`, for every program the app's server starts, so a program
+laid out as `bin/` and `lib/` (a qpdf or ffmpeg build) runs as it was unpacked. A binary or `#!` script keeps its execute bit; a symbolic link
 is copied as the file or folder it points at. A link whose target does not exist on the machine
 running the deploy (an absolute link from a Linux tree unpacked on a Mac or Windows machine) is left
 out, and the deploy warns with `TOOLS_DANGLING_LINK` naming it. `ikon run` does the same with the
@@ -59,9 +60,14 @@ Nothing runs to fetch them: the tool downloads what `Url` names, refuses it unle
 `Sha256` (64 hex characters), and extracts it inside `tools/<Runtime>/` only, dropping `Strip` leading
 path components. An entry whose destination already holds what it fetched, by the marker the fetch
 leaves, is skipped, so a second run costs nothing; change `Sha256` to fetch again. Add the runtime
-folders to `.gitignore` (`/tools/linux-x64/`), not `tools/`, which would hide `tools/source/`. A
-zip cannot carry executable bits, and a tar.gz entry that is a link is skipped rather than
-followed; a program that needs its whole folder beside it gets a small launcher script there:
+folders to `.gitignore` (`/tools/linux-x64/`), not `tools/`, which would hide `tools/source/`. `Archive` reads only
+`zip` and `tar.gz`: a `.tar.xz` or `.tar.bz2` is refused, so pick a build published as one of
+those, or repack it and host the result. The common static Linux ffmpeg builds are `.tar.xz`;
+`https://ffmpeg.martin-riedl.de` publishes one zip per program with a `.sha256` file beside it. A
+zip cannot carry executable bits. A link in either archive is written as a copy of its target when
+the target is inside the archive, so a library's versioned names (`libqpdf.so.30` pointing at
+`libqpdf.so.30.0.0`) exist as files, and is left out when it points anywhere else. A program that
+needs its whole folder beside it gets a small launcher script there:
 
 ```sh
 #!/bin/sh
@@ -72,6 +78,23 @@ A program that loads plugins or reads a config folder (ImageMagick's `modules-*/
 `.la` files, and its XML config) ships those folders beside it too, and is started with the
 variables that point at them set: in such a launcher, relative to `$(dirname "$0")`, or through
 `ProcessStartInfo.Environment`.
+
+An AppImage, such as ImageMagick's Linux download, mounts itself with FUSE, which the server image
+lacks. Fetch it as one file and start it with `APPIMAGE_EXTRACT_AND_RUN=1` set, so it unpacks itself
+into the temp folder and runs from there instead:
+
+```toml
+[[Tools]]
+Runtime = "all"
+Url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-35/ImageMagick-7.1.2-35-gcc-x86_64.AppImage"
+Sha256 = "f111044ed06b68cfb478df724c5a32d35145afa21073242f888d234a2f8cc002"
+Archive = "none"
+Name = "magick"                      # started as Process.Start("magick")
+```
+
+Set the variable in `ProcessStartInfo.Environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"`, or in a
+launcher script that runs the AppImage under another name. Alternatively, unpack it once with
+`--appimage-extract` in a custom container's Dockerfile.
 
 The bundle, tools included, is limited to 512 MB.
 
@@ -103,8 +126,9 @@ RUN tar -xzf /tmp/renode.tar.gz -C /opt && rm /tmp/renode.tar.gz \
 The rules:
 
 - **The last stage starts `FROM ${IKON_BASE_IMAGE}`**, with `ARG IKON_BASE_IMAGE` before the first
-  `FROM`. The platform passes its server image there. Earlier stages may start from anything, so a
-  tool can be compiled in a `rust` or `golang` stage and copied across with `COPY --from`.
+  `FROM`. The platform passes its server image there. That image is Ubuntu 26.04 LTS, so `apt`
+  installs that release's packages. Earlier stages may start from anything, so a tool can be
+  compiled in a `rust` or `golang` stage and copied across with `COPY --from`.
 - **Use `USER root` for installing.** You do not need to switch back: the platform appends its own
   final lines, which run the app as uid 1000 with `HOME=/home/ikon`, remove set-user-id bits, and
   clear any `ENTRYPOINT` or `CMD` you set.

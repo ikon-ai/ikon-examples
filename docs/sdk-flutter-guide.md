@@ -1,4 +1,4 @@
-<!-- checked-against: bd3a9a70fd883e56e3b0c442 -->
+<!-- checked-against: 89dac5ed3f4f5ebbe3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -758,9 +758,15 @@ Register custom Flutter widgets for node types the server sends:
 <!-- ikon-example: flutter-sdk-custom-component -->
 ```dart
 final registry = IkonComponentRegistry();
-registry.register('my-custom-widget', (node, style, children, context) {
+registry.register('my-custom-widget', (UiNode node, ResolvedStyle style, List<Widget> children, IkonRenderContext context) {
   final data = node.props['data'] as String? ?? '';
-  return MyCustomWidget(data: data);
+  // The id of a view.CreateAction<string> the C# side passed as a prop. A String payload is sent
+  // as it is, anything else as JSON
+  final onTapId = node.props['onTap'] as String?;
+  return GestureDetector(
+    onTap: () => context.dispatchAction(onTapId, data),
+    child: MyCustomWidget(data: data),
+  );
 });
 
 // Use the custom registry

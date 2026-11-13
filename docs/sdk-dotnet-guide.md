@@ -1,4 +1,4 @@
-<!-- checked-against: 4fd61483fdb631028e2bf45f -->
+<!-- checked-against: b7ba45bcfdb631028e2bf45f -->
 
 # IKON C# SDK
 
@@ -366,7 +366,8 @@ public string RecordVisit(string key, string door)
 A program that should keep running while the app restarts (`ikon stop` and a new `ikon run`, a
 deploy, `ikon session stop`) must connect again itself: the client does not reconnect after the
 server stops. It reconnects by itself after a dropped connection, but when the server stops, it goes
-`Offline` and stays there. A loop at the end of the program connects it again:
+`Offline` and stays there. A loop at the end of the program connects it again whenever it is
+neither connected nor connecting (`IsDisconnected` is `Idle`, before the first connect, or `Offline`):
 
 <!-- ikon-example: sdk-console-stay-connected -->
 ```csharp
@@ -375,7 +376,7 @@ while (true)
 {
     await Task.Delay(TimeSpan.FromSeconds(15));
 
-    if (client.State != ConnectionState.Offline)
+    if (!client.State.IsDisconnected())
     {
         continue;
     }

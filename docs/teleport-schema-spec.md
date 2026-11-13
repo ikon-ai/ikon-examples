@@ -1,4 +1,4 @@
-<!-- checked-against: 714951b1402add6840bcedda -->
+<!-- checked-against: 877702f0aad40283ed68ee44 -->
 
 # Teleport message schema specification
 
@@ -217,8 +217,8 @@ The `[namespaces]` table is optional and may contain only the `csharp`, `typescr
 | `int32`, `int64`, `uint32`, `uint64`, `float32`, `float64`, `bool`, `string`, `binary`, `guid` | Primitive Teleport types                     |
 | `int`, `uint`, `long`, `ulong`, `float`, `double`, `number`, `boolean`, `bytes` | Accepted aliases for the sized primitives above (`int` → `int32`, `float` → `float32`, `double`/`number` → `float64`, `bytes` → `binary`) |
 | `TypeName`                                                                                     | Reference to another defined message or enum |
-| `TypeName[]`                                                                                   | Array of homogeneous elements                |
-| `{K:V}`                                                                                        | Dictionary from key type K to value type V; K must be a primitive type |
+| `TypeName[]`                                                                                   | Array of homogeneous elements; a `List<T>` in C#, so assign `.ToList()` (not `.ToArray()`) and read `.Count` |
+| `{K:V}`                                                                                        | Dictionary from key type K to value type V; K must be a primitive type; a `Dictionary<K, V>` in C# |
 | `string?`                                                                                      | Optional field                               |
 | `int32 = 16`                                                                                   | Default value                                |
 | `EnumType = Variant`                                                                           | Enum default                                 |

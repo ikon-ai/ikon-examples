@@ -1,4 +1,4 @@
-<!-- checked-against: b0408f6ecc937ced7d136c37 -->
+<!-- checked-against: b0408f6ecc937ced52a73877 -->
 
 # Asset System Developer Guide
 
