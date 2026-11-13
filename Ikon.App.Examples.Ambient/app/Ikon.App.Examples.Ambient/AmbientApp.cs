@@ -242,76 +242,69 @@ public class AmbientApp
             return;
         }
 
-        _isCreating.Value = true;
+        using var creating = _isCreating.AsToken();
 
-        try
+        var description = _createDescription.Value.Trim();
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var title = GenerateTitle(description);
+        var videoPrompt = GenerateVideoPrompt(description);
+        var audioPrompt = GenerateAudioPrompt(description);
+
+        var customExperience = new CustomExperienceData(
+            id,
+            title,
+            description,
+            videoPrompt,
+            audioPrompt,
+            DateTime.UtcNow);
+
+        var updated = _customExperiences.Value.ToList();
+        updated.Add(customExperience);
+        _customExperiences.Value = updated;
+        await SaveCustomExperiences();
+
+        _createDescription.Value = "";
+        _showCreateForm.Value = false;
+
+        var allExperiences = GetAllExperiences();
+        var newIndex = allExperiences.Count - 1;
+        var newExperience = allExperiences[newIndex];
+        _selectedIndex.Value = newIndex;
+        _currentVideoPrompt.Value = newExperience.VideoPrompt;
+        _isVideoLoading.Value = true;
+        _isAudioLoading.Value = true;
+        _videoError.Value = null;
+        _ = Task.Run(async () =>
         {
-            var description = _createDescription.Value.Trim();
-            var id = Guid.NewGuid().ToString("N")[..8];
-            var title = GenerateTitle(description);
-            var videoPrompt = GenerateVideoPrompt(description);
-            var audioPrompt = GenerateAudioPrompt(description);
-
-            var customExperience = new CustomExperienceData(
-                id,
-                title,
-                description,
-                videoPrompt,
-                audioPrompt,
-                DateTime.UtcNow);
-
-            var updated = _customExperiences.Value.ToList();
-            updated.Add(customExperience);
-            _customExperiences.Value = updated;
-            await SaveCustomExperiences();
-
-            _createDescription.Value = "";
-            _showCreateForm.Value = false;
-
-            var allExperiences = GetAllExperiences();
-            var newIndex = allExperiences.Count - 1;
-            var newExperience = allExperiences[newIndex];
-            _selectedIndex.Value = newIndex;
-            _currentVideoPrompt.Value = newExperience.VideoPrompt;
-            _isVideoLoading.Value = true;
-            _isAudioLoading.Value = true;
-            _videoError.Value = null;
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await GenerateVideoForExperience(newIndex, newExperience);
-                }
-                catch (Exception ex)
-                {
-                    Log.Instance.Error($"Failed to generate video for custom experience: {ex}");
-                    if (_selectedIndex.Value == newIndex)
-                    {
-                        _videoError.Value = $"Video generation failed: {ex.Message}";
-                        _isVideoLoading.Value = false;
-                    }
-                }
-            });
-            _ = Task.Run(async () =>
+                await GenerateVideoForExperience(newIndex, newExperience);
+            }
+            catch (Exception ex)
             {
-                try
+                Log.Instance.Error($"Failed to generate video for custom experience: {ex}");
+                if (_selectedIndex.Value == newIndex)
                 {
-                    await GenerateAudioForExperience(newIndex, newExperience);
+                    _videoError.Value = $"Video generation failed: {ex.Message}";
+                    _isVideoLoading.Value = false;
                 }
-                catch (Exception ex)
-                {
-                    Log.Instance.Error($"Failed to generate audio for custom experience: {ex}");
-                    if (_selectedIndex.Value == newIndex)
-                    {
-                        _isAudioLoading.Value = false;
-                    }
-                }
-            });
-        }
-        finally
+            }
+        });
+        _ = Task.Run(async () =>
         {
-            _isCreating.Value = false;
-        }
+            try
+            {
+                await GenerateAudioForExperience(newIndex, newExperience);
+            }
+            catch (Exception ex)
+            {
+                Log.Instance.Error($"Failed to generate audio for custom experience: {ex}");
+                if (_selectedIndex.Value == newIndex)
+                {
+                    _isAudioLoading.Value = false;
+                }
+            }
+        });
     }
 
     private async Task DeleteCustomExperience(string customId)
