@@ -227,7 +227,7 @@ public partial class Kahoot
                               Generate a fresh, unique question that differs from all previous ones.
                               """;
 
-            var result = await Emerge.Run<GeneratedKahootQuestion>(LLMModel.Gemini25Flash, pass =>
+            var result = await Emerge.Run<GeneratedKahootQuestion>(LLMModel.Gemini38Flash, pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.8f;

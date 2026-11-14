@@ -22,8 +22,8 @@ A deployed instance has 1 CPU, 256 MB by default (larger shapes: `scaling`); its
 
 ## Running and checking the app
 
-`ikon run --format text` blocks. `ikon run --detach` returns ready or still starting.
-Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
+`ikon run --format text` blocks.
+Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` (returns ready or still starting) on `run`, `link`
 and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. `ikon build` type-checks
 the frontend too, also while a run is live. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
@@ -65,7 +65,7 @@ Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages sen
 
 ## The ikon tool's commands
 
-`ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`.
+`ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`; `ikon ai` calls AI models.
 Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
 On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`
 (`ikon-config.development.toml` on development),
