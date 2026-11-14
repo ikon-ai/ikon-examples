@@ -91,15 +91,15 @@ IKON applications get these compliance-related properties from the platform, wit
 
 **Audit trails.** Every significant action is recorded through structured logging, session-level logs for each user connection, and analytics streaming for long-term retention. Policy decisions, approval outcomes and rate limit events are all recorded. The app developer does not add logging code.
 
-**Credential management.** All secrets are kept in a secure credential store and rotated automatically every 300 seconds. Each service has its own service account. No credentials are stored in environment variables, configuration files or application code.
+**Credential management.** Platform secrets are kept in a managed secret store, and each service reads them with its own service account. No credentials are stored in application code or sent to clients.
 
-These properties align with GDPR, SOC 2 and ISO 27001 requirements because the architecture was designed this way from the start, not because someone mapped controls to a compliance checklist.
+These properties cover controls that GDPR, SOC 2 and ISO 27001 ask for, and they come from how the architecture was designed. IKON does not yet hold a SOC 2 report or an ISO 27001 certificate. We are working toward both.
 
 ## The security review
 
 When an enterprise security team evaluates an IKON application, the conversation is different from what they are used to.
 
-*Where are API keys stored?* In the platform's credential store. They are rotated every 300 seconds and never exposed to application code or clients.
+*Where are API keys stored?* In the platform's secret store. They are never sent to clients.
 
 *What does the client have access to?* Rendering instructions delivered over an encrypted binary protocol. It has no business logic, no credentials and no API access.
 

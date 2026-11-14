@@ -1,4 +1,4 @@
-<!-- checked-against: 499a444ed6f3c7e0db3691ae -->
+<!-- checked-against: acdad635d6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -126,7 +126,7 @@ RUN tar -xzf /tmp/renode.tar.gz -C /opt && rm /tmp/renode.tar.gz \
 The rules:
 
 - **The last stage starts `FROM ${IKON_BASE_IMAGE}`**, with `ARG IKON_BASE_IMAGE` before the first
-  `FROM`. The platform passes its server image there. That image is Ubuntu 26.04 LTS, so `apt`
+  `FROM`. The platform passes its server image there. That image is Debian 13 (trixie), so `apt`
   installs that release's packages. Earlier stages may start from anything, so a tool can be
   compiled in a `rust` or `golang` stage and copied across with `COPY --from`.
 - **Use `USER root` for installing.** You do not need to switch back: the platform appends its own

@@ -1,4 +1,4 @@
-<!-- checked-against: 7dff75886ad495e5e0a348a6 -->
+<!-- checked-against: 6d8934dc792a2303e0a348a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -216,6 +216,8 @@ The `EmergePass<T>` configure callback is invoked before every iteration, on the
   generation's reasoning uses up `MaxOutputTokens` before it writes anything, it is retried once, as
   one of those retries, with less reasoning and the cap doubled (at most 64000).
   `MaxRetries = 0` turns every retry off, so no request asks for more than `MaxOutputTokens`.
+  When the provider is overloaded (a 503 or 529, or Anthropic's `overloaded_error`) and `RetryDelay`
+  is null, the retries wait 10 s, then 20 s, then 30 s, at most a minute in all, before the run throws.
 - `Tools` - Available tools (see [Tool Registration](#tool-registration))
 
 ---
@@ -616,7 +618,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `MaxInvalidJsonReplies` | `int?` | Consecutive unparseable JSON replies before stopping with `InvalidJson` (default 3) |
 | `MaxWallTime` | `TimeSpan?` | Max wall clock time |
 | `MaxRetries` | `int?` | Max retries on transient failures |
-| `RetryDelay` | `TimeSpan?` | Base of the exponential backoff: retry n waits `RetryDelay * 2^(n-1)` (default 2 seconds), or a provider's longer Retry-After, which is capped at 2 minutes (the backoff itself has no cap) |
+| `RetryDelay` | `TimeSpan?` | Base of the exponential backoff: retry n waits `RetryDelay * 2^(n-1)` (default 2 seconds), or a provider's longer Retry-After, which is capped at 2 minutes (the backoff itself has no cap). Left null, an overloaded provider's retries start at 10 seconds and stop after a minute in all |
 | `SystemPrompt` | `string?` | System instruction |
 | `Command` | `string?` | User command |
 | `Tools` | `IList<Function>` | Available tools |

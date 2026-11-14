@@ -1,4 +1,4 @@
-<!-- checked-against: a5bf507a41e66e54ab2cdd65 -->
+<!-- checked-against: 70882296a03ca5fa507d5ea2 -->
 
 # Ikon.AI Library Overview
 
@@ -144,7 +144,7 @@ show what is left.
 A model the providers are withdrawing is deprecated first: it runs until the day it retires, and the
 first service the app constructs for it logs a warning naming that day and the model to move to, such
 as `Model X retires on 2026-12-01; move to Y`. The administrators of organisations that call it are
-told by email and in Studio's inbox, and `ikon model list` and Studio's Models page show it. From
+told by email and in Studio's inbox, and `ikon model list`, `ikon model show` and Studio's Models page show it. From
 00:00 UTC on that day the model is retired. Neither the app nor the platform needs a new release for
 that.
 
@@ -1066,6 +1066,8 @@ unless `InterimResults` asks for them:
 
 <!-- ikon-example: ai-timestamps-speakers-and-confidence-2 -->
 ```csharp
+using var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.DeepgramNova3General);
+
 var config = new RecognizeContinuousSpeechConfig
 {
     SampleRate = 16000,
@@ -1115,6 +1117,7 @@ fluent-looking nonsense rather than an error.
 
 <!-- ikon-example: ai-turn-taking -->
 ```csharp
+using var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.AzureSpeechService);
 var capabilities = SpeechRecognizer.GetCapabilities(SpeechRecognizerModel.AzureSpeechService);
 
 var turnDetection = capabilities.TurnDetection.HasFlag(SpeechTurnDetection.Semantic)

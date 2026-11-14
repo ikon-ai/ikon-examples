@@ -1,4 +1,4 @@
-<!-- checked-against: 4c4d823789a7581e85bba6ea -->
+<!-- checked-against: 112dd1c289a7581e85bba6ea -->
 
 # IKON Pipeline Guide
 
@@ -644,7 +644,7 @@ small page) and preserves aspect ratio, the other renders at an exact size. Both
 `[ExposePipeline(typeof(MyPipeline))]` publishes a pipeline that lives in a framework assembly as
 one of your app's own — put it on the `[App]` class, or on an empty marker class, once per pipeline.
 `name:` overrides the name in the endpoint URL, and `executionMode:` and `schedule:` override what
-the original `[Pipeline]` declared (the same five-minute minimum interval applies).
+the original `[Pipeline]` declared (a schedule runs at most once an hour; a faster one is slowed to hourly).
 
 ### From an IKON app project
 
