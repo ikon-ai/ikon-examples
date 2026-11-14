@@ -86,7 +86,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _summary = new("");
     private readonly Reactive<bool> _summaryExtracting = new(false);
     private readonly Reactive<bool> _summaryEnabled = new(true);
-    private readonly Reactive<LLMModel> _summaryModel = new(LLMModel.Gemini25Pro);
+    private readonly Reactive<LLMModel> _summaryModel = new(LLMModel.Gemini31Pro);
     private readonly ClientReactive<string> _settingsTab = new("audio");
 
     // Track what has been sent to LLM for summary extraction (using reactive versions since lists can be capped)

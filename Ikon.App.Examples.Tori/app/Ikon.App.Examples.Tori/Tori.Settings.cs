@@ -34,9 +34,8 @@ public partial class Tori
     [
         new("Gpt5", "GPT-5"),
         new("Gpt5Mini", "GPT-5 Mini"),
-        new("Gemini25Flash", "Gemini 2.5 Flash"),
-        new("Gemini25Pro", "Gemini 2.5 Pro"),
         new("Gemini3Flash", "Gemini 3 Flash"),
+        new("Gemini38Flash", "Gemini 3.8 Flash"),
         new("Gemini31Pro", "Gemini 3.1 Pro"),
         new("Claude45Sonnet", "Claude 4.5 Sonnet")
     ];
