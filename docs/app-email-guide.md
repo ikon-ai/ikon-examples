@@ -1,4 +1,4 @@
-<!-- checked-against: 80709301d5c2d263cdd04676 -->
+<!-- checked-against: 23c3141ad5c2d263cdd04676 -->
 
 # Ikon.App.Email Guide
 
@@ -296,7 +296,7 @@ Start the test message's subject with a marker of your own, such as `[self-test]
 the app's own address through only when its subject starts with that marker. An automatic reply's
 subject starts with `Re:`, so the handler still skips it.
 
-The ikon tool sends the same test message without code: `ikon inbox send --subject "[self-test] Lost umbrella" --text "…" --attach photo.jpg`
+The IKON tool sends the same test message without code: `ikon inbox send --subject "[self-test] Lost umbrella" --text "…" --attach photo.jpg`
 sends it to `test@` at the app's own hostname (`--to` names another address at a receiving domain, and no
 other), as the app's own sent mail. `ikon inbox list` shows it once it arrives, and
 `ikon inbox delete <id>`, or `--all`, removes test mail from the inbox.

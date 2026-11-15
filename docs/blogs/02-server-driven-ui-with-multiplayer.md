@@ -18,7 +18,7 @@ When AI generates content, such as an analysis, a visualization, or a piece of c
 
 Rendering on the server makes the technical stack simpler. It also means one person can build applications that previously required separate frontend, backend, and infrastructure teams.
 
-**Build real-time collaborative AI apps without real-time expertise.** The video conferencing app above was built by one developer, who wrote no WebSocket code, no pub/sub configuration, and no client-side state synchronization. IKON's reactive values handled all of it.
+**Build real-time collaborative apps without real-time expertise.** The video conferencing app above was built by one developer, who wrote no WebSocket code, no pub/sub configuration, and no client-side state synchronization. IKON's reactive values handled all of it.
 
 **One person can build what would otherwise take a team.** Consider what it takes to build an animated AI character with lip-synced speech, reactive facial expressions, and the ability to switch between different AI models mid-conversation. On a traditional stack, you'd need a frontend engineer for the character rendering, a backend engineer for the AI orchestration, real-time infrastructure for communication, and media handling for audio streaming. On IKON, one person builds the entire thing as a single project.
 

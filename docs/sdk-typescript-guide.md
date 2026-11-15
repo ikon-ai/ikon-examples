@@ -1,4 +1,4 @@
-<!-- checked-against: e78fa4412b09c7a3e3b0c442 -->
+<!-- checked-against: 897b11452ec5a7cfe3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -37,9 +37,17 @@ npm install @ikonai/sdk-ui
 
 ### In Node.js
 
-WebRTC and Web Workers exist only in a browser. In Node the SDK receives audio and video over its
-protocol channels and does not decode them, which does not affect a program that sends and receives
-messages or calls functions. `@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
+WebRTC and Web Workers exist only in a browser. In Node the SDK carries audio and video over its
+protocol channels, and a program sends and receives them as frames through `client.rawMedia` (see
+"Audio and Video Without a Page" below). A Node program has no page to report, so it tells the app
+its viewport, theme, timezone and visibility with `client.sendUpdateClientContext(...)`. A value a
+later update leaves out keeps the one sent before. The program tells the app the path it shows with
+`client.setPath('/room/7')`. Both are sent again when the client joins again. A Node program uploads
+a file with `uploadFile` and a `File` made from a `Buffer` (`new File([buffer], 'report.pdf')`) or
+`fs.openAsBlob(path)`. The upload action id is the `uploadActionId` prop of the app's file upload
+node in the UI tree (see "UI State Management"). `rawMedia`, `setPath` and keeping the values an
+update leaves out need `@ikonai/sdk` 1.19 or later.
+`@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
 stack trace and a retry every 10 seconds; `webRtc: { enabled: false }` in the configuration stops
 that (those versions have no `media` option), and `setLogLevel(LogLevel.WARN)` hides the info lines.
 
@@ -425,6 +433,30 @@ const unsubscribe = client.subscribeToState((state) => {
 unsubscribe();
 ```
 
+### Other Clients
+
+The peer events say who else is in the session, each with the other client's `Context`
+(`SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and
+visibility). On joining, `onPeerJoined` is called once for each client already there, and the app
+might not answer a new client before its `onPeerReady`. None of them is called about this client itself.
+Needs `@ikonai/sdk` 1.19 or later.
+
+<!-- ikon-example: ts-sdk-peer-events -->
+```ts
+// The other clients in the session, and the app itself (ContextType.Server). Each returns an unsubscribe function.
+const unsubscribers = [
+  client.onPeerJoined((peer) => console.log(`${peer.SessionId} joined as ${peer.ContextType}`)),
+  client.onPeerReady((peer) => console.log(`${peer.SessionId} is ready, user ${peer.UserId}`)),
+  client.onPeerUpdated((peer) => console.log(`${peer.SessionId} now uses the ${peer.Theme} theme`)),
+  client.onPeerLeft((peer) => console.log(`${peer.SessionId} left`)),
+];
+
+// Later: stop listening
+for (const unsubscribe of unsubscribers) {
+  unsubscribe();
+}
+```
+
 ### Sending Messages
 
 <!-- ikon-example: ts-sdk-send-messages -->
@@ -547,6 +579,40 @@ client.functionRegistry.register(
 );
 ```
 
+### Streaming Results to the App
+
+A function registered with `isEnumerable: true` returns an async iterable (an `async function*`) or
+an iterable, and the app reads its items as they are yielded, as from a C# `IAsyncEnumerable<T>`.
+The app calls the function with `CallAsyncEnumerable`, naming this client's session as the target.
+`returnType` describes one item. Items ready together go out in one message of up to 50, and an
+item followed by a pause goes out within 100 ms. When the app stops reading, the iteration stops.
+The generator returns at its next `yield`, so its `finally` runs. A function not registered with
+`isEnumerable` that returns an async iterable fails the call with
+`Function <name> returned a stream; register it with isEnumerable: true`. Needs `@ikonai/sdk` 1.19
+or later.
+
+<!-- ikon-example: ts-sdk-streaming-function -->
+```ts
+const readingsDefinition: FunctionDefinition = {
+  name: 'readTemperatures',
+  description: 'Reads the temperature count times',
+  isEnumerable: true,
+  returnType: { kind: 'number' }, // the type of one item
+  parameters: [{ name: 'count', type: { kind: 'number' } }],
+};
+
+client.functionRegistry.register(readingsDefinition, async function* (count) {
+  try {
+    for (let i = 0; i < (count as number); i++) {
+      yield await readTemperature();
+    }
+  } finally {
+    // Runs when the stream ends, fails or is cancelled by the app
+    console.log('Stopped reading');
+  }
+});
+```
+
 ### Remote Function Calling
 
 Call functions the app server registers (another browser client's functions are not reachable).
@@ -557,9 +623,11 @@ sent ClientReady and goes out then, in the order the calls were made. Earlier th
 in the list of functions the app sends on that join, after waiting up to 10 seconds for the list,
 so a name the list does not have fails with `Remote function not found`, and so does a function
 the app no longer has after a reconnect into a new session. The wait counts against the call's
-30-second timeout; a call that could not be sent in time fails with
-`Function call '<name>' timed out after 30000ms: the client was not connected`. At most 4096 calls
-wait, and later ones fail at once.
+timeout, which is 30 seconds unless the call's `timeoutMs` option sets another (0 for none). A call
+that could not be sent in time fails with
+`Function call '<name>' timed out after 30000ms: the client was not connected`, and one sent but
+not answered in time fails with `Function call '<name>' timed out after 30000ms` and is cancelled on
+the app. At most 4096 calls wait, and later ones fail at once.
 A call fails at once with `Not connected` when the client is not trying to connect: before
 `connect()`, after `disconnect()`, after the server stopped, or when the reconnect has given up.
 A waiting call fails the same way when the client reaches one of those states. A call already sent when the
@@ -587,7 +655,7 @@ console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
 const func = client.functionRegistry.getRemoteFunction('remoteGreet');
 
 // Handle remote call errors. Only a remote failure or an unparseable result is a FunctionCallError; not
-// connected, an unknown name, a missing instanceId, the fixed 30 s timeout and a disconnect reject with a plain Error.
+// connected, an unknown name, a missing instanceId, the timeout and a disconnect reject with a plain Error.
 try {
   await client.functionRegistry.call('riskyOperation');
 } catch (error) {
@@ -596,6 +664,42 @@ try {
     console.error(`Stack trace: ${error.remoteStackTrace}`);
   }
 }
+```
+
+### Streaming and Cancelling Calls
+
+A function the app declares as returning `IAsyncEnumerable<T>` streams its results: call it with
+`callStream`, whose loop gets each item as the app yields it (`RemoteFunction.isEnumerable` says
+which functions do). `call` on such a function fails at once with
+`Function '<name>' streams its results; call it with callStream()`, and `callStream` on any other
+with `Function '<name>' returns one result; call it with call()`. Leaving the loop early cancels the
+call on the app. Both take a `signal` (an `AbortSignal`) and a `timeoutMs`. Aborting the signal
+fails the call with the signal's reason and cancels it on the app. For `callStream`, `timeoutMs`
+limits the wait for each next item, 30 seconds by default, and a stream that waits longer throws
+`Function call '<name>' timed out after 30000ms waiting for its next item`. A byte array item
+arrives as a `Uint8Array`, any other as its parsed JSON. Items the loop has not read yet are kept,
+up to 4096, after which the call is cancelled. Needs `@ikonai/sdk` 1.19 or later; earlier, a call
+to a streaming function times out after 30 seconds.
+
+<!-- ikon-example: ts-sdk-streaming-call -->
+```ts
+// A C# function returning IAsyncEnumerable<int>: each item arrives as the app yields it
+for await (const value of client.callStream<number>('count_to', [5])) {
+  console.log(value);
+}
+
+// Leaving the loop early cancels the call on the app
+for await (const value of client.callStream<number>('count_to', [1000])) {
+  if (value === 3) {
+    break;
+  }
+}
+
+// An AbortSignal cancels either kind of call; timeoutMs bounds a call (0: no limit), and for a
+// stream the wait for each next item
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 5000);
+const report = await client.call<string>('build_report', [], { signal: controller.signal, timeoutMs: 120_000 });
 ```
 
 ### Subscribing to App State
@@ -761,6 +865,45 @@ const stream = client.getWebRtcVideoStreamByStreamId('my-stream-id');
 const stopListening = client.addWebRtcTrackMapListener((info) => {
   console.log(`Track ${info.kind}:${info.trackIndex} active=${info.active}`);
 });
+```
+
+### Audio and Video Without a Page
+
+A program without a page (Node) has no microphone, camera, playback or WebRTC, so it sends and
+receives media as frames through `client.rawMedia` (`@ikonai/sdk` 1.19 or later). A client's media
+reaches only the app. `sendAudio` encodes PCM to Opus (it needs `@ikonai/sdk-libopus`) at 8, 12, 16,
+24 or 48 kHz in 20 ms frames. Samples that do not fill a frame wait for the next call, and `isLast`
+pads the last frame. `sendOpusFrame` sends a frame already encoded. The app's speech recognition
+skips audio without a `correlationId`, so give one to audio meant for it. `sendVideoFrame` sends one encoded frame, announcing the
+stream first and again when its size, codec, source type, correlation id or frame rate changes; the
+SDK does not encode video. A reconnect into a new session announces every stream again before its
+next frame. Sending throws when the client is not connected. Received streams are named
+`"{senderId}_{trackId}"`, and `senderStreamId` is the id the sender gave; `requestVideoKeyFrame`
+takes the received id. A dropped connection ends every received stream, and the app begins those
+still open again when the client rejoins.
+
+<!-- ikon-example: ts-sdk-raw-media -->
+```ts
+// Send PCM (interleaved floats in -1..1), encoded to Opus 20 ms frames; isFirst/isLast mark a segment
+await client.rawMedia.sendAudio(pcm, { streamId: 'mic', sampleRate: 48000, channels: 1, isFirst: true, isLast: true, correlationId: 'press-1' });
+
+// Send video frames already encoded (H.264 in Annex B form, VP8, VP9 or AV1); a keyframe first
+encodedFrames.forEach((data, i) => {
+  client.rawMedia.sendVideoFrame('camera', { data, isKey: i === 0, timestampUs: i * 33_333, codec: 'h264', width: 640, height: 480 });
+});
+
+// The app asks for a keyframe when it joins a stream mid-way or loses a frame
+client.rawMedia.onVideoKeyFrameRequested(({ streamId }) => {
+  client.rawMedia.sendVideoFrame(streamId, { data: keyFrame, isKey: true, timestampUs: 0, codec: 'h264', width: 640, height: 480 });
+});
+
+// Receive the app's audio, decoded, and its video as encoded frames. A stream's id is "{senderId}_{trackId}"
+client.rawMedia.onAudioFrame((frame) => console.log(`${frame.streamId}: ${frame.samples?.length} samples`), { decode: true });
+client.rawMedia.onVideoStreamBegin((info) => console.log(`${info.streamId} (${info.senderStreamId}): ${info.codec} ${info.width}x${info.height}`));
+client.rawMedia.onVideoFrame((frame) => console.log(`${frame.streamId}: ${frame.data.length} bytes, key ${frame.isKey}`));
+
+client.rawMedia.endVideoStream('camera');
+client.rawMedia.endAudioStream('mic');
 ```
 
 ## UI State Management (sdk-ui)
@@ -1134,6 +1277,8 @@ const client = new IkonClient({
 | `ConnectionState` | Union type. Live states: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `connectingSlow`, `offlineError` |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
 | `GlobalState` | Server state received after connection |
+| `Context` | A client as the server describes it, which the peer events carry |
+| `PeerListener` | The callback of `onPeerJoined`, `onPeerReady`, `onPeerUpdated` and `onPeerLeft` |
 
 ### Configuration Types
 
@@ -1155,11 +1300,13 @@ const client = new IkonClient({
 | Type | Description |
 |------|-------------|
 | `FunctionRegistry` | Central registry for function registration |
-| `FunctionDefinition` | Function metadata (name, parameters, return type) |
+| `FunctionDefinition` | Function metadata (name, parameters, return type, `isEnumerable` for one that streams its results) |
 | `FunctionHandler` | Handler callback type |
 | `ValueDescriptor` | Type descriptor for parameters/returns |
 | `FunctionResultWithData` | Result type with binary data attachment |
 | `FunctionCallError` | Error from remote function call with `remoteErrorType` and `remoteStackTrace` |
+| `FunctionCallOptions` | `instanceId`, `signal` and `timeoutMs` of one `call` or `callStream` |
+| `RemoteFunction` | An app function the client can call, with `isEnumerable` for a streaming one |
 
 ### UI Types (sdk-ui)
 
@@ -1183,6 +1330,7 @@ const client = new IkonClient({
 | `IkonAudioCapture` | Audio capture pipeline |
 | `IkonVideoCapture` | Video capture pipeline |
 | `IkonImageCapture` | Image capture pipeline |
+| `RawMedia` | Audio and video as frames for a program without a page (`client.rawMedia`) |
 
 ### Error Types
 

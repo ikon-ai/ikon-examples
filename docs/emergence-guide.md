@@ -1,4 +1,4 @@
-<!-- checked-against: 6d8934dc792a2303e0a348a6 -->
+<!-- checked-against: 2075ff74792a2303e0a348a6 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -228,7 +228,7 @@ Run N independent attempts (sequentially, one after another) and select the best
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.Count = 5;
     opt.Command = "Solve this problem step by step.";
@@ -263,7 +263,7 @@ var rubric = new ScoreBreakdownBuilder<Answer>()
     .Metric("correctness", 3, a => a.Correctness)
     .Metric("brevity", 1, a => a.Brevity);
 
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.Command = "Solve this problem step by step.";
     opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
@@ -288,7 +288,7 @@ Split input into chunks, process each in parallel, then reduce to a final result
 
 <!-- ikon-example: emergence-mapreduce -->
 ```csharp
-var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
+var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.Chunks = documents;
     opt.MaxParallel = 8;
@@ -324,7 +324,7 @@ Generate an initial result, then iteratively improve it based on feedback.
 
 <!-- ikon-example: emergence-refine -->
 ```csharp
-var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -360,7 +360,7 @@ progress line on screen, then:
 
 <!-- ikon-example: emergence-refine-rounds -->
 ```csharp
-await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.MaxRefinements = 3;
     opt.Initial(s => s.Command = "Write initial implementation of the feature.");
@@ -444,7 +444,7 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentC
 }
 
 // Step 2: Search the tree
-TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
+TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";

@@ -1,4 +1,4 @@
-<!-- checked-against: b7ba45bcfdb631028e2bf45f -->
+<!-- checked-against: 0b5e7ab7b88bf77befec6cdc -->
 
 # IKON C# SDK
 
@@ -10,6 +10,11 @@ The IKON C# SDK connects any .NET application to an IKON app. It supports .NET 1
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
+- Video streaming of encoded frames (H.264, VP8, VP9) both ways, with keyframe requests
+- Audio shape frames (visemes) and playback reports
+- File upload through an app's upload control, resumed across reconnects
+- Client context and path updates, as a browser reports them
+- The app's UI as a tree of nodes, kept up to date, with the actions its controls call
 - Function registration and remote invocation
 - Low-level protocol message access
 
@@ -56,11 +61,8 @@ client.MessageReceivedAsync += async e =>
 await client.ConnectAsync();
 ```
 
-`ContextType` defaults to `ContextType.Plugin` — a headless backend component that
-receives no UI and gets no per-connection `ClientScope`. That is correct for a bot or
-service, but an interactive player client that expects to render UI or hold client state
-must set `ContextType = ContextType.Native` (or `Browser`); otherwise it connects with no
-error yet never receives a `ClientScope`.
+`ContextType` defaults to `ContextType.Plugin`, for a program. A client a person uses sets
+`ContextType.Native` (or `Browser`). Either gets the app's UI and its own client state.
 
 ## Transports
 
@@ -479,6 +481,20 @@ right after ready, in order. At most 4096 messages are held per join; later ones
 warning. Audio and video sent then are dropped, and held messages are discarded if the connection
 drops before ready.
 
+### Other Clients
+
+The peer events say who else is in the session. On joining, `PeerJoinedAsync` is raised once for each
+client already there. None of them is raised about this client itself.
+
+<!-- ikon-example: sdk-peer-events -->
+```csharp
+// The other clients in the session, and the app itself (ContextType.Server)
+client.PeerJoinedAsync += async e => Console.WriteLine($"{e.Peer.SessionId} joined as {e.Peer.ContextType}");
+client.PeerReadyAsync += async e => Console.WriteLine($"{e.Peer.SessionId} is ready, user {e.Peer.UserId}");
+client.PeerUpdatedAsync += async e => Console.WriteLine($"{e.Peer.SessionId} now uses the {e.Peer.Theme} theme");
+client.PeerLeftAsync += async e => Console.WriteLine($"{e.Peer.SessionId} left");
+```
+
 ### Connecting and Disconnecting
 
 <!-- ikon-example: sdk-lifecycle -->
@@ -510,6 +526,8 @@ When the platform no longer accepts the client, `ConnectAsync` throws, and the S
 | `AppUpgradeRequiredException` | The IKON libraries the app's deployed bundle was built on | The app's developer runs `ikon update` and deploys again |
 
 Both are `HttpRequestException`s carrying 426. `Reason` is the platform's message and `Minimum` the oldest version it accepts. A reconnect that meets either one stops and raises `ErrorOccurredAsync` with it.
+
+When the app's server fails to start, `ConnectAsync` throws an `AppSessionNotRunningException`. Its `AppSessionId` names the session whose log says why.
 
 ### Automatic Reconnection
 
@@ -649,11 +667,16 @@ await client.SendAudioAsync(
 // Send final chunk
 await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
 
-// Optional: specify stream ID, total duration, encoder options, and target clients.
+// An app's speech recognition skips a stream with no correlation id unless the app turned
+// that off. Pass the id the app gave for the capture, or any id of your own. When a new
+// segment uses another id, the SDK announces the stream again with that id
+await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: true, isLast: true, correlationId: "question-1");
+
+// Optional: specify stream ID, total duration and encoder options.
 // A stream's sample rate and channel count are fixed by its first send, and every call
 // without a streamId shares one stream, so audio in another format needs its own streamId
 await client.SendAudioAsync(
-    MediaTargets.To(123, 456),                // Target specific session IDs
+    MediaTargets.Everyone,                    // A client's audio reaches the app
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -729,6 +752,195 @@ client.AudioInputStreamBeginAsync += async e =>
     e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
 };
 ```
+
+### Shape Frames and Playback Reports
+
+An app that animates a speaking avatar sends shape values (visemes) with its audio, and reads how
+far each client has played it. Both are tied to the audio stream's id:
+
+<!-- ikon-example: sdk-audio-shapes -->
+```csharp
+client.AudioShapeFrameAsync += async e =>
+{
+    // Values the app analysed from its speech, such as visemes, for the audio of the same
+    // stream; Timestamp is from the start of the segment
+    foreach (var set in e.Sets)
+    {
+        for (int i = 0; i < set.Values.Count; i++)
+        {
+            Console.WriteLine($"{e.StreamId} at {e.Timestamp}: {set.Name}.{set.ShapeNames.ElementAtOrDefault(i)} = {set.Values[i]}");
+        }
+    }
+};
+
+// A program that plays the audio tells the app how far it got, about every 500 ms and at once
+// when it stops being audible, so the app can pace what it says to what was heard
+await client.SendAudioPlaybackReportAsync(streamId, played: TimeSpan.FromSeconds(1.5), buffered: TimeSpan.FromMilliseconds(120));
+await client.SendAudioPlaybackReportAsync(streamId, played: null, buffered: TimeSpan.Zero, AudioPlaybackState.Blocked);
+```
+
+## Video
+
+The SDK sends and receives encoded video frames. It does not encode or decode them. A client's video
+reaches the app, which gets it as a `VideoInput` (`Video.InputStartedAsync`). The app's own video sent
+to this client arrives through the events below.
+
+### Sending Video
+
+Send each frame as you encode it. The first frame of a stream announces it, and a frame in another
+size or codec announces it again. Send a keyframe first and whenever `VideoKeyFrameRequestedAsync`
+fires, because the app shows nothing until it has one.
+
+<!-- ikon-example: sdk-send-video -->
+```csharp
+// The SDK sends frames you have already encoded (H.264 in Annex B form, VP8 or VP9); it
+// does not encode. The app gets the stream as a VideoInput: "camera" makes its Kind Camera
+var keyFrameRequested = true;
+client.VideoKeyFrameRequestedAsync += async e => keyFrameRequested = true;
+
+for (int frameNumber = 0; frameNumber < 300; frameNumber++)
+{
+    // Start with a keyframe, and send one whenever the app asks for it
+    var (data, isKey) = EncodeNextFrame(forceKeyFrame: keyFrameRequested);
+    keyFrameRequested = false;
+
+    await client.SendVideoFrameAsync(
+        MediaTargets.Everyone,                // A client's video reaches the app
+        streamId: "camera-1",
+        data: data,
+        isKey: isKey,
+        timestamp: TimeSpan.FromSeconds(frameNumber / 30.0),
+        codec: VideoCodec.H264,
+        width: 1280,
+        height: 720,
+        correlationId: "capture-1");          // Ties the stream to the app's capture
+}
+
+await client.EndVideoStreamAsync("camera-1");
+```
+
+### Receiving Video
+
+<!-- ikon-example: sdk-receive-video -->
+```csharp
+client.VideoInputStreamBeginAsync += async e =>
+{
+    // Raised again when the sender changes the codec or size; reconfigure the decoder then
+    Console.WriteLine($"Video stream {e.StreamId} ({e.SenderStreamId}): {e.Codec} {e.Width}x{e.Height}");
+};
+
+client.VideoInputFrameAsync += async e =>
+{
+    // e.Data is one encoded frame; decode it with a decoder of your own
+    Console.WriteLine($"Frame {e.FrameNumber} of {e.StreamId}: {e.Data.Length} bytes, key: {e.IsKey}");
+};
+
+client.VideoInputStreamEndAsync += async e => Console.WriteLine($"Video stream ended: {e.StreamId}");
+
+// A decoder that lost a frame or joined late asks the sender for a keyframe:
+// await client.RequestVideoKeyFrameAsync(streamId);
+```
+
+## Client Context
+
+A browser tells the app its viewport, theme, timezone and whether the page is shown, and which path
+it is on. A program that stands in for a browser, or that drives an app's pages, reports the same:
+
+<!-- ikon-example: sdk-client-context -->
+```csharp
+// What a browser reports about itself. A call names only what changed; the SDK
+// sends the other values again, because the app's copy is replaced on each update
+await client.UpdateClientContextAsync(viewportWidth: 390, viewportHeight: 844, theme: "dark", timezone: "Europe/Helsinki", visibility: "visible");
+await client.UpdateClientContextAsync(theme: "light");
+
+// Move to another page of the app, as a browser does when it navigates
+await client.SetPathAsync("/room/7");
+```
+
+The app reads them from the client's context (`app.GlobalState.GetClientContext(sessionId)`) and its
+`Navigation.CurrentPath`, and its client-updated and `Navigation.PathChangedAsync` handlers run.
+
+## File Upload
+
+A program uploads a file through an upload control of the app, as a person dropping a file on it
+does. The SDK hashes the file, sends it in chunks sized to the link, and resumes on the next
+connection when one drops mid-upload.
+
+<!-- ikon-example: sdk-upload-file -->
+```csharp
+// The app's upload control (view.FileUpload or view.FileUploadZone) carries the id
+// in the uploadActionId prop of its node in the UI tree
+await using var file = File.OpenRead("report.pdf");
+
+try
+{
+    var result = await client.UploadFileAsync(
+        uploadActionId,
+        file,                                 // Readable and seekable
+        fileName: "report.pdf",
+        mimeType: "application/pdf",
+        progress: new System.Progress<IkonClient.UploadProgress>(p => Console.WriteLine($"{p.AcknowledgedBytes}/{p.TotalBytes}")));
+
+    // Returns once the app's onUploadComplete has run
+    Console.WriteLine($"Uploaded {result.Size} bytes, SHA-256 {result.Hash}");
+}
+catch (UploadFailedException ex)
+{
+    // The app refused it, or it failed; Retriable says whether sending it again can help
+    Console.WriteLine($"Upload {ex.UploadId} failed: {ex.Message} (retriable: {ex.Retriable})");
+}
+```
+
+The app's upload hooks run as for a browser upload (`onUploadPreStart`, `onUploadStart`,
+`onUploadComplete`), with the program's client as the uploader. At most 8 uploads of one client run at
+once; later calls wait for one to finish.
+
+## UI
+
+An app's UI reaches the SDK as it reaches a browser: one tree of nodes per stream, which the SDK
+keeps up to date from the app's changes. The SDK draws nothing. A program reads the trees to show
+the app with a UI of its own, or to drive the app as a person would, and calls the actions the
+controls carry.
+
+<!-- ikon-example: sdk-ui -->
+```csharp
+await using var client = new IkonClient(new IkonClientConfig
+{
+    Description = "My UI",
+    Local = new LocalConfig { Host = "localhost", HttpsPort = 8443 },
+});
+
+// Raised after every change to a stream's tree, with the whole tree as it now is.
+// A node that did not change keeps its object, so a renderer can skip it by reference
+client.UI.StreamUpdatedAsync += async e =>
+{
+    foreach (var node in e.Stream.Root?.DescendantsAndSelf() ?? [])
+    {
+        // node.Type is the component ("std.button"), node.Props its props as JSON,
+        // node.StyleIds its styles (client.UI.Styles)
+        Console.WriteLine($"{node.Type} {node.GetText("label") ?? node.GetText("content")}");
+    }
+};
+
+await client.ConnectAsync();
+
+// Use a control as a person would: find its node and call its action
+var save = await client.UI.WaitForNodeAsync(node => node.Type == "std.button" && node.GetText("label") == "Save");
+bool completed = await client.UI.CallActionAsync(save, "onInvokeId");
+
+// A text field's action takes the new text as it is
+var name = await client.UI.WaitForNodeAsync(node => node.Type == "std.text-field");
+await client.UI.CallActionAsync(name, "onValueChangeId", "Ada");
+```
+
+`client.UI.Page` is the stream of the app's page; another stream is a mount the app declares or the
+platform's own layer. A node's `Actions` lists its actions by prop name: a button's press is
+`onInvokeId`, a text field's new value `onValueChangeId`, a checkbox's `onCheckedChangeId`. A press
+sends `{}`, a text field the text itself, a checkbox `true` or `false`.
+
+The SDK acknowledges each tree it applies, so the app can remove the actions no client can call any
+longer. When a change cannot be applied, or after the connection drops and the client rejoins the same
+session, the SDK asks the app for the whole tree again and keeps the old tree until the new one arrives.
 
 ## Functions
 
@@ -986,9 +1198,8 @@ var config = new IkonClientConfig
     // Payload serialization format
     PayloadType = PayloadType.Teleport,  // Default
 
-    // How this connection identifies to the server.
-    // Default Plugin connects as a backend component (no UI).
-    // Native or Browser connects as a first-class player client that receives streamed UI.
+    // How this connection identifies to the server: Plugin for a program,
+    // Native or Browser for a client a person uses. Each gets the app's UI.
     ContextType = ContextType.Plugin
 };
 ```
@@ -1045,6 +1256,25 @@ var config = new IkonClientConfig
 | `IkonClient.AudioInputStreamEndEventArgs` | Event args for audio stream end |
 | `AudioEncoderOptions` | Options for configuring the Opus encoder |
 
+### Video Types
+
+| Type | Description |
+|------|-------------|
+| `VideoCodec` | Enum (from `Ikon.Common.Core.Protocol`): `H264`, `Vp8`, `Vp9`, `Av1` |
+| `IkonClient.VideoInputStreamBeginEventArgs` | Event args for video stream start or format change |
+| `IkonClient.VideoInputFrameEventArgs` | Event args for one encoded video frame |
+| `IkonClient.VideoInputStreamEndEventArgs` | Event args for video stream end |
+| `IkonClient.VideoKeyFrameRequestedEventArgs` | Event args for a receiver's keyframe request |
+
+### UI Types
+
+| Type | Description |
+|------|-------------|
+| `IkonUI` | The app's UI as the client receives it (`client.UI`): streams, styles and action calls |
+| `UIStream` | One stream's tree, with its mount, view and version |
+| `UINode` | One node of a tree: type, props, actions, children and styles |
+| `UIStreamEventArgs` | Event args carrying a stream after it changed or ended |
+
 ### Function Types
 
 | Type | Description |
@@ -1063,6 +1293,7 @@ var config = new IkonClientConfig
 | `MessageEventArgs` | Event args containing a `ProtocolMessage` |
 | `IkonClient.ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
 | `IkonClient.ErrorEventArgs` | Event args containing an `Exception` |
+| `IkonClient.PeerEventArgs` | Event args naming another client in the session (`Peer`, a `Context`) |
 
 ## License
 

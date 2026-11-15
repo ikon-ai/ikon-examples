@@ -1,4 +1,4 @@
-<!-- checked-against: 35669eb25d753426e3b0c442 -->
+<!-- checked-against: d9d60f155d753426e3b0c442 -->
 
 # Connecting your computer to an IKON app
 
@@ -48,7 +48,7 @@ limit it. The tool says so and asks before it connects.
 
 ## 1. Prepare the computer
 
-Install the ikon tool and sign in with the same account you use on the board:
+Install the IKON tool and sign in with the same account you use on the board:
 
 ```bash
 ikon login
@@ -56,7 +56,7 @@ ikon service install
 ```
 
 `install` checks which coding agents the machine has and sets up what they need — it lets Claude
-Code and Codex use the ikon tool through the service's MCP server, and installs tmux,
+Code and Codex use the IKON tool through the service's MCP server, and installs tmux,
 which lets a terminal and the board share one session (macOS and Linux; Windows can run and watch
 sessions but not share them). On macOS it also lets an app's **Connect this computer** link open
 here; elsewhere, paste a link after `ikon connect`. On macOS and Windows it starts IKON

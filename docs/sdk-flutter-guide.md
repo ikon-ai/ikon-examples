@@ -1,4 +1,4 @@
-<!-- checked-against: 89dac5ed3f4f5ebbe3b0c442 -->
+<!-- checked-against: b156dcabb41c6bf0e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -150,7 +150,7 @@ Ikon.App.MyApp/
 
 ```yaml
 name: my_app_flutter
-description: Flutter frontend for My IKON App
+description: Flutter frontend for my IKON app
 
 environment:
   sdk: ^3.3.0
@@ -349,7 +349,7 @@ A phone on the LAN joins as a guest of its own install, never as the developer o
 the run refuses it when the surface admits no guest.
 On an Apple Silicon Mac the simulator build links against a copy of the `opus_flutter_ios` plugin
 that carries the arm64 simulator slice the published package lacks; inside the ikon-platform
-repo the ikon tool writes that override into `pubspec_overrides.yaml` for you.
+repo the IKON tool writes that override into `pubspec_overrides.yaml` for you.
 
 ### Release Builds
 
@@ -492,33 +492,24 @@ signed-in page there asks the person to approve.
 
 ### Deployed Apps — API Key
 
-There is no `connect*` helper for an API key, so the client is built from the auth result:
+A program, such as a test, a bot or a device without a person signing in, connects with its space's
+API key. The key is exchanged at the platform's backend, not at the app's host, so the call names
+the backend (`IkonBackendType.production` by default, or `development`) and no app host:
 
 <!-- ikon-example: flutter-sdk-auth-api-key -->
 ```dart
-final auth = IkonAuthenticator(host: 'myapp.ikon.ai', port: 443);
-final result = await auth.authenticateApiKey(
-  spaceId: 'my-space-id',
+final client = await IkonClient.connectWithApiKey(
   apiKey: 'my-api-key',
+  spaceId: 'my-space-id',
+  externalUserId: 'my-program-user', // the same id is the same user on every run
+  backendType: IkonBackendType.production,
 );
-
-// What the connect* helpers do for you: wire reauth, connect, register the built-in client
-// functions, send the ready message without which the app never sees the client join, and
-// reconnect at once when the app returns to the foreground.
-// Without configureReauth a reconnect never re-authenticates once the cached tickets expire,
-// and client.assetBaseUrl resolves root-relative images against the per-session socket host.
-final client = IkonClient(IkonClientConfig.fromAuthResult(result));
-client.configureReauth(
-  authenticator: auth,
-  connectUrl: result.connectUrl,
-  hardReauth: () => auth.authenticateApiKey(spaceId: 'my-space-id', apiKey: 'my-api-key'),
-);
-await client.connect();
-registerFlutterFunctions(client.functionRegistry, uploadTransport: client, feedbackSink: client);
-client.sendProtocolMessage(ClientReady().toProtocolMessage(client.sessionId));
-// Keep the listener and dispose it with the client in an app that replaces its client
-AppLifecycleListener(onResume: client.reconnectNow);
 ```
+
+Like the other `connect*` helpers it signs in again when the cached tickets expire, registers the
+built-in client functions and sends `ClientReady`. A key the backend refuses throws
+`IkonAuthRejectedException`. It also takes `parameters`, `userType`, `joinOnly` and `surface`, as
+`connectGuest` does.
 
 ### Joined and ready
 
@@ -538,8 +529,10 @@ server no longer has, and goes out on the new session that replaces it instead. 
 sent in that time fails with a `TimeoutException` that names the function and says the client was not
 connected. A call fails at once with `IkonNotConnectedException` when the client is not trying to
 connect: it never connected, it was disposed, or it gave up reconnecting (`IkonClient.lastError`). A
-waiting call fails the same way when the client stops trying. A call already sent when the connection
-drops gets no answer and times out.
+waiting call fails the same way when the client stops trying. A call already sent, and a `callStream`
+already sent, fails with `IkonNotConnectedException` when the client reconnects into a new session or
+stops trying to connect. One whose connection comes back into the same session keeps waiting for its
+answer.
 
 The `connect*` helpers send `ClientReady` before they return. Every reconnect sends it again, also
 one that resumes the same session. `IkonClient.isReady` says whether the client is ready now, and
@@ -784,6 +777,33 @@ final view = IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas')
 
 When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, or else the only stream other than the platform overlay; with several such streams nothing renders. The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
 
+## Peer Events
+
+`IkonClient.onPeerJoined`, `onPeerReady`, `onPeerUpdated` and `onPeerLeft` are streams of the other
+clients in the session joining, finishing their join (the app knows who they are from then on),
+reporting a new viewport, theme, timezone or visibility, and leaving. Each event carries the peer's
+`Context` as other clients see it: `sessionId`, `userId`, `contextType` and what it reports of its
+viewport, theme, timezone and visibility, without the device and sign-in fields only the app sees. None
+is ever about this client; its own join is `onReady`. Events reach the listeners of the four streams in
+the order the server sent them, so a map kept from them never sees a peer leave before it joined.
+
+<!-- ikon-example: flutter-sdk-peer-events -->
+```dart
+final peers = <int, Context>{};
+client.onPeerJoined.listen((peer) => peers[peer.sessionId] = peer);
+client.onPeerUpdated.listen((peer) {
+  peers[peer.sessionId] = peer;
+  print('${peer.sessionId} now uses the ${peer.theme} theme');
+});
+client.onPeerLeft.listen((peer) => peers.remove(peer.sessionId));
+```
+
+On joining, and on a reconnect into a new session, `onPeerJoined` and `onPeerReady` fire for each
+peer already there. A reconnect into the same session replays nothing, so a peer that came or went
+while the client was away shows only in `client.globalStateHandler.state.clients`, which always lists
+the current clients. A disposed client tells the server it is leaving, so the others get `onPeerLeft`
+at once rather than when its reconnect window ends.
+
 ## Client Functions
 
 The server can call functions registered on the Flutter client:
@@ -814,6 +834,71 @@ Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and 
 - `ikon.client.getNotificationPermission` / `showNotification` — local notifications (via `flutter_local_notifications`, permission requested lazily on first send)
 - `ikon.client.getPushSubscription` — FCM token for offline push (returns null unless the app wires `ikonFcmTokenProvider`; Firebase stays opt-in)
 - `ikon.client.captureImage` — system camera (via `ImagePicker`)
+
+### Client functions that stream
+
+`functionRegistry.registerStream` registers a function whose handler returns a `Stream`. The app
+calls it as an `IAsyncEnumerable<T>`, for example with `FunctionRegistry.CallAsyncEnumerable<T>` and
+the client's session as `targetId`, and reads each item the stream emits:
+
+<!-- ikon-example: flutter-sdk-client-stream-function -->
+```dart
+// The app reads it as IAsyncEnumerable<double>. When the app cancels, the subscription is cancelled
+client.functionRegistry.registerStream(
+  FunctionDefinition(name: 'my.recentReadings', resultTypeName: 'System.Double'),
+  (args) => readings.take(args.single as int),
+);
+```
+
+The handler's stream is listened to when the app calls the function. Items go as JSON, or as binary
+for a `Uint8List`, in batches as the C# SDK sends them: an item waits at most 100 ms for others to
+join it, a batch holds at most 50, and an item of 1 KB or more goes at once. The stream's end ends the
+app's enumeration. The stream's first error fails the app's call with the error's text, after the
+items before it. An item that cannot be encoded as JSON fails the call the same way. The subscription
+is cancelled when the app cancels the call, and when the client reconnects into a new session, because
+the app there no longer has the caller.
+`resultTypeName` names the item type.
+
+### Calling app functions
+
+`functionRegistry.call<T>(name, args)` calls a function the app registered and returns its result.
+`callStream<T>(name, args)` calls one that returns `IAsyncEnumerable<T>` and delivers its items as a
+`Stream<T>`; a function that returns a single value gives a stream of that one value. A `byte[]`
+argument or result is a `Uint8List`:
+
+<!-- ikon-example: flutter-sdk-function-stream -->
+```dart
+// An app function returning IAsyncEnumerable<int>; cancelling the subscription,
+// here by take(3), cancels the enumeration on the app
+await for (final n in client.functionRegistry.callStream<int>('count_to', [100]).take(3)) {
+  print(n);
+}
+
+// byte[] goes both ways as a Uint8List
+final thumbnail = await client.functionRegistry.call<Uint8List>('make_thumbnail', [photo]);
+```
+
+The call goes out when the stream is listened to. Cancelling the subscription before the stream ends
+sends the app a cancel, which cancels the function's `CancellationToken`. A stream fails with a
+`TimeoutException` and is cancelled when the app has neither acknowledged it nor sent an item within
+30 s; once it has, the stream has no time limit. An error the function throws ends the stream with
+that error. A value the app encodes as Teleport rather than JSON fails the call with a
+`FormatException`.
+
+`callWithCancel<T>(name, args, cancel: future)` is `call` with a cancel. When the future completes
+before the result arrives, the call fails with `IkonCallCancelledException` and the app is told to
+cancel it, which fires the function's `CancellationToken`. A call still waiting for the client to be
+ready is never sent, and a result that arrives after the cancel is dropped:
+
+<!-- ikon-example: flutter-sdk-call-cancel -->
+```dart
+try {
+  final summary = await client.functionRegistry.callWithCancel<String>('summarize', ['report.pdf'], cancel: userClosedDialog);
+  print(summary);
+} on IkonCallCancelledException {
+  // The app's CancellationToken fired too
+}
+```
 
 ## File Upload
 
@@ -889,6 +974,49 @@ shape values an `IAudioAnalyzer` sends with it, so lip-sync avatars and level me
 `IkonMediaManager` combines audio capture, playback, and WebRTC media (and routes
 share/clipboard actions through `IkonShare`) and can be passed to
 `IkonParallaxView(mediaManager: ...)`.
+
+### Encoded frames without a device
+
+A program without a microphone, camera or Flutter view, such as a test or a bridge from another
+media source, sends and receives encoded frames with `IkonAudioStreams` and `IkonVideoStreams`:
+
+<!-- ikon-example: flutter-sdk-encoded-media -->
+```dart
+// Audio: one 20 ms Opus frame per call; the correlation id ties it to the app's capture
+final audio = IkonAudioStreams(client);
+audio.sendOpusFrame(streamId: 'mic', data: opusFrame, isFirst: true, correlationId: 'press-1');
+audio.onFrame.listen((frame) => print('${frame.streamId}: ${frame.data.length} bytes'));
+
+// Video: encoded frames, keyframe first; a new size or codec announces the stream again
+final video = IkonVideoStreams(client);
+video.sendFrame(
+  streamId: 'camera',
+  data: h264Frame,
+  isKey: true,
+  timestamp: Duration.zero,
+  codec: VideoCodec.H264,
+  width: 640,
+  height: 480,
+);
+video.onKeyFrameRequested.listen((request) => print('next frame of ${request.streamId}: a keyframe'));
+video.onStreamBegin.listen((info) => video.requestKeyFrame(info.streamId));
+```
+
+What a client sends reaches only the app. A stream the client receives has the id
+`<sender session id>_<track id>`; `senderStreamId` on its info is the id the sender gave it.
+`sendPcm` encodes 16-bit PCM to Opus in 20 ms frames, padding the last one when `isLast` is set;
+it throws `StateError` unless the streams were built with an encoder,
+`IkonAudioStreams(client, encoderFactory: OpusAudioEncoder.new)`.
+Frames sent before `ClientReady` are dropped and the send returns false. After a reconnect the next
+frame announces the stream again. `isFirst` starts a new audio segment, and a new `correlationId`
+given with it announces the stream again. The app's speech recognition skips an audio stream without
+a correlation id. `onKeyFrameRequested` fires when the app asks for a keyframe, and the
+next frame sent should be one. H.264 goes in Annex B form.
+
+A headless client also reports its context: `IkonViewportUpdater.sendViewportSize`, `sendTheme`,
+`sendTimezone` and `sendVisibility` update what the app reads as the client's context, and
+`IkonNavigation.instance.navigateTo` changes the path the app sees. A timezone given with
+`sendTimezone` is not replaced by the one the SDK looks up.
 
 ## Supported Crosswind Styles
 

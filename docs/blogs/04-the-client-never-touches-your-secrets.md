@@ -12,7 +12,7 @@ Because the client holds nothing sensitive, creators can ship AI applications wi
 
 **Give AI agents access to sensitive tools without exposing them to the client.** All AI calls run on the server, so you can give your AI agent access to databases, code execution, file systems, and external APIs, and the client can reach none of them. One developer built an app where people describe an interface in plain English, and the AI writes code, runs it, and renders the result in real time. The code is generated from user input, and none of it is exposed to the client. In a traditional architecture, running code generated from user input would be a serious security risk. On IKON, the client never sees the generated code, the execution environment, or the raw results.
 
-**Ship AI apps without lengthy security reviews for the client.** The client has no business logic, no API keys, no credentials, no state management, and minimal dependencies. There is nothing sensitive in the client to audit.
+**Ship apps without lengthy security reviews for the client.** The client has no business logic, no API keys, no credentials, no state management, and minimal dependencies. There is nothing sensitive in the client to audit.
 
 **Pass enterprise security reviews on day one.** When auditors ask where API keys are stored, where credentials are sent, and what the client can access, the answers are short: only on the server, never to the client, and nothing. Developers building on IKON have shipped AI applications into regulated environments, such as financial services, healthcare, and enterprise, without the months-long security reviews that usually hold up AI deployments.
 

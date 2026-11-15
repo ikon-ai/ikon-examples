@@ -1,8 +1,8 @@
-<!-- checked-against: 9f920a549d0cbed8e3b0c442 -->
+<!-- checked-against: bf6267af9d0cbed8e3b0c442 -->
 
 # IKON Dev Channel Guide
 
-Get a platform library or ikon tool fix without waiting for a release.
+Get a platform library or IKON tool fix without waiting for a release.
 
 IKON's libraries ship as one release train. Between releases, a fix that has already landed and passed
 CI is unreachable to an app that builds against published packages. The **dev channel** publishes those
@@ -97,7 +97,7 @@ What this means in practice:
   newer build with warning NU1603 instead of failing. Run `ikon update` to move to a current build, or
   `ikon update stable` to leave the channel.
 
-## The ikon tool on the dev channel
+## The IKON tool on the dev channel
 
 The tool has a dev channel of its own, published with the .NET libraries on every push to main that
 touches them, so a fix to the tool itself is also one command away:
@@ -137,14 +137,14 @@ replaces a dev build with it; IKON Desktop leaves a dev build alone and does not
 Your pipeline needs credentials for both private feeds, because dev packages are never published to
 nuget.org or npmjs. `ikon login` configures a developer machine; for CI, set the same GitHub Packages
 token in `IKON_GITHUB_IKON_PACKAGES_READ_ACCESS_TOKEN` (or set `IKON_SERVICE_TOKEN` so the tool fetches
-it) and make sure the `@ikon-ai` scope mapping in `frontend-node/.npmrc` is committed. The ikon tool
+it) and make sure the `@ikon-ai` scope mapping in `frontend-node/.npmrc` is committed. The IKON tool
 passes that token only to the `dotnet` and `npm` processes it starts itself, so restore through
 `ikon build` rather than a bare `dotnet restore` or `npm ci`.
 
 ## What the dev channel cannot fix
 
 It carries **libraries** — the .NET packages and the TypeScript SDK, which ship together so their
-protocol bindings stay in step — and the ikon tool. It does **not** carry the backend, Canvas, or the servers, all of which
+protocol bindings stay in step — and the IKON tool. It does **not** carry the backend, Canvas, or the servers, all of which
 release on their own schedule. A fix that needs a change on those still waits for that component's
 release, and a dev library that depends on such a change will not work against production until then.
 
