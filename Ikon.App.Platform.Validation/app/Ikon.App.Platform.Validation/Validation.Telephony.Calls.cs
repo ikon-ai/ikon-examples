@@ -120,7 +120,7 @@ public partial class Validation
 
     private async Task PlaceTelephonyCallAsync()
     {
-        _telCallBusy.Value = true;
+        using var busyToken = _telCallBusy.AsToken();
         _telCallResult.Value = "";
         _telCallEnergy.Value = "";
         _telCallInfo.Value = $"Ringing {_telCallTo.Value}…";
@@ -147,10 +147,6 @@ public partial class Validation
             Log.Instance.Warning($"Validation call to {_telCallTo.Value} failed: {ex.GetType().Name}: {ex.Message}");
             _telCallInfo.Value = "";
             _telCallResult.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
-        }
-        finally
-        {
-            _telCallBusy.Value = false;
         }
     }
 

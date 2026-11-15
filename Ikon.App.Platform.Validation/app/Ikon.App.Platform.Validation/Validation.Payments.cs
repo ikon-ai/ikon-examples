@@ -717,7 +717,7 @@ public partial class Validation
 
     private async Task RunPaymentsActionAsync(Func<Task> action)
     {
-        _payBusy.Value = true;
+        using var _ = _payBusy.AsToken();
         try
         {
             await action();
@@ -725,10 +725,6 @@ public partial class Validation
         catch (Exception ex)
         {
             LogPayments($"Error: {ex.Message}");
-        }
-        finally
-        {
-            _payBusy.Value = false;
         }
     }
 

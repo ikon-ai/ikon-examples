@@ -77,7 +77,7 @@ public partial class Validation
 
     private async Task RunEmergeDirectChecksAsync()
     {
-        _emergeDirectProcessing.Value = true;
+        using var _ = _emergeDirectProcessing.AsToken();
         _emergeDirectError.Value = null;
         _emergeDirectResult.Value = null;
 
@@ -144,10 +144,6 @@ public partial class Validation
         {
             var (kind, message) = DescribeAIFailure(ex);
             _emergeDirectError.Value = $"FAIL: {kind}: {message}";
-        }
-        finally
-        {
-            _emergeDirectProcessing.Value = false;
         }
     }
 

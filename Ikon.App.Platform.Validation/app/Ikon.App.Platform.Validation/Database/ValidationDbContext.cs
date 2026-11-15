@@ -37,7 +37,7 @@ public class ValidationDbContext(DbContextOptions<ValidationDbContext> options) 
 }
 
 // Lets `dotnet ef` (driven by `ikon db migrate add`) build the context at design time. The
-// ikon tool injects the provisioned connection string as IKON_DB.
+// IKON tool injects the provisioned connection string as IKON_DB.
 public sealed class ValidationDbContextFactory : IDesignTimeDbContextFactory<ValidationDbContext>
 {
     public ValidationDbContext CreateDbContext(string[] args)

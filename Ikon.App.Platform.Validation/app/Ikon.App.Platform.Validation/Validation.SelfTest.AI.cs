@@ -1,3 +1,4 @@
+using System.Reflection;
 using Ikon.AI.VideoSegmentation;
 using CoreFunction = Ikon.Common.Core.Functions.Function;
 
@@ -195,6 +196,11 @@ public partial class Validation
             try
             {
                 capabilities.Add((model, Emerge.GetCapabilities(model)));
+            }
+            catch (ModelRetiredException) when (typeof(LLMModel).GetField(model.ToString())?.GetCustomAttribute<ModelDeprecatedAttribute>() != null)
+            {
+                // A deprecated model whose retirement day has come is refused on purpose, so it has no capabilities to check.
+                // Any other model refused as retired is a regression and is listed below
             }
             catch (Exception ex)
             {
@@ -469,7 +475,7 @@ public partial class Validation
         Expect(ImageProvenance.ReadMetadataMark(png) == null, "an unmarked PNG carries a metadata mark");
 
         var unmarkedScore = ImageProvenance.MeasureInvisibleMark(png);
-        var marked = ImageProvenance.Apply(png, "validation-selftest-model", invisibleWatermark: true, visibleWatermark: "", out var marking);
+        var (marked, marking, _) = ImageProvenance.Apply(png, "validation-selftest-model", invisibleWatermark: true);
         var markedScore = ImageProvenance.MeasureInvisibleMark(marked);
         var metadata = ImageProvenance.ReadMetadataMark(marked);
 

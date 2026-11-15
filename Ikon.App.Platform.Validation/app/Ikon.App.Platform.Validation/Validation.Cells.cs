@@ -28,7 +28,17 @@ public partial class Validation
         new("global-rest", "Global cell REST", v => v.CheckGlobalRestAsync()),
         new("global-mcp", "Global cell MCP", v => v.CheckGlobalMcpAsync()),
         new("global-proxy", "Global cell through its interface", v => v.CheckGlobalProxyAsync()),
+        new("keyed-proxy", "LabCell through its interface", v => v.CheckLabProxyAsync()),
+        new("idle", "An idle connection closes and the cell-host starts again (about 2 min)", v => v.CheckLabIdleLifecycleAsync()),
     ];
+
+    // Short, so that one run sees a connection close and its cell-host stop and start again
+    private static readonly TimeSpan CellConnectionIdleLimit = TimeSpan.FromSeconds(15.0);
+
+    // A cell-host stops 60 s after its last connection leaves. A local run notices within its 10 s
+    // sweep, and the cloud within the cell-host's 10 s status ping, so this leaves half a minute for
+    // the stop itself.
+    private static readonly TimeSpan CellHostStopWait = TimeSpan.FromSeconds(100.0);
 
     private readonly ClientReactiveDictionary<string, string> _cellCheckResults = new();
     private readonly ClientReactive<bool> _cellChecking = new(false);
@@ -39,29 +49,30 @@ public partial class Validation
     private readonly ClientReactive<string?> _labCellError = new(null);
     private readonly ClientReactive<string?> _globalCellError = new(null);
 
+    // Not awaited by the button, because the idle check runs for about two minutes and an awaited
+    // handler holds up the app's message loop. RunCellChecksAsync reports every failure in the results
+    private Task StartCellChecks(IEnumerable<CellCheck> checks)
+    {
+        _ = RunCellChecksAsync(checks);
+        return Task.CompletedTask;
+    }
+
     private async Task RunCellChecksAsync(IEnumerable<CellCheck> checks)
     {
-        _cellChecking.Value = true;
+        using var _ = _cellChecking.AsToken();
 
-        try
+        foreach (var check in checks)
         {
-            foreach (var check in checks)
+            _cellCheckResults[check.Key] = "Running…";
+
+            try
             {
-                _cellCheckResults[check.Key] = "Running…";
-
-                try
-                {
-                    _cellCheckResults[check.Key] = await check.Run(this);
-                }
-                catch (Exception ex)
-                {
-                    _cellCheckResults[check.Key] = $"FAIL {ex.Message}";
-                }
+                _cellCheckResults[check.Key] = await check.Run(this);
             }
-        }
-        finally
-        {
-            _cellChecking.Value = false;
+            catch (Exception ex)
+            {
+                _cellCheckResults[check.Key] = $"FAIL {ex.Message}";
+            }
         }
     }
 
@@ -69,6 +80,12 @@ public partial class Validation
     // cell-host serving the workspace, the same instance the HTTP checks move (Studio's preview hosts
     // it in-process).
     private static ILabCell ConnectLabCell(string workspace) => Cells.Instance.Connect<ILabCell>(new LabCellIdentity(workspace));
+
+    private void InitCells()
+    {
+        Cells.Instance.SetConnectionIdleLimit(CellConnectionIdleLimit);
+        StartHotReloadCellProbe();
+    }
 
     // Which process this code runs in, so each view and each answer can say where a cell lives.
     private static readonly string ProcessLabel = $"{Environment.MachineName}:{Environment.ProcessId}";
@@ -266,21 +283,97 @@ public partial class Validation
 
     // Through the interface the app holds: the call goes over the SDK connection to the cell-host,
     // and the Counter mirror moves only when the cell-host pushes the new value back.
-    private async Task<string> CheckGlobalProxyAsync()
+    private Task<string> CheckGlobalProxyAsync()
     {
         var cell = Cells.Instance.Connect<IGlobalLabCell>(new GlobalLabCell.SessionIdentity());
-        var before = cell.Counter.Value;
+        return ExpectMirrorMovesAsync(cell.Counter, cell.Process, () => cell.IncrementAsync(1));
+    }
 
-        await cell.IncrementAsync(1);
+    private Task<string> CheckLabProxyAsync()
+    {
+        var cell = ConnectLabCell("alpha");
+        return ExpectMirrorMovesAsync(cell.Counter, cell.Process, () => cell.IncrementAsync(1));
+    }
 
-        for (var waited = 0; waited < 50 && cell.Counter.Value == before; waited++)
+    private static async Task<string> ExpectMirrorMovesAsync(IReadOnlyReactive<int> counter, IReadOnlyReactive<string> process, Func<Task> increment)
+    {
+        if (counter is not MirrorReactive<int> mirror)
+        {
+            // Studio's preview keeps every cell in the app's process, so there is no mirror
+            await increment();
+            return $"PASS in this process, {counter.Value} @ {process.Value}";
+        }
+
+        await mirror.Settled.WaitAsync(TimeSpan.FromSeconds(30.0));
+
+        if (mirror.Status != MirrorStatus.Live)
+        {
+            return $"FAIL the mirror is {mirror.Status}: {mirror.Error?.Message}";
+        }
+
+        var before = mirror.Value;
+        await increment();
+
+        for (var waited = 0; waited < 50 && mirror.Value == before; waited++)
         {
             await Task.Delay(100);
         }
 
-        return cell.Counter.Value > before
-            ? $"PASS mirror {before} → {cell.Counter.Value} @ {cell.Process.Value}"
+        return mirror.Value > before
+            ? $"PASS mirror live, {before} → {mirror.Value} @ {process.Value}"
             : $"FAIL the mirror stayed at {before} for 5s";
+    }
+
+    // A connection nothing uses is closed after the idle limit, the cell-host stops once no app
+    // instance is connected to it, and the next call starts a new one. The workspace is new each run,
+    // so no card's mirror holds the connection open and no earlier run's cell answers.
+    private async Task<string> CheckLabIdleLifecycleAsync()
+    {
+        var identity = new LabCellIdentity($"idle-{Guid.NewGuid().ToString("N")[..8]}");
+        var fields = CellHost.SessionIdentityFields(identity);
+        var cell = Cells.Instance.Connect<ILabCell>(identity);
+
+        if (cell is LabCell)
+        {
+            return "SKIP the cell runs in this process, so it has no connection to close";
+        }
+
+        await cell.IncrementAsync(1);
+        var first = await cell.DescribeAsync();
+
+        if (!Cells.Instance.HasOpenConnection(nameof(LabCell), fields))
+        {
+            return $"FAIL no connection to {identity.Workspace} was open after a call";
+        }
+
+        var idleSince = Stopwatch.GetTimestamp();
+        var closeDeadline = CellConnectionIdleLimit + TimeSpan.FromSeconds(30.0);
+
+        while (Cells.Instance.HasOpenConnection(nameof(LabCell), fields))
+        {
+            if (Stopwatch.GetElapsedTime(idleSince) > closeDeadline)
+            {
+                return $"FAIL the connection to {identity.Workspace} was still open {closeDeadline.TotalSeconds:0} s after its last call, with an idle limit of {CellConnectionIdleLimit.TotalSeconds:0} s";
+            }
+
+            await Task.Delay(500);
+        }
+
+        var closedAfter = Stopwatch.GetElapsedTime(idleSince);
+        await Task.Delay(CellHostStopWait);
+        var second = await cell.DescribeAsync();
+
+        if (second.Instance == first.Instance)
+        {
+            return $"FAIL cell {first.Instance} in {identity.Workspace} still answered {CellHostStopWait.TotalSeconds:0} s after its connection closed, so its cell-host did not stop";
+        }
+
+        if (second.Counter != 0)
+        {
+            return $"FAIL the restarted cell in {identity.Workspace} started at {second.Counter}, not 0";
+        }
+
+        return $"PASS closed {closedAfter.TotalSeconds:0} s after the last call; cell {first.Instance} stopped and {second.Instance} started on the next call";
     }
 
     // Fire-and-forget a cell command from a button: the result lands on the Counter mirror via
@@ -424,7 +517,7 @@ public partial class Validation
                     text: _cellChecking.Value ? "Running…" : "Run all",
                     props: TestId("cell-checks-run"),
                     disabled: _cellChecking.Value,
-                    onClick: () => RunCellChecksAsync(CellChecks));
+                    onClick: () => StartCellChecks(CellChecks));
             });
 
             view.Box(["grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 items-center"], content: view =>
@@ -435,7 +528,7 @@ public partial class Validation
                         text: check.Label,
                         props: TestId($"cell-check-{check.Key}-run"),
                         disabled: _cellChecking.Value,
-                        onClick: () => RunCellChecksAsync([check]));
+                        onClick: () => StartCellChecks([check]));
                     view.Text(["text-sm break-all"],
                         _cellCheckResults.TryGetValue(check.Key, out var result) ? result : "—",
                         props: TestId($"cell-check-{check.Key}"));
@@ -453,6 +546,7 @@ public partial class Validation
     public sealed record LabSnapshot(int Counter, string[] History, string Workspace, string Process);
     public sealed record LabSignatureEcho(string Signature, string Workspace);
     public sealed record GlobalLabSnapshot(int Counter, string[] History, string Process);
+    public sealed record LabCellInfo(string Instance, int Counter, string Build);
 
     /// <summary>
     /// What an app process holds through <c>Cells.Connect&lt;ILabCell&gt;(identity)</c>. Reached through
@@ -467,9 +561,10 @@ public partial class Validation
         IReadOnlyReactive<string> Process { get; }
         Task IncrementAsync(int delta);
         Task ResetAsync();
+        Task<LabCellInfo> DescribeAsync();
     }
 
-    [Cell(IdleTtlSeconds = 600)]
+    [Cell(IdleTtlSeconds = 600, Compute = "lab-cells")]
     public sealed class LabCell(ICell<LabCellIdentity> ctx) : ILabCell
     {
         public LabCellIdentity Identity { get; } = ctx.Identity;
@@ -480,6 +575,10 @@ public partial class Validation
         private readonly Reactive<int> _counter = new(0);
         private readonly ReactiveList<string> _history = new();
         private readonly Reactive<string> _process = new(ProcessLabel);
+
+        // Not a reactive, so a cell that a new cell-host starts gets a new value. The build comes from the code
+        // the cell-host runs, which a hot reload replaces.
+        private readonly string _instance = Guid.NewGuid().ToString("N")[..8];
 
         // Every surface ends up here, so they all move the same state.
         private void Increment(int delta)
@@ -502,6 +601,9 @@ public partial class Validation
             _history.Clear();
             return Task.CompletedTask;
         }
+
+        [Function]
+        public Task<LabCellInfo> DescribeAsync() => Task.FromResult(new LabCellInfo(_instance, _counter.Value, HotReloadProbe.Build));
 
         // Surface 1: REST — the Workspace identity comes from the URL PATH
         // (/lab/{workspace}/increment). For this AppProcess cell the gateway forwards the captured
@@ -568,7 +670,7 @@ public partial class Validation
     /// its reactive state and dispatches its <c>[Function]</c> methods over a standard SDK
     /// connection to the cell-host, in the cloud and in a local `ikon run` alike (Studio's preview hosts it in-process).
     /// </summary>
-    [Cell(IdleTtlSeconds = 600)]
+    [Cell(IdleTtlSeconds = 600, Compute = "lab-cells")]
     public sealed class GlobalLabCell(ICell<GlobalLabCell.SessionIdentity> ctx) : IGlobalLabCell
     {
         public record SessionIdentity();  // empty → global, eager-spawned at host init

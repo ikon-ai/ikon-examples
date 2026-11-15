@@ -1,7 +1,7 @@
 public partial class Validation
 {
     // Video Understanding (Asset URI) state
-    private readonly ClientReactive<string> _videoUnderstandingModel = new(nameof(LLMModel.Gemini25Flash));
+    private readonly ClientReactive<string> _videoUnderstandingModel = new(nameof(LLMModel.Gemini38Flash));
     private readonly ClientReactive<string> _videoUnderstandingPrompt = new("Describe what happens in this video clip.");
     private readonly Reactive<bool> _videoUnderstandingProcessing = new(false);
     private readonly Reactive<string?> _videoUnderstandingResult = new(null);
@@ -38,9 +38,9 @@ public partial class Validation
             }
         }
 
-        if (options.All(o => o.Value != nameof(LLMModel.Gemini25Flash)))
+        if (options.All(o => o.Value != nameof(LLMModel.Gemini38Flash)))
         {
-            options.Insert(0, new SelectOption(nameof(LLMModel.Gemini25Flash), LLMModel.Gemini25Flash.DisplayName()));
+            options.Insert(0, new SelectOption(nameof(LLMModel.Gemini38Flash), LLMModel.Gemini38Flash.DisplayName()));
         }
 
         _videoCapableModelOptions = options;
@@ -170,7 +170,7 @@ public partial class Validation
 
     private async Task RunVideoUnderstandingAsync(byte[] videoBytes)
     {
-        _videoUnderstandingProcessing.Value = true;
+        using var busyToken = _videoUnderstandingProcessing.AsToken();
         _videoUnderstandingError.Value = null;
         _videoUnderstandingResult.Value = null;
         _videoUnderstandingAssetInfo.Value = null;
@@ -210,10 +210,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _videoUnderstandingError.Value = ex.Message;
-        }
-        finally
-        {
-            _videoUnderstandingProcessing.Value = false;
         }
     }
 }

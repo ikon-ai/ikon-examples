@@ -501,7 +501,7 @@ public partial class Validation
             return;
         }
 
-        _spBusy.Value = true;
+        using var _ = _spBusy.AsToken();
         _spStatus.Value = $"Working: {action}…";
 
         try
@@ -522,10 +522,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _spStatus.Value = $"FAIL {action}: {ex.GetType().Name}: {ex.Message}";
-        }
-        finally
-        {
-            _spBusy.Value = false;
         }
     }
 

@@ -58,7 +58,7 @@ public partial class Validation
 
     private async Task RunDeciderAsync()
     {
-        _deciderProcessing.Value = true;
+        using var _ = _deciderProcessing.AsToken();
         _deciderError.Value = null;
         _deciderResult.Value = null;
 
@@ -182,10 +182,6 @@ public partial class Validation
         {
             var (kind, message) = DescribeAIFailure(ex);
             _deciderError.Value = $"FAIL: {kind}: {message}";
-        }
-        finally
-        {
-            _deciderProcessing.Value = false;
         }
     }
 

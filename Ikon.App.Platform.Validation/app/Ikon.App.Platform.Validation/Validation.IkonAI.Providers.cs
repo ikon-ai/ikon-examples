@@ -55,7 +55,7 @@ public partial class Validation
                             return;
                         }
 
-                        running.Value = true;
+                        using var _ = running.AsToken();
                         result.Value = null;
 
                         try
@@ -66,10 +66,6 @@ public partial class Validation
                         {
                             var (kind, message) = DescribeAIFailure(ex);
                             result.Value = $"FAIL {kind}: {ex.GetType().Name}: {message}";
-                        }
-                        finally
-                        {
-                            running.Value = false;
                         }
                     });
 
@@ -172,14 +168,14 @@ public partial class Validation
 
         if (hostVersion is null)
         {
-            failures.Add("no ikonAIVersion: the AI host has posted no manifest");
+            failures.Add("no ikonAIVersion: no model catalog was uploaded with 'ikon data upload models'");
         }
         else if (!AreNearVersions(hostVersion, appVersion))
         {
             failures.Add($"ikonAIVersion {hostVersion} is not near this app's Ikon.AI {appVersion}");
         }
 
-        var summary = $"{models} models of {kinds.Count} kinds, {pricedRoutes} priced routes, {ownKeyPricedRoutes} with own-key prices, tier {tier}, AI host Ikon.AI {hostVersion ?? "?"} (app {appVersion})";
+        var summary = $"{models} models of {kinds.Count} kinds, {pricedRoutes} priced routes, {ownKeyPricedRoutes} with own-key prices, tier {tier}, catalog of Ikon.AI {hostVersion ?? "?"} (app {appVersion})";
 
         if (failures.Count > 0)
         {
@@ -408,8 +404,9 @@ public partial class Validation
         return plusIndex >= 0 ? version[..plusIndex] : version;
     }
 
-    // The AI host is redeployed nightly and this app on every battery run, so across a release the two
-    // can be a minor version apart for up to a day
+    // The AI host is redeployed nightly and its catalog uploaded right after, while this app is redeployed on every
+    // battery run. So across a release the catalog's version and this app's can be a minor version apart for up to
+    // a day
     private static bool AreNearVersions(string hostVersion, string appVersion)
     {
         if (hostVersion == appVersion)

@@ -479,7 +479,7 @@ public partial class Validation
 
     private async Task SendTestEmailAsync()
     {
-        _emailSending.Value = true;
+        using var _ = _emailSending.AsToken();
         _emailSendError.Value = null;
         _emailSendResult.Value = null;
 
@@ -515,10 +515,6 @@ public partial class Validation
         {
             _emailSendError.Value = ex.Message;
         }
-        finally
-        {
-            _emailSending.Value = false;
-        }
     }
 
     private async Task RefreshInboxAsync(bool reset)
@@ -528,7 +524,7 @@ public partial class Validation
             return;
         }
 
-        _inboxLoading.Value = true;
+        using var _ = _inboxLoading.AsToken();
         _inboxError.Value = null;
 
         try
@@ -558,10 +554,6 @@ public partial class Validation
         {
             _inboxError.Value = ex.Message;
         }
-        finally
-        {
-            _inboxLoading.Value = false;
-        }
     }
 
     private async Task LoadEmailDetailAsync(string id)
@@ -570,7 +562,7 @@ public partial class Validation
         _emailDetail.Value = null;
         _emailDetailError.Value = null;
         _emailHtmlBodyUrl.Value = null;
-        _emailDetailLoading.Value = true;
+        using var _ = _emailDetailLoading.AsToken();
 
         try
         {
@@ -579,10 +571,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _emailDetailError.Value = ex.Message;
-        }
-        finally
-        {
-            _emailDetailLoading.Value = false;
         }
     }
 

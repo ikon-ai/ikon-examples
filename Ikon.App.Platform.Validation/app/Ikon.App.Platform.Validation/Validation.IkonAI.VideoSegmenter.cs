@@ -89,7 +89,7 @@ public partial class Validation
 
     private async Task SegmentSampleVideoAsync()
     {
-        _videoSegmenterProcessing.Value = true;
+        using var _ = _videoSegmenterProcessing.AsToken();
         _videoSegmenterError.Value = null;
         _videoSegmenterResult.Value = null;
         _videoSegmenterVideoUrl.Value = null;
@@ -145,10 +145,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _videoSegmenterError.Value = $"FAIL: {ex.Message}";
-        }
-        finally
-        {
-            _videoSegmenterProcessing.Value = false;
         }
     }
 }

@@ -136,7 +136,7 @@ public partial class Validation
             return;
         }
 
-        _telLoading.Value = true;
+        using var _ = _telLoading.AsToken();
 
         try
         {
@@ -159,10 +159,6 @@ public partial class Validation
         {
             Log.Instance.Warning($"Validation telephony status could not be read: {ex.GetType().Name}: {ex.Message}");
             _telStatusText.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
-        }
-        finally
-        {
-            _telLoading.Value = false;
         }
     }
 
@@ -261,7 +257,7 @@ public partial class Validation
 
     private async Task SendTelephonySmsAsync()
     {
-        _telSmsBusy.Value = true;
+        using var _ = _telSmsBusy.AsToken();
         _telSmsResult.Value = "";
 
         try
@@ -277,10 +273,6 @@ public partial class Validation
         {
             Log.Instance.Warning($"Validation SMS to {_telSmsTo.Value} failed: {ex.GetType().Name}: {ex.Message}");
             _telSmsResult.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
-        }
-        finally
-        {
-            _telSmsBusy.Value = false;
         }
     }
 

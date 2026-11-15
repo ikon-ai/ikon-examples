@@ -234,7 +234,7 @@ public partial class Validation
 
     private async Task SendChatMessageAsync(string userMessage)
     {
-        _chatIsProcessing.Value = true;
+        using var _ = _chatIsProcessing.AsToken();
         _chatError.Value = null;
         _chatErrorKind.Value = null;
 
@@ -299,10 +299,6 @@ public partial class Validation
             var errorEntry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
             errorEntry.Content.Value = $"Error: {message}";
             _chatMessages.Add(errorEntry);
-        }
-        finally
-        {
-            _chatIsProcessing.Value = false;
         }
     }
 

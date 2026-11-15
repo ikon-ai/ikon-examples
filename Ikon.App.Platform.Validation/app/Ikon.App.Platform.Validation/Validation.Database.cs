@@ -249,7 +249,7 @@ public partial class Validation
             return;
         }
 
-        _dbBusy.Value = true;
+        using var _ = _dbBusy.AsToken();
 
         try
         {
@@ -280,10 +280,6 @@ public partial class Validation
         {
             _dbStatus.Value = $"Insert failed: {ex.Message}";
             Log.Instance.Warning($"Database insert failed: {ex}");
-        }
-        finally
-        {
-            _dbBusy.Value = false;
         }
     }
 
@@ -437,7 +433,7 @@ public partial class Validation
             return;
         }
 
-        _dbBusy.Value = true;
+        using var _ = _dbBusy.AsToken();
 
         try
         {
@@ -456,10 +452,6 @@ public partial class Validation
         {
             _dbStatus.Value = $"Delete failed: {ex.Message}";
             Log.Instance.Warning($"Database delete failed: {ex}");
-        }
-        finally
-        {
-            _dbBusy.Value = false;
         }
     }
 

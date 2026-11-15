@@ -48,77 +48,38 @@ public partial class Validation
 {
     private static readonly TimeSpan ScheduledPipelineRefreshInterval = TimeSpan.FromSeconds(15);
 
-    private readonly Reactive<string?> _lastScheduledPipelineRunUtc = new(null);
-    private readonly Reactive<bool> _scheduledPipelineStatusLoaded = new(false);
-    private DateTime _scheduledPipelineReadStartedAt = DateTime.MinValue;
-    private int _scheduledPipelineReadRunning;
+    // The pipeline writes from a different process, so the asset is the only channel and a
+    // once-per-process read would go stale. While the card is on screen it is read again every interval,
+    // and a failed read leaves the last known timestamp on screen. The validator judges how old that
+    // timestamp is, the same way whether the asset or the read failed.
+    private readonly Loader<AssetUri, string?> _lastScheduledPipelineRunUtc = new((uri, _) => ReadLastScheduledPipelineRunAsync(uri),
+        new LoaderOptions { RefreshInterval = ScheduledPipelineRefreshInterval }, name: "LastScheduledPipelineRun");
 
     private AssetUri ScheduledPipelineUri =>
         new(AssetClass.CloudJson, ValidationSchedulePipeline.AssetPath, spaceId: app.GlobalState.SpaceId);
 
     private void RenderScheduledPipelineCard(UIView view)
     {
-        RefreshScheduledPipelineStatus();
-
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H3, "mb-3"], "Scheduled pipeline");
 
-            if (!_scheduledPipelineStatusLoaded.Value)
+            var lastRun = _lastScheduledPipelineRunUtc.Get(ScheduledPipelineUri);
+
+            if (lastRun.IsLoading)
             {
                 view.Spinner();
                 return;
             }
 
-            RenderLastRun(view, _lastScheduledPipelineRunUtc.Value, "pipeline-schedule-timestamp");
+            RenderLastRun(view, lastRun.Value, "pipeline-schedule-timestamp");
         });
     }
 
-    // The pipeline writes from a different process, so the asset is the only channel and a
-    // once-per-process seed would go stale. Re-read on every render of the section instead,
-    // rate-limited so the re-render each read triggers cannot feed itself.
-    private void RefreshScheduledPipelineStatus()
+    private static async Task<string?> ReadLastScheduledPipelineRunAsync(AssetUri uri)
     {
-        if (DateTime.UtcNow - _scheduledPipelineReadStartedAt < ScheduledPipelineRefreshInterval)
-        {
-            return;
-        }
-
-        if (Interlocked.Exchange(ref _scheduledPipelineReadRunning, 1) == 1)
-        {
-            return;
-        }
-
-        _scheduledPipelineReadStartedAt = DateTime.UtcNow;
-
-        _ = Task.Run(async () =>
-        {
-            // Started from inside a UI render (a reactive callback), whose async-local flows in via
-            // ExecutionContext. Detach, or the writes below are swallowed as re-entrant and the card
-            // keeps showing "never" until some unrelated change happens to re-render it.
-            using var reactiveDetach = ReactiveManager.SuppressCallbackTracking();
-
-            try
-            {
-                var json = await Asset.Instance.TryGetTextAsync(ScheduledPipelineUri);
-                var run = json is null ? null : JsonSerializer.Deserialize<ValidationScheduledPipelineRun>(json);
-
-                if (run is { LastRunUtc.Length: > 0 })
-                {
-                    _lastScheduledPipelineRunUtc.Value = run.LastRunUtc;
-                }
-            }
-            catch (Exception ex)
-            {
-                // A failed read leaves the last known timestamp on screen. Staleness is what the
-                // validator judges, and it is judged the same whether the asset or the read broke.
-                Log.Instance.Warning($"Validation scheduled pipeline status read failed: {ex.Message}");
-            }
-            finally
-            {
-                _scheduledPipelineStatusLoaded.Value = true;
-                Interlocked.Exchange(ref _scheduledPipelineReadRunning, 0);
-            }
-        });
+        var json = await Asset.Instance.TryGetTextAsync(uri);
+        var run = json is null ? null : JsonSerializer.Deserialize<ValidationScheduledPipelineRun>(json);
+        return run is { LastRunUtc.Length: > 0 } ? run.LastRunUtc : null;
     }
 }

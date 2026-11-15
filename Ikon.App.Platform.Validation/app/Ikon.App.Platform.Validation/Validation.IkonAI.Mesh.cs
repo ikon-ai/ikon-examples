@@ -231,7 +231,7 @@ public partial class Validation
     private async Task RunMeshOperationAsync(string name, Func<MeshGenerator, Task<MeshGeneratorResult>> operation,
         System.Action<MeshGeneratorResult>? onResult = null)
     {
-        _meshOpsProcessing.Value = true;
+        using var _ = _meshOpsProcessing.AsToken();
         _meshOpsError.Value = null;
         _meshOpsResult.Value = null;
         _meshOpsResultData = null;
@@ -250,10 +250,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _meshOpsError.Value = $"{name} failed: {ex.Message}";
-        }
-        finally
-        {
-            _meshOpsProcessing.Value = false;
         }
     }
 
@@ -320,7 +316,7 @@ public partial class Validation
 
     private async Task ListMeshAnimationsAsync()
     {
-        _meshAnimationsProcessing.Value = true;
+        using var _ = _meshAnimationsProcessing.AsToken();
         _meshAnimationsError.Value = null;
         _meshAnimationsResult.Value = null;
 
@@ -371,10 +367,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _meshAnimationsError.Value = $"FAIL: {ex.Message}";
-        }
-        finally
-        {
-            _meshAnimationsProcessing.Value = false;
         }
     }
 }

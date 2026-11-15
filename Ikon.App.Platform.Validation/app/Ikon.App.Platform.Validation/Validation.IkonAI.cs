@@ -468,7 +468,7 @@
 
     private async Task ClassifyTextAsync()
     {
-        _classifierProcessing.Value = true;
+        using var _ = _classifierProcessing.AsToken();
         _classifierError.Value = null;
         _classifierResult.Value = null;
 
@@ -496,10 +496,6 @@
         catch (Exception ex)
         {
             _classifierError.Value = ex.Message;
-        }
-        finally
-        {
-            _classifierProcessing.Value = false;
         }
     }
 
@@ -583,7 +579,7 @@
 
     private async Task GenerateEmbeddingsAsync()
     {
-        _embeddingProcessing.Value = true;
+        using var _ = _embeddingProcessing.AsToken();
         _embeddingError.Value = null;
         _embeddingResult.Value = null;
 
@@ -615,10 +611,6 @@
         catch (Exception ex)
         {
             _embeddingError.Value = ex.Message;
-        }
-        finally
-        {
-            _embeddingProcessing.Value = false;
         }
     }
 
@@ -704,7 +696,7 @@
 
     private async Task SearchWebAsync()
     {
-        _webSearcherProcessing.Value = true;
+        using var _ = _webSearcherProcessing.AsToken();
         _webSearcherError.Value = null;
         _webSearcherResult.Value = null;
 
@@ -731,10 +723,6 @@
         catch (Exception ex)
         {
             _webSearcherError.Value = ex.Message;
-        }
-        finally
-        {
-            _webSearcherProcessing.Value = false;
         }
     }
 
@@ -813,7 +801,7 @@
 
     private async Task ScrapeWebAsync()
     {
-        _webScraperProcessing.Value = true;
+        using var _ = _webScraperProcessing.AsToken();
         _webScraperError.Value = null;
         _webScraperResult.Value = null;
 
@@ -834,10 +822,6 @@
         catch (Exception ex)
         {
             _webScraperError.Value = ex.Message;
-        }
-        finally
-        {
-            _webScraperProcessing.Value = false;
         }
     }
 
@@ -921,7 +905,7 @@
 
     private async Task RerankDocumentsAsync()
     {
-        _rerankerProcessing.Value = true;
+        using var _ = _rerankerProcessing.AsToken();
         _rerankerError.Value = null;
         _rerankerResult.Value = null;
 
@@ -950,10 +934,6 @@
         catch (Exception ex)
         {
             _rerankerError.Value = ex.Message;
-        }
-        finally
-        {
-            _rerankerProcessing.Value = false;
         }
     }
 
@@ -1250,7 +1230,7 @@
 
     private async Task GenerateImageAsync()
     {
-        _imageGeneratorProcessing.Value = true;
+        using var _ = _imageGeneratorProcessing.AsToken();
         _imageGeneratorError.Value = null;
         _imageGeneratorResult.Value = null;
         _imageGeneratorDownloadUrl.Value = null;
@@ -1312,10 +1292,6 @@
         catch (Exception ex)
         {
             _imageGeneratorError.Value = ex.Message;
-        }
-        finally
-        {
-            _imageGeneratorProcessing.Value = false;
         }
     }
 
@@ -1495,7 +1471,7 @@
 
     private async Task GenerateMusicAsync()
     {
-        _musicProcessing.Value = true;
+        using var busyToken = _musicProcessing.AsToken();
         _musicError.Value = null;
         _musicResult.Value = null;
         _musicDownloadUrl.Value = null;
@@ -1551,10 +1527,6 @@
         catch (Exception ex)
         {
             _musicError.Value = ex.Message;
-        }
-        finally
-        {
-            _musicProcessing.Value = false;
         }
     }
 
@@ -1761,7 +1733,7 @@
 
     private async Task GenerateSpeechAsync()
     {
-        _speechGeneratorProcessing.Value = true;
+        using var _ = _speechGeneratorProcessing.AsToken();
         _speechGeneratorError.Value = null;
         _speechGeneratorResult.Value = null;
         _speechGeneratorDownloadUrl.Value = null;
@@ -1798,10 +1770,6 @@
         catch (Exception ex)
         {
             _speechGeneratorError.Value = ex.Message;
-        }
-        finally
-        {
-            _speechGeneratorProcessing.Value = false;
         }
     }
 
@@ -1996,7 +1964,7 @@
             return;
         }
 
-        _speechRecognizerProcessing.Value = true;
+        using var _ = _speechRecognizerProcessing.AsToken();
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
         _speechRecognizerDetail.Value = null;
@@ -2026,10 +1994,6 @@
         catch (Exception ex)
         {
             _speechRecognizerError.Value = ex.Message;
-        }
-        finally
-        {
-            _speechRecognizerProcessing.Value = false;
         }
     }
 
@@ -2280,7 +2244,7 @@
 
     private async Task RecognizeFromSampleAsync()
     {
-        _speechRecognizerProcessing.Value = true;
+        using var _ = _speechRecognizerProcessing.AsToken();
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
         _speechRecognizerDetail.Value = null;
@@ -2314,10 +2278,6 @@
         catch (Exception ex)
         {
             _speechRecognizerError.Value = ex.Message;
-        }
-        finally
-        {
-            _speechRecognizerProcessing.Value = false;
         }
     }
 
@@ -2421,7 +2381,7 @@
             return;
         }
 
-        _ocrProcessing.Value = true;
+        using var _ = _ocrProcessing.AsToken();
         _ocrError.Value = null;
         _ocrResult.Value = null;
         _ocrDownloadUrl.Value = null;
@@ -2441,15 +2401,11 @@
         {
             _ocrError.Value = ex.Message;
         }
-        finally
-        {
-            _ocrProcessing.Value = false;
-        }
     }
 
     private async Task PerformOCRFromSampleAsync()
     {
-        _ocrProcessing.Value = true;
+        using var _ = _ocrProcessing.AsToken();
         _ocrError.Value = null;
         _ocrResult.Value = null;
         _ocrDownloadUrl.Value = null;
@@ -2469,10 +2425,6 @@
         catch (Exception ex)
         {
             _ocrError.Value = ex.Message;
-        }
-        finally
-        {
-            _ocrProcessing.Value = false;
         }
     }
 
@@ -2612,7 +2564,7 @@
             return;
         }
 
-        _fileConverterProcessing.Value = true;
+        using var _ = _fileConverterProcessing.AsToken();
         _fileConverterError.Value = null;
         _fileConverterResult.Value = null;
         _fileConverterDownloadUrl.Value = null;
@@ -2658,10 +2610,6 @@
         catch (Exception ex)
         {
             _fileConverterError.Value = ex.Message;
-        }
-        finally
-        {
-            _fileConverterProcessing.Value = false;
         }
     }
 
@@ -2893,7 +2841,7 @@
 
     private async Task GenerateVideoAsync()
     {
-        _videoGeneratorProcessing.Value = true;
+        using var _ = _videoGeneratorProcessing.AsToken();
         _videoGeneratorError.Value = null;
         _videoGeneratorResultUrl.Value = null;
 
@@ -2939,10 +2887,6 @@
         catch (Exception ex)
         {
             _videoGeneratorError.Value = ex.Message;
-        }
-        finally
-        {
-            _videoGeneratorProcessing.Value = false;
         }
     }
 
@@ -3081,7 +3025,7 @@
 
     private async Task GenerateSoundEffectAsync()
     {
-        _soundEffectProcessing.Value = true;
+        using var _ = _soundEffectProcessing.AsToken();
         _soundEffectError.Value = null;
         _soundEffectResult.Value = null;
         _soundEffectDownloadUrl.Value = null;
@@ -3131,10 +3075,6 @@
         catch (Exception ex)
         {
             _soundEffectError.Value = ex.Message;
-        }
-        finally
-        {
-            _soundEffectProcessing.Value = false;
         }
     }
 
@@ -3316,7 +3256,7 @@
 
     private async Task EnhanceVideoAsync()
     {
-        _videoEnhancerProcessing.Value = true;
+        using var _ = _videoEnhancerProcessing.AsToken();
         _videoEnhancerError.Value = null;
         _videoEnhancerResultUrl.Value = null;
         _videoEnhancerResultInfo.Value = null;
@@ -3337,15 +3277,11 @@
         {
             _videoEnhancerError.Value = ex.Message;
         }
-        finally
-        {
-            _videoEnhancerProcessing.Value = false;
-        }
     }
 
     private async Task EnhanceSampleVideoAsync()
     {
-        _videoEnhancerProcessing.Value = true;
+        using var _ = _videoEnhancerProcessing.AsToken();
         _videoEnhancerError.Value = null;
         _videoEnhancerResultUrl.Value = null;
         _videoEnhancerResultInfo.Value = null;
@@ -3372,10 +3308,6 @@
         catch (Exception ex)
         {
             _videoEnhancerError.Value = ex.Message;
-        }
-        finally
-        {
-            _videoEnhancerProcessing.Value = false;
         }
     }
 
@@ -3505,7 +3437,7 @@
 
     private async Task SegmentImageCoreAsync(string filePath, string mimeType)
     {
-        _imageSegmenterProcessing.Value = true;
+        using var _ = _imageSegmenterProcessing.AsToken();
         _imageSegmenterError.Value = null;
         _imageSegmenterResult.Value = null;
         _imageSegmenterImageDataUrls.Clear();
@@ -3548,10 +3480,6 @@
         catch (Exception ex)
         {
             _imageSegmenterError.Value = ex.Message;
-        }
-        finally
-        {
-            _imageSegmenterProcessing.Value = false;
         }
     }
 
@@ -3715,7 +3643,7 @@
 
     private async Task UpscaleImageCoreAsync(string filePath, string mimeType)
     {
-        _imageUpscalerProcessing.Value = true;
+        using var _ = _imageUpscalerProcessing.AsToken();
         _imageUpscalerError.Value = null;
         _imageUpscalerResult.Value = null;
         _imageUpscalerImageDataUrl.Value = null;
@@ -3747,10 +3675,6 @@
         catch (Exception ex)
         {
             _imageUpscalerError.Value = ex.Message;
-        }
-        finally
-        {
-            _imageUpscalerProcessing.Value = false;
         }
     }
 
@@ -3864,7 +3788,7 @@
 
     private async Task EstimateDepthCoreAsync(string filePath, string mimeType)
     {
-        _depthEstimatorProcessing.Value = true;
+        using var _ = _depthEstimatorProcessing.AsToken();
         _depthEstimatorError.Value = null;
         _depthEstimatorResult.Value = null;
         _depthEstimatorImageDataUrl.Value = null;
@@ -3886,10 +3810,6 @@
         catch (Exception ex)
         {
             _depthEstimatorError.Value = ex.Message;
-        }
-        finally
-        {
-            _depthEstimatorProcessing.Value = false;
         }
     }
 
@@ -4063,7 +3983,7 @@
 
     private async Task GenerateMeshAsync()
     {
-        _meshGeneratorProcessing.Value = true;
+        using var _ = _meshGeneratorProcessing.AsToken();
         _meshGeneratorError.Value = null;
         _meshGeneratorResult.Value = null;
         _meshGeneratorResultData = null;
@@ -4104,10 +4024,6 @@
         catch (Exception ex)
         {
             _meshGeneratorError.Value = ex.Message;
-        }
-        finally
-        {
-            _meshGeneratorProcessing.Value = false;
         }
     }
 }

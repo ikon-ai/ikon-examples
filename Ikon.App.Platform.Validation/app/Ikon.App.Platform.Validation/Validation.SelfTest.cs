@@ -33,8 +33,6 @@ public partial class Validation
 
     private void RenderSelfTestSection(UIView view)
     {
-        MaybeAutoRunSelfTest();
-
         var checks = SelfTestChecks();
 
         view.Column([Layout.Column.Lg], content: view =>
@@ -50,7 +48,7 @@ public partial class Validation
                         icon: "play",
                         disabled: _selfTestRunning.Value,
                         props: TestId("selftest-run"),
-                        onClick: async () => StartSelfTest(fromClick: true));
+                        onClick: async () => StartSelfTest());
 
                     if (_selfTestRunning.Value)
                     {
@@ -115,30 +113,21 @@ public partial class Validation
         StartSelfTest();
     }
 
-    private void StartSelfTest(bool fromClick = false)
+    private void StartSelfTest()
     {
         if (Interlocked.CompareExchange(ref _selfTestGate, 1, 0) != 0)
         {
             return;
         }
 
-        // A click is a handler, where writes are legal: flipping to "running" before the click
-        // returns means a script reading the summary right after clicking never sees the previous
-        // run's verdict. A render cannot write, so the battery flips it itself moments later.
-        if (fromClick)
-        {
-            _selfTestResults.Clear();
-            _selfTestRunning.Value = true;
-            _selfTestSummary.Value = "Self-test: running";
-        }
+        // Flipping to "running" before the click or the tab opening returns means a script reading
+        // the summary right after never sees the previous run's verdict
+        _selfTestResults.Clear();
+        _selfTestRunning.Value = true;
+        _selfTestSummary.Value = "Self-test: running";
 
         _ = Task.Run(async () =>
         {
-            // Started from a render or a click, whose reactive tracking flows in through the
-            // ExecutionContext. Detached, the result writes land as ordinary updates instead of
-            // being swallowed as re-entrant writes of the render that started them.
-            using var reactiveDetach = ReactiveManager.SuppressCallbackTracking();
-
             try
             {
                 await RunSelfTestAsync();
@@ -219,6 +208,7 @@ public partial class Validation
             new("uploads", SelfTestUploadsAsync),
             new("seed", SelfTestSeedAsync),
             new("shared-session", SelfTestSharedSessionAsync),
+            new("space-secrets", SelfTestSpaceSecretsAsync),
             new("reactive-list", SelfTestReactiveListAsync),
             new("reactive-hashset", SelfTestReactiveHashSetAsync),
             new("reactive-scope", SelfTestReactiveScopeAsync),

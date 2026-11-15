@@ -251,7 +251,7 @@ public partial class Validation
         }
 
         Interlocked.Increment(ref _uploadLabActiveRuns);
-        _uploadLabRunning.Value = true;
+        using var _ = _uploadLabRunning.AsToken();
 
         try
         {
@@ -277,7 +277,6 @@ public partial class Validation
         finally
         {
             Interlocked.Decrement(ref _uploadLabActiveRuns);
-            _uploadLabRunning.Value = false;
         }
     }
 

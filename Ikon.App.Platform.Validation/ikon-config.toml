@@ -1,6 +1,6 @@
-ConfigVersion = 13  # Schema version: the ikon tool upgrades an older file and refuses a newer one
+ConfigVersion = 13  # Schema version: the IKON tool upgrades an older file and refuses a newer one
 StateDatabase = ""  # The database PersistentReactive state lives in; empty picks the "app" database (databases guide)
-DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any. Applies to the deployed app, not a local run (sso guide)
+DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any. Checked when someone first joins: existing profiles keep access. Applies to the deployed app, not a local run (sso guide)
 MaxClients = 0  # Clients an instance admits, and a shard's size with [Sharding] on; 0 fits it to the container's memory (scaling guide)
 
 # More instances, called shards, for one identity value that fills its instance (scaling guide, "Sharding")
@@ -11,7 +11,7 @@ MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the a
 # The kinds of visitor, one [[Surface]] each; with none, one surface admits guests at "/". With several, exactly one that is not a SignIn page has neither Routes nor Host, and it serves every other path (app-structure guide, "Surfaces")
 # Replace this block to change surfaces; each name appears once.
 [[Surface]]
-Name = "app"  # Unique in the app; a handler reads it as Context.Surface
+Name = "app"  # Unique in the app; a handler reads it as ctx.Surface
 Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; with one surface, list every page's path; with several, the one that serves every other path has none
 Host = ""  # A hostname label of its own: "admin" serves it only at <space>-admin; empty selects it by route
 Connect = "atLoad"  # "atLoad"; "onAction" connects on the visitor's first action; "none" never connects
@@ -24,7 +24,7 @@ Recovery = "attended"  # "attended" waits for a tap after a lost connection, for
 # Who may enter the surface
 [Surface.Auth]
 Methods = ["google", "apple", "microsoft", "email", "passkey", "sso", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in, and a button calling ClientFunctions.LoginShowAsync(reason) lets a visitor sign in
-Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; another role needs `ikon profile role create`. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
+Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; a role kept in the app's own table (profiles-and-roles guide, "App-wide roles of your own") is not checked here, so check it in the surface's code; `ikon profile role create` is for IKON platform administrators only. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
 SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
 [[Surface]]
@@ -199,8 +199,8 @@ EmailHint = "Use your validation address"  # The email field's hint, e.g. "Use y
 # The privacy notice and terms: legal/privacy.md and legal/terms.md in the app root, served at the paths below (app-structure guide)
 [Legal]
 PrivacyUrl = ""  # An https:// URL that PrivacyPath redirects to; empty serves legal/privacy.md
-TermsUrl = ""  # An https:// URL that TermsPath redirects to; empty serves legal/terms.md
-PrivacyPath = "/legal/privacy"  # Absolute, no file extension, not under /ikon or /api
+TermsUrl = "https://ikonai.com/legal/terms"  # An https:// URL that TermsPath redirects to; empty serves legal/terms.md
+PrivacyPath = "/legal/privacy-notice"  # Absolute, no file extension, not under /ikon or /api
 TermsPath = "/legal/terms"  # The same rules as PrivacyPath
 
 # The platform's feedback sheet. A new app offers it to no one (only test-link visitors) until 'ikon feedback set --audience <value>' runs; Button below only draws the way in (parallax-overview guide)
@@ -209,17 +209,26 @@ Button = "overlay"  # "overlay" draws a floating feedback button for whoever is 
 
 # Usage measurement, of people who granted ConsentPurposes.UsageMeasurement; only a deployed app sends its events (consent guide)
 [Analytics]
-UIActions = false  # Record each action a person runs, which a report filed from the app then carries
+UIActions = true  # Record each action a person runs, which a report filed from the app then carries
 
 # Fixed answers or redirects on paths of the app's domain, sent without starting the app (app-structure guide)
-# [[PathResponse]]
-# Path = ""  # Exact, or ending in "/*" for a prefix; not "/*", and nothing under /api, /ikon or /__ikon
-# Methods = ["*"]  # The methods it answers, e.g. ["GET"]; ["*"] answers every method, and "GET" also answers HEAD
-# Status = 0  # 200-599 for a Body, 301, 302, 307 or 308 for a Redirect; 0 takes 503 or 308
-# ContentType = "text/plain; charset=utf-8"  # The Body's Content-Type
-# Body = ""  # The response body, at most 16 KB; not with Redirect
-# Redirect = ""  # A path on the app's own host or an https:// URL; "{*}" takes what the Path's "/*" matched
-# Headers = []  # Extra response headers as "Name: value", e.g. ["Retry-After: 3600"]
+[[PathResponse]]
+Path = "/legacy/maintenance/*"  # Exact, or ending in "/*" for a prefix; not "/*", and nothing under /api, /ikon or /__ikon
+Methods = ["GET"]  # The methods it answers, e.g. ["GET"]; ["*"] answers every method, and "GET" also answers HEAD
+Status = 0  # 200-599 for a Body, 301, 302, 307 or 308 for a Redirect; 0 takes 503 or 308
+ContentType = "text/plain; charset=utf-8"  # The Body's Content-Type
+Body = "The old site is down for maintenance"  # The response body, at most 16 KB; not with Redirect
+Redirect = ""  # A path on the app's own host or an https:// URL; "{*}" takes what the Path's "/*" matched
+Headers = ["Retry-After: 3600"]  # Extra response headers as "Name: value", e.g. ["Retry-After: 3600"]
+
+[[PathResponse]]
+Path = "/legacy/site/*"
+Methods = ["*"]
+Status = 307
+ContentType = "text/plain; charset=utf-8"
+Body = ""
+Redirect = "/surfaces/site/{*}"
+Headers = []
 
 # Raw public TCP, UDP or TLS ports, one [[Port]] each, read as app.Ports (endpoints-webhooks guide)
 [[Port]]
@@ -261,7 +270,7 @@ Labels = []
 # Dest = ""  # Where the result goes inside the runtime folder; empty is the folder's root
 # Name = ""  # The written file's name when Archive is "none"; empty takes the URL's last segment
 
-# Commands the ikon tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
+# Commands the IKON tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
 [Scripts]
 PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'; a program that must run on every build (ikon build, run and deploy) is an MSBuild BeforeBuild target in the app's csproj instead (guide app-container)
 

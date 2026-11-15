@@ -18,6 +18,19 @@ public partial class Validation
         ("Visited the site", 18_420), ("Opened the editor", 6_310), ("Asked for an app", 2_085), ("Previewed an app", 912), ("Published", 233),
     ];
 
+    // Two measures in different units over one day: bytes about ten thousand times larger than the file count.
+    private static LineChartSeries[] HydrationSeries()
+    {
+        var start = new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        var hours = Enumerable.Range(0, 24).ToArray();
+
+        return
+        [
+            new LineChartSeries { Id = "bytes", Data = hours.Select(h => new LineChartPoint { X = start + h * 3_600_000L, Y = 40_000 + 9_000 * (h % 6) }).ToArray() },
+            new LineChartSeries { Id = "files", Axis = ValueAxisSide.Right, Data = hours.Select(h => new LineChartPoint { X = start + h * 3_600_000L, Y = 3 + h % 4 }).ToArray() },
+        ];
+    }
+
     private static IEnumerable<HeatMapCell> VisitsByWeekdayAndHour()
     {
         string[] days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -405,6 +418,19 @@ public partial class Validation
                             keys: ["Made", "Failed", "Cancelled", "Pending review", "Waiting for credits", "Not recorded"],
                             indexBy: "day",
                             colorsByKey: new Dictionary<string, string> { ["Made"] = "#16a34a", ["Failed"] = "#dc2626", ["Not recorded"] = "#9ca3af" });
+                    });
+
+                    grid.Column(["gap-2"], content: c =>
+                    {
+                        c.Text([Text.Caption], "UTC time axis (ticks on 00:00, 03:00 UTC), max and mean in the legend, files on a right-hand axis");
+                        c.LineChart(["h-72 w-full"],
+                            theme: chartTheme,
+                            xScaleType: ScaleType.Time,
+                            timeZone: ChartTimeZone.Utc,
+                            valueUnit: "bytes",
+                            rightValueUnit: "files",
+                            legendValues: [LegendValue.Max, LegendValue.Mean],
+                            data: HydrationSeries());
                     });
                 });
             });

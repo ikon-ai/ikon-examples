@@ -296,7 +296,7 @@ public partial class Validation
             return;
         }
 
-        _gdBusy.Value = true;
+        using var _ = _gdBusy.AsToken();
         _gdStatus.Value = $"Working: {action}…";
 
         try
@@ -314,10 +314,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _gdStatus.Value = $"FAIL {action}: {ex.GetType().Name}: {ex.Message}";
-        }
-        finally
-        {
-            _gdBusy.Value = false;
         }
     }
 }

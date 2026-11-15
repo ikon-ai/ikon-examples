@@ -4,8 +4,9 @@ public partial class Validation
 {
     private const string LastTriggerAssetPath = "validation/last-trigger.json";
 
-    private readonly Reactive<ValidationTriggerRecord?> _lastTrigger = new(null);
-    private int _triggerSeedStarted;
+    // Read from the persisted asset the first time the card shows, so the last event is visible after a
+    // restart without waiting for the next one, then set by each event handled here
+    private readonly Loader<AssetUri, ValidationTriggerRecord?> _lastTrigger = new((uri, _) => ReadLastTriggerAsync(uri), name: "LastTrigger");
 
     private AssetUri LastTriggerUri => new(AssetClass.CloudJson, LastTriggerAssetPath, spaceId: app.GlobalState.SpaceId);
 
@@ -46,7 +47,7 @@ public partial class Validation
 
         var json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
         await Asset.Instance.SetTextAsync(LastTriggerUri, json);
-        _lastTrigger.Value = record;
+        _lastTrigger.Set(LastTriggerUri, record);
         Log.Instance.Info($"Validation trigger {context.EventId} ({context.EventType}, sequence {context.SequenceNumber}) handled");
     }
 
@@ -66,21 +67,19 @@ public partial class Validation
 
         var json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
         await Asset.Instance.SetTextAsync(LastTriggerUri, json);
-        _lastTrigger.Value = record;
+        _lastTrigger.Set(LastTriggerUri, record);
         Log.Instance.Info($"Validation erasure {args.ErasureId} handled for user {args.UserId}");
     }
 
     private void RenderTriggerCard(UIView view)
     {
-        SeedTriggerFromAsset();
-
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             // A [Trigger(TriggerEventType.EmailReceived)] listener: mail to the space's receiving domain
             // while no instance runs cold-starts one, so a line here proves the trigger path end to end.
             view.Text([Text.H3, "mb-4"], "Inbound email trigger");
 
-            var record = _lastTrigger.Value;
+            var record = _lastTrigger.Get(LastTriggerUri).Value;
             RenderLastRun(view, record?.HandledAtUtc, "trigger-last-event-time", label: "Last email:");
 
             if (record is not null)
@@ -94,37 +93,12 @@ public partial class Validation
         });
     }
 
-    // Seed the UI mirror from the persisted asset once per process, so the last event is visible
-    // after a restart without waiting for the next one. Read-only — see RememberLastEventAsync.
-    private void SeedTriggerFromAsset()
+    // Read-only — see RememberLastEventAsync. No event asset yet reads as none, and the card shows
+    // "never" until the first delivery writes it.
+    private static async Task<ValidationTriggerRecord?> ReadLastTriggerAsync(AssetUri uri)
     {
-        if (Interlocked.Exchange(ref _triggerSeedStarted, 1) == 1)
-        {
-            return;
-        }
-
-        _ = Task.Run(async () =>
-        {
-            // Started from inside a UI render (a reactive callback), whose async-local flows in via
-            // ExecutionContext. Detach, or the seed write below is swallowed as re-entrant.
-            using var reactiveDetach = ReactiveManager.SuppressCallbackTracking();
-
-            try
-            {
-                var json = await Asset.Instance.GetTextAsync(LastTriggerUri);
-                var record = JsonSerializer.Deserialize<ValidationTriggerRecord>(json);
-
-                // Never overwrite an event handled between the read starting and this update landing
-                if (record is not null && _lastTrigger.Value is null)
-                {
-                    _lastTrigger.Value = record;
-                }
-            }
-            catch
-            {
-                // No event asset yet — the card shows "never" until the first delivery writes it
-            }
-        });
+        var json = await Asset.Instance.TryGetTextAsync(uri);
+        return json is null ? null : JsonSerializer.Deserialize<ValidationTriggerRecord>(json);
     }
 }
 

@@ -258,4 +258,48 @@ public partial class Validation
 
         return $"parameter parsed case-insensitively, survives the wire; {sharedClients} of {clients.Count} connected clients are shared sessions";
     }
+
+    // A local run has to read the space's secrets exactly as the deployed app does. app.Secrets is
+    // what app code reads, and the platform credentials are what the platform libraries read (for
+    // example the watermark key that the AI provenance check reads). A secret missing from either one
+    // causes no error of its own, so nothing shows it until the code that reads it goes wrong. The
+    // check reports secret names, never their values.
+    private async Task<string> SelfTestSpaceSecretsAsync()
+    {
+        var spaceId = app.GlobalState.SpaceId;
+        Expect(!string.IsNullOrEmpty(spaceId), "the app has no space id");
+
+        var held = await IkonBackend.Instance.GetSecretsAsync(spaceId);
+        Expect(held.Count > 0, $"the backend returned no secrets for space {spaceId}, but Validation's space holds IKON_IMAGE_WATERMARK_KEY in dev and prod");
+
+        var problems = new List<string>();
+
+        foreach (var (key, value) in held.OrderBy(secret => secret.Key, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                problems.Add($"{key} is empty in the space");
+                continue;
+            }
+
+            if (!app.Secrets.TryGet(key, out var appValue) || string.IsNullOrWhiteSpace(appValue))
+            {
+                problems.Add($"{key} is missing from app.Secrets");
+            }
+
+            // The value is compared too, because an environment variable or a user override of the
+            // same name would otherwise pass the check even when the space's secret never arrived
+            if (!CredentialStorage.Instance.TryGet(key, out var credentialValue) || string.IsNullOrWhiteSpace(credentialValue))
+            {
+                problems.Add($"{key} is missing from the platform credentials");
+            }
+            else if (credentialValue != value)
+            {
+                problems.Add($"{key} has a different value in the platform credentials than in the space");
+            }
+        }
+
+        Expect(problems.Count == 0, $"space {spaceId}: {string.Join("; ", problems)} (a secret set after the app started reaches app.Secrets only after a restart, and the platform credentials within 5 minutes)");
+        return $"all {held.Count} secrets of space {spaceId} are set in app.Secrets, and the platform credentials hold the space's values";
+    }
 }

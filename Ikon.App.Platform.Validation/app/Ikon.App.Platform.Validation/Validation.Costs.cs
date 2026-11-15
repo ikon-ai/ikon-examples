@@ -297,7 +297,7 @@ public partial class Validation
 
     private async Task LoadSpendStatusAsync()
     {
-        _costsSpendLoading.Value = true;
+        using var _ = _costsSpendLoading.AsToken();
 
         try
         {
@@ -310,10 +310,6 @@ public partial class Validation
             _costsSpendStatus.Value = null;
             _costsSpendResult.Value = $"FAIL spend status: {ex.GetType().Name}: {ex.Message}";
         }
-        finally
-        {
-            _costsSpendLoading.Value = false;
-        }
     }
 
     private async Task RunBudgetCheckAsync()
@@ -323,7 +319,7 @@ public partial class Validation
             return;
         }
 
-        _costsBudgetRunning.Value = true;
+        using var _ = _costsBudgetRunning.AsToken();
         _costsBudgetResult.Value = null;
         _costsBudgetProgress.Value = "Reading the spend mode";
 
@@ -337,7 +333,6 @@ public partial class Validation
         }
         finally
         {
-            _costsBudgetRunning.Value = false;
             _costsBudgetProgress.Value = "";
         }
     }
@@ -434,7 +429,7 @@ public partial class Validation
             return;
         }
 
-        _costsLoading.Value = true;
+        using var _ = _costsLoading.AsToken();
         _costsError.Value = null;
 
         try
@@ -453,10 +448,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _costsError.Value = ex.Message;
-        }
-        finally
-        {
-            _costsLoading.Value = false;
         }
     }
 }

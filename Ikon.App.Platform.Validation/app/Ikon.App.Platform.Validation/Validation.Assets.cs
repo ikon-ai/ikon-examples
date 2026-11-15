@@ -53,20 +53,13 @@ public partial class Validation
                     disabled: _assetCloudFileUploading.Value,
                     onClick: async () =>
                     {
-                        _assetCloudFileUploading.Value = true;
-                        try
-                        {
-                            var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
-                            await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
-                            var metadata = await Asset.Instance.GetMetadataAsync(uri);
-                            _assetCloudFileStatus.Value = "Uploaded";
-                            _assetCloudFileMetadata.Value = $"Size: {metadata.Size}, LastModified: {metadata.LastModified}, URL temporal: {metadata.UrlIsTemporal}";
-                            _assetCloudFileBackingUrl.Value = metadata.Url ?? "";
-                        }
-                        finally
-                        {
-                            _assetCloudFileUploading.Value = false;
-                        }
+                        using var _ = _assetCloudFileUploading.AsToken();
+                        var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
+                        await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
+                        var metadata = await Asset.Instance.GetMetadataAsync(uri);
+                        _assetCloudFileStatus.Value = "Uploaded";
+                        _assetCloudFileMetadata.Value = $"Size: {metadata.Size}, LastModified: {metadata.LastModified}, URL temporal: {metadata.UrlIsTemporal}";
+                        _assetCloudFileBackingUrl.Value = metadata.Url ?? "";
                     });
 
                 view.Button([Button.PrimaryMd], text: "Download & Show", onClick: async () =>
@@ -125,20 +118,13 @@ public partial class Validation
                     disabled: _assetCloudFilePublicUploading.Value,
                     onClick: async () =>
                     {
-                        _assetCloudFilePublicUploading.Value = true;
-                        try
-                        {
-                            var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
-                            await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
-                            var metadata = await Asset.Instance.GetMetadataAsync(uri);
-                            _assetCloudFilePublicStatus.Value = "Uploaded";
-                            _assetCloudFilePublicMetadata.Value = $"Size: {metadata.Size}, LastModified: {metadata.LastModified}, URL temporal: {metadata.UrlIsTemporal}";
-                            _assetCloudFilePublicBackingUrl.Value = metadata.Url ?? "";
-                        }
-                        finally
-                        {
-                            _assetCloudFilePublicUploading.Value = false;
-                        }
+                        using var _ = _assetCloudFilePublicUploading.AsToken();
+                        var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
+                        await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
+                        var metadata = await Asset.Instance.GetMetadataAsync(uri);
+                        _assetCloudFilePublicStatus.Value = "Uploaded";
+                        _assetCloudFilePublicMetadata.Value = $"Size: {metadata.Size}, LastModified: {metadata.LastModified}, URL temporal: {metadata.UrlIsTemporal}";
+                        _assetCloudFilePublicBackingUrl.Value = metadata.Url ?? "";
                     });
 
                 view.Button([Button.PrimaryMd], text: "Download & Show", onClick: async () =>

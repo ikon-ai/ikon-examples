@@ -4,6 +4,8 @@ public record SessionIdentity(string? UserId, string Id);
 public record ClientParams(string Id, string Test);
 
 [App]
+[ComputeProfile("lab-cells", ComputeShape.Standard2)]
+[ComputeProfile("background", ComputeShape.Standard1, StartedBy = [SessionStart.Cron, SessionStart.Trigger])]
 public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
     private UI UI { get; } = new(app, ValidationTheme.Brand) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
@@ -357,6 +359,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         InitConsent();
         InitSiblingClientEvents();
         InitGoogleDrive();
+        InitCells();
         StartPortEchoes();
 
         app.OnStopping(ClearDatabaseAsync);
@@ -521,6 +524,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         {
             _ = RefreshTelephonyAsync();
         }
+
+        if (tab == "self-test")
+        {
+            MaybeAutoRunSelfTest();
+        }
     }
 
     private Task StartAudioGeneratorAsync()
@@ -627,7 +635,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             return;
         }
 
-        _devicesLoading.Value = true;
+        using var _ = _devicesLoading.AsToken();
 
         try
         {
@@ -637,10 +645,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         catch (Exception ex)
         {
             Log.Instance.Warning($"Failed to get media devices: {ex.Message}");
-        }
-        finally
-        {
-            _devicesLoading.Value = false;
         }
     }
 

@@ -301,29 +301,22 @@ public partial class Validation
 
     private async Task RunMcpChecksAsync(IEnumerable<McpCheck> checks)
     {
-        _mcpChecking.Value = true;
+        using var _ = _mcpChecking.AsToken();
 
-        try
+        var userId = ReactiveScope.UserIdOrNull;
+
+        foreach (var check in checks)
         {
-            var userId = ReactiveScope.UserIdOrNull;
+            _mcpCheckResults[check.Key] = "Running…";
 
-            foreach (var check in checks)
+            try
             {
-                _mcpCheckResults[check.Key] = "Running…";
-
-                try
-                {
-                    _mcpCheckResults[check.Key] = await check.Run(this, userId);
-                }
-                catch (Exception ex)
-                {
-                    _mcpCheckResults[check.Key] = $"FAIL {DescribeException(ex)}";
-                }
+                _mcpCheckResults[check.Key] = await check.Run(this, userId);
             }
-        }
-        finally
-        {
-            _mcpChecking.Value = false;
+            catch (Exception ex)
+            {
+                _mcpCheckResults[check.Key] = $"FAIL {DescribeException(ex)}";
+            }
         }
     }
 
@@ -522,7 +515,7 @@ public partial class Validation
             return;
         }
 
-        _mcpInvoking.Value = true;
+        using var _ = _mcpInvoking.AsToken();
         _mcpInvokeResult.Value = null;
 
         try
@@ -553,10 +546,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _mcpInvokeResult.Value = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            _mcpInvoking.Value = false;
         }
     }
 

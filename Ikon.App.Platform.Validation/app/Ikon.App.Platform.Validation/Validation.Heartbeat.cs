@@ -5,8 +5,9 @@ public partial class Validation
     private const string HeartbeatSchedule = "0 * * * *";
     private const string HeartbeatAssetPath = "validation/heartbeat.json";
 
-    private readonly Reactive<string?> _lastHeartbeatUtc = new(null);
-    private int _heartbeatSeedStarted;
+    // Read from the persisted asset once per process, so the last heartbeat is visible after a restart
+    // without waiting for the next tick
+    private readonly Loader<AssetUri, string?> _lastHeartbeatUtc = new((uri, _) => ReadLastHeartbeatAsync(uri), name: "LastHeartbeat");
 
     private AssetUri HeartbeatUri => new(AssetClass.CloudJson, HeartbeatAssetPath, spaceId: app.GlobalState.SpaceId);
 
@@ -33,8 +34,6 @@ public partial class Validation
 
     private void RenderCronSection(UIView view)
     {
-        SeedHeartbeatFromAsset();
-
         view.Column([Layout.Column.Lg], content: view =>
         {
             view.Text([Text.H2], "Cron");
@@ -42,7 +41,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H3, "mb-3"], "Scheduled function");
-                RenderLastRun(view, _lastHeartbeatUtc.Value, "cron-heartbeat-timestamp");
+                RenderLastRun(view, _lastHeartbeatUtc.Get(HeartbeatUri).Value, "cron-heartbeat-timestamp");
             });
 
             RenderScheduledPipelineCard(view);
@@ -86,36 +85,13 @@ public partial class Validation
         return TimeZoneInfo.Utc;
     }
 
-    // Seed the UI mirror from the persisted asset once per process, so the last heartbeat is
-    // visible after a restart without waiting for the next tick. Read-only — see WriteHeartbeatAsync.
-    private void SeedHeartbeatFromAsset()
+    // Read-only — see WriteHeartbeatAsync. No heartbeat asset yet reads as none, and the UI shows
+    // "never" until the first tick writes it.
+    private static async Task<string?> ReadLastHeartbeatAsync(AssetUri uri)
     {
-        if (Interlocked.Exchange(ref _heartbeatSeedStarted, 1) == 1)
-        {
-            return;
-        }
-
-        _ = Task.Run(async () =>
-        {
-            // Started from inside a UI render (a reactive callback), whose async-local flows in via
-            // ExecutionContext. Detach, or the seed write below is swallowed as re-entrant.
-            using var reactiveDetach = ReactiveManager.SuppressCallbackTracking();
-
-            try
-            {
-                var json = await Asset.Instance.GetTextAsync(HeartbeatUri);
-                var heartbeat = JsonSerializer.Deserialize<ValidationHeartbeat>(json);
-
-                if (!string.IsNullOrEmpty(heartbeat?.LastHeartbeatUtc))
-                {
-                    _lastHeartbeatUtc.Value = heartbeat.LastHeartbeatUtc;
-                }
-            }
-            catch
-            {
-                // No heartbeat asset yet — the UI shows "never" until the first tick writes it.
-            }
-        });
+        var json = await Asset.Instance.TryGetTextAsync(uri);
+        var heartbeat = json is null ? null : JsonSerializer.Deserialize<ValidationHeartbeat>(json);
+        return string.IsNullOrEmpty(heartbeat?.LastHeartbeatUtc) ? null : heartbeat.LastHeartbeatUtc;
     }
 }
 

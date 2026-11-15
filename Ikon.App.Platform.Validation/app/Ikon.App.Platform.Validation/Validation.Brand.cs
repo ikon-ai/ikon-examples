@@ -92,7 +92,7 @@ public partial class Validation
     {
         if (string.IsNullOrWhiteSpace(_colorPrompt.Value)) return;
 
-        _colorPromptGenerating.Value = true;
+        using var _ = _colorPromptGenerating.AsToken();
         _colorPromptError.Value = null;
 
         try
@@ -147,10 +147,6 @@ public partial class Validation
         catch (Exception ex)
         {
             _colorPromptError.Value = ex.Message;
-        }
-        finally
-        {
-            _colorPromptGenerating.Value = false;
         }
     }
 
