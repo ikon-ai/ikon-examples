@@ -46,8 +46,9 @@ internal sealed class ComposerInputBar : IPatternDemo
             onValueChange: async text => _draft.Value = text,
 
             // Send the SUBMITTED text as given rather than re-reading the draft: a surface switch
-            // can clear the draft between the keystroke and the handler. busy: disables only the
-            // Send button -- Enter still submits, so the handler checks it too.
+            // can clear the draft between the keystroke and the handler. busy: holds back Send and
+            // Enter, but a send from a render made before _busy was set still arrives, so the
+            // handler checks it too.
             onSubmit: async text =>
             {
                 if (_busy.Value)

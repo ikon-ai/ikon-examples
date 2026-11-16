@@ -39,7 +39,7 @@ internal sealed partial class AgentGuideExamples
         var page = await WebScraper.ScrapeAsync("https://example.com");          // page.Content is Markdown
         var moderation = await Classifier.ClassifyAsync(userText);               // moderation.IsFlagged
         var ocr = await OCR.AnalyzeAsync(documentBytes);                         // ocr.Text
-        var pdf = await FileConverter.ConvertToPdfAsync(docxBytes, "report.docx");
+        var pdf = await FileConverter.ConvertToPdfAsync(docxBytes, "report.docx"); // a ConvertedFile: bytes via await pdf.GetDataAsync()
         var ranked = await Reranker.RerankAsync(documents, query);               // ranked[0].Index into documents
         #endregion
 

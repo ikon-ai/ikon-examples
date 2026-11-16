@@ -206,6 +206,43 @@ file sealed class PxBackgroundWorkTheForMethodsExamples(IApp<SessionIdentity, Cl
     }
 }
 
+file sealed class PxDataAScreenLoadsExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private sealed record Member(string Name);
+
+    private static Task SaveNameAsync(string memberId, string name) => Task.CompletedTask;
+
+    #region example:px-data-a-screen-loads
+    // A field, like a reactive. The load gets the reading user's id: never ReactiveScope inside it
+    private readonly UserLoader<string, Member?> _members = new(
+        (userId, memberId, ct) => FetchMemberAsync(userId, memberId, ct));
+
+    // Static: a field initializer that calls an instance method fails with CS0236. A load that needs the
+    // app uses the primary constructor's `app` in the lambda, or the loader is a Reactive.Once property
+    private static Task<Member?> FetchMemberAsync(string userId, string memberId, CancellationToken ct) => Task.FromResult<Member?>(new Member(memberId));
+
+    private void RenderMember(UIView view, string memberId)
+    {
+        var member = _members.Get(memberId);   // Loading, Ready or Failed; never waits
+
+        if (member.State == LoadState.Failed)
+        {
+            view.Text(text: "Could not load this member");
+            return;
+        }
+
+        view.Text(text: member.Value?.Name ?? "Loading…");
+    }
+
+    private async Task RenameAsync(string memberId, string name)
+    {
+        await SaveNameAsync(memberId, name);
+        // A handler that changed the data tells the loader: every user's next read loads it again
+        _members.InvalidateEveryUser(memberId);
+    }
+    #endregion
+}
+
 file sealed class PxTheBusyStatusPatternExamples(IApp<SessionIdentity, ClientParameters> app)
 {
     private readonly Reactive<IReadOnlyList<string>> _entries = new([]);
@@ -371,7 +408,7 @@ file sealed class PxMergeSemanticsTheDefaultMarkerExamples(IApp<SessionIdentity,
     {
         #region example:px-merge-semantics-the-default-marker-3
         view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
-        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] md:data-[overflow-y=true]:px-3 px-8 — still fills and scrolls; px-8 wins over the scrollbar gutter
+        view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full rounded-[inherit] px-8 — still fills and scrolls; padding of px-3 or more replaces the scrollbar gutter
         #endregion
         PatternDemoNote.RenderCaption(view, "An empty gap-4 column and an empty scroll area above: each keeps its base classes (flex flex-col, h-full w-full) under the classes the call adds");
     }

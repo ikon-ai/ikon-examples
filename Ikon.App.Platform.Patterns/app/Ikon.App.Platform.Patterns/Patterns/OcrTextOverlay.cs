@@ -115,7 +115,7 @@ internal sealed class OcrTextOverlay : IPatternDemo
 
                     // OCR and the model take seconds, longer than an upload hook may run
                     var clientId = ReactiveScope.ClientId;
-                    _ = Task.Run(() => ReadAsync(clientId, upload));
+                    Task.Run(() => ReadAsync(clientId, upload)).ObserveInBackground();
                 },
                 label: "Choose or take a photo of a comic page", hint: "JPEG or PNG, up to 15 MB");
 

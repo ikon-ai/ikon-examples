@@ -61,7 +61,7 @@ internal sealed class DeleteAccountAndData(IAppBase app) : IPatternDemo
     {
         // A local `ikon run` refuses the request (Succeeded = false): a browser there is signed in with
         // your own account, or is a test user or guest with no account. This says why instead of asking
-        // to sign in. Try it on a deployed app, signed in with a throwaway account.
+        // to sign in. Try it on a deployed app signed in with your own account, then cancel the request.
         if (app.GlobalState.ServerRunType == ServerRunType.Local)
         {
             _removalError.Value = "Account deletion is off in a local run";
@@ -70,10 +70,12 @@ internal sealed class DeleteAccountAndData(IAppBase app) : IPatternDemo
 
         var removal = await ClientFunctions.RequestAccountRemovalAsync();
 
-        // Not Succeeded: a client with no page, or the backend refused the request; Error says which (a client with no page: ikon browse --text-only).
+        // Not Succeeded: a client with no page (ikon browse --text-only), or the backend refused the request.
+        // Error says which in English, for the log; the person sees the app's own message, in the app's language.
         if (removal is not { Succeeded: true })
         {
-            _removalError.Value = removal?.Error ?? "Couldn't schedule the deletion. Sign in and try again.";
+            Log.Instance.Warning($"Account removal request failed: {removal?.Error ?? "the client did not answer"}");
+            _removalError.Value = "Couldn't schedule the deletion. Sign in and try again.";
             return;
         }
 

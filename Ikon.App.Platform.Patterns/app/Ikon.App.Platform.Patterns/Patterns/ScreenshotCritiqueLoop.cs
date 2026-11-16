@@ -71,7 +71,7 @@ internal sealed class ScreenshotCritiqueLoop : IPatternDemo
         ];
         var ctx = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
 
-        var critique = await Emerge.Run<StructuredCritique>(LLMModel.Gemini25Flash, ctx,
+        var critique = await Emerge.Run<StructuredCritique>(LLMModel.Gemini38Flash, ctx,
             pass =>
             {
                 pass.SystemPrompt = StructuredCritiqueSystemPrompt;

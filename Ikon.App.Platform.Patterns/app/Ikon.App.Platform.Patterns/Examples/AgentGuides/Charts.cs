@@ -29,6 +29,23 @@ internal sealed partial class AgentGuideExamples
         #endregion
     }
 
+    private static void DocTwoUnitLineChart(UIView view, IReadOnlyList<(long At, double Bytes, double Files)> hours)
+    {
+        #region example:line-chart-two-units
+        view.LineChart(
+            ["h-72 w-full"],
+            xScaleType: ScaleType.Time,
+            valueUnit: "bytes",
+            rightValueUnit: "files",
+            legendValues: [LegendValue.Max, LegendValue.Mean],
+            data:
+            [
+                new LineChartSeries { Id = "bytes", Data = hours.Select(h => new LineChartPoint { X = h.At, Y = h.Bytes }) },
+                new LineChartSeries { Id = "files", Axis = ValueAxisSide.Right, Data = hours.Select(h => new LineChartPoint { X = h.At, Y = h.Files }) },
+            ]);
+        #endregion
+    }
+
     private static void DocBarChart(UIView view, IReadOnlyList<DocCategory> categories)
     {
         #region example:bar-chart

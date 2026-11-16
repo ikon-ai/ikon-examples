@@ -35,7 +35,7 @@ internal sealed class AiPrefillFormFromDescription : IPatternDemo
             return;
         }
 
-        _wizardIsAnalyzing.Value = true;
+        using var analyzing = _wizardIsAnalyzing.AsToken();
 
         try
         {
@@ -72,10 +72,6 @@ internal sealed class AiPrefillFormFromDescription : IPatternDemo
         catch (Exception ex)
         {
             Log.Instance.Warning($"AI prefill failed: {ex.Message}");
-        }
-        finally
-        {
-            _wizardIsAnalyzing.Value = false;
         }
     }
     #endregion

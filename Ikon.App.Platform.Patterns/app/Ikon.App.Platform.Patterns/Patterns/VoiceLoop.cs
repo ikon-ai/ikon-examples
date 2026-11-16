@@ -69,7 +69,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
             // The frame handler holds up every client's messages for as long as it runs, and the
             // round trip below takes seconds, so start it and return. A task started here keeps
             // the client's scope, so _processing still writes to this client.
-            _ = Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount));
+            Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount)).ObserveInBackground();
         };
 
         UI.Root([Page.Default], content: view =>
@@ -105,7 +105,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
 
     private async Task RespondAsync(float[] samples, int sampleRate, int channelCount)
     {
-        _processing.Value = true;
+        using var processing = _processing.AsToken();
         try
         {
             using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
@@ -135,10 +135,6 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
         {
             Log.Instance.Warning($"Voice turn failed: {ex.Message}");
             _turns.Add(new VoiceTurn("Tutor", "Sorry, I couldn't answer that. Try again."));
-        }
-        finally
-        {
-            _processing.Value = false;
         }
     }
     #endregion

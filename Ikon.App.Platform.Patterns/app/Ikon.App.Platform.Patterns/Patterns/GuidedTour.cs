@@ -32,7 +32,8 @@ internal sealed class GuidedTour : IPatternDemo
     private readonly ClientReactive<int> _guideStep = new(0);
 
     // Each step says who it applies to, so someone with nothing yet is never sent to an empty page.
-    // A step with a target points at the control marked with TourTarget.Props of that name.
+    // A step with a target points at the control marked with TourTarget.Props of that name. Any
+    // Target makes the whole tour web-only, so leave targets out of a tour a Flutter client shows.
     private Step[] TourSteps =>
     [
         new("welcome", "Welcome", "A one-minute look at where things are.", "sparkles", () => true),
@@ -97,9 +98,10 @@ internal sealed class GuidedTour : IPatternDemo
             onOpenChange: async open => { if (!open) { _openGuide.Value = null; } },
             onIndexChange: async index => _guideStep.Value = index,
             onFinish: async () => _openGuide.Value = null,
+            // Back, Next, Done and Skip are drawn in the person's language; labels: replaces only the words
+            // it names. "{0}/{1}" (step number, step count) reads the same in every language.
             onSkip: guide == "tour" ? async () => _openGuide.Value = null : null,
-            // The words are English unless the app passes its own; translate all six for a translated app.
-            labels: new StepDialogLabels(Back: "Back", Next: "Next", Done: "Done", Skip: "Skip", StepOf: "{0} of {1}", Close: "Close"));
+            labels: guide == "whats-new" ? new StepDialogLabels(StepOf: "{0}/{1}") : null);
     }
     #endregion
 

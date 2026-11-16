@@ -33,6 +33,17 @@ public sealed class ScoreboardCell(ICell<ScoreboardCell.SessionIdentity> cell) :
 }
 #endregion
 
+// Not an [App]: the attributes only count on the app class, so this holder sizes nothing in this app.
+#region example:scaling-compute-profiles
+// On the [App] class, one attribute per kind of instance that needs its own size.
+[ComputeProfile("channels", ComputeShape.Standard1)]
+[ComputeProfile("background", ComputeShape.Standard4, StartedBy = [SessionStart.Cron, SessionStart.Trigger, SessionStart.Endpoint])]
+[ComputeProfile("rooms", ComputeShape.Standard8, IdentityKeys = ["Room"])]
+// For a [[Surface]] with Placement = "own" in ikon-config.toml: only those run instances of their own.
+[ComputeProfile("stream", ComputeShape.Standard4, Surfaces = ["stream"])]
+public sealed partial class ComputeProfilesApp;
+#endregion
+
 #region example:scaling-cell-loop
 // A cell that updates a value on a timer: one wave position for every screen in the stadium.
 public interface IWaveCell
@@ -170,7 +181,7 @@ internal sealed class ScalingLeaderboardExamples(IAppBase app)
                 created_at timestamptz NOT NULL DEFAULT now());
             CREATE SEQUENCE IF NOT EXISTS leaderboard_version;
             """);
-        _ = Task.Run(PublishTopAsync);
+        Task.Run(PublishTopAsync).ObserveInBackground();
     }
 
     // The database row is the record. The cell only sends the current top ten to every instance.

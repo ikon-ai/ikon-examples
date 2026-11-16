@@ -11,9 +11,9 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
     public void RenderDemo(IView view) => RenderSummaries((UIView)view);
 
     #region example:pattern-pipeline-in-an-app
-    // One LLM call per document. The cache skips a document whose text has not changed since the
-    // last run. The prompt and the model are not part of the cache key: after changing either, raise
-    // the processor's version, or the next run returns the old summaries.
+    // One LLM call per distinct text. The cache skips a text it has already summarised. Its key is
+    // the content alone, not the item's name, and the prompt and the model are not part of it either:
+    // after changing either, raise the processor's version, or the next run returns the old summaries.
     [Pipeline(name: "summaries")]
     public sealed class SummaryPipeline
     {
@@ -24,7 +24,7 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
 
         // Static and given only the item. What a processor captures is part of its cache key, so it
         // cannot capture app.Files or the app. The app reads the inputs and writes the outputs.
-        [Processor(version: 1, maxParallelism: 4)]
+        [Processor(version: 2, maxParallelism: 4)]
         private static async Task<List<Item>> Summarise(Item document, CancellationToken cancellationToken)
         {
             var text = await document.GetContentAsString();
@@ -36,7 +36,9 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
                 pass.Command = text;
             }, cancellationToken);
 
-            return [await Item.Create(document, document.Name, summary, MimeTypes.TextPlain)];
+            // Named by the input's content hash, which a cached output shares with every input of the
+        // same text, whatever that input was called
+        return [await Item.Create(document, document.Hash, summary, MimeTypes.TextPlain)];
         }
     }
 
@@ -44,6 +46,7 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
     private readonly ReactiveList<string> _documents = new(["pipeline-demo/harbour.txt", "pipeline-demo/orchard.txt"]);
     private readonly ReactiveDictionary<string, string> _summaries = new();
     private readonly Reactive<int> _done = new(0);
+    private readonly Reactive<int> _total = new(0);
     private readonly Reactive<bool> _running = new(false);
     private readonly Reactive<string?> _error = new(null);
 
@@ -54,8 +57,9 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
             return;
         }
 
-        _running.Value = true;
+        using var running = _running.AsToken();
         _done.Value = 0;
+        _total.Value = _documents.Count;
         _error.Value = null;
 
         try
@@ -70,8 +74,9 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
             await runner.Initialize(new PipelineRunner.Config
             {
                 TypeName = typeof(SummaryPipeline).FullName!,
-                // Local disk, kept while this instance runs. A restart, a deploy or a start after an
-                // idle stop begins with an empty cache, so whatever must not be redone goes to app.Files.
+                // Local disk, shared by every instance and run in the process, which is safe because an
+                // output is matched back by content hash. A restart, a deploy or a start after an idle
+                // stop begins with an empty cache, so whatever must not be redone goes to app.Files.
                 CachePath = Path.Combine(Path.GetTempPath(), "summary-pipeline"),
                 StatusUpdateInterval = 1,
                 DisableMetadataOutput = true,
@@ -83,27 +88,42 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
             var texts = await Task.WhenAll(paths.Select(path => app.Files.Data.ReadTextAsync(path)));
             var inputs = new List<Item>();
 
+            // One input per distinct text, with the app's own paths kept by its content hash: two
+            // inputs with the same text would both get the output of whichever the cache saw first
+            var pathsByHash = new Dictionary<string, List<string>>();
+
             for (var i = 0; i < paths.Count; i++)
             {
-                inputs.Add(await Item.CreateInitial(paths[i], texts[i], MimeTypes.TextPlain));
+                var input = await Item.CreateInitial(paths[i], texts[i], MimeTypes.TextPlain);
+
+                if (pathsByHash.TryGetValue(input.Hash, out var sameText))
+                {
+                    sameText.Add(paths[i]);
+                    continue;
+                }
+
+                pathsByHash[input.Hash] = [paths[i]];
+                inputs.Add(input);
             }
+
+            _total.Value = inputs.Count;
 
             // Each summary is stored as soon as it is ready, so a run cut short keeps what it finished
             await foreach (var summary in runner.RunAsEnumerable(inputs))
             {
                 var text = await summary.GetContentAsString();
-                await app.Files.Data.WriteTextAsync($"summaries/{summary.Name}", text);
-                _summaries[summary.Name] = text;
+
+                foreach (var path in pathsByHash[summary.Name])
+                {
+                    await app.Files.Data.WriteTextAsync($"summaries/{path}", text);
+                    _summaries[path] = text;
+                }
             }
         }
         catch (PipelineException ex)
         {
             Log.Instance.Warning($"Summary pipeline stopped after {_done.Value} documents: {ex.Message}");
             _error.Value = "Some documents were not summarised. Run it again to retry them.";
-        }
-        finally
-        {
-            _running.Value = false;
         }
     }
 
@@ -114,7 +134,7 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
             col.Row(["items-center justify-between gap-3 flex-wrap"], content: row =>
             {
                 row.Text([Text.H3], "Summaries");
-                row.Button([Button.PrimaryMd], text: _running.Value ? $"Summarising… {_done.Value} of {_documents.Count}" : "Summarise all",
+                row.Button([Button.PrimaryMd], text: _running.Value ? $"Summarising… {_done.Value} of {_total.Value}" : "Summarise all",
                     disabled: _running.Value, onClick: SummariseAllAsync);
             });
 

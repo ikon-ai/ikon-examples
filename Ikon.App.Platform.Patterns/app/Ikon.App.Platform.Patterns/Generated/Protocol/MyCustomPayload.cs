@@ -11,11 +11,11 @@ using Ikon.Common.Core.Protocol;
 namespace Ikon.App.Platform.Patterns.Protocol;
 
 /// <remarks>The .NET SDK readme's example of sending a typed payload. A generated protocol class is what that example is about, so it is generated here rather than transcribed.</remarks>
-[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000101u)]
+[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40007E16u)]
 public sealed partial class MyCustomPayload : IProtocolMessagePayload
 {
     [JsonIgnore] public int MessageVersion => unchecked((int)TeleportVersion);
-    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000101u;
+    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40007E16u;
     [JsonIgnore] public const uint TeleportVersion = 1u;
 
     private const uint TextFieldId = 0x7B5F9437u;
@@ -44,7 +44,7 @@ public sealed partial class MyCustomPayload : IProtocolMessagePayload
             TeleportVersion,
             static (scope, value) => value.WriteToTeleport(scope),
             ReadFromTeleport);
-        ProtocolMessage.RegisterAppLocalMessageType(typeof(MyCustomPayload), (Opcode)0x40000101u, unchecked((int)TeleportVersion));
+        ProtocolMessage.RegisterAppLocalMessageType(typeof(MyCustomPayload), (Opcode)0x40007E16u, unchecked((int)TeleportVersion));
     }
 
     public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)

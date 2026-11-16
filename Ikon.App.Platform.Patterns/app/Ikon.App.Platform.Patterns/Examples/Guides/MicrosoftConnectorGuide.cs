@@ -560,7 +560,7 @@ file sealed class MicrosoftTeamsGuideExamples
         {
             case TeamsMessageActivity message:
                 // Teams wants its answer within 15 seconds, so the reply is sent after it.
-                _ = Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId));
+                Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId)).ObserveInBackground();
                 break;
 
             case TeamsInstallationActivity { Added: true } installed:

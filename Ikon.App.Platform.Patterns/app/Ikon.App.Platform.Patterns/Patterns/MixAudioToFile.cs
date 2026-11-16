@@ -24,23 +24,12 @@ internal sealed class MixAudioToFile(IAppBase app) : IPatternDemo
                 disabled: _busy.Value, onClick: async () =>
                 {
                     GalleryMocks.Require();
-                    _busy.Value = true;
-                    _error.Value = null;
 
-                    try
+                    await _busy.RunAsync(_error, async () =>
                     {
                         var path = await RenderJingleAsync("Good morning from Radio Aalto!", "Upbeat morning radio jingle, bright synths", 10, 1.2);
                         _jingleUrl.Value = await app.Files.Data.GetUrlAsync(path);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Instance.Warning($"Jingle mix failed, the button is offered again: {ex.Message}");
-                        _error.Value = ex.Message;
-                    }
-                    finally
-                    {
-                        _busy.Value = false;
-                    }
+                    });
                 });
 
             if (_error.Value is { } error)

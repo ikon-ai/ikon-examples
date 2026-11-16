@@ -1,3 +1,5 @@
+using Dapper;
+
 namespace Ikon.App.Platform.Patterns.Patterns;
 
 // Pattern: notify-across-channels — see docs/patterns/notify-across-channels.md.
@@ -25,20 +27,35 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
     ];
 
     #region example:pattern-notify-across-channels
-    /// Register channels ONCE, in OnStarting. Each channel asks a resolver for the user's address. A
-    /// signed-in user's profile has Email and PhoneNumber when they gave them, but the resolver is
-    /// synchronous, so keep the addresses in app state and fill them from ClientProfiles.GetProfileAsync
-    /// when the user joins.
+    /// Register channels ONCE, in OnStarting. Each channel asks a resolver for the user's address, and
+    /// the async resolver reads it from the app's database: with per-user instances the sender's instance
+    /// cannot see another member's app state, so an address kept there is missing for everyone else.
+    /// Store the address when the user joins: a signed-in user's profile has Email and PhoneNumber when
+    /// they gave them. ClientProfiles.GetProfileAsync is an instance method, so the app class holds one:
+    ///   private ClientProfiles Profiles { get; } = new(app);   // then await Profiles.GetProfileAsync(ctx)
     private void Wire()
     {
-        _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => AddressOf(userId)));
-        _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => PhoneOf(userId)));
+        _inbox.Channels.Add(new EmailNotificationChannel(app.Email, EmailOfAsync));
+        _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, PhoneOfAsync));
 
         // A channel is just INotificationChannel — TelegramNotificationChannel and
         // WhatsAppNotificationChannel ship, and your own is one interface with two members.
         //
         // The frequency cap is init-only, so it goes on the field itself:
         //   private readonly NotificationInbox _inbox = new(app) { MaxPushPerWindow = 3 };
+    }
+
+    // app_contacts (user_id text PRIMARY KEY, email text, phone text) is filled when a user joins
+    private async Task<string?> EmailOfAsync(string userId, CancellationToken ct)
+    {
+        await using var db = await app.DatabaseAsync();
+        return await db.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("SELECT email FROM app_contacts WHERE user_id = @userId", new { userId }, cancellationToken: ct));
+    }
+
+    private async Task<string?> PhoneOfAsync(string userId, CancellationToken ct)
+    {
+        await using var db = await app.DatabaseAsync();
+        return await db.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("SELECT phone FROM app_contacts WHERE user_id = @userId", new { userId }, cancellationToken: ct));
     }
 
     /// One call decides everything: what it says, how loud it is, and where it goes.
@@ -117,8 +134,6 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
     }
     #endregion
 
-    private static string? AddressOf(string userId) => null;
-    private static string? PhoneOf(string userId) => null;
     private static void LogFailures(IReadOnlyDictionary<string, string> reasons) { }
     private static Task OpenAsync(string? launchUrl) => Task.CompletedTask;
 }

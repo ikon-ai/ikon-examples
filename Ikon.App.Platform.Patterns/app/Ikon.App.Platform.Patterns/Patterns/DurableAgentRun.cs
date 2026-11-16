@@ -49,7 +49,7 @@ file abstract class DurableAgentRunExample(IAppBase app)
                 return;
             }
 
-            _ = DriveUnfinishedRunsAsync();
+            DriveUnfinishedRunsAsync().ObserveInBackground();
         });
     }
 
@@ -66,9 +66,9 @@ file abstract class DurableAgentRunExample(IAppBase app)
     }
 
     // A cron tick starts the app's shared instance when none is running, so a run interrupted while
-    // nobody was connected continues within five minutes. In a running instance, the tick picks up
-    // the runs of an instance that stopped.
-    [Cron("*/5 * * * *")]
+    // nobody was connected continues within the hour. In a running instance, the tick picks up the
+    // runs of an instance that stopped.
+    [Cron("0 * * * *")]
     public Task ResumeAgentRunsAsync() => DriveUnfinishedRunsAsync();
 
     private async Task DriveUnfinishedRunsAsync()
@@ -94,7 +94,7 @@ file abstract class DurableAgentRunExample(IAppBase app)
 
         foreach (var (id, task) in claimed)
         {
-            _ = DriveRunAsync(id, task);
+            DriveRunAsync(id, task).ObserveInBackground();
         }
     }
 

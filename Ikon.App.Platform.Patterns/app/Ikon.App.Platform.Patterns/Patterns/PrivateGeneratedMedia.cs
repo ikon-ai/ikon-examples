@@ -19,7 +19,6 @@ internal sealed class PrivateGeneratedMedia(IAppBase app) : IPatternDemo
     private readonly Reactive<bool> _busy = new(false);
     private readonly Reactive<string?> _error = new(null);
     private readonly ClientReactive<string?> _openId = new(null);
-    private readonly ClientReactive<string?> _audioUrl = new(null);
 
     private async Task CreateAsync(string title)
     {
@@ -53,15 +52,6 @@ internal sealed class PrivateGeneratedMedia(IAppBase app) : IPatternDemo
         }
     }
 
-    // The audio player takes a URL only, so a signed one is fetched when the dream opens, for this
-    // client alone. Opening the dream again fetches a new one.
-    private async Task OpenAsync(Dream dream)
-    {
-        _openId.Value = dream.Id;
-        _audioUrl.Value = null;
-        _audioUrl.Value = await app.Files.Data.GetUrlAsync(dream.AudioPath);
-    }
-
     private void Render(UIView view)
     {
         view.Column(["gap-3 max-w-md"], content: view =>
@@ -76,19 +66,16 @@ internal sealed class PrivateGeneratedMedia(IAppBase app) : IPatternDemo
 
             foreach (var dream in _dreams)
             {
-                view.Button([Button.OutlineMd, "self-start"], text: dream.Title, onClick: async () => await OpenAsync(dream));
+                view.Button([Button.OutlineMd, "self-start"], text: dream.Title, onClick: () => _openId.Value = dream.Id);
             }
 
             if (_dreams.FirstOrDefault(dream => dream.Id == _openId.Value) is { } open)
             {
-                // An asset URI, not a URL: the image turns it into a signed URL and fetches a new
-                // one before that expires.
+                // Asset URIs, not URLs: the image and the player each turn one into a signed URL
+                // and fetch a new one before that expires.
                 view.Image(["w-full rounded-lg"], assetUri: app.Files.Data.GetAssetUri(open.ImagePath), alt: open.Title);
-
-                if (_audioUrl.Value is { } url)
-                {
-                    view.AudioUrlPlayer(url: url, controls: true, preload: "auto", key: url);
-                }
+                // Keyed by the dream, so opening another stops this one's audio at once rather than once its URL arrives
+                view.AudioUrlPlayer(assetUri: app.Files.Data.GetAssetUri(open.AudioPath), controls: true, key: open.Id);
             }
         });
     }

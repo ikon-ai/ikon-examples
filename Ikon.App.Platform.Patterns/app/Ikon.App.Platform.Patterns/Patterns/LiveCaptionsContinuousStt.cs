@@ -33,7 +33,7 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
             {
                 var segment = System.Threading.Channels.Channel.CreateUnbounded<float[]>();
                 _segments[args.StreamId] = segment;
-                _ = Task.Run(() => CaptionAsync(segment.Reader, format.SampleRate, format.ChannelCount));
+                Task.Run(() => CaptionAsync(segment.Reader, format.SampleRate, format.ChannelCount)).ObserveInBackground();
             }
 
             if (_segments.TryGetValue(args.StreamId, out var open))
@@ -60,6 +60,7 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
 
     private async Task CaptionAsync(System.Threading.Channels.ChannelReader<float[]> samples, int sampleRate, int channelCount)
     {
+        // Deepgram has no EU route; under an EU residency rule stream with AzureSpeechService or GoogleChirp3.
         using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.DeepgramNova3General);
 
         var config = new RecognizeContinuousSpeechConfig

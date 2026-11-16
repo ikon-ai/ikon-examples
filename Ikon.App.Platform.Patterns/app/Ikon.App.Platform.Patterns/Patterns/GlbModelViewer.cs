@@ -36,7 +36,7 @@ internal sealed class GlbModelViewer(IAppBase app) : IPatternDemo
 
     private async Task GenerateModelAsync(string prompt)
     {
-        _generating.Value = true;
+        using var generating = _generating.AsToken();
         _error.Value = null;
 
         try
@@ -59,10 +59,6 @@ internal sealed class GlbModelViewer(IAppBase app) : IPatternDemo
         {
             Log.Instance.Warning($"Model generation for '{prompt}' failed, the user can try again: {ex.Message}");
             _error.Value = "Couldn't make that model. Try again.";
-        }
-        finally
-        {
-            _generating.Value = false;
         }
     }
 

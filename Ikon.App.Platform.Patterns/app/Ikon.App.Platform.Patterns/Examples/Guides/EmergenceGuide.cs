@@ -123,10 +123,10 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{result} {ctx}");
     }
 
-    public static async Task BestOfAsync(KernelContext ctx)
+    public static async Task BestOfAsync()
     {
         #region example:emergence-bestof
-        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.Count = 5;
             opt.Command = "Solve this problem step by step.";
@@ -143,14 +143,14 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{best}");
     }
 
-    public static async Task RubricAsync(KernelContext ctx)
+    public static async Task RubricAsync()
     {
         #region example:emergence-rubric
         var rubric = new ScoreBreakdownBuilder<Answer>()
             .Metric("correctness", 3, a => a.Correctness)
             .Metric("brevity", 1, a => a.Brevity);
 
-        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.Command = "Solve this problem step by step.";
             opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
@@ -164,10 +164,10 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{best}");
     }
 
-    public static async Task MapReduceAsync(KernelContext ctx, IReadOnlyList<string> documents)
+    public static async Task MapReduceAsync(IReadOnlyList<string> documents)
     {
         #region example:emergence-mapreduce
-        var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
+        var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.Chunks = documents;
             opt.MaxParallel = 8;
@@ -189,10 +189,10 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{report}");
     }
 
-    public static async Task RefineAsync(KernelContext ctx)
+    public static async Task RefineAsync()
     {
         #region example:emergence-refine
-        var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+        var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = 3;
 
@@ -218,10 +218,10 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{final}");
     }
 
-    private static async Task RefineWithProgressAsync(KernelContext ctx, Reactive<string> status, Reactive<Implementation?> draft)
+    private static async Task RefineWithProgressAsync(Reactive<string> status, Reactive<Implementation?> draft)
     {
         #region example:emergence-refine-rounds
-        await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
+        await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = 3;
             opt.Initial(s => s.Command = "Write initial implementation of the feature.");
@@ -272,7 +272,7 @@ file static class EmergenceGuideExamples
         Log.Instance.Debug($"{merged}");
     }
 
-    public static async Task TreeSearchAsync(KernelContext ctx, string documentContent)
+    public static async Task TreeSearchAsync(string documentContent)
     {
         #region example:emergence-tree-search
         // Step 1: Build a tree index from content
@@ -287,7 +287,7 @@ file static class EmergenceGuideExamples
         }
 
         // Step 2: Search the tree
-        TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
+        TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.Index = index;
             opt.Query = "How does authentication work?";

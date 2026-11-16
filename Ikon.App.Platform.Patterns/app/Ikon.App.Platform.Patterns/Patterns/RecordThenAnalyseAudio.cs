@@ -63,7 +63,7 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
             {
                 // Analysis takes seconds, and the frame handler has to return at once
                 var clientSessionId = args.ClientSessionId;
-                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount));
+                Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount)).ObserveInBackground();
             }
         };
 
@@ -75,7 +75,7 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
             if (_recording.TryRemove(args.StreamId, out var take) && hasFormat && take.Count > 0)
             {
                 var clientSessionId = args.ClientSessionId;
-                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount));
+                Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount)).ObserveInBackground();
             }
         };
     }
@@ -94,7 +94,8 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
 
             var transcript = await SpeechRecognizer.RecognizeAsync(samples, sampleRate, channelCount: channelCount);
 
-            if (string.IsNullOrWhiteSpace(transcript))
+            // A take with no speech can come back as stray punctuation ("."), not only as ""
+            if (!transcript.Any(char.IsLetterOrDigit))
             {
                 _takes.AddFor(clientSessionId, new Take(id, "", "No speech in that take"));
                 return;

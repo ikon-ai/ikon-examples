@@ -44,84 +44,77 @@ internal sealed class ChatWithToolCalls : IPatternDemo
     #region example:pattern-chat-with-tool-calls
     private async Task SendChatMessageAsync(string userMessage, Guid caseId)
     {
-        _chatIsProcessing.Value = true;
+        using var processing = _chatIsProcessing.AsToken();
 
-        try
+        var session = await GetOrHydrateChatSessionAsync(caseId);
+        session.AppendUserMessage(userMessage);
+
+        var assistantEntry = new ChatMessageEntry { Role = ChatMessageRole.Model };
+        assistantEntry.IsProcessing.Value = true;
+        _chatMessages.Add(assistantEntry);
+
+        var responseText = new StringBuilder();
+        var afterToolCall = false;
+        var preRunCount = session.Messages.Count;
+
+        await foreach (var ev in Emerge.Run<ChatResponse>(model, session.BuildKernelContext(), pass =>
         {
-            var session = await GetOrHydrateChatSessionAsync(caseId);
-            session.AppendUserMessage(userMessage);
-
-            var assistantEntry = new ChatMessageEntry { Role = ChatMessageRole.Model };
-            assistantEntry.IsProcessing.Value = true;
-            _chatMessages.Add(assistantEntry);
-
-            var responseText = new StringBuilder();
-            var afterToolCall = false;
-            var preRunCount = session.Messages.Count;
-
-            await foreach (var ev in Emerge.Run<ChatResponse>(model, session.BuildKernelContext(), pass =>
+            pass.SystemPrompt = systemPrompt;
+            pass.Temperature = 0.3;
+            pass.MaxIterations = 15;
+            RegisterChatTools(pass, caseId);
+        }))
+        {
+            switch (ev)
             {
-                pass.SystemPrompt = systemPrompt;
-                pass.Temperature = 0.3;
-                pass.MaxIterations = 15;
-                RegisterChatTools(pass, caseId);
-            }))
-            {
-                switch (ev)
+                case ModelText<ChatResponse> text:
                 {
-                    case ModelText<ChatResponse> text:
+                    // Model text before a tool call is planning narration; the real answer comes after.
+                    if (afterToolCall)
                     {
-                        // Model text before a tool call is planning narration; the real answer comes after.
-                        if (afterToolCall)
-                        {
-                            responseText.Clear();
-                            afterToolCall = false;
-                        }
-
-                        responseText.Append(text.Text);
-                        assistantEntry.Content.Value = responseText.ToString();
-                        break;
+                        responseText.Clear();
+                        afterToolCall = false;
                     }
 
-                    case ToolCallPlanned<ChatResponse>:
+                    responseText.Append(text.Text);
+                    assistantEntry.Content.Value = responseText.ToString();
+                    break;
+                }
+
+                case ToolCallPlanned<ChatResponse>:
+                {
+                    assistantEntry.IsProcessing.Value = true;
+                    break;
+                }
+
+                case ToolCallResult<ChatResponse>:
+                {
+                    afterToolCall = true;
+                    assistantEntry.IsProcessing.Value = false;
+                    break;
+                }
+
+                case Completed<ChatResponse> completed:
+                {
+                    assistantEntry.IsProcessing.Value = false;
+
+                    if (completed.Result != null && !string.IsNullOrEmpty(completed.Result.Response))
                     {
-                        assistantEntry.IsProcessing.Value = true;
-                        break;
+                        assistantEntry.Content.Value = completed.Result.Response;
                     }
 
-                    case ToolCallResult<ChatResponse>:
+                    var finalMessages = completed.Context.Messages;
+                    session.Replace(finalMessages);
+
+                    // Persist only the messages this run added so tool memory survives a refresh.
+                    for (int i = preRunCount; i < finalMessages.Count; i++)
                     {
-                        afterToolCall = true;
-                        assistantEntry.IsProcessing.Value = false;
-                        break;
+                        await PersistMessageBlockAsync(caseId, finalMessages[i], userId: null);
                     }
 
-                    case Completed<ChatResponse> completed:
-                    {
-                        assistantEntry.IsProcessing.Value = false;
-
-                        if (completed.Result != null && !string.IsNullOrEmpty(completed.Result.Response))
-                        {
-                            assistantEntry.Content.Value = completed.Result.Response;
-                        }
-
-                        var finalMessages = completed.Context.Messages;
-                        session.Replace(finalMessages);
-
-                        // Persist only the messages this run added so tool memory survives a refresh.
-                        for (int i = preRunCount; i < finalMessages.Count; i++)
-                        {
-                            await PersistMessageBlockAsync(caseId, finalMessages[i], userId: null);
-                        }
-
-                        break;
-                    }
+                    break;
                 }
             }
-        }
-        finally
-        {
-            _chatIsProcessing.Value = false;
         }
     }
     #endregion

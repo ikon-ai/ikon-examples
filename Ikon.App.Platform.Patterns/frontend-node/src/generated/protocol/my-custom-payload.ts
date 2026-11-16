@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 /** The .NET SDK readme's example of sending a typed payload. A generated protocol class is what that example is about, so it is generated here rather than transcribed. */
 export interface MyCustomPayload
@@ -19,7 +19,7 @@ export interface MyCustomPayload
 }
 
 export const MY_CUSTOM_PAYLOAD_VERSION = 1;
-export const MY_CUSTOM_PAYLOAD_OPCODE = 0x40000101;
+export const MY_CUSTOM_PAYLOAD_OPCODE = 0x40007E16;
 
 const MY_CUSTOM_PAYLOAD_TEXT_FIELD_ID = 0x7B5F9437;
 
@@ -111,3 +111,11 @@ export async function fromProtocolMessageMyCustomPayloadAsync(raw: ProtocolMessa
     const payload = await readProtocolMessagePayloadAsync(raw, MY_CUSTOM_PAYLOAD_OPCODE, MY_CUSTOM_PAYLOAD_VERSION);
     return decodeMyCustomPayload(payload, destination);
 }
+
+/** The MyCustomPayload message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const MyCustomPayloadMessage = {
+    opcode: MY_CUSTOM_PAYLOAD_OPCODE,
+    version: MY_CUSTOM_PAYLOAD_VERSION,
+    toProtocolMessage: toProtocolMessageMyCustomPayload,
+    fromProtocolMessage: fromProtocolMessageMyCustomPayloadAsync,
+} as const;

@@ -38,7 +38,7 @@ internal sealed class CameraRecordingToFile(IAppBase app) : IPatternDemo
             input.FrameReceivedAsync += async frame => await writer.WriteAsync(frame);
 
             // Not awaited here: Ended completes only once the last frame has been through the handler above
-            _ = Task.Run(() => FinishAsync(input, ffmpeg, tempPath, path, vp8));
+            Task.Run(() => FinishAsync(input, ffmpeg, tempPath, path, vp8)).ObserveInBackground();
         };
     }
 

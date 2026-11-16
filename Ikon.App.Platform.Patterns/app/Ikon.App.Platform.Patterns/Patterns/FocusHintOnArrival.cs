@@ -33,7 +33,7 @@ internal sealed class FocusHintOnArrival : IPatternDemo
                     var clientSessionId = ReactiveScope.ClientId;
                     var index = _nextDemoAlert.Value;
                     _nextDemoAlert.Value = index + 1;
-                    _ = DeliverLaterAsync(clientSessionId, index);
+                    DeliverLaterAsync(clientSessionId, index).ObserveInBackground();
                 });
             col.Text(["text-xs text-zinc-400"], "Alerts arrive on their own; a screen reader announces urgent ones at once and queues the rest");
             Render(col);

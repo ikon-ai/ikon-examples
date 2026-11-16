@@ -62,7 +62,7 @@ internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
     private void OnCompleted()
     {
         // Fired after each Completed event:
-        _ = ExtractProfileAsync();
+        ExtractProfileAsync().ObserveInBackground();
     }
     #endregion
 }

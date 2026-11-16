@@ -61,7 +61,7 @@ internal sealed class InvoiceExtraction : IPatternDemo
 
                 // The model takes seconds, and this hook must return within 50 s of the last chunk
                 var clientSessionId = ReactiveScope.ClientId;
-                _ = Task.Run(() => ReadInvoiceAsync(clientSessionId, pdf));
+                Task.Run(() => ReadInvoiceAsync(clientSessionId, pdf)).ObserveInBackground();
             },
             label: "Choose an invoice PDF", hint: "PDF, up to 20 MB");
     }

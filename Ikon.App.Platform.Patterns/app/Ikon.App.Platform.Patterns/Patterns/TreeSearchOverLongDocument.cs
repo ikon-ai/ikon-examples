@@ -83,7 +83,15 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
                 options.MaxSteps = 8;
             });
 
-            _hits.ReplaceAll(found.Sections);
+            // Empty Sections alone cannot tell a document with no answer from a navigator that never
+        // read it; only the second is a failed search.
+        if (found.StoppedReason == "NoToolCall")
+        {
+            _error.Value = "The search didn't finish — try again.";
+            return;
+        }
+
+        _hits.ReplaceAll(found.Sections);
         }
         // A walk that stops without a result throws EmergenceStoppedException; a generation failure
         // that cannot be retried is rethrown as is. Either way the previous hits stay on screen.

@@ -132,7 +132,10 @@ file static class SdkReadmeExamples
             Local = new LocalConfig
             {
                 Host = "localhost",
-                HttpsPort = 8443,
+                // The port of the Server URL that `ikon run` prints, which is not always 8443
+                HttpsPort = int.Parse(Environment.GetEnvironmentVariable("IKON_LOCAL_PORT") ?? "8443"),
+                // The app id: a connect to a run of another app on that port throws instead of joining it
+                SpaceId = "your-app-id",
                 UserId = "dev-user"
             }
         };
@@ -187,6 +190,16 @@ file static class SdkReadmeExamples
         #endregion
 
         Log.Instance.Debug($"{config}");
+    }
+
+    public static void ClientEvents(IkonClient client)
+    {
+        #region example:sdk-client-events
+        // The other clients in the session, and the app itself (IsInternal, a new session after each restart or hot reload)
+        client.ClientJoinedAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} joined as {e.ClientContext.ContextType}, user {e.ClientContext.UserId}");
+        client.ClientUpdatedAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} now uses the {e.ClientContext.Theme} theme");
+        client.ClientLeftAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} left");
+        #endregion
     }
 
     public static async Task LifecycleAsync(IkonClient client)
@@ -280,11 +293,16 @@ file static class SdkReadmeExamples
         // Send final chunk
         await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
 
-        // Optional: specify stream ID, total duration, encoder options, and target clients.
+        // An app's speech recognition skips a stream with no correlation id unless the app turned
+        // that off. Pass the id the app gave for the capture, or any id of your own. When a new
+        // segment uses another id, the SDK announces the stream again with that id
+        await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: true, isLast: true, correlationId: "question-1");
+
+        // Optional: specify stream ID, total duration and encoder options.
         // A stream's sample rate and channel count are fixed by its first send, and every call
         // without a streamId shares one stream, so audio in another format needs its own streamId
         await client.SendAudioAsync(
-            MediaTargets.To(123, 456),                // Target specific session IDs
+            MediaTargets.Everyone,                    // A client's audio reaches the app
             samples: samples,
             sampleRate: 48000,
             channelCount: 1,
@@ -346,6 +364,157 @@ file static class SdkReadmeExamples
             // Buffer audio for UI timeline display
             e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
         };
+        #endregion
+    }
+
+    public static async Task AudioShapesAndPlaybackAsync(IkonClient client, string streamId)
+    {
+        #region example:sdk-audio-shapes
+        client.AudioShapeFrameAsync += async e =>
+        {
+            // Values the app analysed from its speech, such as visemes, for the audio of the same
+            // stream; Timestamp is from the start of the segment
+            foreach (var set in e.Sets)
+            {
+                for (int i = 0; i < set.Values.Count; i++)
+                {
+                    Console.WriteLine($"{e.StreamId} at {e.Timestamp}: {set.Name}.{set.ShapeNames.ElementAtOrDefault(i)} = {set.Values[i]}");
+                }
+            }
+        };
+
+        // A program that plays the audio tells the app how far it got, about every 500 ms and at once
+        // when it stops being audible, so the app can pace what it says to what was heard
+        await client.SendAudioPlaybackReportAsync(streamId, played: TimeSpan.FromSeconds(1.5), buffered: TimeSpan.FromMilliseconds(120));
+        await client.SendAudioPlaybackReportAsync(streamId, played: null, buffered: TimeSpan.Zero, AudioPlaybackState.Blocked);
+        #endregion
+    }
+
+    private static (byte[] Data, bool IsKey) EncodeNextFrame(bool forceKeyFrame) => (new byte[16], forceKeyFrame);
+
+    public static async Task SendVideoAsync(IkonClient client)
+    {
+        #region example:sdk-send-video
+        // The SDK sends frames you have already encoded (H.264 in Annex B form, VP8 or VP9); it
+        // does not encode. The app gets the stream as a VideoInput: "camera" makes its Kind Camera
+        var keyFrameRequested = true;
+        client.VideoKeyFrameRequestedAsync += async e => keyFrameRequested = true;
+
+        for (int frameNumber = 0; frameNumber < 300; frameNumber++)
+        {
+            // Start with a keyframe, and send one whenever the app asks for it
+            var (data, isKey) = EncodeNextFrame(forceKeyFrame: keyFrameRequested);
+            keyFrameRequested = false;
+
+            await client.SendVideoFrameAsync(
+                MediaTargets.Everyone,                // A client's video reaches the app
+                streamId: "camera-1",
+                data: data,
+                isKey: isKey,
+                timestamp: TimeSpan.FromSeconds(frameNumber / 30.0),
+                codec: VideoCodec.H264,
+                width: 1280,
+                height: 720,
+                correlationId: "capture-1");          // Ties the stream to the app's capture
+        }
+
+        await client.EndVideoStreamAsync("camera-1");
+        #endregion
+    }
+
+    public static void ReceiveVideo(IkonClient client)
+    {
+        #region example:sdk-receive-video
+        client.VideoInputStreamBeginAsync += async e =>
+        {
+            // Raised again when the sender changes the codec or size; reconfigure the decoder then
+            Console.WriteLine($"Video stream {e.StreamId} ({e.SenderStreamId}): {e.Codec} {e.Width}x{e.Height}");
+        };
+
+        client.VideoInputFrameAsync += async e =>
+        {
+            // e.Data is one encoded frame; decode it with a decoder of your own
+            Console.WriteLine($"Frame {e.FrameNumber} of {e.StreamId}: {e.Data.Length} bytes, key: {e.IsKey}");
+        };
+
+        client.VideoInputStreamEndAsync += async e => Console.WriteLine($"Video stream ended: {e.StreamId}");
+
+        // A decoder that lost a frame or joined late asks the sender for a keyframe:
+        // await client.RequestVideoKeyFrameAsync(streamId);
+        #endregion
+    }
+
+    public static async Task UpdateClientContextAsync(IkonClient client)
+    {
+        #region example:sdk-client-context
+        // What a browser reports about itself. A call names only what changed; the SDK
+        // sends the other values again, because the app's copy is replaced on each update
+        await client.UpdateClientContextAsync(viewportWidth: 390, viewportHeight: 844, theme: "dark", timezone: "Europe/Helsinki", visibility: "visible");
+        await client.UpdateClientContextAsync(theme: "light");
+
+        // Move to another page of the app, as a browser does when it navigates
+        await client.SetPathAsync("/room/7");
+        #endregion
+    }
+
+    public static async Task UploadFileAsync(IkonClient client, string uploadActionId)
+    {
+        #region example:sdk-upload-file
+        // The app's upload control (view.FileUpload or view.FileUploadZone) carries the id
+        // in the uploadActionId prop of its node in the UI tree
+        await using var file = File.OpenRead("report.pdf");
+
+        try
+        {
+            var result = await client.UploadFileAsync(
+                uploadActionId,
+                file,                                 // Readable and seekable
+                fileName: "report.pdf",
+                mimeType: "application/pdf",
+                progress: new System.Progress<IkonClient.UploadProgress>(p => Console.WriteLine($"{p.AcknowledgedBytes}/{p.TotalBytes}")));
+
+            // Returns once the app's onUploadComplete has run
+            Console.WriteLine($"Uploaded {result.Size} bytes, SHA-256 {result.Hash}");
+        }
+        catch (UploadFailedException ex)
+        {
+            // The app refused it, or it failed; Retriable says whether sending it again can help
+            Console.WriteLine($"Upload {ex.UploadId} failed: {ex.Message} (retriable: {ex.Retriable})");
+        }
+        #endregion
+    }
+
+    public static async Task DriveUIAsync()
+    {
+        #region example:sdk-ui
+        await using var client = new IkonClient(new IkonClientConfig
+        {
+            Description = "My UI",
+            // The port `ikon run` prints, and the app id, as in Local Development above
+            Local = new LocalConfig { Host = "localhost", HttpsPort = int.Parse(Environment.GetEnvironmentVariable("IKON_LOCAL_PORT") ?? "8443"), SpaceId = "your-app-id" },
+        });
+
+        // Raised after every change to a stream's tree, with the whole tree as it now is.
+        // A node that did not change keeps its object, so a renderer can skip it by reference
+        client.UI.StreamUpdatedAsync += async e =>
+        {
+            foreach (var node in e.Stream.Root?.DescendantsAndSelf() ?? [])
+            {
+                // node.Type is the component ("std.button"), node.Props its props as JSON,
+                // node.StyleIds its styles (client.UI.Styles)
+                Console.WriteLine($"{node.Type} {node.GetText("label") ?? node.GetText("content")}");
+            }
+        };
+
+        await client.ConnectAsync();
+
+        // Use a control as a person would: find its node and call its action
+        var save = await client.UI.WaitForNodeAsync(node => node.Type == "std.button" && node.GetText("label") == "Save");
+        bool completed = await client.UI.CallActionAsync(save, "onInvokeId");
+
+        // A text field's action takes the new text as it is
+        var name = await client.UI.WaitForNodeAsync(node => node.Type == "std.text-field");
+        await client.UI.CallActionAsync(name, "onValueChangeId", "Ada");
         #endregion
     }
 
@@ -466,19 +635,18 @@ file static class SdkExtraExamples
             // session changed and its server-side state is gone
         };
 
-        // Server is stopping (can still send messages)
+        // The server is stopping: the app restarts, is deployed again or its session ends. Messages can
+        // still be sent here. Not raised by the program's own IkonClient.DisconnectAsync or by a dropped
+        // connection
         client.StoppingAsync += async e =>
         {
             Console.WriteLine("Server stopping...");
         };
 
-        // Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
-        // the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
-        // retrying from Offline, so this is final only when the server is stopping,
-        // BackgroundReconnect is off, a JoinOnly client found the session ended, the sign-in was
-        // refused with 401 or 403, or the server requires a newer SDK or app. Not raised by a failed IkonClient.ConnectAsync (that is the
-        // call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
-        // drop that reconnects
+        // The client went Offline. After a server stop, a refused sign-in or a required upgrade it stays
+        // there until the program calls IkonClient.ConnectAsync; after failed reconnects BackgroundReconnect
+        // (on by default) keeps trying. Not raised by the program's own IkonClient.DisconnectAsync, a failed
+        // IkonClient.ConnectAsync or a drop that reconnects
         client.DisconnectedAsync += async e =>
         {
             Console.WriteLine("Disconnected");
@@ -588,9 +756,8 @@ file static class SdkExtraExamples
             // Payload serialization format
             PayloadType = PayloadType.Teleport,  // Default
 
-            // How this connection identifies to the server.
-            // Default Plugin connects as a backend component (no UI).
-            // Native or Browser connects as a first-class player client that receives streamed UI.
+            // How this connection identifies to the server: Plugin for a program,
+            // Native for a client a person uses. Each gets the app's UI.
             ContextType = ContextType.Plugin
         };
         #endregion
@@ -643,12 +810,10 @@ file static class SdkConsoleClientExamples
         await using var client = new IkonClient(config);
         await client.ConnectAsync();
 
-        // The app looks up a reactive's stable id by the member's name in its [App] class
-        var stableId = await client.FunctionRegistry.CallAsync<string>("Ikon.Reactive.GetStableIdByName", args: ["_visitorCount"]);
-
-        // The callback runs once with the current value, then on every change
+        // A reactive of the app's [App] class, found by the member's name. The callback runs once with
+        // the current value, then after changes; changes close together arrive as one call with the latest value
         var reactives = new ReactiveRegistry(client);
-        await using var visitors = await reactives.SubscribeAsync<int>(stableId, count => Console.WriteLine($"Visitors today: {count}"));
+        await using var visitors = await reactives.SubscribeByNameAsync<int>("_visitorCount", count => Console.WriteLine($"Visitors today: {count}"));
 
         // Call an External [Function] of the app, passing the key it checks
         var answer = await client.FunctionRegistry.CallAsync<string>("RecordVisit",
@@ -666,7 +831,7 @@ file static class SdkConsoleClientExamples
         {
             await Task.Delay(TimeSpan.FromSeconds(15));
 
-            if (client.State != ConnectionState.Offline)
+            if (!client.State.IsDisconnected())
             {
                 continue;
             }

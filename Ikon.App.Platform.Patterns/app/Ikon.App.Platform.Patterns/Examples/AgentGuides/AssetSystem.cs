@@ -27,10 +27,11 @@ internal sealed partial class AgentGuideExamples
     {
         #region example:asset-listing
         var entries = await Asset.Instance.ListAsync(new AssetQuery(folderUri) { Limit = 50 });
+        var names = entries.Select(entry => $"{entry.AssetUri.FileName} ({entry.Metadata.Size} bytes, {entry.Metadata.LastModified:u})").ToList();
         await Asset.Instance.DeleteAsync(uri);
         #endregion
 
-        _ = entries;
+        _ = names;
     }
 
     private void DocAssetUriConstruction()

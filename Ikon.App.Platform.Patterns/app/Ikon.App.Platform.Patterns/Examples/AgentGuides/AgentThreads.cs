@@ -110,6 +110,30 @@ public static class AgentThreadExamples
     }
     #endregion
 
+    #region example:agent-stage-drive-to-done
+    // A pass that answers in text and calls no MoveTo tool ends the drive as Settled before the last
+    // stage, so post a short user turn and drive again, a few times at most.
+    public static async Task<DriveOutcome> DriveToDoneAsync(AgentThread thread, CancellationToken ct)
+    {
+        for (var nudges = 0; ; nudges++)
+        {
+            var outcome = await thread.DriveAsync(DriveMode.UntilStable, ct: ct);
+
+            // Done, a wait for the person's input, a failure or the safety limit: not a stall to nudge
+            var stalled = outcome == DriveOutcome.Settled
+                && thread.Stage.Value != "Done"
+                && thread.Status.Value is ThreadStatus.Active or ThreadStatus.Idle;
+
+            if (!stalled || nudges == 3)
+            {
+                return outcome;
+            }
+
+            await thread.PostAsync(new Message(Author.User, [new Content.Text("Continue with the next step.")]), ct);
+        }
+    }
+    #endregion
+
     #region example:agent-pass-budget
     // MaxTurns counts passes, so with UntilStable it stops a pipeline that keeps calling tools: the
     // thread fails with "budget exceeded: MaxTurns" and DriveAsync returns DriveOutcome.Failed.
@@ -207,7 +231,8 @@ public static class AgentThreadExamples
     #endregion
 
     #region example:agent-user-decision
-    public static async Task<string?> PendingQuestionAsync(AgentThread thread)
+    // Call in a handler (a render cannot await) and keep the result in a reactive the render reads.
+    public static async Task<UserDecisionPrompt?> PendingPromptAsync(AgentThread thread)
     {
         // Answering leaves the prompt stored, so only a waiting thread has a question pending
         if (thread.Status.Value != ThreadStatus.WaitingForInput)
@@ -215,9 +240,34 @@ public static class AgentThreadExamples
             return null;
         }
 
-        var prompt = await UserDecisionProtocol.TryReadPromptAsync(thread);
+        return await UserDecisionProtocol.TryReadPromptAsync(thread);
+    }
 
-        return prompt is null ? null : $"{prompt.Question} ({string.Join(" / ", prompt.Options)})";
+    public static void RenderPrompt(UIView view, AgentThread thread, UserDecisionPrompt prompt, ClientReactive<string> typedAnswer)
+    {
+        view.Text([Text.Body], text: prompt.Question);
+
+        // A clarification has no options: without a text field the thread waits for ever
+        if (prompt.Kind == "clarification")
+        {
+            view.TextField(label: "Your answer", bind: typedAnswer);
+            view.Button([Button.PrimaryMd], text: "Send",
+                onClick: async () => await AnswerAsync(thread, typedAnswer.Value));
+            return;
+        }
+
+        for (var i = 0; i < prompt.Options.Count; i++)
+        {
+            var choice = prompt.Options[i];
+            view.Button([Button.SecondaryMd], text: prompt.LabelAt(i),
+                onClick: async () => await AnswerAsync(thread, choice));
+        }
+    }
+
+    private static async Task AnswerAsync(AgentThread thread, string answer)
+    {
+        await thread.PostAsync(UserDecisionProtocol.BuildResponse(answer));
+        await thread.DriveAsync(DriveMode.UntilStable);
     }
     #endregion
 

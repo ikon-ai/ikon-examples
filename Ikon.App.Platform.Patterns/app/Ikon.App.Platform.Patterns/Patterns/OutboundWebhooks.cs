@@ -37,7 +37,7 @@ internal sealed class OutboundWebhooks(IAppBase app) : IPatternDemo
 
         foreach (var endpoint in endpoints)
         {
-            _ = Task.Run(() => DeliverAsync(endpoint, eventName, deliveryId, body));
+            Task.Run(() => DeliverAsync(endpoint, eventName, deliveryId, body)).ObserveInBackground();
         }
     }
 

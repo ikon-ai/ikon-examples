@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 /** The latest-wins-updates pattern's position, sent many times a second by a tablet or a device program. Generated here so the pattern compiles against the class the Teleport compiler writes. */
 export interface WorkerPosition
@@ -22,7 +22,7 @@ export interface WorkerPosition
 }
 
 export const WORKER_POSITION_VERSION = 1;
-export const WORKER_POSITION_OPCODE = 0x40000105;
+export const WORKER_POSITION_OPCODE = 0x4000CA3F;
 export const WORKER_POSITION_DEFAULT_FLAGS = 0x10; // MessageFlag.Unreliable
 
 const WORKER_POSITION_X_FIELD_ID = 0x164A5CD1;
@@ -142,3 +142,11 @@ export async function fromProtocolMessageWorkerPositionAsync(raw: ProtocolMessag
     const payload = await readProtocolMessagePayloadAsync(raw, WORKER_POSITION_OPCODE, WORKER_POSITION_VERSION);
     return decodeWorkerPosition(payload, destination);
 }
+
+/** The WorkerPosition message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const WorkerPositionMessage = {
+    opcode: WORKER_POSITION_OPCODE,
+    version: WORKER_POSITION_VERSION,
+    toProtocolMessage: toProtocolMessageWorkerPosition,
+    fromProtocolMessage: fromProtocolMessageWorkerPositionAsync,
+} as const;

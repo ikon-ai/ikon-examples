@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 /** The device-typed-messages pattern's reading, sent by a device program to the app. Generated here so the pattern's app side and device side compile against the class the Teleport compiler writes. */
 export interface WeatherReport
@@ -22,7 +22,7 @@ export interface WeatherReport
 }
 
 export const WEATHER_REPORT_VERSION = 1;
-export const WEATHER_REPORT_OPCODE = 0x40000103;
+export const WEATHER_REPORT_OPCODE = 0x4000814F;
 
 const WEATHER_REPORT_STATION_ID_FIELD_ID = 0x38DC6D12;
 const WEATHER_REPORT_STATION_KEY_FIELD_ID = 0x8D27A3DE;
@@ -141,3 +141,11 @@ export async function fromProtocolMessageWeatherReportAsync(raw: ProtocolMessage
     const payload = await readProtocolMessagePayloadAsync(raw, WEATHER_REPORT_OPCODE, WEATHER_REPORT_VERSION);
     return decodeWeatherReport(payload, destination);
 }
+
+/** The WeatherReport message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const WeatherReportMessage = {
+    opcode: WEATHER_REPORT_OPCODE,
+    version: WEATHER_REPORT_VERSION,
+    toProtocolMessage: toProtocolMessageWeatherReport,
+    fromProtocolMessage: fromProtocolMessageWeatherReportAsync,
+} as const;

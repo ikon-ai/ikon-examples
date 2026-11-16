@@ -7,7 +7,7 @@ internal sealed class BackgroundWorker : IPatternDemo
     public string Title => "Background worker";
     public string Category => "Platform mechanics";
     public void RenderDemo(IView view) => PatternDemoNote.RenderInfo(view, Title,
-        "Backend pattern: a loop started in OnStarting runs a round every minute with nobody connected, holding BackgroundWork only while its rounds succeed, and a five-minute [Cron] starts a new instance when the last one stopped — see docs/patterns/background-worker.md.");
+        "Backend pattern: a loop started in OnStarting runs a round every minute with nobody connected, holding BackgroundWork only while its rounds succeed, and an hourly [Cron] starts a new instance when the last one stopped — see docs/patterns/background-worker.md.");
 }
 
 // Abstract so neither the bundle scan nor the Patterns app registers its [Cron] job or starts its
@@ -31,7 +31,7 @@ file abstract class BackgroundWorkerExample(IAppBase app)
                 return;
             }
 
-            _ = RunWorkerAsync(app.StoppingToken);
+            RunWorkerAsync(app.StoppingToken).ObserveInBackground();
         });
     }
 
@@ -66,8 +66,8 @@ file abstract class BackgroundWorkerExample(IAppBase app)
     }
 
     // A tick starts the app's shared instance when none is running, and that start runs OnStarting,
-    // so the loop is back within five minutes of an instance stopping. The tick has nothing to do.
-    [Cron("*/5 * * * *")]
+    // so the loop is back within the hour after an instance stopped. The tick has nothing to do.
+    [Cron("0 * * * *")]
     public void KeepWorkerRunning()
     {
     }

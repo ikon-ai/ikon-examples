@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 /** The device-typed-messages pattern's answer to one WeatherReport, sent by the app to the device that sent it. */
 export interface WeatherReportAck
@@ -21,7 +21,7 @@ export interface WeatherReportAck
 }
 
 export const WEATHER_REPORT_ACK_VERSION = 1;
-export const WEATHER_REPORT_ACK_OPCODE = 0x40000104;
+export const WEATHER_REPORT_ACK_OPCODE = 0x40002EF9;
 
 const WEATHER_REPORT_ACK_REASON_FIELD_ID = 0x03F53591;
 const WEATHER_REPORT_ACK_ACCEPTED_FIELD_ID = 0x42EAE5D9;
@@ -131,3 +131,11 @@ export async function fromProtocolMessageWeatherReportAckAsync(raw: ProtocolMess
     const payload = await readProtocolMessagePayloadAsync(raw, WEATHER_REPORT_ACK_OPCODE, WEATHER_REPORT_ACK_VERSION);
     return decodeWeatherReportAck(payload, destination);
 }
+
+/** The WeatherReportAck message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const WeatherReportAckMessage = {
+    opcode: WEATHER_REPORT_ACK_OPCODE,
+    version: WEATHER_REPORT_ACK_VERSION,
+    toProtocolMessage: toProtocolMessageWeatherReportAck,
+    fromProtocolMessage: fromProtocolMessageWeatherReportAckAsync,
+} as const;

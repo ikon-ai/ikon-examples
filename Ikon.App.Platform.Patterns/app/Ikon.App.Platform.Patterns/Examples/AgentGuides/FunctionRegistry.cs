@@ -21,6 +21,21 @@ public class GreetingFunctions(string greeting)
 }
 #endregion
 
+#region example:functions-stream
+public class CountdownFunctions
+{
+    [Function(Name = "Countdown", Description = "Counts down to zero, one number a second", Visibility = FunctionVisibility.External)]
+    public static async IAsyncEnumerable<int> Countdown(int from, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        for (var i = from; i >= 0; i--)
+        {
+            yield return i;
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+        }
+    }
+}
+#endregion
+
 public class VisibilityFunctions
 {
     #region example:function-visibility
@@ -117,6 +132,23 @@ internal sealed partial class AgentGuideExamples
         #endregion
 
         _ = (sum, greeting);
+    }
+
+    private static async Task DocCallProgramFunctionsAsync()
+    {
+        #region example:call-program-functions
+        foreach (var session in FunctionRegistry.Instance.GetClientSessionsWithFunction("ChatBot.Summarize"))
+        {
+            var summary = await FunctionRegistry.Instance.CallAsync<string>("ChatBot.Summarize", args: [5], targetId: session);
+            Log.Instance.Info(summary);
+
+            // A function that streams its result (an IAsyncEnumerable in C#, a stream function in another SDK)
+            await foreach (var line in FunctionRegistry.Instance.CallAsyncEnumerable<string>("ChatBot.Lines", args: [5], targetId: session))
+            {
+                Log.Instance.Info(line);
+            }
+        }
+        #endregion
     }
 
     private static void DocDirectRegistration()

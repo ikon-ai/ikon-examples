@@ -155,6 +155,10 @@ file sealed class InputsExamples
         view.TextField(["default", "flex-1"], bind: _query, placeholder: "Search", clearOnSubmit: false,
             onSubmit: async query => { await RunSearchAsync(query); });
         view.TextField(bind: _text, type: "number", min: "0", step: "1", label: "Quantity");  // a number field: the bound value is still a string, so int.TryParse(_text.Value, out var quantity)
+        // A number field's value has a dot decimal whatever the browser's language ("850.5"): parse it with
+        // CultureInfo.InvariantCulture, and give browse's fill 850.5. For people who type a decimal comma (850,5),
+        // use a text field that opens the decimal keypad and parse the text yourself:
+        view.TextField(bind: _text, label: "Kilos", props: new Dictionary<string, object> { ["inputMode"] = "decimal" });
         view.TextArea(bind: _text, placeholder: "Notes", maxLength: 500);  // maxLength: caps typing and pasting (TextField takes it too)
         // onFocus/onBlur (TextField and TextArea) fire once per real change of focus, autoFocus included;
         // a re-render or switching to another app fires neither. A combobox opens its list on focus:
@@ -203,7 +207,9 @@ file sealed class InputsExamples
             onUploadProgress: async args => { /* args.ProgressPercentage (0-100), args.BytesUploaded, args.Size */ },
             accept: [".jpg", ".png", ".pdf"],  // optional file type filter
             multiple: true,                     // without it, one file per pick; each file is a separate upload with its own onUploadComplete
-            maxFileSize: 10 * 1024 * 1024);    // optional max size in bytes, per file
+            maxFileSize: 10 * 1024 * 1024,     // optional max size in bytes, per file
+            label: "Drop scans or tap to choose", // optional: replaces the default prompt
+            hint: "JPG, PNG or PDF, up to 10 MB"); // optional: replaces the line naming the types and limit; "" hides it
 
         // A phone photo is shrunk on the device before maxFileSize is checked: longest side 1600 px, as
         // UploadImageFormat.Webp (JPEG where the client cannot encode it). The file name and MIME type follow, and HEIC photos are converted.
@@ -344,8 +350,6 @@ file sealed class OverlaysExamples
 file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app)
 {
     private readonly ClientReactive<string> _tab = new("home");
-    // The path is one client's, so the page it selects is too.
-    private readonly ClientReactive<string> _page = new("/");
     private readonly ClientReactive<string> _accordionValue = new("");
     private readonly ClientReactive<bool> _open = new(false);
     private readonly Reactive<bool> _hasMore = new(true);
@@ -432,17 +436,21 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
         #endregion
     }
 
-    public void Route()
+    #region example:bottom-nav-routing
+    // The path is one client's, so the page it selects is too. A deep link or a reload raises no
+    // PathChangedAsync, so the page starts from the path the client opened on
+    private readonly ClientReactive<string> _page = ClientReactive.Create(_ => app.Navigation.CurrentPath ?? "/");
+
+    public void Main()
     {
-        #region example:bottom-nav-routing
         // A press on an item, an in-app link and a back gesture all arrive here
         app.Navigation.PathChangedAsync += args =>
         {
             _page.Value = args.Path;
             return Task.CompletedTask;
         };
-        #endregion
     }
+    #endregion
 
     private static void DocFeedInTab(UIView view, IReadOnlyList<FeedSlide> slides)
     {
@@ -462,12 +470,31 @@ file sealed class NavigationExamples(IApp<SessionIdentity, ClientParameters> app
         #endregion
     }
 
+    private static void DocFeedAboveNavBar(UIView view, IReadOnlyList<FeedSlide> slides)
+    {
+        #region example:feed-above-nav-bar
+        // The absolute box goes inside the outlet's page. Around the outlet, the outlet is no longer
+        // in a flex column, so it and the feed grow to the height of the slides
+        view.Column(["h-dvh"], content: shell =>
+        {
+            shell.NavOutlet(content: page => page.Box(["relative min-h-0 flex-1"], content: frame =>
+                frame.Box(["absolute inset-0"], content: fill =>
+                    fill.FeedScroller(slides, style: [FeedScroller.Root, "h-full"]))));
+            shell.NavBar(content: bar =>
+            {
+                bar.NavItem("/", label: "Feed", icon: "image");
+                bar.NavItem("/profile", label: "Profile", icon: "user");
+            });
+        });
+        #endregion
+    }
+
     private static void DocBottomTabBar(UIView view)
     {
         #region example:bottom-tab-bar
         // Root and panel are a flex column with a definite height; the list container comes last in
         // the column (order-last) and scrolls sideways, so more than four tabs scroll
-        // (use NavBar for five or more);
+        // (use NavBar for five or more; with four or fewer drop min-w-max and give triggers "flex-1 min-w-0");
         // md:max-w-md md:mx-auto keeps the bar from spanning a wide desktop window
         view.Tabs(
             defaultValue: "home",
@@ -731,6 +758,33 @@ file sealed class EditorsExamples
             onSave: async args => { _drawing.Value = args.ImageData; });
         #endregion
     }
+
+    #region example:image-editor-crop-to-region
+    // photo is the bytes of the editor's src:. The mask is the size of src: and white where the
+    // rectangle was drawn, so the crop is the bounding box of its white pixels
+    internal static byte[] CropToDrawnRegion(byte[] photo, string maskData)
+    {
+        var (rgba, width, height) = ImageUtils.DecodeToRgba(Convert.FromBase64String(maskData[(maskData.IndexOf(',') + 1)..]));
+        int left = width, top = height, right = -1, bottom = -1;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (rgba[(y * width + x) * 4] > 127)
+                {
+                    left = Math.Min(left, x);
+                    right = Math.Max(right, x);
+                    top = Math.Min(top, y);
+                    bottom = Math.Max(bottom, y);
+                }
+            }
+        }
+
+        // Nothing drawn: keep the whole photo
+        return right < 0 ? photo : ImageUtils.Crop(photo, left, top, right - left + 1, bottom - top + 1);
+    }
+    #endregion
 }
 
 internal sealed partial class AgentGuideExamples
@@ -983,6 +1037,60 @@ file sealed class SortableTableExamples
                 }
             });
         });
+    }
+    #endregion
+}
+
+file sealed class SortableDataTableExamples(IApp<SessionIdentity, ClientParameters> app)
+{
+    private sealed record Lease(long Id, string Tenant, string City, decimal Rent);
+
+    #region example:sortable-data-table
+    private const int PageSize = 50;
+
+    // Each header's SortKey and the SQL it sorts by. A key reaches the query only through this map.
+    private static readonly Dictionary<string, string> SortColumns = new()
+    {
+        ["tenant"] = "tenant",
+        ["city"] = "city",
+        ["rent"] = "rent",
+    };
+
+    private readonly ClientReactive<DataTableSort> _sort = new(new DataTableSort("tenant"));
+    private readonly ClientReactive<int> _page = new(0);
+    private readonly ClientReactive<IReadOnlyList<Lease>> _rows = new([]);
+    private readonly ClientReactive<int> _total = new(0);
+
+    // Called from app.OnClientJoined for the first page, then by the table's handlers.
+    private async Task LoadLeasesAsync()
+    {
+        var order = $"{SortColumns[_sort.Value.Key]} {(_sort.Value.Descending ? "DESC" : "ASC")}";
+        await using var connection = await app.DatabaseAsync();
+        await connection.OpenAsync();
+        _total.Value = await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM leases");
+        // id breaks ties, so a row whose value equals its neighbour's stays on one page
+        var rows = await connection.QueryAsync<Lease>(
+            $"SELECT id, tenant, city, rent FROM leases ORDER BY {order}, id LIMIT @limit OFFSET @offset",
+            new { limit = PageSize, offset = _page.Value * PageSize });
+        _rows.Value = rows.AsList();
+    }
+
+    private void RenderLeases(UIView view)
+    {
+        view.DataTable(
+            columns:
+            [
+                new DataTableColumn("Tenant", Flex: 2, MinWidth: "10rem") { SortKey = "tenant", Sticky = true },
+                new DataTableColumn("City", Flex: 1, MinWidth: "8rem") { SortKey = "city" },
+                new DataTableColumn("Rent", Width: "8rem", Align: ColumnAlign.Right) { SortKey = "rent" },
+            ],
+            rows: _rows.Value.Select(l => new DataTableRow(l.Id.ToString(CultureInfo.InvariantCulture),
+                [Cell.Text(l.Tenant), Cell.Text(l.City), Cell.Text(l.Rent.ToString("N0", CultureInfo.InvariantCulture))])).ToArray(),
+            totalCount: _total.Value, pageIndex: _page.Value, pageSize: PageSize,
+            onPageChange: async page => { _page.Value = page; await LoadLeasesAsync(); },
+            sort: _sort.Value,
+            // A new order starts again from the first page
+            onSortChange: async sort => { _sort.Value = sort; _page.Value = 0; await LoadLeasesAsync(); });
     }
     #endregion
 }

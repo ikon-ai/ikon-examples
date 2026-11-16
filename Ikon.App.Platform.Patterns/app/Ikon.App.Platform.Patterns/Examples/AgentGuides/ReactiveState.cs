@@ -170,16 +170,8 @@ file sealed class ScreenLoadExamples(IApp<SessionIdentity, ClientParameters> app
     private async Task OpenQuizzesAsync()
     {
         _screen.Value = "quizzes";
-        _loadingQuizzes.Value = true;
-
-        try
-        {
-            _quizzes.ReplaceAll(await LoadQuizzesAsync(ReactiveScope.UserId));
-        }
-        finally
-        {
-            _loadingQuizzes.Value = false;
-        }
+        using var loading = _loadingQuizzes.AsToken();
+        _quizzes.ReplaceAll(await LoadQuizzesAsync(ReactiveScope.UserId));
     }
 
     // The render only reads what the handler loaded.
@@ -212,7 +204,7 @@ file sealed class ClockExamples(IApp<SessionIdentity, ClientParameters> app)
     private readonly Reactive<DateTime> _now = new(DateTime.UtcNow);
 
     // Call it once from Main.
-    public void StartClock() => _ = TickAsync();
+    public void StartClock() => TickAsync().ObserveInBackground();
 
     private async Task TickAsync()
     {

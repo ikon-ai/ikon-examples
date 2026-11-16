@@ -166,6 +166,19 @@ file static class AiOverviewExamples
         #region example:ai-imagesegmentation
         var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
 
+        // The noun found nothing: try a box around the middle half of the picture, where the subject usually is
+        if (result.Segments.Count == 0)
+        {
+            var (w, h) = ImageUtils.GetImageDimensions(imageBytes);
+            using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam31);
+
+            result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
+            {
+                InputImage = new InputImage { Data = imageBytes, MimeType = "image/png" },
+                BoxPrompts = [new ImageSegmenterConfig.BoxPrompt { XMin = w / 4.0, YMin = h / 4.0, XMax = w * 3 / 4.0, YMax = h * 3 / 4.0 }]
+            });
+        }
+
         if (result.Segments.Count > 0)
         {
             await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
@@ -497,6 +510,8 @@ file static class AiOverviewExamples
     public static async Task AiTimestampsSpeakersAndConfidence2(IAsyncEnumerable<float[]> samples)
     {
         #region example:ai-timestamps-speakers-and-confidence-2
+        using var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.DeepgramNova3General);
+
         var config = new RecognizeContinuousSpeechConfig
         {
             SampleRate = 16000,
@@ -518,6 +533,7 @@ file static class AiOverviewExamples
     public static async Task AiTurnTaking(IAsyncEnumerable<float[]> samples)
     {
         #region example:ai-turn-taking
+        using var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.AzureSpeechService);
         var capabilities = SpeechRecognizer.GetCapabilities(SpeechRecognizerModel.AzureSpeechService);
 
         var turnDetection = capabilities.TurnDetection.HasFlag(SpeechTurnDetection.Semantic)
@@ -901,4 +917,21 @@ file static class AiFailureExamples
         },
     };
     #endregion
+}
+
+file static class AiLabelExamples
+{
+    public static async Task<byte[]?> GenerateLabelledAsync(string prompt, byte[] photo)
+    {
+        #region example:ai-image-label
+        var result = (await new ImageGenerator(ImageGeneratorModel.Gemini3ProImage).GenerateImageAsync(new ImageGeneratorConfig
+        {
+            Prompt = prompt,
+            InputImages = [new InputImage { Data = photo, MimeType = "image/jpeg" }],
+            AILabel = AILabel.Auto,
+        }))[0];
+        #endregion
+
+        return result.AILabel != AILabel.None ? result.Data : null;
+    }
 }

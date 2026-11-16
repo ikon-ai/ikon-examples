@@ -15,35 +15,66 @@ internal sealed class RosterEmailMatch(IAppBase app) : IPatternDemo
     #region example:pattern-roster-email-match
     private ClientProfiles Profiles { get; } = new(app);
 
-    // Per client: the roster row this person matched, or null when none did
+    private enum RosterStatus { NotOnList, Checking, Linked, Failed }
+
+    // Per client: how the match went, and the name on the roster row this person matched
+    private readonly ClientReactive<RosterStatus> _rosterStatus = new(RosterStatus.NotOnList);
     private readonly ClientReactive<string?> _rosterName = new((string?)null);
 
     /// <summary>Call once from Main.</summary>
     private void WireRosterMatch()
     {
-        app.OnClientJoined(async ctx =>
+        app.OnClientJoined(ctx =>
         {
             if (ctx.IsAnonymous)
             {
-                return;
+                return Task.CompletedTask;
             }
 
-            // A row the account claimed before holds it whatever the sign-in method: a passkey sign-in
-            // carries only the address an earlier sign-in gave the account, or none
-            if (await FindClaimedRowAsync(ctx.UserId) is { } claimed)
-            {
-                _rosterName.Value = claimed;
-                return;
-            }
-
-            // Only the email sign-in proves the address; Google or Apple may report one they did not verify
-            if (ctx.AuthProvider != "email" || await Profiles.GetProfileAsync(ctx) is not { Email: { Length: > 0 } email })
-            {
-                return;
-            }
-
-            _rosterName.Value = await ClaimRosterRowAsync(ctx.UserId, email);
+            // Not awaited: the client sees what this handler sets only once it returns, so the
+            // database reads would hold up its first frame. The started task keeps the client's scope.
+            _rosterStatus.Value = RosterStatus.Checking;
+            MatchRosterAsync(ctx).ObserveInBackground();
+            return Task.CompletedTask;
         });
+    }
+
+    private async Task MatchRosterAsync(Context ctx)
+    {
+        try
+        {
+            var name = await FindOrClaimRowAsync(ctx);
+            _rosterName.Value = name;
+            _rosterStatus.Value = name is null ? RosterStatus.NotOnList : RosterStatus.Linked;
+        }
+        catch (OperationCanceledException) when (app.StoppingToken.IsCancellationRequested)
+        {
+            // This app instance is stopping, and the client the match was for goes with it
+        }
+        catch (Exception ex)
+        {
+            // Nothing awaits this task and nothing retries the match, so this is its only report
+            Log.Instance.Error($"Matching user {ctx.UserId} to the roster failed", ex);
+            _rosterStatus.Value = RosterStatus.Failed;
+        }
+    }
+
+    private async Task<string?> FindOrClaimRowAsync(Context ctx)
+    {
+        // A row the account claimed before holds it whatever the sign-in method: a passkey sign-in
+        // carries only the address an earlier sign-in gave the account, or none
+        if (await FindClaimedRowAsync(ctx.UserId) is { } claimed)
+        {
+            return claimed;
+        }
+
+        // Only the email sign-in proves the address; Google or Apple may report one they did not verify
+        if (ctx.AuthProvider != "email" || await Profiles.GetProfileAsync(ctx) is not { Email: { Length: > 0 } email })
+        {
+            return null;
+        }
+
+        return await ClaimRosterRowAsync(ctx.UserId, email);
     }
 
     private async Task<string?> FindClaimedRowAsync(string userId)
@@ -75,15 +106,32 @@ internal sealed class RosterEmailMatch(IAppBase app) : IPatternDemo
     {
         view.Column([Card.Default, "gap-3 p-4 max-w-md"], content: col =>
         {
-            if (_rosterName.Value is { } name)
+            switch (_rosterStatus.Value)
             {
-                col.Text([Text.H3], $"Welcome back, {name}");
-                col.Text([Text.Body], "Your account from the old system is linked");
-                return;
+                case RosterStatus.Checking:
+                {
+                    col.Text([Text.Body], "Looking you up on the list");
+                    break;
+                }
+                case RosterStatus.Linked:
+                {
+                    col.Text([Text.H3], $"Welcome back, {_rosterName.Value}");
+                    col.Text([Text.Body], "Your account from the old system is linked");
+                    break;
+                }
+                case RosterStatus.Failed:
+                {
+                    col.Text([Text.H3], "We could not check the list");
+                    col.Text([Text.Body], "Reload the page to try again");
+                    break;
+                }
+                default:
+                {
+                    col.Text([Text.H3], "We could not find you on the list");
+                    col.Text([Text.Body], "Sign in with the address your school or club has on file");
+                    break;
+                }
             }
-
-            col.Text([Text.H3], "We could not find you on the list");
-            col.Text([Text.Body], "Sign in with the address your school or club has on file");
         });
     }
     #endregion

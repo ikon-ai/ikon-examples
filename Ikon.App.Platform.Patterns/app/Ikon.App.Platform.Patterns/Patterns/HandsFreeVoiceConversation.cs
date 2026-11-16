@@ -75,7 +75,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
 
             var reply = new CancellationTokenSource();
             _replies[args.ClientSessionId] = reply;
-            _ = Task.Run(() => ReplyAsync(args.ClientSessionId, reply.Token));
+            Task.Run(() => ReplyAsync(args.ClientSessionId, reply.Token)).ObserveInBackground();
         };
 
         // Exactly one of SpeechRecognizedAsync and this ends every turn, so both release the turn.
@@ -98,7 +98,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
 
             if (args.IsLast && _recordings.TryRemove(args.StreamId, out var recorded) && _formats.TryGetValue(args.StreamId, out var format))
             {
-                _ = SaveRecordingAsync([.. recorded], format.SampleRate, format.ChannelCount);
+                SaveRecordingAsync([.. recorded], format.SampleRate, format.ChannelCount).ObserveInBackground();
             }
         };
 

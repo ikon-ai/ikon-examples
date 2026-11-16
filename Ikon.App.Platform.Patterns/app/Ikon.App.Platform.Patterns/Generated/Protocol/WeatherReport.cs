@@ -11,11 +11,11 @@ using Ikon.Common.Core.Protocol;
 namespace Ikon.App.Platform.Patterns.Protocol;
 
 /// <remarks>The device-typed-messages pattern's reading, sent by a device program to the app. Generated here so the pattern's app side and device side compile against the class the Teleport compiler writes.</remarks>
-[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000103u)]
+[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x4000814Fu)]
 public sealed partial class WeatherReport : IProtocolMessagePayload
 {
     [JsonIgnore] public int MessageVersion => unchecked((int)TeleportVersion);
-    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000103u;
+    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x4000814Fu;
     [JsonIgnore] public const uint TeleportVersion = 1u;
 
     private const uint StationIdFieldId = 0x38DC6D12u;
@@ -59,7 +59,7 @@ public sealed partial class WeatherReport : IProtocolMessagePayload
             TeleportVersion,
             static (scope, value) => value.WriteToTeleport(scope),
             ReadFromTeleport);
-        ProtocolMessage.RegisterAppLocalMessageType(typeof(WeatherReport), (Opcode)0x40000103u, unchecked((int)TeleportVersion));
+        ProtocolMessage.RegisterAppLocalMessageType(typeof(WeatherReport), (Opcode)0x4000814Fu, unchecked((int)TeleportVersion));
     }
 
     public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)

@@ -62,7 +62,7 @@ internal sealed class SingleProcessorChannelQueue(IAppBase app) : IPatternDemo
         {
             await foreach (var commandText in _commandQueue.Reader.ReadAllAsync(ct))
             {
-                _isProcessing.Value = true;
+                using var processing = _isProcessing.AsToken();
 
                 try
                 {
@@ -76,10 +76,6 @@ internal sealed class SingleProcessorChannelQueue(IAppBase app) : IPatternDemo
                 {
                     Log.Instance.Warning($"Command '{commandText}' failed, continuing with the next command: {ex.Message}");
                     AddTranscript(TranscriptRole.System, "System", "That command failed. Try it again.");
-                }
-                finally
-                {
-                    _isProcessing.Value = false;
                 }
             }
         }

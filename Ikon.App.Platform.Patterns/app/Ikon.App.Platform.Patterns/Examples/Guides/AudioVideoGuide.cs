@@ -207,14 +207,14 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
 
         // One pump forwards each personalized 20 ms frame to its participant. The frames
         // are already mixed and real-time paced, so the raw lane is correct here:
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in _mixer.StreamAsync(app.StoppingToken))
             {
                 await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
                     frame.ChannelCount, frame.IsFirst, frame.IsLast);
             }
-        });
+        }).ObserveInBackground();
         #endregion
     }
 
@@ -284,7 +284,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
             }
         };
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in _stageMixer.StreamAsync(ct))
             {
@@ -295,7 +295,7 @@ file sealed class AudioVideoGuideExamples(IApp<SessionIdentity, ClientParameters
                 await Audio.Raw.SendFrameAsync(targets, frame.StreamId, frame.Samples, frame.SampleRate,
                     frame.ChannelCount, frame.IsFirst, frame.IsLast);
             }
-        });
+        }).ObserveInBackground();
     }
     #endregion
 

@@ -35,7 +35,7 @@ internal sealed class CloudJsonAssetStore(IAppBase app) : IPatternDemo
 
     private async Task LoadDashboardsAsync()
     {
-        _isLoading.Value = true;
+        using var loading = _isLoading.AsToken();
         try
         {
             var json = await Asset.Instance.GetTextAsync(DashboardIndexUri);
@@ -55,10 +55,6 @@ internal sealed class CloudJsonAssetStore(IAppBase app) : IPatternDemo
             // First read is expected-empty (or corrupt) — seed defaults rather than throwing; a backend outage must propagate, or this save would wipe the stored index
             _dashboards.Clear();
             await SaveDashboardsAsync();
-        }
-        finally
-        {
-            _isLoading.Value = false;
         }
     }
 

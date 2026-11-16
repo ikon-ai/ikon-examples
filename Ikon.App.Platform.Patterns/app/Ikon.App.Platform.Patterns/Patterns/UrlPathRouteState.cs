@@ -33,14 +33,39 @@ internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
         // PathChangedAsync fires only for a move the client makes on its own -- a link click,
         // back/forward, or a press on a control with path:, after its onClick. The path a client
         // lands on (deep link, reload) raises nothing: the factory
-        // above routes it, and the joined handler only loads the data that page needs. The app's
-        // own SetPathAsync is not echoed back either, which is why NavigateToDashboardAsync routes
-        // itself.
+        // above routes it, and the joined handler only starts loading the data that page needs. The
+        // app's own SetPathAsync is not echoed back either, which is why NavigateToDashboardAsync
+        // routes itself.
         app.Navigation.PathChangedAsync += async args => await RouteAsync(args.Path);
-        app.OnClientJoined(async _ => await RouteAsync(app.Navigation.CurrentPath ?? "/"));
+        app.OnClientJoined(context =>
+        {
+            // Not awaited: the platform waits for the joined handler before the client sees what it
+            // sets, so a slow query here would delay the page. The started task keeps the client's scope.
+            LoadLandingPageAsync(app.Navigation.CurrentPath ?? "/").ObserveInBackground();
+            return Task.CompletedTask;
+        });
     }
 
-    // Pure: the same mapping serves the first frame and every later navigation.
+    private async Task LoadLandingPageAsync(string path)
+    {
+        try
+        {
+            await RouteAsync(path);
+        }
+        catch (OperationCanceledException) when (app.StoppingToken.IsCancellationRequested)
+        {
+            // This app instance is stopping, and the page the data was for stops with it
+        }
+        catch (Exception ex)
+        {
+            // Nothing awaits this task and nothing retries the load, so this is its only report
+            Log.Instance.Error($"Loading the data for {path} failed", ex);
+        }
+    }
+
+    // Pure: the same mapping serves the first frame and every later navigation. Static because the
+    // field initializer above calls it, and a field initializer reaches only statics and the
+    // primary-constructor parameter (`app`): an instance method there is CS0236.
     private static string PageFor(string path)
     {
         path = path.TrimStart('/');

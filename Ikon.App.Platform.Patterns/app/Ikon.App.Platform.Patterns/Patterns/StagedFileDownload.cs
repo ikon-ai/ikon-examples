@@ -62,16 +62,13 @@ internal sealed class StagedFileDownload(IAppBase app) : IPatternDemo
     private AssetUri ExportUri => new(AssetClass.CloudFile, $"exports/{_exportKey}/report.csv", spaceId: app.GlobalState.SpaceId);
 
     /// <summary>
-    /// Stage the file whenever the state it is derived from changes. ReactiveEffect cancels the
-    /// token when a dependency changes again, so the delay debounces a burst of edits into one
-    /// upload instead of one per keystroke.
+    /// Stage the file whenever the state it is derived from changes. Debounce waits until the edits
+    /// have stopped for 1.5 s, so a burst of them is one upload instead of one per keystroke.
     /// </summary>
     private void StartStaging()
     {
         _stageEffect = new ReactiveEffect(async cancellationToken =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken);
-
             await Asset.Instance.SetBytesAsync(
                 ExportUri,
                 BuildReport(),
@@ -86,7 +83,7 @@ internal sealed class StagedFileDownload(IAppBase app) : IPatternDemo
             // report changes, so a page left idle past the hour needs it re-resolved (UrlProvider
             // resolves it on each click instead).
             _downloadUrl.Value = (await Asset.Instance.GetMetadataAsync(ExportUri)).Url;
-        }, _report);
+        }, _report) { Debounce = TimeSpan.FromSeconds(1.5) };
 
         app.OnStopping(async () =>
         {

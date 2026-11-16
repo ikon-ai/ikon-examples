@@ -102,7 +102,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
         //    SourceEnded when the input does. Handlers run in the sending client's scope.
         Video.InputStartedAsync += async input =>
         {
-            // input.Id, input.Kind (Camera/Screen/Other), input.ClientSessionId, input.Codec, input.Width
+            // input.Id, input.Kind (a VideoSourceKind: Camera/Screen/Other), input.ClientSessionId, input.Codec, input.Width
             // Everyone but the owner, who previews its camera locally; later joiners included
             // The surface name is app-wide, so give each input its own name or the last one replaces the others
             Video.Play(MediaTargets.EveryoneExcept(input.ClientSessionId), $"camera-{input.Id}", input);
@@ -170,7 +170,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
             }
 
             _camera = Video.PlayLive(MediaTargets.To(viewers), "shop-camera", VideoCodec.H264);
-            _ = RunCameraEncoderAsync(_camera);
+            RunCameraEncoderAsync(_camera).ObserveInBackground();
         }
     }
     #endregion

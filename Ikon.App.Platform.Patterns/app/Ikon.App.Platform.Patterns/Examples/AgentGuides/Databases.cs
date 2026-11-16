@@ -135,8 +135,8 @@ file sealed class PgVectorExamples(IApp<SessionIdentity, ClientParameters> app)
 file sealed class VectorArrayExamples(IApp<SessionIdentity, ClientParameters> app)
 {
     #region example:vector-array-column
-    // A class with settable properties reads a real[] column, which Npgsql reports as System.Array,
-    // also in an app without the DapperArrayHandlers.cs the ikon tool writes.
+    // Npgsql reports an array column such as real[] as System.Array. A class with settable properties
+    // reads it whatever the element type.
     private sealed class StoredNote
     {
         public long Id { get; set; }
@@ -267,6 +267,52 @@ file sealed class EfCoreExamples(IApp<SessionIdentity, ClientParameters> app)
 
         return recent.Count;
     }
+}
+
+file sealed class EfCoreSnakeCaseExamples
+{
+    public class Note { public long Id { get; set; } public string Text { get; set; } = ""; public DateTime CreatedAt { get; set; } }
+
+    #region example:ef-core-snake-case
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+    {
+        public DbSet<Note> Notes => Set<Note>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // Last, after every entity is configured: Notes.CreatedAt becomes notes.created_at
+            foreach (var entity in modelBuilder.Model.GetEntityTypes())
+            {
+                if (entity.GetTableName() is { } table)
+                {
+                    entity.SetTableName(ToSnakeCase(table));
+                }
+
+                foreach (var property in entity.GetProperties())
+                {
+                    property.SetColumnName(ToSnakeCase(property.GetColumnName()));
+                }
+            }
+        }
+
+        private static string ToSnakeCase(string name)
+        {
+            var result = new StringBuilder();
+
+            for (var i = 0; i < name.Length; i++)
+            {
+                if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1]))
+                {
+                    result.Append('_');
+                }
+
+                result.Append(char.ToLowerInvariant(name[i]));
+            }
+
+            return result.ToString();
+        }
+    }
+    #endregion
 }
 
 internal sealed partial class AgentGuideExamples

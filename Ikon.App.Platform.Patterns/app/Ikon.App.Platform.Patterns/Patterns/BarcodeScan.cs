@@ -45,25 +45,18 @@ internal sealed class BarcodeScan : IPatternDemo
             return;
         }
 
-        _scanning.Value = true;
+        using var scanning = _scanning.AsToken();
 
-        try
+        // Decoding is CPU work on a full photo, so it runs off the session's thread.
+        var result = await Task.Run(() => DecodeBarcode(shot.Data));
+
+        if (result is null)
         {
-            // Decoding is CPU work on a full photo, so it runs off the session's thread.
-            var result = await Task.Run(() => DecodeBarcode(shot.Data));
-
-            if (result is null)
-            {
-                _scanError.Value = "No code found. Hold it closer, flat and well lit, and scan again.";
-                return;
-            }
-
-            _scanned.Value = $"{result.BarcodeFormat}: {result.Text}";
+            _scanError.Value = "No code found. Hold it closer, flat and well lit, and scan again.";
+            return;
         }
-        finally
-        {
-            _scanning.Value = false;
-        }
+
+        _scanned.Value = $"{result.BarcodeFormat}: {result.Text}";
     }
 
     // ZXing reads pixels, not a JPEG: StbImageSharp decodes the capture to RGBA first.

@@ -11,11 +11,11 @@ using Ikon.Common.Core.Protocol;
 namespace Ikon.App.Platform.Patterns.Protocol;
 
 /// <remarks>The latest-wins-updates pattern's position, sent many times a second by a tablet or a device program. Generated here so the pattern compiles against the class the Teleport compiler writes.</remarks>
-[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000105u, unreliable: true)]
+[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x4000CA3Fu, unreliable: true)]
 public sealed partial class WorkerPosition : IProtocolMessagePayload
 {
     [JsonIgnore] public int MessageVersion => unchecked((int)TeleportVersion);
-    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000105u;
+    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x4000CA3Fu;
     [JsonIgnore] public MessageFlag MessageDefaultFlags => MessageFlag.Unreliable;
     [JsonIgnore] public const uint TeleportVersion = 1u;
 
@@ -60,7 +60,7 @@ public sealed partial class WorkerPosition : IProtocolMessagePayload
             TeleportVersion,
             static (scope, value) => value.WriteToTeleport(scope),
             ReadFromTeleport);
-        ProtocolMessage.RegisterAppLocalMessageType(typeof(WorkerPosition), (Opcode)0x40000105u, unchecked((int)TeleportVersion));
+        ProtocolMessage.RegisterAppLocalMessageType(typeof(WorkerPosition), (Opcode)0x4000CA3Fu, unchecked((int)TeleportVersion));
     }
 
     public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)

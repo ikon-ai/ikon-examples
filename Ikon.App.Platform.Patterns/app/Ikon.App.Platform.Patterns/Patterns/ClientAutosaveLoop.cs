@@ -24,15 +24,13 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
 
     /// <summary>
     /// Called once from Main(). The effect runs per client, in that client's scope, whenever that
-    /// client changes one of its dependencies. A change while a run is waiting
-    /// cancels it and starts another, so the save happens once, a moment after the last keystroke.
+    /// client changes one of its dependencies. Debounce holds the run until that client's changes have
+    /// stopped for 1.5 s, so the save happens once, a moment after the last keystroke.
     /// </summary>
     private void StartAutosave()
     {
         _autosave = new ClientReactiveEffect(async cancellationToken =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken);
-
             // Loading a saved note into the fields counts as a change; set _savedText to the loaded text
             // first, and this run then finds nothing new to save
             var currentText = $"{_draftTitle.Value}\n{_draftBody.Value}";
@@ -52,7 +50,7 @@ internal sealed class ClientAutosaveLoop : IPatternDemo
             await SaveDraftAsync(ReactiveScope.UserId, _draftTitle.Value, _draftBody.Value, cancellationToken);
             _savedText.Value = currentText;
             _saveStatus.Value = $"Saved at {DateTime.UtcNow:HH:mm:ss} UTC";
-        }, _draftTitle, _draftBody);
+        }, _draftTitle, _draftBody) { Debounce = TimeSpan.FromSeconds(1.5) };
     }
 
     private void Render(IView view)

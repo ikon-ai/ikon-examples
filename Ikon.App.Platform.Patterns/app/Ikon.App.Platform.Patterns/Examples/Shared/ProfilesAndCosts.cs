@@ -1,3 +1,4 @@
+using Dapper;
 using Ikon.Common.Core.Protocol;
 
 namespace Ikon.App.Platform.Patterns.Examples;
@@ -16,7 +17,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
             // The profile lookup runs in the background so the join is not held up by it, and the flag
             // is written for this client alone
             var cid = ctx.ClientSessionId;
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 try
                 {
@@ -27,7 +28,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
                 {
                     Log.Instance.Warning($"Could not read the referee role of client {cid}: {ex.Message}");
                 }
-            });
+            }).ObserveInBackground();
 
             return Task.CompletedTask;
         });
@@ -41,6 +42,43 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
         bool holdsItNow = await Profiles.AddRoleByEmailAsync(email, "referee");
 
         return holdsItNow ? $"{email} is a referee" : $"{email} becomes a referee on first sign-in";
+    }
+    #endregion
+
+    #region example:profiles-app-roles
+    // Run once from app.OnStarting. A role is a row: (user id, "coach")
+    private async Task CreateAppRolesTableAsync()
+    {
+        await using var connection = await app.DatabaseAsync();
+        await connection.OpenAsync();
+        await connection.ExecuteAsync("""
+            CREATE TABLE IF NOT EXISTS app_roles (
+                user_id text NOT NULL,
+                role text NOT NULL,
+                PRIMARY KEY (user_id, role))
+            """);
+    }
+
+    private async Task<bool> HasAppRoleAsync(string role)
+    {
+        await using var connection = await app.DatabaseAsync();
+        await connection.OpenAsync();
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM app_roles WHERE user_id = @userId AND role = @role)",
+            new { userId = ReactiveScope.UserId, role });
+    }
+
+    // The check runs on the server in every handler the role allows; a hidden button is not a check
+    public async Task PublishLessonAsync(long lessonId)
+    {
+        if (!await HasAppRoleAsync("coach"))
+        {
+            throw new UnauthorizedAccessException($"User {ReactiveScope.UserId} is not a coach");
+        }
+
+        await using var connection = await app.DatabaseAsync();
+        await connection.OpenAsync();
+        await connection.ExecuteAsync("UPDATE lessons SET published = true WHERE id = @lessonId", new { lessonId });
     }
     #endregion
 
