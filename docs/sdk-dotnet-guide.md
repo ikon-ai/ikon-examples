@@ -1,4 +1,4 @@
-<!-- checked-against: 0b5e7ab7b88bf77befec6cdc -->
+<!-- checked-against: 7142e23cb2758c5cca486dd1 -->
 
 # IKON C# SDK
 
@@ -7,7 +7,7 @@ The IKON C# SDK connects any .NET application to an IKON app. It supports .NET 1
 ## Features
 
 - Eight authentication modes: API Key, Local Development, Backend, External Connect URL, UserLogin (developer CLI sign-in, for dev tooling), UserToken (a person's session token for one space, issued elsewhere), Guest (a user who has not signed in), and ResumeAuthResponse (joining another connection's client session)
-- Automatic reconnection with exponential backoff
+- Automatic reconnection with exponential backoff after a dropped connection (after the app's server stops, the program connects again itself)
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
 - Video streaming of encoded frames (H.264, VP8, VP9) both ways, with keyframe requests
@@ -62,7 +62,10 @@ await client.ConnectAsync();
 ```
 
 `ContextType` defaults to `ContextType.Plugin`, for a program. A client a person uses sets
-`ContextType.Native` (or `Browser`). Either gets the app's UI and its own client state.
+`ContextType.Native`. Either gets the app's UI and its own client state. Don't set `Browser`. The
+SDK registers no setUrl function, so the app's `Navigation.SetPathAsync` returns false for the
+client, and an app that switches the page on false only for clients that are not `Browser` never
+moves it.
 
 ## Transports
 
@@ -133,11 +136,18 @@ var config = new IkonClientConfig
     Local = new LocalConfig
     {
         Host = "localhost",
-        HttpsPort = 8443,
+        // The port of the Server URL that `ikon run` prints, which is not always 8443
+        HttpsPort = int.Parse(Environment.GetEnvironmentVariable("IKON_LOCAL_PORT") ?? "8443"),
+        // The app id: a connect to a run of another app on that port throws instead of joining it
+        SpaceId = "your-app-id",
         UserId = "dev-user"
     }
 };
 ```
+
+Several local runs on one machine take 8443, 8444 and so on. The run's port is also `serverUrl` in
+`build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. Without `SpaceId` the client joins
+whichever app holds the port. "A Console Program That Joins An App" below has the full setup.
 
 A local connection is a machine user by default. A client acting for a signed-in person sets `UserType = UserType.Human` and `AuthSessionId` to the `authSession` claim of that person's backend token, as the browser SDK's local connect does, and `ClientType` to the kind of client it is.
 
@@ -236,7 +246,9 @@ under the `UserId` you give it.
 A kiosk, a bot or a script that shows an app's live state or calls its functions is a console
 program with this SDK. Kept with an app, it goes in the app's `devices/<name>/` folder, which is
 kept in the app's repository (the save before a deploy commits it) but is not built or run by the
-deploy or by `ikon run`. Create it with `dotnet new console -n <Name>`, which puts the project in a `<Name>/` subfolder of `devices/<name>/`, and add the package from inside that subfolder with
+deploy or by `ikon run`. Create it from the app's folder with `dotnet new console -n <Name> -o devices/<name>`,
+which puts `<Name>.csproj` directly in `devices/<name>/` (the `device-typed-messages` pattern's
+csproj lines expect it there), and add the package from inside `devices/<name>/` with
 `dotnet add package Ikon.Sdk --version <version>`, taking the `Ikon.Sdk` version the app's csproj
 lists in its `PackageReference`. The SDK is released on its own version line, apart from the app's
 other `Ikon.*` libraries, and is on nuget.org. That published package also works against an app
@@ -287,12 +299,10 @@ var config = local
 await using var client = new IkonClient(config);
 await client.ConnectAsync();
 
-// The app looks up a reactive's stable id by the member's name in its [App] class
-var stableId = await client.FunctionRegistry.CallAsync<string>("Ikon.Reactive.GetStableIdByName", args: ["_visitorCount"]);
-
-// The callback runs once with the current value, then on every change
+// A reactive of the app's [App] class, found by the member's name. The callback runs once with
+// the current value, then after changes; changes close together arrive as one call with the latest value
 var reactives = new ReactiveRegistry(client);
-await using var visitors = await reactives.SubscribeAsync<int>(stableId, count => Console.WriteLine($"Visitors today: {count}"));
+await using var visitors = await reactives.SubscribeByNameAsync<int>("_visitorCount", count => Console.WriteLine($"Visitors today: {count}"));
 
 // Call an External [Function] of the app, passing the key it checks
 var answer = await client.FunctionRegistry.CallAsync<string>("RecordVisit",
@@ -322,11 +332,12 @@ public string RecordVisit(string key, string door)
 }
 ```
 
-- **Which reactive.** `Ikon.Reactive.GetStableIdByName` finds a reactive field or auto-property of
-  the app's `[App]` class by its name in the source. A reactive kept anywhere else has no name there:
-  the app hands out its `StableId` from an `External` function instead. A stable id is made from
-  where the reactive is declared, so it stays the same across restarts and deploys until that code
-  moves.
+- **Which reactive.** `SubscribeByNameAsync` finds a reactive field or auto-property of the app's
+  `[App]` class by its name in the source, through the app's `Ikon.Reactive.GetStableIdByName`
+  function, and subscribes to its stable id. A name the app does not know fails the call. A reactive
+  kept anywhere else has no name there: the app hands out its `StableId` from an `External` function,
+  and the program passes it to `SubscribeAsync`. A stable id is made from where the reactive is
+  declared, so it stays the same across restarts and deploys until that code moves.
 - **Which instance.** The program joins the instance its identity maps to. With the scaffold's
   per-user `SessionIdentity(string? UserId)` that is an instance of its own, for its own guest or
   local user, so it does not see what other people's instances hold. To share state with everyone,
@@ -337,7 +348,8 @@ public string RecordVisit(string key, string door)
   wrote. An assignment such as `Value++` is last-writer-wins, so two instances counting at once lose
   a visit.
 - **Values.** `SubscribeAsync<T>` reads the value as JSON into `T`: `int` for a `Reactive<int>`, a
-  `List<T>` for a `ReactiveList<T>`, `JsonElement` to look at any of them. A record value keeps
+  `List<T>` for a `ReactiveList<T>`, a `Dictionary<TKey, TValue>` for a `ReactiveDictionary<TKey, TValue>`,
+  `JsonElement` to look at any of them. A record value keeps
   its C# property names (`Celsius`, not `celsius`): a typed `T` matches them in any case, but
   `JsonElement.GetProperty` needs the exact name. A `ClientReactive` gives the program its own copy,
   not a browser's.
@@ -434,19 +446,18 @@ client.ReadyAsync += async e =>
     // session changed and its server-side state is gone
 };
 
-// Server is stopping (can still send messages)
+// The server is stopping: the app restarts, is deployed again or its session ends. Messages can
+// still be sent here. Not raised by the program's own IkonClient.DisconnectAsync or by a dropped
+// connection
 client.StoppingAsync += async e =>
 {
     Console.WriteLine("Server stopping...");
 };
 
-// Disconnected: the client gave up and went Offline — every reconnect attempt failed, or
-// the server is stopping. With BackgroundReconnect on (the default) a failed reconnect keeps
-// retrying from Offline, so this is final only when the server is stopping,
-// BackgroundReconnect is off, a JoinOnly client found the session ended, the sign-in was
-// refused with 401 or 403, or the server requires a newer SDK or app. Not raised by a failed IkonClient.ConnectAsync (that is the
-// call's exception), by IkonClient.DisconnectAsync or IkonClient.DisposeAsync, nor by a
-// drop that reconnects
+// The client went Offline. After a server stop, a refused sign-in or a required upgrade it stays
+// there until the program calls IkonClient.ConnectAsync; after failed reconnects BackgroundReconnect
+// (on by default) keeps trying. Not raised by the program's own IkonClient.DisconnectAsync, a failed
+// IkonClient.ConnectAsync or a drop that reconnects
 client.DisconnectedAsync += async e =>
 {
     Console.WriteLine("Disconnected");
@@ -471,8 +482,7 @@ A connect has two steps. The client joins the app's session and receives its sta
 ready. Only at ready does the app hear about the client and learn its user, scopes and roles.
 `ConnectAsync` signals ready itself on every connect and reconnect, before it returns and before
 `ReadyAsync` is raised, so a `ReadyAsync` handler can call functions, subscribe to reactives and send
-messages at once. `SignalReadyAsync` is obsolete: existing programs still build, with a compiler
-warning, and once the client is ready the call does nothing.
+messages at once.
 
 Register the program's own functions in `client.FunctionRegistry` before `ConnectAsync`. They are
 sent while joining, so the app has them when it hears the client is ready. Anything else the client
@@ -481,18 +491,34 @@ right after ready, in order. At most 4096 messages are held per join; later ones
 warning. Audio and video sent then are dropped, and held messages are discarded if the connection
 drops before ready.
 
-### Other Clients
+### Client Events
 
-The peer events say who else is in the session. On joining, `PeerJoinedAsync` is raised once for each
-client already there. None of them is raised about this client itself.
+The client events say who else is in the session. `ClientJoinedAsync` is raised when another client
+is ready: it has finished joining and the app knows who it is. On joining, it is raised once for each
+ready client already there, which can be after `ConnectAsync` has returned. A client that leaves
+before it is ready raises no event. `ClientUpdatedAsync` and `ClientLeftAsync` are raised only for a
+client `ClientJoinedAsync` has reported, and none of the three is raised about this client itself.
+Each event carries the other client's `Context` as `e.ClientContext`.
 
-<!-- ikon-example: sdk-peer-events -->
+The app is one of the clients: a `ContextType.Plugin` with `IsInternal` set. After each restart or
+hot reload it leaves and joins again under a new session, so `ClientLeftAsync` is raised for the old
+session and `ClientJoinedAsync` for the new one.
+
+A client is reported once per session. After a reconnect into the same session, a client that joined
+meanwhile raises `ClientJoinedAsync`, and a client that changed its viewport, theme, timezone or
+visibility meanwhile raises `ClientUpdatedAsync`, and a client that left meanwhile raises
+`ClientLeftAsync`. A reconnect into a new session reports its clients as a first join does.
+
+The client event handlers run on the client's receive loop. A handler that awaits an answer from the
+app, such as a function call or `client.UI.CallActionAsync`, holds every later message, that answer
+included, until the wait times out. Start such work without awaiting it in the handler.
+
+<!-- ikon-example: sdk-client-events -->
 ```csharp
-// The other clients in the session, and the app itself (ContextType.Server)
-client.PeerJoinedAsync += async e => Console.WriteLine($"{e.Peer.SessionId} joined as {e.Peer.ContextType}");
-client.PeerReadyAsync += async e => Console.WriteLine($"{e.Peer.SessionId} is ready, user {e.Peer.UserId}");
-client.PeerUpdatedAsync += async e => Console.WriteLine($"{e.Peer.SessionId} now uses the {e.Peer.Theme} theme");
-client.PeerLeftAsync += async e => Console.WriteLine($"{e.Peer.SessionId} left");
+// The other clients in the session, and the app itself (IsInternal, a new session after each restart or hot reload)
+client.ClientJoinedAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} joined as {e.ClientContext.ContextType}, user {e.ClientContext.UserId}");
+client.ClientUpdatedAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} now uses the {e.ClientContext.Theme} theme");
+client.ClientLeftAsync += async e => Console.WriteLine($"{e.ClientContext.SessionId} left");
 ```
 
 ### Connecting and Disconnecting
@@ -531,7 +557,14 @@ When the app's server fails to start, `ConnectAsync` throws an `AppSessionNotRun
 
 ### Automatic Reconnection
 
-The SDK automatically attempts to reconnect when the connection is lost unexpectedly. Configure reconnection behavior:
+The SDK reconnects by itself when the connection drops. It does not reconnect when the app's server
+stops: an app restart (`ikon stop` and a new `ikon run`), a deploy or `ikon session stop`. The server
+says it is stopping, the client raises `StoppingAsync` and `DisconnectedAsync` and stays `Offline`,
+whatever `BackgroundReconnect` says. A program that must keep running through an app restart calls
+`ConnectAsync` again itself, as the loop at the end of "A Console Program That Joins An App" does. A
+hot reload does not stop the server, so the client stays connected through it.
+
+Configure reconnection behavior:
 
 <!-- ikon-example: sdk-timeouts -->
 ```csharp
@@ -629,8 +662,7 @@ only the program.
 
 The types an app sends and receives come from its `schema/*.tp`, and the app's build writes their C#
 to `app/<App>/Generated/Protocol/` only. A standalone program compiles those same files, linked from
-its csproj, never copied. A type's opcode comes from its schema file's place in the sorted list of
-schema files, so a copy can end up with the wrong opcodes when a schema is added. The `device-typed-messages` pattern
+its csproj, never copied: a copy keeps the old classes when a schema changes. The `device-typed-messages` pattern
 (`docs/Ikon.Agent.Docs/patterns/device-typed-messages.md` in an app) has the csproj lines and a
 program that sends a reading and waits for the app's ack.
 
@@ -779,6 +811,10 @@ await client.SendAudioPlaybackReportAsync(streamId, played: TimeSpan.FromSeconds
 await client.SendAudioPlaybackReportAsync(streamId, played: null, buffered: TimeSpan.Zero, AudioPlaybackState.Blocked);
 ```
 
+Only an app's `Audio.Raw` streams ask for reports, and every stream of an app built before the flag existed:
+`WantsPlaybackReports` on the `AudioInputStreamBeginAsync` event's arguments is true for them, and
+`SendAudioPlaybackReportAsync` sends nothing and returns false for any other stream.
+
 ## Video
 
 The SDK sends and receives encoded video frames. It does not encode or decode them. A client's video
@@ -907,7 +943,8 @@ controls carry.
 await using var client = new IkonClient(new IkonClientConfig
 {
     Description = "My UI",
-    Local = new LocalConfig { Host = "localhost", HttpsPort = 8443 },
+    // The port `ikon run` prints, and the app id, as in Local Development above
+    Local = new LocalConfig { Host = "localhost", HttpsPort = int.Parse(Environment.GetEnvironmentVariable("IKON_LOCAL_PORT") ?? "8443"), SpaceId = "your-app-id" },
 });
 
 // Raised after every change to a stream's tree, with the whole tree as it now is.
@@ -934,9 +971,13 @@ await client.UI.CallActionAsync(name, "onValueChangeId", "Ada");
 ```
 
 `client.UI.Page` is the stream of the app's page; another stream is a mount the app declares or the
-platform's own layer. A node's `Actions` lists its actions by prop name: a button's press is
+platform's own layer. The first tree can arrive just after `ConnectAsync` returns, so `Page` may still
+be empty then; `WaitForNodeAsync` waits for it. A node's `Actions` lists its actions by prop name: a button's press is
 `onInvokeId`, a text field's new value `onValueChangeId`, a checkbox's `onCheckedChangeId`. A press
-sends `{}`, a text field the text itself, a checkbox `true` or `false`.
+sends `{}`, a text field the text itself, a checkbox `true` or `false`. A disabled control carries no
+action, so waiting until `node.GetActionId("onInvokeId")` is not null waits until a button can be
+pressed. The props hold a control's text: `label` on a button, `content` on `std.text` and
+`std.heading`.
 
 The SDK acknowledges each tree it applies, so the app can remove the actions no client can call any
 longer. When a change cannot be applied, or after the connection drops and the client rejoins the same
@@ -1132,6 +1173,14 @@ failure no retry can fix). A waiting call fails the same way when the client mov
 states. Calls to the program's own functions run at once whatever the connection state, and a call
 already sent when the connection drops fails, since the server will not answer it.
 
+Cancelling the token passed to `CallAsyncEnumerable` stops the app's stream: an app function that
+takes an `[EnumeratorCancellation] CancellationToken` sees it cancelled. The token is not one of the
+call's arguments. In the program, the `await foreach` then throws `OperationCanceledException`, so
+catch it where cancelling is expected. Leaving the loop early with `break` or `return` ends the app's
+stream too, and throws nothing. A long stream also fails with a `FunctionCallException` when the app restarts or
+hot-reloads, because the app's session that serves it leaves. The program's own connection
+stays up. Start the stream again then.
+
 ### Removing Functions
 
 <!-- ikon-example: sdkx-removing-functions -->
@@ -1199,7 +1248,7 @@ var config = new IkonClientConfig
     PayloadType = PayloadType.Teleport,  // Default
 
     // How this connection identifies to the server: Plugin for a program,
-    // Native or Browser for a client a person uses. Each gets the app's UI.
+    // Native for a client a person uses. Each gets the app's UI.
     ContextType = ContextType.Plugin
 };
 ```
@@ -1293,11 +1342,11 @@ var config = new IkonClientConfig
 | `MessageEventArgs` | Event args containing a `ProtocolMessage` |
 | `IkonClient.ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
 | `IkonClient.ErrorEventArgs` | Event args containing an `Exception` |
-| `IkonClient.PeerEventArgs` | Event args naming another client in the session (`Peer`, a `Context`) |
+| `IkonClient.ClientEventArgs` | Event args naming another client in the session (`ClientContext`, a `Context`) |
 
 ## License
 
-This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
+This SDK is licensed under the Apache License 2.0. See `LICENSE` for details.
 
 ## Support
 

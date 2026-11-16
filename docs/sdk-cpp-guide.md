@@ -1,4 +1,4 @@
-<!-- checked-against: af164070b67cb556e3b0c442 -->
+<!-- checked-against: e58905634b092638e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -6,16 +6,16 @@ The IKON C++ SDK connects C++ applications to an IKON app. It is a header-only l
 
 ## Features
 
-- Two authentication modes: API Key, Local Development
+- Five authentication modes: API Key, Local Development, Guest, User Token, Connect URL
 - Connection state management with callbacks
-- Protocol message sending and receiving
+- The app's own schema messages, sent and received as generated types
 - Function registry for registering and calling shared cross-client functions, including streams in both directions, cancellation and binary values
-- Peer events: other clients joining, becoming ready, changing their context and leaving
+- Client events: other clients joining, changing their context and leaving
 - Reactive subscriptions to values the app holds
 - A headless UI layer: the app's UI trees, kept current, with their controls' actions to call
 - File upload through the app's upload controls, resumed across reconnects
 - Client context updates (viewport, theme, timezone, visibility) and path changes
-- Audio and video sent and received as encoded frames (Opus, H.264, VP8)
+- Audio and video sent and received as encoded frames (Opus, H.264, VP8), and playback reports of the app's audio
 - Configurable timeouts and reconnection
 - Header-only library
 
@@ -26,6 +26,43 @@ The IKON C++ SDK connects C++ applications to an IKON app. It is a header-only l
   - `ILogInterface` - Logging
   - `IHttpInterface` - HTTP client
   - `INetworkInterface` - TLS client over TCP
+
+## Building a Program
+
+The SDK is headers only, with no library of its own to build. Each release is a zip on the [IKON SDK releases page](https://github.com/ikon-ai/ikon-sdk-releases/releases), under the tag `v-cpp-sdk-<version>`, and the zip is a CMake package with two targets:
+
+- `ikon::sdk`: the SDK's headers, C++17 and threads. A program that brings its own logger, HTTP client and network client needs only this.
+- `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLogger`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL, which `ExampleNetworkClient` needs. `ExampleHttpClient` uses WinHTTP on Windows; elsewhere it uses cpp-httplib over OpenSSL. The target exists only when CMake finds OpenSSL.
+
+Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. A minimal `CMakeLists.txt` that downloads a release with `FetchContent`, with the zip's address and SHA-256 copied from the release:
+
+```cmake
+cmake_minimum_required(VERSION 3.18)
+project(my_client CXX)
+
+include(FetchContent)
+FetchContent_Declare(ikon_sdk
+  URL https://github.com/ikon-ai/ikon-sdk-releases/releases/download/v-cpp-sdk-<version>/<zip name>
+  URL_HASH SHA256=<the zip's SHA-256>
+)
+FetchContent_MakeAvailable(ikon_sdk)
+
+add_executable(my_client main.cpp)
+target_link_libraries(my_client PRIVATE ikon::sdk_examples)
+```
+
+`add_subdirectory` on the unpacked zip works the same way. To install it instead, run `cmake -S <unpacked zip> -B build` and `cmake --install build --prefix <prefix>`, and find it with `find_package(ikon-sdk <major>.<minor> CONFIG REQUIRED)` and `-DCMAKE_PREFIX_PATH=<prefix>`. A minor release can change the API, so `find_package` accepts only the minor version it asks for.
+
+On Windows the example headers link WinHTTP, Winsock and Crypt32 themselves, and OpenSSL can come from vcpkg (`vcpkg install openssl`, or `openssl` in a `vcpkg.json`).
+
+`find_package` finds a package from vcpkg, such as libopus for audio, only when CMake is configured with vcpkg's toolchain file. With the packages listed in a `vcpkg.json` next to `CMakeLists.txt` (`{ "dependencies": ["opus"] }`), the first configure also builds them:
+
+```bash
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+cmake --build build --config Release
+```
+
+`windows.h`, which the example headers include, defines `SendMessage` as a macro for the Win32 function, so on Windows, after that header, `client.SendMessage(...)` turns into a call to a member that does not exist. In a file that calls it, include `ikon_sdk.h` before the example headers, as the Quick Start does, and add `#undef SendMessage` after them.
 
 ## Quick Start
 
@@ -78,7 +115,7 @@ int main()
 
 ## Authentication Modes
 
-The SDK supports two authentication modes. Exactly one must be configured.
+The SDK supports five authentication modes: an API key, local development, a guest, a user token and a connect URL. Exactly one must be configured.
 
 ### API Key Authentication
 
@@ -135,12 +172,80 @@ Connect directly to a local IKON server during development.
 ```cpp
 LocalConfig local;
 local.host = "localhost";
-local.httpsPort = 8443;
+local.httpsPort = 8443;              // The port of the server address the app's ikon run printed
+local.spaceId = "your-app-id";       // Optional: refuse a server that runs another app
 local.userId = "dev-user";
 
 IkonClientConfig config;
 config.local = local;
 ```
+
+The port can change between runs. A run takes the port the project's last run used while it is free, else 8443 or the next free port, so two apps run at once listen on different ports, and a run can stay on 8444 after 8443 frees up. Use the port of the server address in the line `ikon run` prints when the app is ready: `Ready: https://localhost:8443`, or the `server` address in brackets after the frontend's. It is also the `serverUrl` in the app's `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`.
+
+A connect to a port that another app's run holds joins that other app, and that app gets everything the program sends. Set `spaceId` to the app's id (`[Target] SpaceId` in the app's `ikon-config.development.toml`) to prevent that: when the server runs another app, `Connect()` throws `std::runtime_error` naming both app ids, and every reconnect fails the same way. Without `spaceId` the client joins whatever app the port serves. A client keeps the port it was made with, so after the app's next `ikon run` on another port, make a new `IkonClient` with the new port.
+
+A program on the same machine as the run can read the port and the app id from the app's folder with `LocalConfigFromAppFolder`, from `ikon_local_run.h`, which `ikon_sdk.h` does not include because it needs `std::filesystem`:
+
+<!-- ikon-example: cpp-sdk-local-run -->
+```cpp
+// The app's folder, where ikon run runs it. Read it again before each new client: the port can change
+LocalConfig local = LocalConfigFromAppFolder("../my-app");
+local.userId = "dev-user";
+
+IkonClientConfig config;
+config.local = local;
+```
+
+It takes the host and port from `serverUrl` in the `ikon-server-info.json` the run writes when it starts (the newest one under `build/app/artifacts/bin` when there are several) and `spaceId` from `[Target] SpaceId`. It throws `std::runtime_error` when the folder has no `ikon-config.development.toml` or the app has not been run there.
+
+`localClientProof` matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `userId`. `LocalConfigFromAppFolder` fills it in. A program on the same machine connecting to `localhost` needs none.
+
+### Guests
+
+A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. It needs no key.
+
+<!-- ikon-example: cpp-sdk-auth-guest -->
+```cpp
+GuestConfig guest;
+guest.spaceId = "...";                    // The app's id (ikon app list)
+guest.backendType = BackendType::Production;
+
+IkonClientConfig config;
+config.guest = guest;
+config.deviceId = "device-1234";          // Keep it to come back as the same guest
+```
+
+Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. Without `deviceId` the client picks a random one, which it keeps until it is destroyed. The app sees a guest as `UserType::Human`. When the app lets no guests in, `Connect()` throws `AuthRefusedException` with `statusCode` 403.
+
+### User Tokens
+
+A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token.
+
+<!-- ikon-example: cpp-sdk-auth-user-token -->
+```cpp
+UserTokenConfig userToken;
+userToken.spaceId = "...";                // The app's id (ikon app list)
+userToken.token = "...";                  // The person's session token, from the service that issued it
+userToken.backendUrl = "https://api.prod.ikon.live";
+userToken.userType = UserType::Human;
+
+IkonClientConfig config;
+config.userToken = userToken;
+```
+
+The client cannot renew the token. When the backend refuses it (`statusCode` 401) or the app refuses the user (403), `Connect()` throws `AuthRefusedException`. During a reconnect, the client stops reconnecting at once, reports the refusal through `ErrorOccurred` and goes offline. Get a new token from the service that issued the old one, pass it to `IkonClient::UpdateAuthToken`, and call `Connect()` again. Every later connect and reconnect uses the new token. `UpdateAuthToken` throws `std::logic_error` on a client configured without `userToken`.
+
+### Connect URLs
+
+A client can also join through a server's connect URL (`https://<server>/connect?token=...`) that a service it trusts created for it. It does not sign in at all.
+
+<!-- ikon-example: cpp-sdk-auth-connect-url -->
+```cpp
+IkonClientConfig config;
+config.externalConnectUrl = "https://server.example/connect?token=...";
+```
+
+When the server refuses the URL's token, `Connect()` throws at once: `ServerChangedException` for an expired token or one signed for another server, `AuthRefusedException` for any other 401 or 403. A reconnect into a new session uses the same URL, so once its token has expired the server refuses it, and the client reports that through `ErrorOccurred` and goes offline. Make a new `IkonClient` with a new URL.
 
 ## Connection Lifecycle
 
@@ -163,7 +268,7 @@ The client tracks its connection state via `GetState()`:
 // Connection state changes
 client.StateChanged = [](ConnectionState state)
 {
-    std::cout << "State: " << static_cast<int>(state) << std::endl;
+    std::cout << "State: " << ToString(state) << std::endl;
 };
 
 // Joined and ready, after Connect() and after every reconnect: the app now knows this client's
@@ -173,8 +278,8 @@ client.Ready = []()
     std::cout << "Ready" << std::endl;
 };
 
-// This client is stopping: on Disconnect(), destruction, a dropped connection or before
-// a reconnect attempt. A message sent from here is not guaranteed to be delivered
+// This client is stopping: on Disconnect(), destruction, a dropped connection, a join that
+// timed out or before a reconnect attempt. A message sent from here is not guaranteed to be delivered
 client.Stopping = []()
 {
     std::cout << "Client stopping..." << std::endl;
@@ -219,6 +324,8 @@ client.Disconnect();
 // Or let destructor handle it
 ```
 
+Once the connection is open, `Connect()` waits for the server to send the session state and the app's functions, up to `timeouts.joinTimeoutSec` (30 seconds). If they do not arrive, it closes the connection and throws `JoinTimeoutException`, and the client goes `Offline` without running `Ready`; call `Connect()` again to retry. A reconnect attempt that runs out of this time counts as a failed attempt.
+
 `Disconnect()` and the destructor first tell the server that the client is leaving, so the server ends the session at once instead of holding it for a reconnect. They wait up to a second for that message to be written. `Disconnect()` during an automatic reconnect stops it, and the client goes from `Reconnecting` to `Idle`.
 
 ### Accessing Client State
@@ -253,21 +360,36 @@ std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 
 The app learns which user a client belongs to only when the client reports ready. `Connect()` and every reconnect report ready as soon as the client has joined, before `Ready` runs. A message sent while the client is joining, from another thread or during a reconnect, waits and goes out right after the client reports ready, in the order it was sent. Audio and video sent then are dropped, and if the connection drops before the client is ready, the waiting messages are dropped too. At most 4096 messages wait for one join; any sent after that are dropped, with one warning in the log.
 
-### Raw Protocol Messages
+### The App's Own Messages
 
-<!-- ikon-example: cpp-sdk-send-raw -->
+An app declares its own messages in `schema/*.tp`. `ikon schema` compiles them into one header per message, in namespace `ikon::app`: into `frontend-cpp/` when the app has one, and into every folder `schema/outputs.toml` names for `cpp`, such as a program in another repository (see `teleport-schema-spec.md`). A header includes `ikon_protocol.h`, so put the SDK's folder on the include path.
+
+`SendMessage` sends one, and `OnMessage<T>` calls a handler with every message of type `T` the client receives, decoded, with the sender's session id. The opcode, payload version and flags come from the type, so the program never names them. The handler lasts across reconnects until `Unsubscribe()`; register it before `Connect()` to see the first message the app sends once the client is ready. It runs on the receive thread, so it should return quickly and must not wait for a remote call's result. A handler that throws, or a message that does not decode, is logged as an error; the other handlers still get the message.
+
+<!-- ikon-example: cpp-sdk-app-messages -->
 ```cpp
-// Wrap a payload in a ProtocolMessage yourself and send it as is. Read the
-// context inside a client callback: on another thread a reconnect can free it.
-auto* ctx = client.GetClientContext();
-if (ctx)
-{
-    auto message = ProtocolMessage::Create(ctx->SessionId, payload);
-    client.SendMessage(message);
-}
+// SdkTypedPing and SdkTypedPong are the app's own messages, from its schema/*.tp,
+// generated into headers in namespace ikon::app. Subscribe before Connect() so the
+// handler sees the first message the app sends.
+MessageSubscription subscription = client.OnMessage<app::SdkTypedPong>(
+    [](const app::SdkTypedPong& pong, int32_t senderId)
+    {
+        std::cout << "Pong " << pong.Sequence << " from " << senderId << ": " << pong.Text << std::endl;
+    });
+
+client.Connect();
+
+app::SdkTypedPing ping;
+ping.Sequence = 1;
+ping.Text = "hello";
+client.SendMessage(ping);
+
+// subscription.Unsubscribe() stops the handler; dropping the handle does not
 ```
 
-### Typed Payloads
+### Platform Messages
+
+`SendMessage` takes the platform's own generated messages from `ikon_protocol.h` the same way.
 
 <!-- ikon-example: cpp-sdk-send-typed -->
 ```cpp
@@ -281,7 +403,7 @@ client.SendMessage(payload);
 
 ## Shared Functions
 
-`FunctionRegistry` lets a client register functions for the app to call and call the functions the app registers; the server offers a client's functions to the app only, not to other clients. The client owns one and attaches it itself on connect; get it with `client.Functions()`. Each join waits until the registry holds the app's functions, so they can be called from `Ready` and after `Connect()` returns. Register `Shared` functions before `Connect()`, as below. The client announces them on every join, reconnects included, before it reports ready, so the app has them when it first sees the client. One registered while connected is announced at once. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
+`FunctionRegistry` lets a client register functions for the app to call and call the functions the app registers; the server offers a client's functions to the app only, not to other clients. The client owns one and attaches it itself on connect; get it with `client.Functions()`. Each join waits until the registry holds the app's functions, so they can be called from `Ready` and after `Connect()` returns; a join that does not get them fails with `JoinTimeoutException`. Register `Shared` functions before `Connect()`, as below. The client announces them on every join, reconnects included, before it reports ready, so the app has them when it first sees the client. One registered while connected is announced at once. It handles function-related protocol messages through its own message handler, independent of `MessageReceived`.
 
 <!-- ikon-example: cpp-sdk-shared-functions -->
 ```cpp
@@ -317,6 +439,8 @@ client.Disconnect();
 ```
 
 A call made while the client is connecting or reconnecting waits until the client is ready, then goes out after the messages that waited with it, in the order the calls were made. `CallRemote` counts that wait against its timeout and, if the client is not ready in time, throws `std::runtime_error` saying the call timed out and the client was not connected; the call is never sent. A future from `CallRemoteAsync` has no time limit. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or offline after its reconnects ran out), both throw `std::runtime_error` at once saying the client is not connected, and a call that was waiting fails the same way when the client stops trying. Once the client is ready, the function is looked up in the registry as it is at that moment, so a function the app no longer has throws "Function not found". At most 4096 calls wait at a time; more throw at once, with one warning in the log. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no reply, so it fails then with a `std::runtime_error` saying it was disconnected: `CallRemote` throws at once, and the future from `CallRemoteAsync` carries the error.
+
+The app's functions belong to the app's own session, and a local run replaces that session each time the app hot reloads. When a session leaves, its functions leave the registry, and a call it has not answered fails at once with a `std::runtime_error` saying the session left. The new session registers the functions again moments later, and calls by name go to it. A call made between the two throws "Function not found", so after a hot reload wait with `WaitForFunction` before calling again.
 
 When the app calls a function this client registered, the handler runs on one of the registry's own threads, not on the thread that receives messages, so a handler may itself call the app's functions and wait for their results. Up to 16 calls run at once, and they start in the order they arrived. What a handler throws reaches the app as the call's error. A call that times out in `CallRemote` after it was sent is cancelled on the app.
 
@@ -419,15 +543,19 @@ Both throw `std::runtime_error` when the client is not connected. The server rep
 
 ## Audio and Video
 
-The SDK sends and receives media as encoded frames. It does not encode or decode them. Audio is Opus; video is H.264 (Annex B), VP8 or VP9. A client's audio and video reach the app only.
+The SDK sends and receives media as encoded frames. It does not encode or decode them: the program brings its own encoders and decoders ("Encoding and Decoding Audio" below shows Opus). Audio is Opus; video is H.264 (Annex B), VP8 or VP9. A client's audio and video reach the app only. In the example, `opusPackets` holds your encoder's packets and `playingStreamId` names a stream your player is playing.
 
 <!-- ikon-example: cpp-sdk-media -->
 ```cpp
-// Media the app sends this client, as encoded frames. Each stream id is "{senderId}_{trackId}".
+// Media the app sends this client, as encoded frames. The callbacks name each stream
+// "{senderId}_{trackId}"; begin.StreamId is the app's own id for it.
 // These run on the receive thread: hand the frames to a decoder, do not call the app from here
 client.AudioStreamBegan = [](const std::string& streamId, int32_t senderId, const AudioStreamBegin& begin)
 {
-    std::cout << "Audio " << streamId << ": " << begin.SampleRate << " Hz, " << begin.Channels << " ch" << std::endl;
+    // begin.Codec holds an AudioCodec. Make an Opus stream's decoder with begin.SampleRate and begin.Channels
+    bool isOpus = static_cast<AudioCodec>(begin.Codec) == AudioCodec::Opus;
+    std::cout << "Audio " << streamId << " (" << begin.StreamId << "): " << (isOpus ? "Opus, " : "not Opus, ")
+              << begin.SampleRate << " Hz, " << begin.Channels << " ch" << std::endl;
 };
 client.AudioFrameReceived = [](const std::string& streamId, const AudioFrame& frame)
 {
@@ -442,13 +570,15 @@ client.VideoFrameReceived = [](const std::string& streamId, const VideoFrame& fr
     // frame.Data is one encoded frame in the codec the begin named
 };
 
-// Send 20 ms Opus packets at 48 kHz mono. The correlation id ties the audio to what the app
-// asked for, such as a press of a talk button
-const int packets = 50;
+// Tell the app how far your player has played a stream, from the start of the current segment,
+// and how much it holds that it has not played yet. Either id of the stream works
+client.SendAudioPlaybackReport(playingStreamId, std::chrono::milliseconds(1500), std::chrono::milliseconds(120));
 
-for (int i = 0; i < packets; i++)
+// Send the packets of your Opus encoder: 20 ms each at 48 kHz mono. The correlation id ties the
+// audio to what the app asked for, such as a press of a talk button
+for (size_t i = 0; i < opusPackets.size(); i++)
 {
-    client.SendAudioFrame("mic", EncodeNextOpusPacket(), 48000, 1, 960, i == 0, i == packets - 1, "talk-1");
+    client.SendAudioFrame("mic", opusPackets[i], 48000, 1, 960, i == 0, i == opusPackets.size() - 1, "talk-1");
 }
 
 client.EndAudioStream("mic");
@@ -460,8 +590,8 @@ client.VideoKeyFrameRequested = [keyFrameWanted](const std::string& streamId, in
     *keyFrameWanted = true;
 };
 
-// Send H.264 (Annex B) frames at 30 fps. A change of size, codec or correlation id announces
-// the stream again
+// Send H.264 (Annex B) frames at 30 fps; EncodeNextH264Frame stands for your encoder. A change
+// of size, codec or correlation id announces the stream again
 for (int i = 0; i < 90; i++)
 {
     bool isKey = keyFrameWanted->exchange(false);
@@ -474,45 +604,64 @@ client.EndVideoStream("camera");
 
 `SendAudioFrame` takes a sample rate of 8000, 12000, 16000, 24000 or 48000 Hz and 1 or 2 channels, fixed by the stream's first packet; another format throws `std::invalid_argument`, so start a new stream id for it. `isFirst` and `isLast` mark a segment such as one utterance. The app's speech recognition ignores audio without a correlation id, and a new correlation id on a first packet announces the stream again. `SendVideoFrame`'s `sourceType` (`"camera"` by default, or `"screen"`) sets the kind of video input the app sees. Send a keyframe first, because a receiver shows nothing until one arrives. Both throw `std::runtime_error` when the client is not connected, and media sent before the client is ready is dropped. A reconnect announces every open stream again.
 
+Each incoming stream has two ids. The callbacks, `RequestVideoKeyFrame` and `SendAudioPlaybackReport` use `"{senderId}_{trackId}"`, such as `"1_3"`. `begin.StreamId` is the id the app gave the stream, such as the `streamId` it passed to `Audio.Raw.SendFrameAsync`; use it to tell the app which of its streams you mean. `begin.Description` names the kind of source, not the stream.
+
 Incoming streams end with `AudioStreamEnded` and `VideoStreamEnded`, which also run for every open stream on `Disconnect()` and on a reconnect into a new session. `RequestVideoKeyFrame(streamId)` asks the sender of an incoming video stream for a keyframe, and returns false when that stream is not open or the client is not connected.
 
-## Peer Events
+A program that plays the app's audio reports how far it has played each stream with `SendAudioPlaybackReport(streamId, played, buffered, state)`: every 500 ms of playback, and at once when the state changes, as the browser does. `played` is the position from the start of the current segment (`std::nullopt` when unknown), `buffered` is what the player holds that it has not played, and `state` is `AudioPlaybackState::Playing` (the default), `Blocked` or `Hidden`. The app reads the latest report with `Audio.Raw.GetPlaybackStatus` and `Audio.Raw.PlaybackReportReceivedAsync`, to pace what it says to what was heard. Only the streams the app sends with `Audio.Raw.SendFrameAsync` ask for reports: `WantsPlaybackReports(begin)` is true for them, and false for every other stream, such as the one that carries what `Audio.Play` plays, except that every stream of an app built before the flag existed asks. The report names the segment of the stream's last received frame. `SendAudioPlaybackReport` sends nothing and returns false for a stream that is not open or wants no reports, and throws `std::runtime_error` when the client is not connected.
 
-Peer events tell this client about the other clients in the session and about the app itself. Each handler gets the peer's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility.
+### Encoding and Decoding Audio
 
-<!-- ikon-example: cpp-sdk-peer-events -->
+Any Opus library works. libopus comes from vcpkg (`opus` in a `vcpkg.json`, or `vcpkg install opus`). Find it with `find_package(Opus CONFIG REQUIRED)` in a build configured with vcpkg's toolchain file (see "Building a Program"), and link it as `Opus::opus`. Encode 20 ms frames, 960 samples per channel at 48 kHz, as the .NET SDK does, and pass the same sample rate, channel count and frame size to `SendAudioFrame`. Make a decoder for each incoming stream in `AudioStreamBegan` from `begin.SampleRate` and `begin.Channels`, never from what the app sent: audio the app sends as mono can arrive as 48 kHz stereo.
+
+<!-- example-skip: needs libopus, which the SDK does not include -->
 ```cpp
-// Set before Connect(): on joining, PeerJoined runs for each client already there
-client.PeerJoined = [](const Context& peer)
+int error = 0;
+OpusEncoder* encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error);
+std::vector<uint8_t> packet(4000);
+int bytes = opus_encode(encoder, pcm, 960, packet.data(), static_cast<opus_int32>(packet.size()));  // pcm: 960 int16 samples
+packet.resize(bytes);
+
+OpusDecoder* decoder = opus_decoder_create(begin.SampleRate, begin.Channels, &error);  // in AudioStreamBegan
+std::vector<opus_int16> out(5760 * begin.Channels);  // room for 120 ms, the longest Opus packet
+int samplesPerChannel = opus_decode(decoder, frame.Samples.data(), static_cast<opus_int32>(frame.Samples.size()), out.data(), 5760, 0);
+```
+
+## Client Events
+
+Client events tell this client about the other clients in the session and about the app itself. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility.
+
+<!-- ikon-example: cpp-sdk-client-events -->
+```cpp
+// Set before Connect(): on joining, ClientJoined runs for each client already there
+client.ClientJoined = [](const Context& other)
 {
-    std::cout << "Joined: " << peer.SessionId << " (" << peer.UserId << ")" << std::endl;
+    std::cout << "Joined: " << other.SessionId << " (" << other.UserId << ")" << std::endl;
 };
-client.PeerReady = [](const Context& peer)
+client.ClientUpdated = [](const Context& other)
 {
-    std::cout << "Ready: " << peer.SessionId << std::endl;
+    std::cout << "Updated: " << other.SessionId << " now uses the " << other.Theme << " theme" << std::endl;
 };
-client.PeerUpdated = [](const Context& peer)
+client.ClientLeft = [](const Context& other)
 {
-    std::cout << "Updated: " << peer.SessionId << " now uses the " << peer.Theme << " theme" << std::endl;
-};
-client.PeerLeft = [](const Context& peer)
-{
-    std::cout << "Left: " << peer.SessionId << std::endl;
+    std::cout << "Left: " << other.SessionId << std::endl;
 };
 
 client.Connect();
 ```
 
-On joining, `PeerJoined` runs for each client already there. The app might not answer a new client before its `PeerReady`. `PeerUpdated` runs when a peer reports a new viewport, theme, timezone or visibility, and is read from the peer's context in each `GlobalState` the server sends. The events are never about this client, and a lifecycle batch the server sends is reported event by event. They run on the receive thread, so a handler should return quickly and must not wait for a remote call's result. Set them before `Connect()`.
+`ClientJoined` runs once a client has finished joining, when the server has sent it the session's state, so the app can answer it from then on. On joining, it runs for each client already there. A client that leaves before it has finished joining is never reported, and `ClientUpdated` and `ClientLeft` run only for a client `ClientJoined` reported. Each client is reported once per session. A reconnect into the same session reports only what changed while this client was away: `ClientJoined` for a client that joined meanwhile, and `ClientUpdated` for one whose viewport, theme, timezone or visibility changed. A client that left meanwhile raises `ClientLeft` once the server has sent the clients still there. A reconnect into a new session reports its clients as a first join does. `ClientUpdated` runs when a client reports a new viewport, theme, timezone or visibility, and is read from the client's context in each `GlobalState` the server sends. The events are never about this client, and a lifecycle batch the server sends is reported event by event. They run on the receive thread, so a handler should return quickly and must not wait for a remote call's result. Set them before `Connect()`.
 
 ## Reactive Subscriptions
 
-`client.Reactives()` follows values the app holds in a `Reactive<T>`, `ClientReactive<T>`, `UserReactive<T>` or `MountReactive<T>` without rendering its UI. The app hands out a value's stable id (`Reactive<T>.StableId`), for example from one of its functions.
+`client.Reactives()` follows values the app holds in a `Reactive<T>`, `ClientReactive<T>`, `UserReactive<T>` or `MountReactive<T>` without rendering its UI. It follows a value by its stable id. The app's built-in function `Ikon.Reactive.GetStableIdByName` returns the stable id of a reactive field or auto-property of the app's `[App]` class, by its name in the source (`"_score"` for `private readonly Reactive<int> _score`), so the app needs no code of its own for it. For a reactive kept anywhere else, the app returns its `StableId` from an `External` function.
 
 <!-- ikon-example: cpp-sdk-reactive -->
 ```cpp
-// The app hands out the stable id of its Reactive<int>, here through a function of its own
-std::string stableId = client.Functions().CallRemote("get_score_stable_id").get<std::string>();
+// The app looks up a reactive's stable id by the member's name in its [App] class
+std::string stableId = client.Functions()
+                           .CallRemote("Ikon.Reactive.GetStableIdByName", nlohmann::json::array({"_score"}))
+                           .get<std::string>();
 
 // The callback gets the current value before Subscribe returns, then every change in order
 ReactiveSubscription subscription = client.Reactives().Subscribe(stableId, [](const nlohmann::json& value)
@@ -546,7 +695,7 @@ ui.StreamUpdated = [](const UIStream& stream)
 // names itself in "aria-label" instead
 std::shared_ptr<const UINode> save = ui.WaitForNode([](const UINode& node)
 {
-    return node.type == "std.button" && node.GetText("label") == std::optional<std::string>("Save");
+    return node.type == "std.button" && node.GetText("label").value_or("") == "Save";
 }, std::chrono::seconds(30));
 
 if (save)
@@ -718,6 +867,7 @@ The SDK calls `SetVerifyServerCertificate` before each `Connect`: `true` (the de
 ```cpp
 config.timeouts.connectionTimeoutSec = 30;    // Connection timeout
 config.timeouts.provisioningTimeoutSec = 60;  // Server startup timeout
+config.timeouts.joinTimeoutSec = 30;          // Session state and the app's functions, once connected
 config.timeouts.maxReconnectAttempts = 6;     // Max reconnection attempts
 config.timeouts.reconnectBackoffMs = 500;     // Initial backoff (ms), doubled on each attempt
 ```
@@ -726,9 +876,9 @@ In API-key mode the `/init` request that waits up to `provisioningTimeoutSec` is
 
 ### Reconnection
 
-When a connection the client joined drops, the client reconnects by itself. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one. After `maxReconnectAttempts` failed attempts it goes `Offline`, and only a new `Connect()` connects it again.
+When a connection the client joined drops, the client reconnects by itself. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one. After `maxReconnectAttempts` failed attempts it goes `Offline`, and only a new `Connect()` connects it again. The client stops reconnecting at once and goes `Offline` when retrying cannot help: a `joinOnly` client finds no live session, the platform refuses the client's build (`ClientUpgradeRequiredException`), the backend refuses the credential or the app refuses the user (`AuthRefusedException`), or a server refuses the token in an `externalConnectUrl`.
 
-Each attempt first tries to resume the session the client had. It opens a new connection to the same server address with that session's auth ticket and does not ask for a new session, so the app still has the client's session and what it keeps for it. The server holds a dropped session for its soft-retry window: 5 minutes by default, or the time the server sends in `AuthResponse.SoftRetryWindowMs`. The attempt starts a new session instead, as `Connect()` does, when the window has passed, or when the server closes the connection before the client has joined, which is how it refuses a session it no longer holds. The server then ends the old session. Once the server has answered a request for a new session, the later attempts start new sessions too.
+Each attempt first tries to resume the session the client had. It opens a new connection to the same server address with that session's auth ticket and does not ask for a new session, so the app still has the client's session and what it keeps for it. The server holds a dropped session for its soft-retry window, which it sends in `AuthResponse.SoftRetryWindowMs` and which is 5 minutes by default. The attempt starts a new session instead, as `Connect()` does, when the window has passed, or when the server closes the connection before the client has joined, which is how it refuses a session it no longer holds. The server then ends the old session. Once the server has answered a request for a new session, the later attempts start new sessions too.
 
 An attempt that cannot open a connection at all, as while the network is down, costs the server nothing. During the first half of the attempts, the next attempt tries to resume the session again. From the second half on, such an attempt also asks for a new session, so a server that has gone away is replaced. A request for a new session that reaches nothing leaves the old session held, and the next attempt tries to resume it again. With the default 6 attempts and 500 ms backoff, the attempts run about 0.5, 1.5, 3.5, 7.5, 15.5 and 31.5 seconds after the drop, so a client whose network comes back within about 15 seconds returns to the session it had.
 
@@ -771,15 +921,17 @@ config.parameters = {
 |------|-------------|
 | `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration struct for the client |
-| `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline` |
+| `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline`; `ToString(state)` gives the name |
 | `FunctionRegistry` | Registry for local and shared (cross-client) functions |
 | `FunctionVisibility` | Enum: `Local`, `Shared` |
 | `RemoteStream` | The items of a remote function that returns a stream, from `CallRemoteStream` |
 | `FunctionStreamWriter` | What a handler registered with `RegisterStreamFunction` writes its items to |
 | `FunctionCallCancelledException` | Thrown by the future of a call cancelled with `CancelRemoteCall` |
+| `JoinTimeoutException` | Thrown by `Connect()` when the server does not finish the join within `joinTimeoutSec` |
 | `ClientContextUpdate` | The context values `UpdateClientContext` changes; empty fields keep their value |
 | `ReactiveRegistry` | Follows the app's reactive values, from `client.Reactives()` |
 | `ReactiveSubscription` | One callback following one reactive value, from `Subscribe` |
+| `MessageSubscription` | One handler of one message type, from `OnMessage` |
 | `IkonUI` | The app's UI trees, styles and actions, from `client.UI()` |
 | `UIStream` | One UI stream: the tree of one mount at one moment |
 | `UINode` | One immutable node of a UI tree |
@@ -792,7 +944,7 @@ config.parameters = {
 
 | Type | Description |
 |------|-------------|
-| `LocalConfig` | Configuration for local server development |
+| `LocalConfig` | Configuration for local server development; `LocalConfigFromAppFolder` (in `ikon_local_run.h`) reads it from the app's folder |
 | `ApiKeyConfig` | Configuration for API key authentication |
 | `TimeoutConfig` | Timeout settings |
 | `BackendType` | Enum: `Production`, `Development` |
@@ -815,7 +967,7 @@ config.parameters = {
 
 ## License
 
-This SDK is licensed under the Ikon AI SDK License. See `LICENSE` for details.
+This SDK is licensed under the Apache License 2.0. See `LICENSE` for details.
 
 ## Support
 

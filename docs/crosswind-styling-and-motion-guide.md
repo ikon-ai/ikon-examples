@@ -1,4 +1,4 @@
-<!-- checked-against: 36ef07938e9607d5e933223f -->
+<!-- checked-against: 785dab7313868a74e933223f -->
 
 # Crosswind Styling and Motion Guide
 
@@ -173,7 +173,7 @@ The same applies in reverse for a fixed-light UI: don't leave `text-primary` on 
 
 ### Customizing the Theme
 
-For per-app palette / radius / density / font / motion overrides, see the [IKON Theming Guide](theming-guide.md). It documents `new IkonTheme { ... }`, an object initializer keyed by indexer, where each entry sets one theme key. A key like `["primary"]` sets its whole documented variable cluster, and there is no factory. The `primary-foreground` label is picked for `["primary"]` or `["brand"]` when no label is set, and a `ThemeMode.Fixed` theme whose background measures dark builds on the dark scheme, so the tokens it leaves unset take their dark values.
+For per-app palette / radius / density / font / motion overrides, see the IKON Theming Guide (`ikon docs theming`). It documents `new IkonTheme { ... }`, an object initializer keyed by indexer, where each entry sets one theme key. A key like `["primary"]` sets its whole documented variable cluster, and there is no factory. The `primary-foreground` label is picked for `["primary"]` or `["brand"]` when no label is set, and a `ThemeMode.Fixed` theme whose background measures dark builds on the dark scheme, so the tokens it leaves unset take their dark values.
 
 ## Utility Classes
 

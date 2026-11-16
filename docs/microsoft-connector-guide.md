@@ -1,4 +1,4 @@
-<!-- checked-against: 6d81feece89c7ca5cf02cb07 -->
+<!-- checked-against: df901c35ffe8ab5e9dab936f -->
 
 # Microsoft Connector Guide
 
@@ -689,7 +689,7 @@ public async Task<HttpResult> OnTeamsActivityAsync(Ikon.App.HttpRequest request)
     {
         case TeamsMessageActivity message:
             // Teams wants its answer within 15 seconds, so the reply is sent after it.
-            _ = Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId));
+            Task.Run(() => _bot.PostAsync(message.Conversation, $"You said: {message.TextWithoutBotMention}", message.ReplyToId)).ObserveInBackground();
             break;
 
         case TeamsInstallationActivity { Added: true } installed:

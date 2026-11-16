@@ -1,4 +1,4 @@
-<!-- checked-against: 64efe5ae0528badeead8f6be -->
+<!-- checked-against: ee29c1b49897a0b7ead8f6be -->
 
 # IKON Theming Guide
 
@@ -591,7 +591,7 @@ The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-car
 
 Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / a border one step heavier than the default hairline in light mode, the same as it in dark / body text again). They stay supported forever, but do not write them in new code. Use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) according to what the surface is, plus `text-foreground` / `border-secondary` (the default hairline, lighter than `border-primary` in light mode). Neither replacement matches `bg-primary` in both schemes.
 
-Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
+Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See `ikon docs crosswind-reference` for the full utility reference.
 
 ## Common pitfalls
 

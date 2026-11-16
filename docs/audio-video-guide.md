@@ -1,4 +1,4 @@
-<!-- checked-against: 8a67efab3e9a401cdb4e3c95 -->
+<!-- checked-against: c1c01fc263ff6160aaf85875 -->
 
 # IKON Audio & Video Guide
 
@@ -331,14 +331,14 @@ Audio.AudioInputStreamEndAsync += async args =>
 
 // One pump forwards each personalized 20 ms frame to its participant. The frames
 // are already mixed and real-time paced, so the raw lane is correct here:
-_ = Task.Run(async () =>
+Task.Run(async () =>
 {
     await foreach (var (participantId, frame) in _mixer.StreamAsync(app.StoppingToken))
     {
         await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples, frame.SampleRate,
             frame.ChannelCount, frame.IsFirst, frame.IsLast);
     }
-});
+}).ObserveInBackground();
 ```
 
 Rules that are easy to get wrong:

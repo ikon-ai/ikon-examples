@@ -1,4 +1,4 @@
-<!-- checked-against: b156dcabb41c6bf0e3b0c442 -->
+<!-- checked-against: 3dedfea0ba71fdcfe3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -351,6 +351,47 @@ On an Apple Silicon Mac the simulator build links against a copy of the `opus_fl
 that carries the arm64 simulator slice the published package lacks; inside the ikon-platform
 repo the IKON tool writes that override into `pubspec_overrides.yaml` for you.
 
+### A program without a window
+
+`ikon_sdk` needs the Flutter engine: it imports `dart:ui` and Flutter, so `dart run` cannot compile a
+program that uses it. A program that may open a window, such as a tool or a kiosk, is a Flutter
+desktop app (`flutter run -d windows`, `macos` or `linux`). A program with no window, such as a bot,
+a test or an uploader, runs as a test file under `flutter test`:
+
+<!-- ikon-example: flutter-sdk-headless-program -->
+```dart
+// test/uploader_test.dart, run with: flutter test test/uploader_test.dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ikon_sdk/ikon_sdk.dart';
+
+void main() {
+  // A plain test(), never testWidgets(): the widget test binding answers every HTTP request with 400
+  test('uploader', () async {
+    final client = await IkonClient.connectLocal(
+      port: 8443, // the port of the Server URL the app's ikon run printed
+      spaceId: 'my-app-id', // refuses another app's run on that port
+      userType: UserType.machine, // the app sees a program, not a person
+    );
+
+    try {
+      // The program's work: functions, messages, the UI tree, uploads
+      print(await client.functionRegistry.call<String>('my_app.status'));
+    } finally {
+      client.dispose();
+    }
+  }, timeout: Timeout.none);
+}
+```
+
+`flutter_test` goes in the program's `dev_dependencies`. Pass arguments with `--dart-define` or
+environment variables, which `Platform.environment` reads. The program needs no Flutter binding, and
+`TestWidgetsFlutterBinding.ensureInitialized()` would break it, because that binding answers every
+HTTP request with 400. Without a binding the platform plugins are not available, so the install id lasts
+for one run only, the client reports the timezone as `DateTime.timeZoneName` gives it rather than as
+an IANA id (call `client.viewportUpdater.sendTimezone('Europe/Helsinki')` to give one), and the
+microphone, camera and speaker plugins do not work. Use `IkonAudioStreams` and `IkonVideoStreams` for
+media instead (see "Encoded frames without a device").
+
 ### Release Builds
 
 ```bash
@@ -378,6 +419,22 @@ dart-defines (a non-empty `IKON_SPACE_ID` is what makes the app treat itself as 
 ```dart
 final client = await IkonClient.connectLocal(host: 'localhost', port: 8443);
 ```
+
+A local run serves on the port of the Server URL that `ikon run` prints: 8443, or another port when
+another app's run already holds 8443. Pass the app's id as `spaceId:` (`ikon status` shows it), and
+a server that runs another app is refused with `WrongLocalAppException`, which names both apps. A
+reconnect that finds another app goes offline with the exception in `IkonClient.lastError`. Without
+`spaceId:` the client joins whatever app answers on the port.
+
+`userType: UserType.machine` tells the app the client is a program rather than a person's screen.
+The app reads it as the client's `UserType`, and such a client does not hold the session open. It is
+`UserType.human` by default.
+
+`localClientProof:` matters only for a local connect that does not look local to the run, such as one
+through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the
+app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a
+program on the run's machine can read, the run keeps the `userId:` the client gave. A simulator or an
+emulator connecting to the machine it runs on needs none.
 
 ### Deployed Apps — Guest/Anonymous
 
@@ -529,16 +586,74 @@ server no longer has, and goes out on the new session that replaces it instead. 
 sent in that time fails with a `TimeoutException` that names the function and says the client was not
 connected. A call fails at once with `IkonNotConnectedException` when the client is not trying to
 connect: it never connected, it was disposed, or it gave up reconnecting (`IkonClient.lastError`). A
-waiting call fails the same way when the client stops trying. A call already sent, and a `callStream`
-already sent, fails with `IkonNotConnectedException` when the client reconnects into a new session or
-stops trying to connect. One whose connection comes back into the same session keeps waiting for its
-answer.
+waiting call fails the same way when the client stops trying.
 
-The `connect*` helpers send `ClientReady` before they return. Every reconnect sends it again, also
-one that resumes the same session. `IkonClient.isReady` says whether the client is ready now, and
-`IkonClient.onReady` fires each time it becomes ready again after a reconnect. A client built from an
-auth result, as above, is not ready until it sends `ClientReady` itself, so nothing it sends for the
-app goes out before then.
+A call already sent, and a `callStream` already sent, fails with `IkonNotConnectedException` the
+moment its connection drops, even when the client then resumes the same session. The server does not
+keep what it sends while the client is away, so the answer would never come. The app may or may
+not have run the call. Retry it only when running it twice
+does no harm, or ask the app whether it ran.
+
+The `connect*` helpers send `ClientReady` before they return, and so does `IkonClient.connect()` on a
+client built from an auth result (see "A client built from an auth result"). Every reconnect sends it
+again, also one that resumes the same session.
+
+`IkonClient.state` says where the connection is, and `onStateChange` reports each change: `idle`
+before the first connect, `connecting` during it, `connected`, `reconnecting` from the moment a drop
+is seen until a reconnect's connection opens, and `offline` or `offlineError` once the client has
+stopped trying. `dispose()` sets `idle` again, and that change is the last `onStateChange` reports. A UI that shows the connection watches `onStateChange`. Work that must not send while the app
+cannot be reached watches readiness instead, below.
+
+Three members follow readiness, and they differ in timing:
+
+- `IkonClient.isReady` says whether the client is ready now. It turns false the moment the connection
+  drops and true as soon as a reconnect sends `ClientReady`.
+- `IkonClient.watchReady(listener)` calls the listener synchronously on each of those changes, with
+  `false` on a drop and `true` on each `ClientReady`, and returns the function that stops it. Use it
+  for work that should pause on a drop and go on as soon as the client can send again.
+- `IkonClient.onReady` fires once a reconnect's connection has stayed open for 3 s, so an attempt the
+  server closes at once does not fire it. Use it for work that should run once per completed
+  reconnect, such as reloading state. It fires up to 3 s after `isReady` turned true, and not at all
+  for a reconnect whose connection drops within those 3 s.
+
+`IkonClient.reconnectNow()` never drops a connection. While the client waits between two reconnect
+attempts, it starts the next attempt at once; while connected, or while an attempt runs, it does
+nothing. The connect helpers call it when the app comes back to the foreground.
+
+A client from a `connect*` helper also reconnects after the app's server stops: after `ikon stop` and
+a new `ikon run`, or a deploy. The old session is gone, so the client signs in again and joins a new
+session, as it does whenever the server no longer has its session. It keeps trying until it gets in,
+until a refusal that no retry can fix stops it (`IkonClient.lastError`), or until it is disposed. A
+`joinOnly` client goes offline instead (see "Joining only a running session"). Function registrations
+and reactive subscriptions go to the new session by themselves.
+
+To test how a program handles a drop, drop the connection in a proxy in the session's path. A proxy
+in front of the port given to `connectLocal` does not see the session: that port serves only the
+sign-in, and the session runs over the WebSocket URL the server returns (`IkonAuthResult.websocketUrl`).
+To put a proxy in the session's path, build the client from an auth result with that URL changed.
+
+### A client built from an auth result
+
+The `connect*` helpers sign in with an `IkonAuthenticator` and build the client from its result. A
+program can do the same steps itself, for example to read or change the session's URL first:
+
+<!-- ikon-example: flutter-sdk-client-from-auth-result -->
+```dart
+final auth = IkonAuthenticator(host: 'localhost', port: 8443, expectedSpaceId: 'my-app-id');
+Future<IkonAuthResult> signIn() => auth.authenticateLocal(userId: 'my-program', userType: UserType.machine);
+
+final result = await signIn();
+print(result.websocketUrl); // the session's WebSocket, chosen by the server
+
+final client = IkonClient(IkonClientConfig.fromAuthResult(result));
+// Lets a reconnect sign in again and join a new session when the server no longer has this one
+client.configureReauth(authenticator: auth, connectUrl: result.connectUrl, hardReauth: signIn);
+await client.connect(); // sends ClientReady, so the client is ready when it returns
+```
+
+Without `configureReauth` the client can only resume the session it had. Once the server has ended
+that session, the client keeps retrying it and never gets back in. A client built this way does not register the built-in `ikon.client.*` functions and
+does not reconnect when the app comes back to the foreground; the helpers do both.
 
 ### Entering a surface
 
@@ -777,32 +892,118 @@ final view = IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas')
 
 When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, or else the only stream other than the platform overlay; with several such streams nothing renders. The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
 
-## Peer Events
+## UI Without a View
 
-`IkonClient.onPeerJoined`, `onPeerReady`, `onPeerUpdated` and `onPeerLeft` are streams of the other
-clients in the session joining, finishing their join (the app knows who they are from then on),
-reporting a new viewport, theme, timezone or visibility, and leaving. Each event carries the peer's
-`Context` as other clients see it: `sessionId`, `userId`, `contextType` and what it reports of its
-viewport, theme, timezone and visibility, without the device and sign-in fields only the app sees. None
-is ever about this client; its own join is `onReady`. Events reach the listeners of the four streams in
-the order the server sent them, so a map kept from them never sees a peer leave before it joined.
+A program can read and drive the app's UI without rendering it. `IkonUiCore(client)` keeps the
+tree the app sends: `currentTree` is its root `UiNode`, or null before the first update, and
+`onUpdate(listener)` calls the listener with the root after each update and returns the function that
+stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. The standard
+components use these props:
 
-<!-- ikon-example: flutter-sdk-peer-events -->
+| Node type | Prop | Holds |
+|---|---|---|
+| `std.text` | `content` | the text it shows |
+| `std.heading` | `content`, `level` | the text of a `view.Heading`, or of a `view.Text` styled `Text.H1` to `Text.H6`, and its level, 1 to 6 |
+| `std.button` | `label` | its label |
+| `std.button` | `onInvokeId` | the action a press sends |
+| `std.text-field` | `value`, `onValueChangeId` | its text, and the action a change sends |
+| `std.file-upload` | `uploadActionId` | the id an upload to it names (see "File Upload") |
+
+To find a text whatever its style, match both `std.text` and `std.heading`.
+
+`client.sendAction(actionId, payloadJson, onResult)` sends an action as a tap would. A button press
+sends `'{}'`, the default. A text field change sends the new text itself as the payload, not JSON.
+`onResult` is called with whether the app's handler succeeded, once it has run:
+
+<!-- ikon-example: flutter-sdk-ui-without-view -->
 ```dart
-final peers = <int, Context>{};
-client.onPeerJoined.listen((peer) => peers[peer.sessionId] = peer);
-client.onPeerUpdated.listen((peer) {
-  peers[peer.sessionId] = peer;
-  print('${peer.sessionId} now uses the ${peer.theme} theme');
-});
-client.onPeerLeft.listen((peer) => peers.remove(peer.sessionId));
+UiNode? findNode(UiNode? node, bool Function(UiNode node) match) {
+  if (node == null || match(node)) {
+    return node;
+  }
+
+  for (final child in node.children) {
+    final found = findNode(child, match);
+
+    if (found != null) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+// Completes with the first node that matches, in the tree now or in a later update
+Future<UiNode> waitForNode(IkonUiCore ui, bool Function(UiNode node) match) {
+  final found = Completer<UiNode>();
+
+  void check(UiNode? root) {
+    final node = findNode(root, match);
+
+    if (node != null && !found.isCompleted) {
+      found.complete(node);
+    }
+  }
+
+  final stop = ui.onUpdate(check);
+  check(ui.currentTree);
+  return found.future.whenComplete(stop);
+}
+
+final ui = IkonUiCore(client);
+
+// Press a button: its onInvokeId is the action, and a press sends '{}'
+final button = await waitForNode(ui, (node) => node.type == 'std.button' && node.props['label'] == 'Refresh');
+final handled = Completer<bool>();
+client.sendAction(button.props['onInvokeId'] as String, '{}', handled.complete);
+print('the app handled the press: ${await handled.future}');
+
+// Type into a text field: the new text is the whole payload
+final field = await waitForNode(ui, (node) => node.type == 'std.text-field');
+client.sendAction(field.props['onValueChangeId'] as String, 'hello');
+
+// Read what a text shows
+final status = await waitForNode(ui, (node) => node.type == 'std.text' && '${node.props['content']}'.startsWith('Status:'));
+print(status.props['content']);
 ```
 
-On joining, and on a reconnect into a new session, `onPeerJoined` and `onPeerReady` fire for each
-peer already there. A reconnect into the same session replays nothing, so a peer that came or went
-while the client was away shows only in `client.globalStateHandler.state.clients`, which always lists
-the current clients. A disposed client tells the server it is leaving, so the others get `onPeerLeft`
-at once rather than when its reconnect window ends.
+Create the `IkonUiCore` right after the connect helper returns: the client keeps the UI messages that
+arrive before it exists and passes them to it, so the first tree is not lost. After a reconnect it asks
+the app for the whole tree again, and `onUpdate` fires with it. A reconnect into a new session can
+change the action ids, so read them from the current tree rather than keeping them.
+
+## Client Events
+
+`IkonClient.onClientJoined`, `onClientUpdated` and `onClientLeft` are streams of the other clients in
+the session, the app included, joining, reporting a new viewport, theme, timezone or visibility, and
+leaving. A client is reported as joined once it is ready: the app knows who it is, and it has been sent
+the session's state, so the app can answer it at once. Each event carries the client's `Context` as
+other clients see it: `sessionId`, `userId`, `contextType` and what it reports of its viewport, theme,
+timezone and visibility, without the device and sign-in fields only the app sees. None is ever about
+this client; its own join is `onReady`. Events reach the listeners of the three streams in the order
+the server sent them, so a map kept from them never sees a client leave before it joined.
+
+<!-- ikon-example: flutter-sdk-client-events -->
+```dart
+final clients = <int, Context>{};
+client.onClientJoined.listen((other) => clients[other.sessionId] = other);
+client.onClientUpdated.listen((other) {
+  clients[other.sessionId] = other;
+  print('${other.sessionId} now uses the ${other.theme} theme');
+});
+client.onClientLeft.listen((other) => clients.remove(other.sessionId));
+```
+
+The client reports each other client once per session. On joining, `onClientJoined` fires for each
+client already there. A reconnect into the same session reports only what changed while the client was
+away: `onClientJoined` for a client that became ready meanwhile, and `onClientUpdated` for a known
+client whose viewport, theme, timezone or visibility changed. A reconnect into a new session reports
+every client again, as the first join did. `onClientUpdated` and `onClientLeft` fire only for a client
+`onClientJoined` reported, so a client that leaves before it is ready raises nothing. A client that left
+while this client was away raises `onClientLeft` once the server has sent the clients still there after
+the reconnect. A disposed client
+tells the server it is leaving, so the others get `onClientLeft` at once rather than when its reconnect
+window ends.
 
 ## Client Functions
 
@@ -811,13 +1012,19 @@ The server can call functions registered on the Flutter client:
 <!-- ikon-example: flutter-sdk-client-function -->
 ```dart
 client.functionRegistry.register(
-  FunctionDefinition(name: 'my.customAction', resultTypeName: 'string'),
+  FunctionDefinition(name: 'my.customAction', resultTypeName: 'System.String'),
   (args) async {
     // Handle the call from the server
     return 'result';
   },
 );
 ```
+
+`resultTypeName` is the .NET full name of what the handler returns, such as `System.String`,
+`System.Double` or `System.String[]`; for a streaming function, the type of each item. The app keeps
+it as the function's declared return type. It does not change what a call returns: the app's
+`FunctionRegistry.CallAsync<T>` converts the JSON result to its own `T`. It is `System.Object` when
+left out, and a name the app cannot load, such as `string`, is taken as `System.Object` too.
 
 Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and called by the server, include:
 - `ikon.client.getTheme` / `setTheme` — `dark` or `light`; `setTheme` drives the renderer's light/dark token variants and returns false for an unrecognised name
@@ -856,7 +1063,9 @@ join it, a batch holds at most 50, and an item of 1 KB or more goes at once. The
 app's enumeration. The stream's first error fails the app's call with the error's text, after the
 items before it. An item that cannot be encoded as JSON fails the call the same way. The subscription
 is cancelled when the app cancels the call, and when the client reconnects into a new session, because
-the app there no longer has the caller.
+the app there no longer has the caller. When items or the end are due while the connection is down,
+the subscription is cancelled too, and once the client is back in the same session the app's call
+fails with an `IOException`, so the app never reads a stream with a gap as if it were whole.
 `resultTypeName` names the item type.
 
 ### Calling app functions
@@ -900,13 +1109,44 @@ try {
 }
 ```
 
+## App Messages
+
+An app can declare its own messages in `schema/*.tp` and exchange them with clients as typed objects,
+for data that changes too often for the UI or a function call, such as cursors or game input. `ikon
+schema` (also run by `ikon build` and `ikon run`) generates a Dart class for each into
+`frontend-flutter/lib/generated/protocol/`; a client outside the app's folder gets them from the
+folder `schema/outputs.toml` names (see the Teleport schema spec). Each class implements
+`TeleportMessage`, and its static `teleportMessageType` carries its opcode, payload version and
+decoder, so a client never names an opcode:
+
+<!-- ikon-example: flutter-sdk-app-messages -->
+```dart
+// CursorMove and CursorMoved are generated from the app's schema/CursorMove.tp and CursorMoved.tp
+final cursors = <int, ({double x, double y})>{};
+final stop = client.onMessage(CursorMoved.teleportMessageType, (moved, senderId) {
+  cursors[moved.clientSessionId] = (x: moved.x, y: moved.y);
+});
+
+client.sendMessage(CursorMove(x: 0.25, y: 0.5));
+```
+
+`sendMessage` is the client's side of the app's `app.OnMessage<T>`. A message sent before the client
+is ready is held and goes out right after ClientReady. A message sent with no connection is dropped.
+`onMessage` is the client's side of `app.SendMessage<T>`: the handler gets each message of that type,
+decoded, with the sender's session id, and no message of another type. It lasts across reconnects
+until the returned function is called or the client is disposed. A client built with `IkonClient(...)`
+can add it before `connect()`, so it also gets what arrives with the connection. With a connect helper,
+add it as soon as the helper returns: the app learns of the client only from the ClientReady the helper
+sends just before it returns. A message that does not decode, or whose handler throws, is logged and
+lost.
+
 ## File Upload
 
 <!-- ikon-example: flutter-sdk-file-upload -->
 ```dart
 final uploader = IkonFileUpload(client);
 final result = await uploader.upload(
-  uploadActionId: uploadActionId,  // routes lifecycle callbacks to the server-side upload node
+  uploadActionId: uploadActionId, // the upload node's uploadActionId prop, or an id from app.Uploads.Register
   filename: 'photo.jpg',
   mimeType: 'image/jpeg',
   data: fileBytes,
@@ -914,12 +1154,45 @@ final result = await uploader.upload(
 );
 ```
 
+The upload action id tells the app which handlers receive the file. It is the `uploadActionId` prop
+of the app's file upload node (`std.file-upload`) in the UI tree, which the view reads when a person
+picks a file and a program reads as "UI Without a View" shows. An upload with no node on screen, such
+as a background sync, names a fixed id that the app registers with
+`app.Uploads.Register("my-app.photos", onStart: ...)`.
+
 An upload over an `IkonClient` starts once the client is ready, and keeps going when the connection
 drops: when the client is ready again, also after signing in again, it carries on from what the
 server already has. It gives up when the client is not ready again within 45 s. It sizes its chunks to the speed of the link, so a slow mobile connection still
-finishes. `uploadStream` sends a file from disk without loading it into memory. A failed `result`
-says in `retriable` whether sending the same file again is likely to work. It is false when the
-server may already have stored the file.
+finishes. `onProgress` reports the bytes the server has acknowledged, a chunk at a time. Chunks grow
+with the speed of the link, so on a fast link the count moves in large steps. `uploadStream` sends a
+file from disk without loading it into memory, and reads it again from disk when the upload resumes:
+
+<!-- ikon-example: flutter-sdk-upload-from-disk -->
+```dart
+final file = File('photos/harbour.png');
+final zone = await waitForNode(ui, (node) => node.type == 'std.file-upload');
+final result = await IkonFileUpload(client).uploadStream(
+  uploadActionId: zone.props['uploadActionId'] as String,
+  filename: 'harbour.png',
+  mimeType: 'image/png',
+  length: await file.length(),
+  openRead: file.openRead, // read again from disk if the upload resumes
+  onProgress: (sent, total) => print('$sent / $total acknowledged'),
+);
+
+if (!result.success) {
+  // Retry without an uploadId when retriable: each upload then gets a new id
+  print('${result.error} (retriable: ${result.retriable})');
+}
+```
+
+A failed `result` says in `retriable` whether sending the same file again is likely to work. It is
+false when the server may already have stored the file. `uploadId` names the upload to the app, and
+each upload gets a new one when it is left out. Leave it out of a retry too: the server can hold a
+failed upload under its id for up to 60 s, and refuses another upload under the same id until then.
+A retry under a new id sends the whole file again. A refusal at the start is not retriable. The server
+refuses at the start when, among other reasons, the app declined the file, the upload action id has no
+handlers, or the id was in use. `error` gives the reason the app sent, and the app's log names it.
 
 The file-upload and file-picker nodes the server sends open the phone's own picker. To offer other
 sources, such as recording with an in-app camera, implement `IkonFilePicker` and pass it as
@@ -987,6 +1260,9 @@ final audio = IkonAudioStreams(client);
 audio.sendOpusFrame(streamId: 'mic', data: opusFrame, isFirst: true, correlationId: 'press-1');
 audio.onFrame.listen((frame) => print('${frame.streamId}: ${frame.data.length} bytes'));
 
+// A program that plays the app's audio itself says how far it got, every 500 ms and when the state changes
+audio.sendPlaybackReport(streamId, played: position, buffered: queued);
+
 // Video: encoded frames, keyframe first; a new size or codec announces the stream again
 final video = IkonVideoStreams(client);
 video.sendFrame(
@@ -1012,6 +1288,20 @@ frame announces the stream again. `isFirst` starts a new audio segment, and a ne
 given with it announces the stream again. The app's speech recognition skips an audio stream without
 a correlation id. `onKeyFrameRequested` fires when the app asks for a keyframe, and the
 next frame sent should be one. H.264 goes in Annex B form.
+
+`sendPlaybackReport` tells the app how far this client has played a stream it receives. The app
+reads the latest report with `Audio.Raw.GetPlaybackStatus` and paces what it says to what was heard.
+The stream is named by its `streamId` or its `senderStreamId`. `played` is the position from the
+start of the current segment, null when it is not known, and `buffered` is what was received but not
+yet played. `state` is `AudioPlaybackState.playing` by default, or `blocked` or `hidden`. The report
+names the epoch of the newest frame received. Only the app's `Audio.Raw` streams ask for reports,
+and every stream of an app built before streams could say so: `wantsPlaybackReports` on the stream's
+info is true for them, and false for every other stream, such as the one that carries what
+`Audio.Play` plays. It sends nothing and returns false for a stream that
+is not open or wants no reports. The web
+SDK reports every 500 ms of playback for each stream, and at once when the state changes; a program
+that plays the audio should do the same. The SDK's own Opus playback (`enableIkonAudioPlayback`)
+sends no reports.
 
 A headless client also reports its context: `IkonViewportUpdater.sendViewportSize`, `sendTheme`,
 `sendTimezone` and `sendVisibility` update what the app reads as the client's context, and

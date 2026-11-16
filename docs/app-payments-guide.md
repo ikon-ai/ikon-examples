@@ -1,4 +1,4 @@
-<!-- checked-against: 134fd227752652b607916995 -->
+<!-- checked-against: 0390edc8823a0e9f8ce1d90b -->
 
 # Ikon.App.Payments Guide
 
@@ -291,6 +291,20 @@ app.Payments.PaymentEventReceived += evt => evt.Type switch
     _ => Task.CompletedTask,
 };
 ```
+
+`evt.Payload()` is a camelCase `JsonElement`: `type`, `provider`, `appCustomerKey` (the `customerKey` the
+charge was made for), then whichever of these the event concerns: `payment` (`providerRef`, the
+`Payment.Id` that `RefundAsync` takes; `offerId`, `amountMinor`, `currency`, `status`, `kind`,
+`amountRefundedMinor`, `subscriptionProviderRef`), `subscription` (`providerRef`, the
+`PaymentSubscription.Id`; `offerId`, `status`, `currentPeriodEnd`, `cancelAtPeriodEnd`), `refund`
+(`providerRef`, `paymentProviderRef`, `amountMinor`, `currency`, `status`) and `entitlements` (an array of
+`featureKey`, the offer id, `state` `active` or `inactive`, and `expiresAt`). A field the provider did not
+report is left out, so read each with `TryGetProperty`:
+`evt.Payload().TryGetProperty("payment", out var payment) && payment.TryGetProperty("offerId", out var offer)`.
+A paid event's `payment.providerRef` is the checkout's `PaymentLink.Reference` with Mollie (the payment id)
+and Surfboard (the order id). With Stripe it is only for a subscription checkout, which carries the checkout
+session id. A Stripe one-time checkout carries its payment intent id instead, so match a paid event to what
+was bought by `appCustomerKey` and `offerId`.
 
 Webhooks are not the source of truth. Three recovery paths keep the backend's payment store correct when
 a delivery is missed or the app is offline when an event is pushed:

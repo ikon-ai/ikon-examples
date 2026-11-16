@@ -1,4 +1,4 @@
-<!-- checked-against: 6950b800b8a7aa80c95cb3ff -->
+<!-- checked-against: 98c5e05db8a7aa80c95cb3ff -->
 
 # IKON Persistent State Guide
 
@@ -477,8 +477,21 @@ global namespace is a different class (`CS0426: The type name 'RetiredFields' do
 is the one exception to AGENTS.md's rule against namespaces in app files. A `[nested.Person]` type is a
 class nested in the root class: `FamilyTree.Person`, not `Person`.
 
+```toml
+# schema/NoteBook.tp
+type = "NoteBook"
+version = 1
+data = true
+
+[fields]
+Notes = "Note[]"
+
+[nested.Note]
+Title = "string"
+Done = "bool = false"
+```
+
 ```text
-// schema/NoteBook.tp:  Notes = "Note[]"  and  [nested.Note] with Title = "string"
 // A name outside the NoteBook class is CS0246 (the type 'Note' could not be found)
 var note = new NoteBook.Note { Title = "First" };
 _book.Update(book => { book.Notes.Add(note); return book; });

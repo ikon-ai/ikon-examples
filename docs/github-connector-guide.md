@@ -1,4 +1,4 @@
-<!-- checked-against: b7526852d4662c983ce4393c -->
+<!-- checked-against: 544717f0a17f0490d3284d81 -->
 
 # GitHub Connector Guide
 
@@ -426,11 +426,11 @@ public HttpResult OnGitHubEvent(Ikon.App.HttpRequest request)
     {
         case GitHubIssuesEvent { Action: "opened" } opened:
             // GitHub wants its answer within ten seconds, so the work runs after it.
-            _ = Task.Run(() => _issues.AddLabelsAsync(opened.Repository!, opened.Issue.Number, ["needs-triage"]));
+            Task.Run(() => _issues.AddLabelsAsync(opened.Repository!, opened.Issue.Number, ["needs-triage"])).ObserveInBackground();
             break;
 
         case GitHubPushEvent { Ref: "refs/heads/main" } push:
-            _ = Task.Run(() => ShowAsync($"{push.Sender} pushed {push.Commits.Count} commits to {push.Repository}"));
+            Task.Run(() => ShowAsync($"{push.Sender} pushed {push.Commits.Count} commits to {push.Repository}")).ObserveInBackground();
             break;
     }
 

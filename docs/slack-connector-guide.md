@@ -1,4 +1,4 @@
-<!-- checked-against: cb92fd5eefea8002bf5449ae -->
+<!-- checked-against: cc8a466bc8f65454672f1751 -->
 
 # Slack Connector Guide
 
@@ -332,11 +332,11 @@ public HttpResult OnSlackEvent(Ikon.App.HttpRequest request)
 
         case SlackEventCallback { Event: SlackAppMentionEvent mention }:
             // Slack wants its answer within three seconds, so the reply is posted after it.
-            _ = Task.Run(() => _slack.PostAsync(mention.Message.Channel, "On it", mention.Message.ThreadTs ?? mention.Message.Ts));
+            Task.Run(() => _slack.PostAsync(mention.Message.Channel, "On it", mention.Message.ThreadTs ?? mention.Message.Ts)).ObserveInBackground();
             break;
 
         case SlackEventCallback { Event: SlackAppHomeOpenedEvent { Tab: "home" } home }:
-            _ = Task.Run(() => _slack.PublishHomeAsync(home.User, SlackView.Home([SlackBlock.Header("Your tickets")])));
+            Task.Run(() => _slack.PublishHomeAsync(home.User, SlackView.Home([SlackBlock.Header("Your tickets")]))).ObserveInBackground();
             break;
     }
 
@@ -447,11 +447,11 @@ public HttpResult OnSlackInteraction(Ikon.App.HttpRequest request)
                 return HttpResult.Json(SlackAck.ViewErrors(new Dictionary<string, string> { ["title"] = "Give the ticket a title" }));
             }
 
-            _ = Task.Run(() => CreateTicketAsync(title, submission.User.Id));
+            Task.Run(() => CreateTicketAsync(title, submission.User.Id)).ObserveInBackground();
             return HttpResult.Ok();   // an empty 200 closes the modal
 
         case SlackBlockActions { Actions: [{ ActionId: "rollback" } action], ResponseUrl: { } responseUrl }:
-            _ = Task.Run(() => SlackResponseUrl.SendAsync(responseUrl, $"Rolling back {action.Value.Value}", replaceOriginal: true));
+            Task.Run(() => SlackResponseUrl.SendAsync(responseUrl, $"Rolling back {action.Value.Value}", replaceOriginal: true)).ObserveInBackground();
             return HttpResult.Ok();
 
         case SlackBlockSuggestion { ActionId: "customer" } suggestion:

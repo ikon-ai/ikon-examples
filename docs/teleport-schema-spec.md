@@ -1,4 +1,4 @@
-<!-- checked-against: 877702f0aad40283ed68ee44 -->
+<!-- checked-against: 715e1579848ff238ab327d0f -->
 
 # Teleport message schema specification
 
@@ -195,7 +195,7 @@ BitDepth    = "int32 = 16"
 
 ### Namespaces
 
-Set the root namespace with the top-level `namespace` field. The C# and TypeScript generators use this value unless a language specific override is provided; the platform's own C++ protocol build uses `cpp`, then `namespace`, then `ikon`, an app's C++ output gets no namespace, and the Dart and Rust generators ignore both. Leaving `namespace` empty or omitting it entirely removes the C# and TypeScript namespace, except in an app's own schemas: there C# without a `[namespaces] csharp` entry goes into `<AppName>.Protocol`.
+Set the root namespace with the top-level `namespace` field. The C# and TypeScript generators use this value unless a language specific override is provided; the platform's own C++ protocol build uses `cpp`, then `namespace`, then `ikon`, an app's C++ output uses `cpp`, else `ikon::app`, and the Dart and Rust generators ignore both. Leaving `namespace` empty or omitting it entirely removes the C# and TypeScript namespace, except in an app's own schemas: there C# without a `[namespaces] csharp` entry goes into `<AppName>.Protocol`.
 
 ```toml
 namespace = "Example.Namespace"
@@ -515,6 +515,23 @@ ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generate
 ```
 
 The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For IKON apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
+
+A client outside the app's folder, such as a program in another repository, gets the bindings too when `schema/outputs.toml` names its folder. Each `[[output]]` has a `language` (`typescript`, `dart`, `rust` or `cpp`) and a `dir` relative to the app's folder. The compiler deletes every file in that folder it did not write, so `dir` must end in `generated/protocol`:
+
+```toml
+[[output]]
+language = "rust"
+dir = "../robot-client/src/generated/protocol"
+```
+
+Every message with an opcode carries its opcode, payload version and default flags in a typed form an SDK takes, so a program sends and receives it without naming the opcode itself:
+
+- **Rust**: `impl TeleportMessage for X` (`ikon_protocol::TeleportMessage`, with `OPCODE`, `VERSION` and `DEFAULT_FLAGS`), which `ProtocolMessage::from_message` and `ProtocolMessage::decode` take. An app's files are modules of its crate, which depends on `ikon-protocol`: each starts with `use super::*;`, and `frontend-rust/src/generated/protocol/mod.rs` declares and re-exports them.
+- **Dart**: `X implements TeleportMessage` (its `toProtocolMessage`), and `X.teleportMessageType`, a `TeleportMessageType<X>` with the opcode, version and decoder.
+- **TypeScript** (an app's output only): `export const XMessage`, which the SDK's `appMessaging(client).send` and `.on` take as an `AppMessageType<X>`.
+- **C++**: `X::TeleportOpcode`, `X::TeleportVersion` and `X::TeleportDefaultFlags`, which `ProtocolMessage::Create` reads. An app's header compiles on its own next to the SDK: it has `#pragma once` and includes `ikon_protocol.h` and the headers of the app's other types it names.
+
+An app schema without an `opcode` gets `0x40000000` (the `GROUP_APP_LOCAL` flag) plus a 16-bit hash of its type name: the xxHash32 of the name's UTF-8 bytes, its two halves XORed, with 0 taken as 1. Every language's bindings get that same number. It depends on the name alone, so adding, removing, moving or renaming another schema file leaves it as it was, and a client built from older bindings keeps working; renaming the type gives it a new opcode. When two messages of one app end up with the same opcode, hashed or explicit, the build fails and names both; give one of them an explicit `opcode` of `0x40000000` plus a number from 1 to 65535 that no other message of the app has, and keep it once clients use it.
 
 ### Language Targets
 

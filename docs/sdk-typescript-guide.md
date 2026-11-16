@@ -1,4 +1,4 @@
-<!-- checked-against: 897b11452ec5a7cfe3b0c442 -->
+<!-- checked-against: 84594385ccbdbb93e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -29,6 +29,10 @@ The `guest` mode, a connect in `apiKey` mode, `local.spaceId` and `local.backend
 for the app's function list, and reactive subscriptions that last across a reconnect need
 `@ikonai/sdk` 1.13.3 or later.
 
+A version this guide names is the first release that has the feature. A package built from the
+platform's repository between releases carries the number of the last release, and it has
+everything this guide describes, including what the guide says needs a later version.
+
 For UI state management (optional):
 
 ```bash
@@ -44,8 +48,7 @@ its viewport, theme, timezone and visibility with `client.sendUpdateClientContex
 later update leaves out keeps the one sent before. The program tells the app the path it shows with
 `client.setPath('/room/7')`. Both are sent again when the client joins again. A Node program uploads
 a file with `uploadFile` and a `File` made from a `Buffer` (`new File([buffer], 'report.pdf')`) or
-`fs.openAsBlob(path)`. The upload action id is the `uploadActionId` prop of the app's file upload
-node in the UI tree (see "UI State Management"). `rawMedia`, `setPath` and keeping the values an
+`fs.openAsBlob(path)` (see "Uploading Files" below). `rawMedia`, `setPath` and keeping the values an
 update leaves out need `@ikonai/sdk` 1.19 or later.
 `@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
 stack trace and a retry every 10 seconds; `webRtc: { enabled: false }` in the configuration stops
@@ -59,6 +62,32 @@ folder, with a `package.json` of its own, and imports the codec from
 `../../frontend-node/src/generated/protocol/`. A `tsconfig.json` there holding
 `{ "extends": "../../frontend-node/tsconfig.paths.json" }` makes `tsx` load the same SDK the app's
 frontend builds with, which is the platform's source when the app builds against a platform checkout.
+
+`tsx` runs a program without type-checking it. Check it with `npx tsc --noEmit` (with `typescript`
+and `@types/node` installed) and these compiler options in that `tsconfig.json`:
+
+```json
+{
+  "extends": "../../frontend-node/tsconfig.paths.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  }
+}
+```
+
+`"moduleResolution": "Bundler"` is needed for the generated codec, whose imports have no file
+extension. When the app builds against a platform checkout, the paths point at the SDK's sources,
+which read Vite's `import.meta.env`, so install `vite` too and add `"vite/client"` to `types`. A
+program that imports no codec and uses the SDK from npm can also use `"module": "NodeNext"` from
+`@ikonai/sdk` 1.19 on. Earlier packages' type declarations do not resolve under `NodeNext`, and
+every SDK type becomes `any` without an error.
 
 ## Quick Start
 
@@ -142,7 +171,7 @@ const client = new IkonClient({
 });
 ```
 
-`userType`, `clientType` and `joinOnly` apply to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
+`userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
 
 ### Local Development
 
@@ -163,10 +192,43 @@ const client = new IkonClient({
 
 A run takes the port the project's last run used while it is free, else 8443 or the next free port,
 so a run can stay on 8444 after 8443 frees up. Use the port of the Server URL the run printed, which is also
-the `serverUrl` in `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. With `spaceId`
-set to the app id, a connect to a server that runs another app fails with an `AuthenticationError`
-that names both apps, instead of joining it. Without `userId`, a `spaceId` also makes the SDK sign
-in anonymously to the app's platform for a user id. A Node program names that platform with
+the `serverUrl` in `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. The run writes
+that file each time it starts, so a program can read the port from it:
+
+<!-- ikon-example: ts-sdk-local-server-info -->
+```ts
+// A program in the app's devices/<name>/ folder. MyApp is the app's project name.
+const serverInfoUrl = new URL('../../build/app/artifacts/bin/MyApp/debug/ikon-server-info.json', import.meta.url);
+const { serverUrl, localClientProof } = JSON.parse(readFileSync(serverInfoUrl, 'utf8')) as { serverUrl: string; localClientProof?: string };
+
+const client = new IkonClient({
+  local: {
+    host: 'localhost',
+    httpsPort: Number(new URL(serverUrl).port),
+    spaceId: 'your-app-id',
+    backendType: 'development', // 'production' for an app on *.ikonai.app
+    localClientProof, // Lets a run started with --host-public keep the program's user id
+  },
+});
+```
+
+`localClientProof` matters only for a connect that does not look local to the run. A run started
+with `ikon run --host-public` treats every connect as not local, one to `localhost` included; on any
+other run, only a connect from another machine is not local. Without the proof, such a connect joins as a guest, or is
+refused where the app admits no guests. With the run's `localClientProof` from its
+`ikon-server-info.json`, which only a program on the run's machine can read, the run keeps the user
+id the connect asks for. The SDK sends it in the `X-Ikon-Local-Client-Proof` header of the run's
+`/connect-token` request. It is for Node programs: a page cannot read the file.
+
+A program without a page (Node) joins a local run as a `ContextType.Plugin` client, as it does in the
+`apiKey` and `guest` modes, so the app does not count it as a person on a page. A page joins as
+`ContextType.Browser`. `userType` and `clientType` work as in the other modes (`userType:
+UserType.Machine` for a program that acts for no person). Earlier than `@ikonai/sdk` 1.19, a local
+connect is always a `Browser` client of the `Human` user type.
+
+With `spaceId` set to the app id, a connect to a server that runs another app fails with an
+`AuthenticationError` that names both apps, instead of joining it. Without `userId`, a `spaceId`
+also makes the SDK sign in anonymously to the app's platform for a user id. A Node program names that platform with
 `backendType` (`'development'` for an app on `*.dev.ikonai.app`, `'production'` by default);
 otherwise the sign-in for a development app fails with `403 Space ... not found`.
 
@@ -238,18 +300,19 @@ copy that is not updated when the token is renewed.
 
 ### Connection States
 
-The client tracks its connection state via the `connectionState` property. Live states currently emitted by the runtime:
+The client tracks its connection state via the `connectionState` property:
 
 | State | Description |
 |-------|-------------|
-| `idle` | No connection yet: the React layer's state while a page of a surface whose `Connect` is `"onAction"` shows its boot snapshot and waits for the visitor's first action, or forever on a surface whose `Connect` is `"none"`. An `IkonClient` itself never reports it |
+| `idle` | No connection yet: a new `IkonClient` before `connect()`, and the React layer's state while a page of a surface whose `Connect` is `"onAction"` shows its boot snapshot and waits for the visitor's first action, or forever on a surface whose `Connect` is `"none"`. A client never returns to it |
 | `waitingForExternalConnectUrl` | Waiting for external connect URL (used in preview mode) |
-| `connecting` | Authentication and connection in progress |
+| `connecting` | Authentication and connection in progress, from the moment `connect()` is called; `onConnectionStateChange` reports it then |
 | `connected` | Protocol channels connected; the session is joined and ready (GlobalState received, ClientReady sent, `onReady` called) shortly after. Function calls, actions and uploads made before that wait for it |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
 | `offline` | Disconnected (timeout, server stopped, user-initiated, or a session that could not be resumed with `reconnectToNewSession: false`). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
 
-The `ConnectionState` union also includes deprecated states (`connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
+Earlier than `@ikonai/sdk` 1.19, a new client is already `connecting` before `connect()`, so
+`onConnectionStateChange` is not called with `connecting` on its first connect.
 
 Helper functions are available for common state checks:
 
@@ -435,20 +498,31 @@ unsubscribe();
 
 ### Other Clients
 
-The peer events say who else is in the session, each with the other client's `Context`
+The client events say who else is in the session, each with the other client's `Context`
 (`SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and
-visibility). On joining, `onPeerJoined` is called once for each client already there, and the app
-might not answer a new client before its `onPeerReady`. None of them is called about this client itself.
-Needs `@ikonai/sdk` 1.19 or later.
+visibility). A client counts as joined once it is ready: it has finished joining, the app knows who
+it is, and it can be reached. `onClientJoined` is called then, and on joining it is called once for
+each client already there. `onClientUpdated` and `onClientLeft` are called only for a client
+`onClientJoined` reported, so a client that leaves before it is ready is never reported at all. None
+of them is called about this client itself.
 
-<!-- ikon-example: ts-sdk-peer-events -->
+Each client is reported once per session. After a reconnect that resumes the same session, the
+clients that stayed in it are not reported again. A client whose viewport, theme, timezone or
+visibility changed while this one was away is reported through `onClientUpdated`, and one that left
+meanwhile through `onClientLeft`. A reconnect into a new session reports its clients as a first join
+does. Needs `@ikonai/sdk` 1.19 or later.
+
+<!-- ikon-example: ts-sdk-client-events -->
 ```ts
-// The other clients in the session, and the app itself (ContextType.Server). Each returns an unsubscribe function.
+import { ContextType } from '@ikonai/sdk';
+
+// The other clients in the session. The app is one of them: a ContextType.Plugin client with IsInternal
+// true, which gets a new SessionId each time the app restarts or hot reloads. Each returns an unsubscribe function.
+// ContextType, UserType and ClientType are numeric enums: ContextType[other.ContextType] is the name.
 const unsubscribers = [
-  client.onPeerJoined((peer) => console.log(`${peer.SessionId} joined as ${peer.ContextType}`)),
-  client.onPeerReady((peer) => console.log(`${peer.SessionId} is ready, user ${peer.UserId}`)),
-  client.onPeerUpdated((peer) => console.log(`${peer.SessionId} now uses the ${peer.Theme} theme`)),
-  client.onPeerLeft((peer) => console.log(`${peer.SessionId} left`)),
+  client.onClientJoined((other) => console.log(`${other.SessionId} joined as ${ContextType[other.ContextType]}, user ${other.UserId}`)),
+  client.onClientUpdated((other) => console.log(`${other.SessionId} now uses the ${other.Theme} theme`)),
+  client.onClientLeft((other) => console.log(`${other.SessionId} left`)),
 ];
 
 // Later: stop listening
@@ -473,20 +547,111 @@ it carries the message's opcode group, and the message is dropped.
 
 ### App Messages
 
-`appMessaging(client)` sends and receives an app's own `schema/*.tp` types, the counterpart of the
-app's `app.SendMessageAsync` and `app.OnMessage<T>`; the `realtime-game-loop` and
-`device-typed-messages` patterns show both sides. The generated interfaces keep the schema's field
-names, usually PascalCase (`StationId`), and `AppMessaging.send` throws a `TypeError` for an object
-that has none of the type's fields (`{ stationId }`), which would otherwise arrive with every field
-empty. An `AppMessageType` takes the codec's synchronous `toProtocolMessageX`. `send` throws a
-`TypeError` for the Promise that `toProtocolMessageXAsync` returns, which `@ikonai/sdk` 1.13.3 and
-earlier dropped while `send` returned true. `AppMessaging.send` returns false, and logs a
-warning for the first such send, when the client has no connection to send on. `AppMessaging.on`
-can subscribe before `connect()`, and the subscription lasts across reconnects. The app logs a
-warning, once per type, for an app message that arrives with no `app.OnMessage<T>` handler. In the
-app, the `senderId` that `app.OnMessage<T>` gets for a message from this client is
-`client.sessionId`, the same number as `ReactiveScope.ClientId` and `Context.SessionId` for this
-client, and `app.SendMessageAsync(reply, senderId)` answers only this client.
+`appMessaging(client)` sends and receives an app's own `schema/*.tp` messages, the counterpart of
+the app's `app.SendMessageAsync` and `app.OnMessage<T>`; the `realtime-game-loop` and
+`device-typed-messages` patterns show both sides. The app's build, or `ikon schema` in the app's
+folder, compiles each schema file into a module in `frontend-node/src/generated/protocol/`
+(`ChatLine.tp` becomes `chat-line.ts`), and into every `typescript` folder `schema/outputs.toml`
+names, which is how a program outside the app's folder gets them (the Teleport schema spec,
+`teleport-schema-spec.md`). Each module exports the message's interface and `<Name>Message`, which
+`send` and `on` take as it is, so the program never names an opcode. A module that an older `ikon` generated has no
+`<Name>Message`. Build the app again with a current `ikon` to add it.
+
+<!-- ikon-example: ts-sdk-app-messages -->
+```ts
+import { appMessaging } from '@ikonai/sdk';
+// Written by the app's build from schema/ChatLine.tp
+import { ChatLineMessage } from './generated/protocol/chat-line';
+
+const messaging = appMessaging(client);
+
+// Subscribed before connect(), so a message the app sends as soon as the client joins is not missed
+const subscription = messaging.on(ChatLineMessage, (line, senderId) => console.log(`${senderId}: ${line.Author}: ${line.Text}`));
+
+await client.connect();
+
+// The fields keep the schema's names; false when the client had no connection to send it on
+const sent = messaging.send(ChatLineMessage, { Author: 'Ada', Text: 'Hello' });
+
+// Later: stop receiving
+subscription.close();
+```
+
+The generated interfaces keep the schema's field names, usually PascalCase (`Author`), and
+`AppMessaging.send` throws a `TypeError` for an object that has none of the type's fields
+(`{ author }`), which would otherwise arrive with every field empty. `AppMessaging.send` returns
+false, and logs a warning for the first such send, when the client has no connection to send on.
+`AppMessaging.on` can subscribe before `connect()`, and the subscription lasts across reconnects.
+A client receives app messages only while its `opcodeGroupsFromServer` includes
+`Opcode.GROUP_APP_LOCAL`, as the default does. The app logs a warning, once per type, for an app
+message that arrives with no `app.OnMessage<T>` handler. In the app, the `senderId` that
+`app.OnMessage<T>` gets for a message from this client is `client.sessionId`, the same number as
+`ReactiveScope.ClientId` and `Context.SessionId` for this client, and
+`app.SendMessageAsync(reply, senderId)` answers only this client. For a message the app sent, the
+`senderId` an `AppMessaging.on` handler gets is the app's own session id, the `SessionId` of its
+`ContextType.Plugin` client (see "Other Clients"). It changes each time the app restarts or hot
+reloads, so a program should not keep it.
+
+### Uploading Files
+
+`uploadFile(client, { file, uploadId, uploadActionId, onProgress })` sends one file to an upload
+action of the app. A file upload component on a page has its action id in the UI tree, as the
+`uploadActionId` prop of its node (see "UI State Management"). The app generates that id, so a
+program cannot know it before the UI tree arrives. A program uses a fixed id instead, one the app
+registers in C# with `app.Uploads.Register("live-poll.votes-csv", onStart, onComplete)`. `onStart`
+returns a `FileUploadResult` that accepts the file (`true`) or refuses it (`Accepted = false`).
+
+An upload carries only the file: the app's callbacks get its upload id, file name, MIME type, size,
+hash and relative path, and nothing else the program adds. To say what the file is for (the record it belongs to), the
+program first calls a function of the app with the upload id and that information. The app keeps
+the pair, and its `onStart` accepts only an upload id it was told about and refuses any other.
+
+<!-- ikon-example: ts-sdk-upload-file -->
+```ts
+import { openAsBlob } from 'node:fs';
+import { randomUuid, uploadFile, UploadFailedError } from '@ikonai/sdk';
+
+// In Node; a page passes the File an <input type="file"> gives it
+const file = new File([await openAsBlob('votes.csv')], 'votes.csv', { type: 'text/csv' });
+
+// Chosen by the program, a new one for each attempt; the app sees it in each upload callback
+const uploadId = randomUuid();
+
+// An upload carries only the file, so first tell the app what the file is for. The app's
+// function keeps the id, and its onStart accepts only an upload id it was told about.
+await client.call('poll.expectVotes', [pollId, uploadId]);
+
+try {
+  await uploadFile(client, {
+    file,
+    uploadId,
+    uploadActionId: 'live-poll.votes-csv', // The id the app passed to app.Uploads.Register
+    onProgress: (acknowledgedBytes, totalBytes) => console.log(`${acknowledgedBytes} of ${totalBytes} bytes`),
+  });
+  console.log('The app has the file');
+} catch (error) {
+  if (!(error instanceof UploadFailedError)) {
+    throw error;
+  }
+
+  // retriable: sending the same file again may work (a stall or a dropped connection)
+  console.error(`Upload failed: ${error.message} (retriable: ${error.retriable})`);
+}
+```
+
+The program chooses `uploadId`, a new one for each attempt. The server refuses an id it still
+holds, and it keeps an upload whose connection dropped for about a minute, longer than the client
+waits for it. `onProgress` gets the bytes the server has acknowledged so far. The chunks grow as
+the upload speeds up, so the count rises in steps of different sizes. The promise resolves once the
+app has the file: every byte arrived and matched the file's size and SHA-256 hash, and
+`onComplete`, if the app gave one, returned. Otherwise it rejects with an `UploadFailedError`.
+`retriable` is true when sending the file again may work, such as after a stall, or after a
+connection that dropped and did not come back within 45 seconds. The upload carries on by itself
+across a shorter drop. `retriable` is false when the server refused the upload, such as with
+`The app rejected the upload` when `onStart` refused the file or no upload action has that id. It is
+also false when the client cannot learn the outcome after the whole file was sent, and that error's
+message says to check whether the file was stored before sending it again. A call before the client has a session rejects at once with
+`Session not ready`. A client sends up to 8 files at once, and the rest wait their turn.
 
 ## Functions
 
@@ -586,7 +751,10 @@ an iterable, and the app reads its items as they are yielded, as from a C# `IAsy
 The app calls the function with `CallAsyncEnumerable`, naming this client's session as the target.
 `returnType` describes one item. Items ready together go out in one message of up to 50, and an
 item followed by a pause goes out within 100 ms. When the app stops reading, the iteration stops.
-The generator returns at its next `yield`, so its `finally` runs. A function not registered with
+The generator returns at its next `yield`, so its `finally` runs. The iteration stops the same way
+when the client's connection drops, since items sent while it is down would be lost. If the client
+resumes the same session, the app's call fails with `System.IO.IOException`. If it joins a new
+session instead, the call ended with the old session. A function not registered with
 `isEnumerable` that returns an async iterable fails the call with
 `Function <name> returned a stream; register it with isEnumerable: true`. Needs `@ikonai/sdk` 1.19
 or later.
@@ -616,6 +784,8 @@ client.functionRegistry.register(readingsDefinition, async function* (count) {
 ### Remote Function Calling
 
 Call functions the app server registers (another browser client's functions are not reachable).
+`client.call` and `client.callStream` are the same methods as `client.functionRegistry.call` and
+`client.functionRegistry.callStream`; this guide uses the shorter form.
 A call made while the client connects or reconnects, such as one straight after
 `await client.connect()` or one made while the connection is down, waits until the client has
 sent ClientReady and goes out then, in the order the calls were made. Earlier than `@ikonai/sdk`
@@ -634,7 +804,9 @@ A waiting call fails the same way when the client reaches one of those states. A
 connection drops fails with `Disconnected`.
 `getRemoteFunctions()` is empty until the list arrives, and again from a dropped connection until
 the next join's list arrives, so await `waitForRemoteFunctions()` (`@ikonai/sdk` 1.17 or later)
-first, which waits the same 10 seconds at most.
+first, which waits the same 10 seconds at most. It resolves to true once the list has arrived, and to
+false after the 10 seconds, or at once when the client is not connecting or connected (from
+`@ikonai/sdk` 1.19; earlier it resolves with nothing either way).
 A function that returns a C# record or class resolves to the parsed JSON, with the C# property
 names as they are (`{ Name, SinceUtc }`, PascalCase) and enums as their names, so type the call
 with an interface that has those names:
@@ -643,13 +815,14 @@ with an interface that has those names:
 ```ts
 import { FunctionCallError } from '@ikonai/sdk';
 
-// Call a remote function by name
-const result = await client.functionRegistry.call<string>('remoteGreet', ['World']);
+// Call a remote function by name (client.call is client.functionRegistry.call)
+const result = await client.call<string>('remoteGreet', ['World']);
 
-// List all remote functions, once the server's list has arrived (waitForRemoteFunctions: @ikonai/sdk 1.17 or later)
-await client.functionRegistry.waitForRemoteFunctions();
-const remoteFuncs = client.functionRegistry.getRemoteFunctions();
-console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
+// List all remote functions, once the server's list has arrived; false after 10 seconds without it
+if (await client.functionRegistry.waitForRemoteFunctions()) {
+  const remoteFuncs = client.functionRegistry.getRemoteFunctions();
+  console.log(`Remote functions: ${client.functionRegistry.remoteSize}`);
+}
 
 // Get a specific remote function
 const func = client.functionRegistry.getRemoteFunction('remoteGreet');
@@ -657,7 +830,7 @@ const func = client.functionRegistry.getRemoteFunction('remoteGreet');
 // Handle remote call errors. Only a remote failure or an unparseable result is a FunctionCallError; not
 // connected, an unknown name, a missing instanceId, the timeout and a disconnect reject with a plain Error.
 try {
-  await client.functionRegistry.call('riskyOperation');
+  await client.call('riskyOperation');
 } catch (error) {
   if (error instanceof FunctionCallError) {
     console.error(`Remote error: ${error.remoteErrorType}`);
@@ -716,11 +889,9 @@ const client = new IkonClient({
 
 await client.connect();
 
-// The app looks up a reactive's stable id by the member's name in its [App] class
-const stableId = await client.functionRegistry.call<string>('Ikon.Reactive.GetStableIdByName', ['_visitorCount']);
-
-// The callback runs once with the current value, then on every change
-const unsubscribe = await client.reactiveRegistry.subscribe<number>(stableId, (count) => {
+// A reactive of the app's [App] class, by the member's name. The callback runs once with the current
+// value, then on every change. Changes made close together can arrive as one call with the latest value.
+const unsubscribe = await client.reactiveRegistry.subscribeByName<number>('_visitorCount', (count) => {
   console.log(`Visitors today: ${count}`);
 });
 
@@ -728,16 +899,38 @@ const unsubscribe = await client.reactiveRegistry.subscribe<number>(stableId, (c
 unsubscribe();
 ```
 
-`Ikon.Reactive.GetStableIdByName` finds a reactive field or auto-property of the app's `[App]`
-class by its name in the source; for a reactive kept anywhere else, return its `StableId` from an
-`External` function. The program sees the instance its identity joins, so state that the app shares
+`subscribeByName` finds a reactive field or auto-property of the app's `[App]` class by its name in
+the source, through the app's `Ikon.Reactive.GetStableIdByName` function, and rejects with a
+`FunctionCallError` when the app has no reactive by that name. For a reactive kept anywhere else,
+the app returns its `StableId` from an `External` function, and the program passes that id to
+`client.reactiveRegistry.subscribe`. `subscribeByName` needs `@ikonai/sdk` 1.19 or later; earlier,
+call `Ikon.Reactive.GetStableIdByName` with the name and pass the id it returns to `subscribe`.
+The program sees the instance its identity joins, so state that the app shares
 with everyone belongs in an app with one instance (`public record SessionIdentity();`) or in a
 `GlobalReactive` or `PersistentGlobalReactive` field, which every instance shares. The program
 usually sees another instance's write within seconds. A counter there uses `Update(v => v + 1)`,
 because an assignment is last-writer-wins. The value arrives as
-parsed JSON with the C# property names. Any client that joins, a guest included, can subscribe to
+parsed JSON with the C# property names. The callback gets the value as it is when the app sends it,
+and is not called once per change. Changes made close together, such as five calls in a row that each add an item,
+can arrive as fewer calls, the last of them with the latest value. Any client that joins, a guest
+included, can subscribe to
 every reactive of the `[App]` class, so keep what a guest must not see out of shared reactives.
 After a reconnect the client subscribes to each of them again, and `client.disconnect()` ends them.
+
+When `subscribe` or `subscribeByName` resolves, its callback has already run with the current
+value. A program that needs the value only once keeps it and unsubscribes at once:
+
+<!-- ikon-example: ts-sdk-read-reactive-once -->
+```ts
+// When subscribeByName resolves, the callback has already run with the current value
+let question = '';
+const unsubscribe = await client.reactiveRegistry.subscribeByName<string>('_question', (value) => {
+  question = value;
+});
+unsubscribe();
+
+console.log(`The question is: ${question}`);
+```
 
 Against a local run, connect with `local` and the app's `spaceId` ("Local Development" above), so
 that a port that serves another app fails the connect instead of joining it.
@@ -766,8 +959,7 @@ function watchVisitors(): void {
 
   void (async () => {
     await client.connect();
-    const stableId = await client.functionRegistry.call<string>('Ikon.Reactive.GetStableIdByName', ['_visitorCount']);
-    await client.reactiveRegistry.subscribe<number>(stableId, (count) => {
+    await client.reactiveRegistry.subscribeByName<number>('_visitorCount', (count) => {
       console.log(`Visitors today: ${count}`);
     });
   })().catch((error: unknown) => {
@@ -1274,11 +1466,11 @@ const client = new IkonClient({
 |------|-------------|
 | `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
-| `ConnectionState` | Union type. Live states: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `connectingSlow`, `offlineError` |
+| `ConnectionState` | Union type: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline` |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
 | `GlobalState` | Server state received after connection |
-| `Context` | A client as the server describes it, which the peer events carry |
-| `PeerListener` | The callback of `onPeerJoined`, `onPeerReady`, `onPeerUpdated` and `onPeerLeft` |
+| `Context` | A client as the server describes it, which the client events carry |
+| `ClientListener` | The callback of `onClientJoined`, `onClientUpdated` and `onClientLeft` |
 
 ### Configuration Types
 
@@ -1364,10 +1556,9 @@ const client = new IkonClient({
 
 | Function | Description |
 |----------|-------------|
-| `isConnecting(state)` | Returns true if waitingForExternalConnectUrl, connecting, connectingSlow, or reconnecting |
+| `isConnecting(state)` | Returns true if waitingForExternalConnectUrl, connecting, or reconnecting |
 | `isConnected(state)` | Returns true if connected |
-| `isOffline(state)` | Returns true if offline or offlineError |
-| `isError(state)` | Deprecated. Returns true if offlineError (no longer emitted) — read `client.lastError` instead |
+| `isOffline(state)` | Returns true if offline |
 | `readOpcode(message)` | Extract opcode from protocol message |
 | `readProtocolMessageHeaders(message)` | Extract headers from protocol message |
 | `isWebTransportSupported()` | Check WebTransport browser support |
@@ -1378,7 +1569,7 @@ const client = new IkonClient({
 
 ## License
 
-This SDK is licensed under the Ikon AI SDK License.
+This SDK is licensed under the Apache License 2.0. See `LICENSE` in each package for details.
 
 ## Support
 
