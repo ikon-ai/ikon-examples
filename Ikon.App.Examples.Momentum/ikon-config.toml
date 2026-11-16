@@ -12,14 +12,14 @@ MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the a
 # Replace this block to change surfaces; each name appears once.
 # [[Surface]]
 # Name = ""  # Unique in the app; a handler reads it as ctx.Surface
-# Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; with one surface, list every page's path; with several, the one that serves every other path has none
+# Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; each is literal (no *) and covers the paths under it; with one surface, list every page's path; with several, the one that serves every other path has none
 # Host = ""  # A hostname label of its own: "admin" serves it only at <space>-admin; empty selects it by route
 # Connect = "atLoad"  # "atLoad"; "onAction" connects on the visitor's first action; "none" never connects
 # Media = "atConnect"  # "atConnect" sets up the WebRTC media connection; camera and microphone open only when the app starts a capture. "none" never does
 # Presence = true  # Whether clients learn who else is in the session; false for a public page
 # Seeds = []  # What a route paints while it connects, as "pattern:variantId" rules, e.g. ["/**:shell"]
 # Placement = "shared"  # "shared": the instance the visitor's identity selects; "own": an instance of its own
-# Recovery = "attended"  # "attended" waits for a tap after a lost connection, for a signed-in app on personal phones too; "unattended" reloads by itself, for kiosks; "seamless" keeps the page and reconnects to a new session when the visitor is back, for public pages
+# Recovery = "attended"  # "attended" waits for a tap after a lost connection, for a signed-in app on personal phones too; "unattended" reloads by itself, for kiosks; "seamless" keeps the page and what the visitor does during a drop, and reconnects to a new session when the visitor is back, for public pages and for signed-in phones whose signal comes and goes
 # Who may enter the surface
 # [Surface.Auth]
 # Methods = ["google", "apple", "microsoft", "email", "passkey", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in, and a button calling ClientFunctions.LoginShowAsync(reason) lets a visitor sign in

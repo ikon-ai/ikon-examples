@@ -323,7 +323,7 @@ class _OutageScrim extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final connecting = state == IkonConnectionState.connecting;
+    final connecting = state == IkonConnectionState.connecting || state == IkonConnectionState.reconnecting;
     final label = connecting ? 'Connecting…' : 'Waiting for the network';
 
     return Positioned.fill(
