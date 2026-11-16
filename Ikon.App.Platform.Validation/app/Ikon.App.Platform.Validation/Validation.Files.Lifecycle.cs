@@ -965,7 +965,7 @@ public partial class Validation
 
         var verdict = new LabVerdict();
         verdict.Expect(!upload.Report.Ok, "the client was told it succeeded");
-        verdict.Expect(upload.Report.Error.Contains("in time", StringComparison.OrdinalIgnoreCase), $"client was told '{upload.Report.Error}'");
+        verdict.Expect(upload.Report.Error.Contains("onUploadComplete did not finish within", StringComparison.OrdinalIgnoreCase), $"client was told '{upload.Report.Error}'");
         verdict.Expect(upload.Report.ElapsedMs < 58_000, $"the verdict took {upload.Report.ElapsedMs:0} ms, past the client's 60 s wait");
         verdict.Expect(upload.CompleteEndedAt != null, "the Complete hook never returned");
         verdict.Expect(!upload.Saw("Error"), $"Error ran: {upload.ErrorMessage}");

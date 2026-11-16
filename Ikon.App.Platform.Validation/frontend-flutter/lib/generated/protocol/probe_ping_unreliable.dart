@@ -4,7 +4,7 @@
 import 'dart:typed_data';
 import 'package:ikon_sdk/ikon_sdk.dart';
 
-class ProbePingUnreliable {
+class ProbePingUnreliable implements TeleportMessage {
     int seq;
     int sentAtMs;
     String origin;
@@ -88,9 +88,10 @@ class ProbePingUnreliable {
         scope.writeStringField(fieldIdNote, note);
     }
 
-    static const int teleportOpcode = 0x40000102;
+    static const int teleportOpcode = 0x40007277;
     static const MessageFlag teleportDefaultFlags = MessageFlag.unreliable;
 
+    @override
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
         createProtocolMessage(
             opcode: teleportOpcode,
@@ -100,4 +101,5 @@ class ProbePingUnreliable {
             overrides: ProtocolMessageOverrides.withAddedFlags(overrides, teleportDefaultFlags.value),
         );
     static const int teleportVersion = 1;
+    static const TeleportMessageType<ProbePingUnreliable> teleportMessageType = TeleportMessageType<ProbePingUnreliable>(opcode: teleportOpcode, version: teleportVersion, decode: ProbePingUnreliable.fromTeleport);
 }

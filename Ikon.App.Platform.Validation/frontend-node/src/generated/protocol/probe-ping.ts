@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 export interface ProbePing
 {
@@ -22,7 +22,7 @@ export interface ProbePing
 }
 
 export const PROBE_PING_VERSION = 1;
-export const PROBE_PING_OPCODE = 0x40000101;
+export const PROBE_PING_OPCODE = 0x40008FD0;
 
 const PROBE_PING_SEQ_FIELD_ID = 0x1995121B;
 const PROBE_PING_MODE_FIELD_ID = 0x2BA8ACD4;
@@ -150,3 +150,11 @@ export async function fromProtocolMessageProbePingAsync(raw: ProtocolMessage | A
     const payload = await readProtocolMessagePayloadAsync(raw, PROBE_PING_OPCODE, PROBE_PING_VERSION);
     return decodeProbePing(payload, destination);
 }
+
+/** The ProbePing message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const ProbePingMessage = {
+    opcode: PROBE_PING_OPCODE,
+    version: PROBE_PING_VERSION,
+    toProtocolMessage: toProtocolMessageProbePing,
+    fromProtocolMessage: fromProtocolMessageProbePingAsync,
+} as const;

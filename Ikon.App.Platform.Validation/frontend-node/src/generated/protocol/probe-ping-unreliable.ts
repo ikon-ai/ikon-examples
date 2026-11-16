@@ -10,7 +10,7 @@ import {
     createProtocolMessageAsync,
     readProtocolMessagePayload,
     readProtocolMessagePayloadAsync
-} from './ikon-teleport';
+} from './ikon-teleport.js';
 
 export interface ProbePingUnreliable
 {
@@ -22,7 +22,7 @@ export interface ProbePingUnreliable
 }
 
 export const PROBE_PING_UNRELIABLE_VERSION = 1;
-export const PROBE_PING_UNRELIABLE_OPCODE = 0x40000102;
+export const PROBE_PING_UNRELIABLE_OPCODE = 0x40007277;
 export const PROBE_PING_UNRELIABLE_DEFAULT_FLAGS = 0x10; // MessageFlag.Unreliable
 
 const PROBE_PING_UNRELIABLE_SEQ_FIELD_ID = 0x1995121B;
@@ -151,3 +151,11 @@ export async function fromProtocolMessageProbePingUnreliableAsync(raw: ProtocolM
     const payload = await readProtocolMessagePayloadAsync(raw, PROBE_PING_UNRELIABLE_OPCODE, PROBE_PING_UNRELIABLE_VERSION);
     return decodeProbePingUnreliable(payload, destination);
 }
+
+/** The ProbePingUnreliable message type, for the SDK's `appMessaging(client).send` and `.on`. */
+export const ProbePingUnreliableMessage = {
+    opcode: PROBE_PING_UNRELIABLE_OPCODE,
+    version: PROBE_PING_UNRELIABLE_VERSION,
+    toProtocolMessage: toProtocolMessageProbePingUnreliable,
+    fromProtocolMessage: fromProtocolMessageProbePingUnreliableAsync,
+} as const;

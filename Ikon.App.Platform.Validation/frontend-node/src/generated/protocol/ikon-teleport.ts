@@ -70,6 +70,12 @@ export function readOpcodeGroup(message: ProtocolMessage): number {
     return readOpcode(message) & 0xFFFF0000
 }
 
+// Reads the one header byte the send path needs, without the allocations of
+// readProtocolMessageHeaders; a message too short to have it has no flags
+export function readFlags(message: ProtocolMessage | Uint8Array): number {
+    return message.length >= MinimumHeaderLength ? message[26] : 0
+}
+
 export function readProtocolMessageHeaders(raw: ProtocolMessage | ArrayBuffer | Uint8Array): ProtocolMessageHeaders {
   const bytes = toUint8Array(raw);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

@@ -4,7 +4,7 @@
 import 'dart:typed_data';
 import 'package:ikon_sdk/ikon_sdk.dart';
 
-class ProbePing {
+class ProbePing implements TeleportMessage {
     int seq;
     int sentAtMs;
     String origin;
@@ -88,8 +88,9 @@ class ProbePing {
         scope.writeStringField(fieldIdNote, note);
     }
 
-    static const int teleportOpcode = 0x40000101;
+    static const int teleportOpcode = 0x40008FD0;
 
+    @override
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
         createProtocolMessage(
             opcode: teleportOpcode,
@@ -99,4 +100,5 @@ class ProbePing {
             overrides: overrides,
         );
     static const int teleportVersion = 1;
+    static const TeleportMessageType<ProbePing> teleportMessageType = TeleportMessageType<ProbePing>(opcode: teleportOpcode, version: teleportVersion, decode: ProbePing.fromTeleport);
 }
