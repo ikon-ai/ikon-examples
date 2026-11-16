@@ -95,6 +95,7 @@ global using System;
 // `IView` as a friendly alias for `UIView`
 global using IView = Ikon.Parallax.UIView;
 global using Context = Ikon.Common.Core.Protocol.Context;
+global using ClientType = Ikon.Common.Core.Protocol.ClientType;
 global using ServerRunType = Ikon.Common.Core.Protocol.ServerRunType;
 global using TriggerEventType = Ikon.Common.Core.Protocol.TriggerEventType;
 global using VideoCodec = Ikon.Common.Core.Protocol.VideoCodec;
@@ -111,3 +112,4 @@ global using IPEndPoint = System.Net.IPEndPoint;
 global using WebUtility = System.Net.WebUtility;
 global using HttpContext = Microsoft.AspNetCore.Http.HttpContext;
 // </ikon-usings>
+global using System.Text.Json.Nodes;
