@@ -20,7 +20,7 @@ void main() {
 /// is true and the app connects to its deployed space.
 class IkonAppConfig {
   static const String serverHost = String.fromEnvironment('IKON_SERVER_HOST', defaultValue: 'localhost');
-  static const int port = int.fromEnvironment('IKON_PORT', defaultValue: 8443);
+  static const int port = int.fromEnvironment('IKON_PORT');
   static const String spaceId = String.fromEnvironment('IKON_SPACE_ID');
   static const String authUrl = String.fromEnvironment('IKON_AUTH_URL');
 
