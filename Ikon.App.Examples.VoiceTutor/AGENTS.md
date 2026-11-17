@@ -23,14 +23,14 @@ A deployed instance has 1 CPU and 256 MB by default (more: `scaling`), shared wi
 
 ## Running and checking the app
 
-`ikon run --format text` blocks.
-Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` (returns ready or still starting) on `run`, `link`
+Test locally, not deployed. `ikon run --format text` blocks.
+Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
 and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. `ikon build` type-checks
 the frontend too, even during a run. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
-has the URLs. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
+has the URLs: share the local one after a UI change. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
 none, and `browse` prints the error;
-`ikon status --wait` returns once the reload applied, or exits 1 if it failed; a later save starts another reload, so wait after the last edit); a `.csproj`
+`ikon status --wait` returns once the reload applied, or exits 1 if it failed; wait after the last save); a `.csproj`
 or `ikon-config*.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
@@ -40,7 +40,7 @@ ikon browse --steps 'tap Host; capture code /Room (\w+)/; as bob: fill Room code
 ```
 
 `browse --help` lists steps; `--full` prints whole texts. Acting steps print only what changed; `click`,
-`eval` and `console` reach custom React components; `observe` lists a canvas or custom node as one line; its `content` prop adds a text summary. `look` is for pixels only. `--path /room/7` opens every client there, `as` ones too; the run's own first uses up a one-time `?k=v` link. `wait 15s Sent` returns once the text shows, or if it showed before
+`eval` and `console` reach custom React components; `observe` lists a canvas or custom node as one line; its `content` prop adds a text summary. `look` screenshots UI changes. `--path /room/7` opens every client there, `as` ones too; the run's own first uses up a one-time `?k=v` link. `wait 15s Sent` returns once the text shows, or if it showed before
 the last tap, once the tap's handlers return. `--new` waits for new text. A bare `wait 15s` ends at the
 app's first update or when those handlers return: not a pause, only `sleep 15s` pauses. A bare number is milliseconds. Each run is a new
 client (new ids, empty `ClientReactive` state) that ends with the run, as does what the app keeps only while a client is connected (a room): a script names controls by label
@@ -69,8 +69,7 @@ Local `run` controls are `--ai real|mock`, `--ai-script <file>`, `--messages sen
 `ikon status` returns JSON when captured. Use `ikon help <verb-or-group> --format json`; `ikon ai` calls AI models.
 Help, browse, test and logs default to text; browse/test/login JSON is one object per line.
 On failure, stderr ends with `{code,message,next}` after notices. `ikon deploy` commits and pushes first once the repository has a commit (`--no-save`: neither). Settings: `ikon-config.toml`
-(`ikon-config.development.toml` on development),
-each commented; `ikon-config.<name>.toml` for `--target <name>`.
+(`ikon-config.development.toml` on development), each commented; `ikon-config.<name>.toml` for `--target <name>`.
 Use file tools. PowerShell 5.1's `cat`/`Set-Content` garble non-ASCII.
 IKON bugs: `ikon report create`.
 
