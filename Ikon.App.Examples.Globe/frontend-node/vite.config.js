@@ -47,7 +47,6 @@ const ikonThemeFonts = (publicDir) => ({
   },
 });
 
-// Keeps an inline <style> as written instead of minified onto one line, unless it has a url(), @import or %ENV% that Vite must rewrite
 const inlineStyles = [];
 const ikonKeepInlineStyles = [
   { name: 'ikon-hold-inline-styles', apply: 'build', buildStart: () => { inlineStyles.length = 0; }, transformIndexHtml: { order: 'pre', handler: (html) => html.replace(/<style(\s[^>]*)?>([\s\S]*?)<\/style>/gi, (style, _, css) => (/url\(|@import|%\w+%/i.test(css) ? style : `<!--ikon-inline-style-${inlineStyles.push(style) - 1}-->`)) } },
@@ -67,7 +66,7 @@ const ikonBootTable = (env) => {
     spaceId: value('VITE_IKON_SPACE_ID'),
     backendUrl: value('VITE_IKON_BACKEND_URL') || undefined,
     authUrl: value('VITE_IKON_AUTH_URL') || undefined,
-    localServer: value('VITE_LOCAL_IKON_SERVER_ENABLED') === 'true' ? { host: value('VITE_LOCAL_IKON_SERVER_HOST') || 'localhost', port: Number(value('VITE_LOCAL_IKON_SERVER_PORT') || 8443) } : undefined,
+    localServer: value('VITE_LOCAL_IKON_SERVER_ENABLED') === 'true' && value('VITE_LOCAL_IKON_SERVER_PORT') ? { host: value('VITE_LOCAL_IKON_SERVER_HOST') || 'localhost', port: Number(value('VITE_LOCAL_IKON_SERVER_PORT')) } : undefined,
     devLogin: value('VITE_IKON_DEV_LOGIN_TOKEN') ? { token: value('VITE_IKON_DEV_LOGIN_TOKEN'), runId: value('VITE_IKON_DEV_LOGIN_RUN_ID') } : undefined,
     waitForExternalConnectUrl: value('VITE_WAIT_FOR_EXTERNAL_CONNECT_URL') === 'true' || undefined,
     surface: value('VITE_IKON_SURFACE') || undefined,
