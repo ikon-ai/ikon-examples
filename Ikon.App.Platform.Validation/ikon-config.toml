@@ -2,6 +2,7 @@ ConfigVersion = 13  # Schema version: the IKON tool upgrades an older file and r
 StateDatabase = ""  # The database PersistentReactive state lives in; empty picks the "app" database (databases guide)
 DomainAllowlist = []  # Email domains that may become members, e.g. ["mycompany.com"]; empty admits any. Checked when someone first joins: existing profiles keep access. Applies to the deployed app, not a local run (sso guide)
 MaxClients = 0  # Clients an instance admits, and a shard's size with [Sharding] on; 0 fits it to the container's memory (scaling guide)
+RequirePostQuantum = false  # true: clients are offered only TLS over TCP, whose key exchange can be post-quantum (X25519MLKEM768), and no WebRTC, WebTransport or UDP. Audio, and video on the web, then go over the app's connection, and a Flutter client has no video. [[Port]] entries are not affected (app-structure guide, "Post-quantum only")
 
 # More instances, called shards, for one identity value that fills its instance (scaling guide, "Sharding")
 [Sharding]
@@ -15,7 +16,7 @@ Name = "app"  # Unique in the app; a handler reads it as ctx.Surface
 Routes = []  # The paths it serves, e.g. ["/", "/pricing"], captured as boot snapshots at deploy; each is literal (no *) and covers the paths under it; with one surface, list every page's path; with several, the one that serves every other path has none
 Host = ""  # A hostname label of its own: "admin" serves it only at <space>-admin; empty selects it by route
 Connect = "atLoad"  # "atLoad"; "onAction" connects on the visitor's first action; "none" never connects
-Media = "atConnect"  # "atConnect" sets up the WebRTC media connection; camera and microphone open only when the app starts a capture. "none" never does
+Media = "atConnect"  # "atConnect" sets up the WebRTC media connection, unless RequirePostQuantum is true; camera and microphone open only when the app starts a capture. "none" never does
 Presence = true  # Whether clients learn who else is in the session; false for a public page
 Seeds = []  # What a route paints while it connects, as "pattern:variantId" rules, e.g. ["/**:shell"]
 Placement = "shared"  # "shared": the instance the visitor's identity selects; "own": an instance of its own
