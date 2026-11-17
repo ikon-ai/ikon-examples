@@ -48,7 +48,7 @@ internal sealed class BatchedTurnWindow : IPatternDemo
             _batchCountdownMs.Value = BatchWindowMs;
             _batchTimerCts?.Cancel();
             _batchTimerCts = new CancellationTokenSource();
-            Task.Run(() => RunBatchTimerAsync(_batchTimerCts.Token)).ObserveInBackground();
+            _ = Task.Run(() => RunBatchTimerAsync(_batchTimerCts.Token));
         }
     }
 

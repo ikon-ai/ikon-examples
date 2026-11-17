@@ -46,7 +46,7 @@ internal sealed class PdfViewer(IAppBase app) : IPatternDemo
                 File.Delete(path);
 
                 // Rendering takes seconds, and this hook must return within 50 s of the last chunk
-                Task.Run(() => ShowPdfAsync(bytes)).ObserveInBackground();
+                _ = Task.Run(() => ShowPdfAsync(bytes));
             },
             label: "Choose a PDF", hint: "PDF, up to 30 MB");
     }

@@ -320,11 +320,11 @@ file sealed class SlackConnectorGuideExamples
 
             case SlackEventCallback { Event: SlackAppMentionEvent mention }:
                 // Slack wants its answer within three seconds, so the reply is posted after it.
-                Task.Run(() => _slack.PostAsync(mention.Message.Channel, "On it", mention.Message.ThreadTs ?? mention.Message.Ts)).ObserveInBackground();
+                _ = Task.Run(() => _slack.PostAsync(mention.Message.Channel, "On it", mention.Message.ThreadTs ?? mention.Message.Ts));
                 break;
 
             case SlackEventCallback { Event: SlackAppHomeOpenedEvent { Tab: "home" } home }:
-                Task.Run(() => _slack.PublishHomeAsync(home.User, SlackView.Home([SlackBlock.Header("Your tickets")]))).ObserveInBackground();
+                _ = Task.Run(() => _slack.PublishHomeAsync(home.User, SlackView.Home([SlackBlock.Header("Your tickets")])));
                 break;
         }
 
@@ -443,11 +443,11 @@ file sealed class SlackConnectorGuideExamples
                     return HttpResult.Json(SlackAck.ViewErrors(new Dictionary<string, string> { ["title"] = "Give the ticket a title" }));
                 }
 
-                Task.Run(() => CreateTicketAsync(title, submission.User.Id)).ObserveInBackground();
+                _ = Task.Run(() => CreateTicketAsync(title, submission.User.Id));
                 return HttpResult.Ok();   // an empty 200 closes the modal
 
             case SlackBlockActions { Actions: [{ ActionId: "rollback" } action], ResponseUrl: { } responseUrl }:
-                Task.Run(() => SlackResponseUrl.SendAsync(responseUrl, $"Rolling back {action.Value.Value}", replaceOriginal: true)).ObserveInBackground();
+                _ = Task.Run(() => SlackResponseUrl.SendAsync(responseUrl, $"Rolling back {action.Value.Value}", replaceOriginal: true));
                 return HttpResult.Ok();
 
             case SlackBlockSuggestion { ActionId: "customer" } suggestion:

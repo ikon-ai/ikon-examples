@@ -40,7 +40,7 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                 onClick: async () =>
                 {
                     _demoRunning.Value = true;
-                    RunDemoAsync().ObserveInBackground();
+                    _ = RunDemoAsync();
                 });
             col.Text(["text-xs text-zinc-400"], "A scripted model stands in for the provider: two lookups succeed, the hotel hold fails, then the agent answers");
             Render(col);

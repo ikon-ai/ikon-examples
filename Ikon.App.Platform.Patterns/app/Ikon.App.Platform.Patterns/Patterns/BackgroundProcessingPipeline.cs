@@ -50,7 +50,7 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
         var capturedTenantId = _currentTenantId;
         var capturedUserId = _currentUserId;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             // AsyncLocal, set inside the task: the identity flows down this pipeline's awaits and
             // nowhere else, so two uploads processing at once never see each other's tenant.
@@ -76,7 +76,7 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
                 await UpdateCaseDataForViewersAsync(caseId);
                 RemoveActiveUpload(uploadId);
             }
-        }).ObserveInBackground();
+        });
     }
 
     private async Task ProcessFileAsync(Guid caseFileId, Guid caseId, AssetUri assetUri,

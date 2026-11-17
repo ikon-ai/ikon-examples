@@ -63,7 +63,7 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
             {
                 // Analysis takes seconds, and the frame handler has to return at once
                 var clientSessionId = args.ClientSessionId;
-                Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount)).ObserveInBackground();
+                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount));
             }
         };
 
@@ -75,7 +75,7 @@ internal sealed class RecordThenAnalyseAudio : IPatternDemo
             if (_recording.TryRemove(args.StreamId, out var take) && hasFormat && take.Count > 0)
             {
                 var clientSessionId = args.ClientSessionId;
-                Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount)).ObserveInBackground();
+                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount));
             }
         };
     }

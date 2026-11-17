@@ -9,7 +9,7 @@ file sealed class AccessibilityGuideExamples(IApp<SessionIdentity, ClientParamet
         #region example:accessibility-page-title
         app.OnClientJoined(ctx =>
         {
-            ClientFunctions.SetPageMetadataAsync(title: "Home – City Grants").ObserveInBackground();
+            _ = ClientFunctions.SetPageMetadataAsync(title: "Home – City Grants");
             return Task.CompletedTask;
         });
         #endregion

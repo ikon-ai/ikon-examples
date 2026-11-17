@@ -69,7 +69,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
             // The frame handler holds up every client's messages for as long as it runs, and the
             // round trip below takes seconds, so start it and return. A task started here keeps
             // the client's scope, so _processing still writes to this client.
-            Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount)).ObserveInBackground();
+            _ = Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount));
         };
 
         UI.Root([Page.Default], content: view =>

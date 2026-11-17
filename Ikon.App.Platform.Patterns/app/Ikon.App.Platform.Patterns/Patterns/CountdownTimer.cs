@@ -33,7 +33,7 @@ internal sealed class CountdownTimer(IAppBase app) : IPatternDemo
         _roundMilliseconds.Value = (int)length.TotalMilliseconds;
         _secondsLeft.Value = (int)Math.Ceiling(length.TotalSeconds);
 
-        TickAsync(deadline, _roundTimer.Token).ObserveInBackground();
+        _ = TickAsync(deadline, _roundTimer.Token);
     }
 
     // One small update a second; the bar moves in the browser between them

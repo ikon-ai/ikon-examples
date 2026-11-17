@@ -45,7 +45,7 @@ internal sealed class EmergenceEventFeed : IPatternDemo
                 onClick: async () =>
                 {
                     _replaying.Value = true;
-                    ReplayAsync().ObserveInBackground();
+                    _ = ReplayAsync();
                 });
             col.Column(["gap-0"], content: feed => Render(feed));
         });

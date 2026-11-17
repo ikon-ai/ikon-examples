@@ -38,7 +38,7 @@ internal sealed class LatestWinsUpdates(IAppBase app) : IPatternDemo
     private void StartPositions()
     {
         app.OnMessage<WorkerPosition>(OnPositionAsync);
-        PublishPositionsAsync(app.StoppingToken).ObserveInBackground();
+        _ = PublishPositionsAsync(app.StoppingToken);
     }
 
     // An unreliable message can be lost or arrive after a newer one, so an older sequence is ignored

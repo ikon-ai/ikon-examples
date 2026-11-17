@@ -47,7 +47,7 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
         // The relay hands each connection to this port on the loopback address
         var listener = new TcpListener(IPAddress.Loopback, devices.LocalPort);
         listener.Start();
-        AcceptAsync(listener, app.StoppingToken).ObserveInBackground();
+        _ = AcceptAsync(listener, app.StoppingToken);
     }
 
     private async Task AcceptAsync(TcpListener listener, CancellationToken stopping)
@@ -57,7 +57,7 @@ internal sealed class TcpDeviceIngest(IAppBase app) : IPatternDemo
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync(stopping);
-                ServeDeviceAsync(client, stopping).ObserveInBackground();
+                _ = ServeDeviceAsync(client, stopping);
             }
         }
         catch (OperationCanceledException)

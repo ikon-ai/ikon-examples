@@ -403,11 +403,11 @@ file sealed class GitHubConnectorGuideExamples
         {
             case GitHubIssuesEvent { Action: "opened" } opened:
                 // GitHub wants its answer within ten seconds, so the work runs after it.
-                Task.Run(() => _issues.AddLabelsAsync(opened.Repository!, opened.Issue.Number, ["needs-triage"])).ObserveInBackground();
+                _ = Task.Run(() => _issues.AddLabelsAsync(opened.Repository!, opened.Issue.Number, ["needs-triage"]));
                 break;
 
             case GitHubPushEvent { Ref: "refs/heads/main" } push:
-                Task.Run(() => ShowAsync($"{push.Sender} pushed {push.Commits.Count} commits to {push.Repository}")).ObserveInBackground();
+                _ = Task.Run(() => ShowAsync($"{push.Sender} pushed {push.Commits.Count} commits to {push.Repository}"));
                 break;
         }
 

@@ -38,7 +38,7 @@ internal sealed class TimedGroupSession(IAppBase app) : IPatternDemo
         }
 
         _session = new CancellationTokenSource();
-        Task.Run(() => RunSessionAsync(length, _session.Token)).ObserveInBackground();
+        _ = Task.Run(() => RunSessionAsync(length, _session.Token));
     }
 
     private async Task RunSessionAsync(TimeSpan length, CancellationToken ct)

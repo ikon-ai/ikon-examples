@@ -69,7 +69,7 @@ internal sealed class PerClientVoiceConversation(IAppBase app) : IPatternDemo
         _lines.AddFor(clientSessionId, new Line("You", text.Trim()));
 
         // The reply takes seconds and the handler returns at once
-        Task.Run(() => ReplyAsync(clientSessionId, turn)).ObserveInBackground();
+        _ = Task.Run(() => ReplyAsync(clientSessionId, turn));
     }
 
     private async Task ReplyAsync(int clientSessionId, int turn)

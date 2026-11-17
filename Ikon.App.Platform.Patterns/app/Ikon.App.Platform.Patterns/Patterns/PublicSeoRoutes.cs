@@ -41,7 +41,7 @@ internal sealed class PublicSeoRoutes(IAppBase app) : IPatternDemo
         // Not awaited, so the first render does not wait for the browser to answer
         app.OnClientJoined(context =>
         {
-            DescribePageAsync(app.Navigation.CurrentPath ?? "/").ObserveInBackground();
+            _ = DescribePageAsync(app.Navigation.CurrentPath ?? "/");
             return Task.CompletedTask;
         });
         app.Navigation.PathChangedAsync += async args => await DescribePageAsync(args.Path);

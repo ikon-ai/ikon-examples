@@ -170,7 +170,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
             }
 
             _camera = Video.PlayLive(MediaTargets.To(viewers), "shop-camera", VideoCodec.H264);
-            RunCameraEncoderAsync(_camera).ObserveInBackground();
+            _ = RunCameraEncoderAsync(_camera);
         }
     }
     #endregion

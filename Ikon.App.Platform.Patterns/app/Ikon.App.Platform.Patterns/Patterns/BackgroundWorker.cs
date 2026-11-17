@@ -31,7 +31,7 @@ file abstract class BackgroundWorkerExample(IAppBase app)
                 return;
             }
 
-            RunWorkerAsync(app.StoppingToken).ObserveInBackground();
+            _ = RunWorkerAsync(app.StoppingToken);
         });
     }
 

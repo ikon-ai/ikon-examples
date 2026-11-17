@@ -17,7 +17,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
             // The profile lookup runs in the background so the join is not held up by it, and the flag
             // is written for this client alone
             var cid = ctx.ClientSessionId;
-            Task.Run(async () =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
@@ -28,7 +28,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
                 {
                     Log.Instance.Warning($"Could not read the referee role of client {cid}: {ex.Message}");
                 }
-            }).ObserveInBackground();
+            });
 
             return Task.CompletedTask;
         });

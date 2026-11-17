@@ -309,7 +309,7 @@ internal sealed partial class AgentGuideExamples
                 return;
             }
 
-            Task.Run(async () =>
+            _ = Task.Run(async () =>
             {
                 while (!app.StoppingToken.IsCancellationRequested)
                 {
@@ -325,7 +325,7 @@ internal sealed partial class AgentGuideExamples
 
                     await Task.Delay(1000, app.StoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
-            }).ObserveInBackground();
+            });
         });
         // Main() is a method, not a constructor, so assigning a `readonly` field there is
         // CS0191; the loop needs no field at all.
