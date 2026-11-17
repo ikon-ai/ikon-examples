@@ -1,4 +1,4 @@
-<!-- checked-against: e58905634b092638e3b0c442 -->
+<!-- checked-against: bb776fbe2b3643c4e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -32,7 +32,9 @@ The IKON C++ SDK connects C++ applications to an IKON app. It is a header-only l
 The SDK is headers only, with no library of its own to build. Each release is a zip on the [IKON SDK releases page](https://github.com/ikon-ai/ikon-sdk-releases/releases), under the tag `v-cpp-sdk-<version>`, and the zip is a CMake package with two targets:
 
 - `ikon::sdk`: the SDK's headers, C++17 and threads. A program that brings its own logger, HTTP client and network client needs only this.
-- `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLogger`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL, which `ExampleNetworkClient` needs. `ExampleHttpClient` uses WinHTTP on Windows; elsewhere it uses cpp-httplib over OpenSSL. The target exists only when CMake finds OpenSSL.
+- `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLogger`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL, which `ExampleNetworkClient` needs. `ExampleHttpClient` uses WinHTTP on Windows, except for [post-quantum key exchange](#post-quantum-key-exchange); elsewhere it uses cpp-httplib over OpenSSL. The target exists only when CMake finds OpenSSL.
+
+Compiling the SDK is slow: a translation unit that uses `IkonClient` can take several minutes and over 1 GB of compiler memory in a Release build, and about a minute and a half in Debug, while one that only includes `ikon_sdk.h` builds in seconds. Keep the code that uses the SDK in one `.cpp` file, and give the rest of the program a header of your own that does not include `ikon_sdk.h`, so that a change elsewhere does not compile the SDK again. Allow for it in a build that has a time limit.
 
 Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. A minimal `CMakeLists.txt` that downloads a release with `FetchContent`, with the zip's address and SHA-256 copied from the release:
 
@@ -116,6 +118,8 @@ int main()
 ## Authentication Modes
 
 The SDK supports five authentication modes: an API key, local development, a guest, a user token and a connect URL. Exactly one must be configured.
+
+`config.parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance here: `config.parameters["room"] = "harbour";` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
 
 ### API Key Authentication
 
@@ -220,6 +224,8 @@ Each device id gets a guest user of its own, unless the app's guest sign-in puts
 ### User Tokens
 
 A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token.
+
+An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
 <!-- ikon-example: cpp-sdk-auth-user-token -->
 ```cpp
@@ -770,7 +776,7 @@ catch (const UploadFailedException& ex)
 
 ## Interface Implementations
 
-The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK: `ExampleLogger`, `ExampleHttpClient` and `ExampleNetworkClient` in `example_logger.h`, `example_http_client.h` and `example_network_client.h`. `ExampleNetworkClient` needs OpenSSL; `ExampleHttpClient` uses WinHTTP on Windows, and elsewhere needs OpenSSL and `CPPHTTPLIB_OPENSSL_SUPPORT` defined.
+The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK: `ExampleLogger`, `ExampleHttpClient` and `ExampleNetworkClient` in `example_logger.h`, `example_http_client.h` and `example_network_client.h`. `ExampleNetworkClient` needs OpenSSL; `ExampleHttpClient` uses WinHTTP on Windows, except for [post-quantum key exchange](#post-quantum-key-exchange), and elsewhere needs OpenSSL and `CPPHTTPLIB_OPENSSL_SUPPORT` defined.
 
 ### ILogInterface
 
@@ -883,6 +889,31 @@ Each attempt first tries to resume the session the client had. It opens a new co
 An attempt that cannot open a connection at all, as while the network is down, costs the server nothing. During the first half of the attempts, the next attempt tries to resume the session again. From the second half on, such an attempt also asks for a new session, so a server that has gone away is replaced. A request for a new session that reaches nothing leaves the old session held, and the next attempt tries to resume it again. With the default 6 attempts and 500 ms backoff, the attempts run about 0.5, 1.5, 3.5, 7.5, 15.5 and 31.5 seconds after the drop, so a client whose network comes back within about 15 seconds returns to the session it had.
 
 A resumed join ends the same way as a new one: the client announces its shared functions, reports ready, and `Ready` runs.
+
+### Post-Quantum Key Exchange
+
+<!-- ikon-example: cpp-sdk-require-post-quantum -->
+```cpp
+config.requirePostQuantum = true;
+```
+
+With `requirePostQuantum` set, every TLS connection the client makes (the sign-in, `/init`, `/connect` and the connection to the server) offers only the hybrid post-quantum key exchange group X25519MLKEM768, and only TLS 1.3. A server that cannot negotiate it fails the handshake, and the client never falls back to a classical key exchange. The deployed IKON servers and the load balancers negotiate it. A server on Windows (a local `ikon run` reached at a non-loopback address) has no ML-KEM in its TLS, so the handshake fails there. A connection to a loopback address (`localhost`, `127.0.0.0/8`, `::1`), such as a local `ikon run` on the same machine, crosses no network and is exempt. The client reaches a server only over TLS, so no other transport needs to be turned off. An app that sets `RequirePostQuantum` in its `ikon-config.toml` makes its server offer only transports that can use post-quantum key exchange, but only this flag makes the client refuse a classical key exchange.
+
+The SDK passes the flag to your interface implementations: `HttpRequest::requirePostQuantum` on each request, and `GetRequirePostQuantum()` on the network interface before each `Connect`. Both are `false` for a loopback host. An implementation says it honours them by overriding `SupportsPostQuantumOnly()` to return `true`. With the flag set, `Connect()` throws `std::runtime_error` before sending anything when either interface returns `false`, the default, so an implementation written before the flag existed cannot connect with a classical key exchange. With OpenSSL, the TLS setup is two calls:
+
+<!-- ikon-example: cpp-sdk-post-quantum-tls -->
+```cpp
+// Call it on the SSL_CTX before the handshake when HttpRequest::requirePostQuantum or
+// GetRequirePostQuantum() is true, and fail the request or the connect when it returns false.
+// OpenSSL before 3.5 has no X25519MLKEM768, and the second call fails there.
+bool OfferOnlyPostQuantum(SSL_CTX* context)
+{
+    return SSL_CTX_set_min_proto_version(context, TLS1_3_VERSION) == 1 &&
+           SSL_CTX_set1_groups_list(context, "X25519MLKEM768") == 1;
+}
+```
+
+`ExampleHttpClient` and `ExampleNetworkClient` honour the flag and need OpenSSL 3.5 or later for it. With an older OpenSSL their `SupportsPostQuantumOnly()` returns `false`, so `Connect()` refuses. WinHTTP has no setting for the key exchange group, so on Windows `ExampleHttpClient` sends a request that requires post-quantum key exchange through cpp-httplib over OpenSSL instead. That needs `CPPHTTPLIB_OPENSSL_SUPPORT`, which `ikon::sdk_examples` defines; without it, `SupportsPostQuantumOnly()` returns `false`.
 
 ### Protocol Options
 

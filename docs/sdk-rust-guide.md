@@ -1,4 +1,4 @@
-<!-- checked-against: 4ac5acbec1ce63c7e3b0c442 -->
+<!-- checked-against: a359a3fa5649e151e3b0c442 -->
 
 # IKON Rust SDK
 
@@ -141,6 +141,8 @@ Each device id gets a guest user of its own, unless the app's guest sign-in puts
 ### User Tokens
 
 A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token.
+
+An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
 <!-- ikon-example: rust-sdk-connect-user-token -->
 ```rust
@@ -712,9 +714,19 @@ The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendM
 - `timeouts` holds `connection` (the join), `provisioning` (waiting for the app's server to start), `max_reconnect_attempts` and `reconnect_backoff`.
 - `description`, `product_id`, `version_id`, `install_id`, `user_agent` and `locale` describe the client to the app.
 - `device_id` names the device. Left `None`, `IkonClient::new` sets a random one, which every connect and reconnect of that client sends; `client.config().device_id` reads it.
-- `parameters` are the app's client parameters, such as the room to join. With a `SessionIdentity` built on one, they choose which instance the client joins.
+- `parameters` are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
 - `opcode_groups_from_server` and `opcode_groups_to_server` choose the kinds of message the client receives and sends; the default is every group, `Opcode::GROUP_ALL | Opcode::GROUP_APP_LOCAL`.
 - `local_client_proof` matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `LocalConfig::user_id`. A program on the same machine connecting to `localhost` needs none.
+
+### Post-Quantum Key Exchange
+
+Every TLS connection the client makes, to the backend and to the app's server, offers the hybrid post-quantum key exchange X25519MLKEM768 first, which the load balancers and deployed IKON servers choose. An IKON server on Windows, such as a local `ikon run` there, serves TLS through SChannel, which has no ML-KEM, and negotiates a classical key exchange. A server without it, or a proxy in between that terminates TLS, can still settle on a classical key exchange such as X25519.
+
+`require_post_quantum = true` on the config makes the client offer X25519MLKEM768 alone, over TLS 1.3 only. A server or proxy without it then fails the handshake, and the connect fails with `SdkError::Tls` or `SdkError::Http`. There is no fallback. The client's link to the app is always TLS over TCP, so no other kind of link has to be turned off. A local connect to a loopback host (`localhost`, `127.0.0.1` or `::1`) is exempt, because its traffic stays on the machine, and a local run on Windows offers no X25519MLKEM768, so it would otherwise refuse the client. A local connect to another machine's address is not exempt.
+
+A program that calls the backend itself gets the same with `IkonApi::require_post_quantum(true)` and `api::request_guest_token_with_tls`. `Transport::connect_with_config` uses the `ClientConfig` it is given unchanged.
+
+`RequirePostQuantum = true` in an app's `ikon-config.toml` makes the app's server offer only links that run over TLS on TCP, but the server cannot refuse a client that offers classical groups. Only the client's setting guarantees a post-quantum key exchange.
 
 ### Logging
 

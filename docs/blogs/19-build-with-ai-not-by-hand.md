@@ -60,7 +60,7 @@ Each round takes seconds: you describe a change, the app reloads and you see it.
 
 ## What happens when you change something
 
-The app hot-reloads. This means the server restarts but your data stays. If you had items on screen, they are still there after the reload. If a user was interacting with the app, their session continues. You do not lose state every time Claude makes a change.
+The app hot-reloads. A change inside a method reaches the running app in milliseconds without a restart. A larger change restarts the server, but your data stays. If you had items on screen, they are still there after the reload. If a user was interacting with the app, their session continues. You do not lose state every time Claude makes a change.
 
 So each change improves the app that is already running, and you never start over.
 

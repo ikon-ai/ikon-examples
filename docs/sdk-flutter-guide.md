@@ -1,4 +1,4 @@
-<!-- checked-against: 3dedfea0ba71fdcfe3b0c442 -->
+<!-- checked-against: 503acf9a2ed0e6b2e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -173,7 +173,7 @@ import 'package:flutter/material.dart';
 import 'package:ikon_sdk/ikon_sdk.dart';
 
 const _ikonHost = String.fromEnvironment('IKON_SERVER_HOST', defaultValue: 'localhost');
-const _ikonPort = int.fromEnvironment('IKON_PORT', defaultValue: 8443);
+const _ikonPort = int.fromEnvironment('IKON_PORT');
 
 void main() => runApp(const MyApp());
 
@@ -413,7 +413,7 @@ dart-defines (a non-empty `IKON_SPACE_ID` is what makes the app treat itself as 
 
 ### Local Development
 
-`IkonClient.connectLocal()` needs no configuration:
+`IkonClient.connectLocal` needs only the port of the Server URL that `ikon run` printed. It has no default port, because several runs share one machine:
 
 <!-- ikon-example: flutter-sdk-auth-local -->
 ```dart
@@ -454,12 +454,13 @@ final client = await IkonClient.connectGuest(
 providers open in a web view that returns to the app's own https origin. The auth service returns a
 token to no other kind of address, so a custom-scheme deep link never receives one. When the
 provider's page cannot load because the phone has no connection, the web view says so and offers
-Try again. Email sign-in uses the code the auth service mails. The token is kept in secure storage,
-so the next launch connects straight in as that user. If the server no longer accepts the token, it is dropped and the
-app connects as a guest. The same happens while the app is open: when a reconnect's token is refused
-because the sign-in expired or was revoked (for example, an organisation's directory removed the person), the
-client registered with `signIn.register` signs the person out and `onIdentityChanged` reconnects the
-app as a guest, which shows its sign-in. `sso:` connections and passkeys are not offered on a phone yet.
+Try again. Email sign-in uses the code the auth service mails. The sign-in is kept in secure
+storage, so the next launch connects straight in as that user. Its token lasts 15 minutes, and the
+SDK renews it with a refresh token before it expires and whenever the server refuses it. When the
+session has ended because it expired or was revoked (for example, an organisation's directory
+removed the person), the person is signed out. At launch the app then connects as a guest. While
+the app is open, the client registered with `signIn.register` signs them out and `onIdentityChanged`
+reconnects the app as a guest, which shows its sign-in. `sso:` connections and passkeys are not offered on a phone yet.
 
 `ikon bundle --flutter-*` passes every method the app's surfaces list as `IKON_AUTH_METHODS` and, when
 none admits anonymous visitors, `IKON_AUTH_REQUIRE_SIGN_IN=true`. The app template already does this; the essential parts are:
@@ -498,9 +499,11 @@ English.
 An app can draw that first screen itself instead, in its own branding. It still passes OAuth
 providers to `signIn.signInWith(method)`, so they return to the https origin. If it asks for the email
 code on its own screen, it exchanges the code with `IkonAuthenticator.verifyEmailCode`, passing the
-address and space the code was sent for, and passes the token to `signIn.signInWithToken(token)`.
-The SDK stores that token like any other and the app reconnects. It returns false when the phone's
-secure storage refuses the token, so the screen can say so and let the user try again. Codes are nine
+address and space the code was sent for, and passes the session it returns to
+`signIn.signInWithSession(session)`. The SDK stores that session like any other and the app
+reconnects. It returns false when the phone's secure storage refuses the session, so the screen can
+say so and let the user try again. An app's own sign-out button calls `signIn.signOut()`, which ends
+the session at the auth service as well. `clearToken()` only removes it from the phone. Codes are nine
 letters and digits unless the app's `[SignIn]` says otherwise, so give the code field
 `emailCodeInputFormatters` and a text keyboard, and pass the typed code through `normalizeEmailCode`
 before verifying it. `ikon bundle` passes the code's format and length as `IKON_AUTH_CODE_FORMAT` and
@@ -567,6 +570,24 @@ Like the other `connect*` helpers it signs in again when the cached tickets expi
 built-in client functions and sends `ClientReady`. A key the backend refuses throws
 `IkonAuthRejectedException`. It also takes `parameters`, `userType`, `joinOnly` and `surface`, as
 `connectGuest` does.
+
+The user an API key connects as is the program's own: it is never one of the app's existing people
+and has no email, so a role the app gives by email does not reach it. A program that a person runs
+acts as that person by signing them in by email, where the surface it enters lists `email`:
+`IkonAuthenticator.startEmailLogin` mails them a code, the person types it in, and
+`IkonAuthenticator.verifyEmailCode` returns a session, and `connectWithToken` connects with its `token`.
+That token lasts 15 minutes. `IkonAuthenticator.refreshSignInSession` renews it with the session's
+`refreshToken`, and each renewal returns a new refresh token.
+The IKON tool hands out no session token for a person.
+
+### Choosing the app instance
+
+`parameters` on a `connect*` call are the app's client parameters, and they pick the app instance:
+`parameters: {'room': 'harbour'}` joins the instance a browser joins at `?room=harbour`, for an app
+whose `SessionIdentity` has a `Room` field (the name's case does not matter). The query of the path
+the first connect opens at counts too, as a browser's address does: `IkonNavigation.instance.open('/?room=harbour')`
+or a launch link before the connect picks the same instance, and a name passed in `parameters` wins
+over the path's. Without either, the client joins the instance with that field empty.
 
 ### Joined and ready
 
@@ -709,6 +730,19 @@ exception in `IkonClient.lastError`:
 
 `reason` is the platform's message and `minimum` the oldest version it accepts.
 
+## Post-quantum key exchange
+
+On every native platform the SDK's connections offer the post-quantum key exchange X25519MLKEM768
+first, and deployed IKON servers choose it. A server on Windows, such as a local `ikon run` there,
+serves TLS through SChannel, which has no ML-KEM, so it negotiates a classical key exchange.
+Unlike the Rust, C++, .NET (Linux) and Node TypeScript
+SDKs, the Dart SDK has no setting that refuses a classical key exchange: `dart:io` cannot limit
+the groups it offers or report the one the server chose. A proxy on the device's network that
+terminates TLS with a certificate the device trusts can therefore still choose a classical key
+exchange. On the web the browser chooses. An app with `RequirePostQuantum = true` in its
+`ikon-config.toml` offers no WebRTC, so the client plays and captures audio over its connection
+and has no video: it neither shows video streams nor captures the camera or screen.
+
 ## Links and Notification Taps
 
 On the web the browser opens the app at the address that was followed, and the app reads that path as
@@ -720,6 +754,11 @@ current entry as the session's initial path, and that entry is `/` unless someth
   raises as `Navigation.PathChangedAsync`, the same as a link tapped inside the app.
 - After a dropped connection, the new session opens at the screen the app was showing, as a reloaded
   browser tab does.
+- The app instance is chosen once, at the first connect (see "Choosing the app instance"). A path
+  opened after it, even one with another `?room=`, only navigates inside the instance, and a reconnect
+  keeps it. To move to another instance, connect a new client with that instance's `parameters`.
+  `ClientFunctions.NavigateToAsync`, which a browser follows to another instance's `JoinUrl`, returns
+  false on a Flutter client.
 - `IkonDeepLinks` reads the link or the tapped notification that launched the app and opens its
   path before the first connect, so the app starts on that screen and `/` is never shown first. It
   then follows the links and notification taps that arrive while the app runs. It handles a link only
@@ -1230,10 +1269,16 @@ final playback = enableIkonAudioPlayback(client);
 
 // Live WebRTC A/V (peer connection to the server SFU via flutter_webrtc);
 // the Opus stack above remains the fallback when WebRTC is unavailable. The peer
-// comes up with the connection unless the surface's Media is none.
+// comes up with the connection unless the surface's Media is none or the
+// server offered no WebRTC entrypoint (client.offersWebRtc is false).
 final webRtcMedia = enableIkonWebRtcMedia(client);
 await webRtcMedia.startCameraCapture();
 ```
+
+`OpusAudioEncoder` and `OpusAudioDecoder` bring their own libopus on Android, iOS, Windows and the
+web. On Linux and macOS they open the system's, so a Linux machine needs the `libopus0` package
+(`apt install libopus0`) and a Mac `brew install opus`; without it their `initialize` throws an
+`UnsupportedError` that says so. This holds for a program without a window too.
 
 The capture `enableIkonAudioCapture` returns can also be started and stopped by the server, with
 `ClientFunctions.StartAudioCaptureAsync` and `StopCaptureAsync`, as on the web, for a microphone an

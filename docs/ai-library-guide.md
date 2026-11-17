@@ -1,4 +1,4 @@
-<!-- checked-against: 6e749b6e537cbb3682ebf3dd -->
+<!-- checked-against: 52278b0984668899622e3004 -->
 
 # Ikon.AI Library Overview
 
@@ -824,7 +824,7 @@ Log.Instance.Info($"Parts: {parts.GlbUrl}, repainted: {repainted.GlbUrl}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.VideoGeneration.md` in an app project).
 
-One-shot text-to-video — defaults to `Veo31Fast` (cheap+fast):
+One-shot text-to-video — defaults to `Veo31Fast`, a premium model that a plan without premium models refuses (`AIAccessDeniedException`); pass a `VideoGeneratorModel` as the second argument to pick another:
 
 Needs the `Ikon.AI.VideoGeneration` using directive.
 
@@ -1212,7 +1212,7 @@ var result = await musicGenerator.GenerateMusicFileAsync(new MusicGeneratorConfi
 await File.WriteAllBytesAsync("music.mp3", await result.GetDataAsync());
 ```
 
-The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending on the `Kind`, plus `MimeType` and `DurationSeconds`. `MusicGenerator` implements `IMusicGenerator`, which extends `IMusicGeneratorInfo` with `SupportsStreaming`, `SupportsEditing` and `SupportsDurationControl`; the same three read off a `MusicGeneratorCapabilities`. Streaming is gated: `GenerateMusicAsync` throws `NonRetryableAIException` on a model whose `SupportsStreaming` is false, and a model without duration control silently ignores `DurationSeconds`. On the ElevenLabs models, an unset `DurationSeconds` means 10 seconds, and one outside 3 to 120 seconds throws `NonRetryableAIException` rather than being clamped.
+The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending on the `Kind`, plus `MimeType` and `DurationSeconds`. `MusicGenerator` implements `IMusicGenerator`, which extends `IMusicGeneratorInfo` with `SupportsStreaming`, `SupportsEditing` and `SupportsDurationControl`; the same three read off a `MusicGeneratorCapabilities`, beside `RequiresInputAudio`, true for `FalStableAudio` and `StableAudio3`, which only edit and throw on a call without `InputAudios`, under `--ai mock` too. Streaming is gated: `GenerateMusicAsync` throws `NonRetryableAIException` on a model whose `SupportsStreaming` is false, and a model without duration control silently ignores `DurationSeconds`. On the ElevenLabs models, an unset `DurationSeconds` means 10 seconds, and one outside 3 to 120 seconds throws `NonRetryableAIException` rather than being clamped.
 
 ## WebScraping
 

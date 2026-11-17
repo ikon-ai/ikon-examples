@@ -1,4 +1,4 @@
-<!-- checked-against: 84594385ccbdbb93e3b0c442 -->
+<!-- checked-against: b597418a28b44172e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -149,7 +149,7 @@ const client = new IkonClient({
 });
 ```
 
-`parameters` is a field of the connection config, so it works the same in the `guest`, `apiKey`, `sessionToken` and `local` modes. The app reads it as its client parameters; with a `SessionIdentity` built on one, it chooses which instance the client joins.
+`parameters` is a field of the connection config, so it works the same in the `guest`, `apiKey`, `sessionToken` and `local` modes. The app reads it as its client parameters. A program in Node has no page URL, so it picks the app instance here: `parameters: { room: 'harbour' }` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
 
 ### API Key Authentication
 
@@ -250,6 +250,8 @@ on Windows and macOS. On Linux, set `NODE_EXTRA_CA_CERTS` to the certificate exp
 ### Session Token Authentication
 
 Use this when the session token was obtained from OAuth flow or anonymous authentication. The JWT token already contains the internal userId.
+
+An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
 <!-- ikon-example: ts-sdk-auth-session-token -->
 ```ts
@@ -1208,6 +1210,22 @@ const client = new IkonClient({
 });
 ```
 
+### Post-Quantum Key Exchange
+
+IKON's deployed servers and load balancers negotiate the post-quantum group X25519MLKEM768 with any client that offers it. `requirePostQuantum: true` makes the client use only connections whose key exchange is post-quantum, with no fallback. It connects over WebSocket or the HTTP stream over TLS, and never over WebTransport or WebRTC, so audio and video go over the protocol channel. Plain connections to `localhost` are also allowed. When the server offers nothing the client may use, `connect()` fails with `NoPostQuantumEndpointError`. An app can also set `RequirePostQuantum = true` in its `ikon-config.toml`, and then its server offers only those transports to every client.
+
+- **Node:** the constructor sets `tls.DEFAULT_ECDH_CURVE` to `X25519MLKEM768` and `tls.DEFAULT_MIN_VERSION` to `TLSv1.3`. These settings apply to the whole process. Every TLS connection the process opens afterwards, including your program's own `fetch` calls, offers only that group, and a server that cannot negotiate it fails the handshake. Create the client before anything else connects, because `fetch` keeps reusing a connection opened earlier with the key exchange it started with. Node's OpenSSL (`process.versions.openssl`) must be 3.5 or later, the first with ML-KEM, or the constructor throws. A local run on Windows cannot negotiate the group, so use the flag against a deployed app or a local run on Linux.
+- **Browser:** a page cannot choose its TLS groups. The browser chooses them, and every current browser offers X25519MLKEM768 first. The flag still keeps WebTransport and WebRTC off, and logs once that the browser chooses the key exchange.
+
+<!-- ikon-example: ts-sdk-require-post-quantum -->
+```ts
+// In Node, before anything else opens a TLS connection: the constructor changes Node's TLS defaults for the whole process
+const client = new IkonClient({
+  apiKey: { apiKey: '...', spaceId: '...', externalUserId: 'worker-1' },  // or local / sessionToken / guest: exactly one
+  requirePostQuantum: true,  // only X25519MLKEM768 over TLS 1.3; never WebTransport or WebRTC
+});
+```
+
 ### Client Identification
 
 <!-- ikon-example: ts-sdk-client-identification -->
@@ -1540,6 +1558,7 @@ const client = new IkonClient({
 | `ServerFullError` | No instance with room (terminal) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |
 | `NoMatchingEndpointTypeError` | Pinned transport/tier not offered by the server (terminal) |
+| `NoPostQuantumEndpointError` | `requirePostQuantum` is set and the server offered no post-quantum transport (a `NoMatchingEndpointTypeError`) |
 | `AppStartupFailedError` | App server failed during startup (terminal) |
 | `SsoRequiredError` | Organisation SSO sign-in required |
 | `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |

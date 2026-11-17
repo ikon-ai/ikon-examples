@@ -1,4 +1,4 @@
-<!-- checked-against: 77c2a9679aa0cd0af0a57758 -->
+<!-- checked-against: 77c2a967f22c630a7e97225d -->
 
 # Ikon.Parallax Library Overview
 

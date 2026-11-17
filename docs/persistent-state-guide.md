@@ -1,4 +1,4 @@
-<!-- checked-against: 98c5e05db8a7aa80c95cb3ff -->
+<!-- checked-against: 3dd6a679b8a7aa80c95cb3ff -->
 
 # IKON Persistent State Guide
 
@@ -350,7 +350,10 @@ each side can be a target name or an app id. Use it to move data into a new app 
 live. Both run on the platform, so you need no Postgres tools and the copied
 data never passes through your machine. `--wait` waits until they finish. If a connection string
 leaks, `ikon db rotate` gives the database a new password, ends the connections that used the old
-one, and stops the app's sessions so the new ones connect with the new password.
+one, and stops the app's sessions so the new ones connect with the new password. The platform also
+gives the database new passwords by itself when someone who could read them loses access: an editor
+or admin leaves the organisation or becomes a viewer, or the app moves to another organisation. A
+running app whose old password is refused fetches its connection strings again and reconnects.
 
 ## The `key:` parameter — loops and refactor-proof state
 

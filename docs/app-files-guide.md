@@ -1,4 +1,4 @@
-<!-- checked-against: 7e9a54a174b21a4a35287887 -->
+<!-- checked-against: cb3d158571d0ea1c0db89ca2 -->
 
 # App Files Guide
 
@@ -43,7 +43,7 @@ app's own URL and lists them (`ListRepoFiles`) from the file list the deploy wro
 | Shipped in `public/` | Its URL path: `public/textures/wall.png` → `"/textures/wall.png"`. On the server, `app.Files.Public.ReadBytesAsync(path)`, or `GetAbsoluteUrlAsync(path)` for `Audio.Play` |
 | Shipped in `data/` | Its relative path via `app.Files.Data`: `"models/db.bin"` |
 | Written at runtime (public) | In the browser, `await app.Files.Public.GetUrlAsync(path)`: a root-relative path on the app's own origin (`/ikon/assets/…`). For a model (`ImageUrlPart`), an email or share text, `GetAbsoluteUrlAsync(path)`. On the server, `app.Files.Public.ReadBytesAsync(path)` |
-| Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
+| Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)`, `OpenReadAsync(path)` for a stream that reads a large file without holding all of it in memory, or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
 
 A runtime-written file's URL is not built from its path, and it changes on every write: the file
 is stored under a new URL and the old one stops working (a public one only once caches let it go,
@@ -81,8 +81,8 @@ run these commands.
 
 | You run | What happens to binaries |
 |---|---|
-| `ikon save`, `bundle`, `deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
-| `ikon run`, `clone`, `pull`, `restore` | Each pointer whose real file is missing, or still has the bytes the tool last left there after its pointer moved, downloads the stored bytes over it. A binary edited since then is kept as it is, with a warning: `ikon save` stores the edit and `ikon asset materialize --force` restores the stored bytes. |
+| `ikon save`, `bundle`, `deploy` | New and edited binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. A binary that still has the bytes the tool last left there, while its pointer names newer ones, is out of date rather than edited, so it is not uploaded. A file that has a pointer is still uploaded when it later reads as text. Binaries under `artifacts/`, `bin/`, `build/`, `dist/`, `obj/` and `node_modules/` stay in git as they are, and so do symbolic links. Files stream to the store, so their size is not limited by memory. A file that changes while it uploads is not stored, and a binary whose pointer has merge-conflict markers is not uploaded, so the pointer is left as it is. The command names each such file, so you can fix it and save again. |
+| `ikon run`, `clone`, `pull`, `restore`, `revert`, and a `save` that merged newer cloud changes | Each pointer whose real file is missing, or still has the bytes the tool last left there after its pointer moved, downloads the stored bytes over it, after checking they match the pointer's hash. A broken pointer (conflict markers from a merge) is listed as missing, and its file is not restored. A binary edited since then is kept as it is, with a warning: `ikon save` stores the edit and `ikon asset materialize --force` restores the stored bytes. |
 
 Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that
@@ -106,7 +106,7 @@ for example. Each rename is listed, and code that loads the file by its old name
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
 `ikon asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
-development never needs them. `materialize` replaces a binary that is only out of date (its pointer changed after a pull or a branch switch, and the file still has the bytes the tool last left there), keeps one you edited and warns (`--force` restores the stored bytes), and `normalize` leaves binaries git does not track yet alone unless given `--include-untracked`. `ikon duplicate` re-homes stored binaries under the copy.
+development never needs them. `materialize` replaces a binary that is only out of date (its pointer changed after a pull or a branch switch, and the file still has the bytes the tool last left there), keeps one you edited and warns (`--force` restores the stored bytes), and `normalize` leaves binaries git does not track yet alone unless given `--include-untracked`. Like git, the tool reads a binary again only when its size, modified time or creation time changed, so it misses an edit that keeps all three the same. Before a `gc` that can delete (`--scope window` or `current`), it fetches the app's repository, so it does not delete a stored binary that a commit pushed by someone else uses. A save checks that the Asset store still has every binary it is about to push, and uploads one again from your copy when a `gc` run from another clone removed it. `ikon duplicate` re-homes stored binaries under the copy. The `.ikonasset` pointers in `public/` are not deployed.
 
 ## A shared app's node_modules
 
@@ -165,10 +165,18 @@ use (optimistic concurrency, metadata, streams, custom storage paths).
 
 The pointer scheme itself is `AssetLinkManager`, which the tooling drives over a repository:
 `NormalizeAsync` converts raw binaries to pointers (upload the bytes, write the `.ikonasset`,
-git-ignore the real path), throwing `AssetNormalizeException`, whose `NotWritten` lists the binaries
-left raw, after the rest are converted when a pointer cannot be written (a read-only folder), and `MaterializeAsync` puts the real files back, hash-checked and
-idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when a
-blob is missing from the store. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
+git-ignore the real path). When it leaves some binaries raw, it converts the rest first and then throws
+`AssetNormalizeException`. Its `NotWritten` lists the binaries whose pointer cannot be written (a
+read-only folder), and `Unresolved` lists, as `path: reason`, those left because of the file itself (a
+pointer with conflict markers, a file that changed while it uploaded). `MaterializeAsync` puts the real files back, hash-checked and
+idempotent. It restores every file it can, then throws `AssetMaterializeException`, whose `Failures`
+lists `path: reason` for each file it could not restore: a blob missing from the store, stored bytes
+that do not match the pointer's hash, a pointer that does not parse, or a link where the file belongs.
+`StoreMissingAsync(repoDir)` asks the store about each pointer that differs from the upstream branch
+and uploads again any whose bytes are gone, from the real file when that file still has those bytes.
+It returns an `AssetStoreCheck`. `Stored` lists the files it uploaded again, and `Missing` lists the
+pointers whose bytes are gone and have no real file here to upload them from.
+Storage is behind `IAssetBackend` (upload, download, delete, public URL, exists), whose
 platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private
 ones readable only by the app, everything content-addressed by SHA-256 plus file extension and keyed
 by space, so identical bytes of the same extension and class upload once per space and a pointer's

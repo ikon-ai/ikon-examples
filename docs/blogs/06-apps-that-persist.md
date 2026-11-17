@@ -61,7 +61,7 @@ When someone reconnects, they see how far the analysis has got.
 
 Keeping state across code changes helps most during development. In most frameworks, changing your code means restarting the server and losing all state. You are in the middle of testing a multi-turn AI conversation, you notice a UI issue, you fix it, and now you have to recreate the entire conversation from scratch.
 
-IKON's hot reload keeps state. When you change your code, the platform saves the current state, compiles the new code, creates a new instance of the application, restores all state, and resumes. An AI conversation in progress continues, and background tasks continue from where they were.
+IKON's hot reload keeps state. A change inside a method is applied to the running application in milliseconds, with nothing stopped. For a larger change the platform saves the current state, compiles the new code, creates a new instance of the application, restores all state, and resumes. Either way, an AI conversation in progress continues, and background tasks continue from where they were.
 
 This changes how you develop AI applications, because you can change behavior and presentation while a long workflow is running, without restarting the workflow.
 

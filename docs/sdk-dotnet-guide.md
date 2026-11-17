@@ -1,4 +1,4 @@
-<!-- checked-against: 7142e23cb2758c5cca486dd1 -->
+<!-- checked-against: cd6178e990a1e549830d690b -->
 
 # IKON C# SDK
 
@@ -94,6 +94,36 @@ var config = new IkonClientConfig
 };
 ```
 
+### Post-quantum key exchange
+
+Set `RequirePostQuantum = true` to make every connection the client makes use TLS 1.3 with the
+post-quantum X25519MLKEM768 key exchange and nothing else: the sign-in, the connect, and the channel.
+A server that cannot do it fails the handshake, and the client does not fall back to a classical key
+exchange. The client then opens no UDP side channel, because its DTLS is always classical, and uses
+unencrypted TCP only to a server on the same machine. An app whose `ikon-config.toml` sets
+`RequirePostQuantum` offers only connections that can use this key exchange.
+
+<!-- ikon-example: sdk-require-post-quantum -->
+```csharp
+var config = new IkonClientConfig
+{
+    // ... authentication ...
+    RequirePostQuantum = true,
+};
+```
+
+It works on Linux only, with OpenSSL 3.5 or later, in the SDK's .NET 10 build. Elsewhere
+`ConnectAsync` throws a `UserException` and leaves the client unchanged, because Windows' TLS has no
+ML-KEM, macOS's TLS cannot be limited to one key exchange, OpenSSL before 3.5 has no ML-KEM (Ubuntu
+24.04 ships 3.0), and the .NET Standard 2.1 build cannot set the TLS options of its connections.
+
+.NET has no API that chooses a TLS key exchange, so the first connect loads an OpenSSL configuration
+for the whole process. Every TLS connection the process sets up after it, made or accepted, by the SDK
+or anything else, offers only X25519MLKEM768 and TLS 1.3. The SDK's own connections are limited even
+if the process used TLS before, but a connection the rest of the program makes can reuse a classical
+TLS setup from before that first connect. The `Backend` and `UserLogin` modes sign in through such a
+shared setup, so with them, connect before the program opens other TLS connections.
+
 ## Authentication Modes
 
 The SDK supports eight authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
@@ -103,6 +133,8 @@ headless tests; production clients use `ApiKey` or `Backend`. `UserToken` connec
 token for the space that was issued elsewhere. The constructor also throws `ArgumentException`
 when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
 `SpaceId` and `ExternalUserId`, `UserLogin`'s or `Guest`'s `SpaceId`, `UserToken`'s `SpaceId`, `Token` and `BackendUrl`, or `Local`'s `Host` and a positive `HttpsPort`.
+
+`IkonClientConfig.Parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance there: `Parameters = new Dictionary<string, string> { ["room"] = "harbour" }` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty. A connect URL or a resumed auth response already names its instance.
 
 ### API Key Authentication
 
