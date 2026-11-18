@@ -42,12 +42,6 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
         new("Matilda", "XrExE9yKIg1WjnnlVkGX", SpeechGeneratorModel.Eleven3, "ElevenLabs"),
         new("Jessica", "cgSgspJ2msm6clMCkdW9", SpeechGeneratorModel.Eleven3, "ElevenLabs"),
         new("Lily", "pFZP5JQG7iQjIQuC4Bku", SpeechGeneratorModel.Eleven3, "ElevenLabs"),
-        new("Alloy", "alloy", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
-        new("Echo", "echo", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
-        new("Fable", "fable", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
-        new("Onyx", "onyx", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
-        new("Nova", "nova", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
-        new("Shimmer", "shimmer", SpeechGeneratorModel.Gpt4OmniMiniTts, "OpenAI"),
         new("Adam", "en-US-AdamMultilingualNeural", SpeechGeneratorModel.AzureSpeechService, "Azure"),
         new("Emma", "en-US-EmmaMultilingualNeural", SpeechGeneratorModel.AzureSpeechService, "Azure"),
         new("Brian", "en-US-BrianMultilingualNeural", SpeechGeneratorModel.AzureSpeechService, "Azure"),
@@ -266,7 +260,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
             var ctx = new KernelContext();
             var responseText = new System.Text.StringBuilder();
 
-            await foreach (var ev in Emerge.Run<VoiceTutorReply>(LLMModel.Claude45Sonnet, ctx, pass =>
+            await foreach (var ev in Emerge.Run<VoiceTutorReply>(LLMModel.Claude55Sonnet, ctx, pass =>
             {
                 pass.Command = contextSummary;
                 pass.SystemPrompt = GetSystemPrompt();
