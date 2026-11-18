@@ -1,4 +1,4 @@
-<!-- checked-against: a359a3fa5649e151e3b0c442 -->
+<!-- checked-against: 4318f750fe0b46dde3b0c442 -->
 
 # IKON Rust SDK
 
@@ -53,7 +53,7 @@ use ikon_sdk::{
 
 ### API Key Authentication
 
-A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app on `*.dev.ikonai.app`.
+A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`.
 
 <!-- ikon-example: rust-sdk-connect -->
 ```rust
@@ -78,6 +78,8 @@ if let Ok(message) = messages.recv().await {
 
 client.disconnect().await?;
 ```
+
+`IkonClient::new` returns `Result<Arc<IkonClient>>`, and the client's methods take `self: &Arc<Self>`, so a function of the program's own takes the client as `fn f(client: &Arc<IkonClient>)`, and a spawned task gets `Arc::clone(&client)`.
 
 `connect` returns once the client is in the session and the app knows it, so code after it can call the app at once. `join_only: true` with `UserType::Machine` joins only a session that is already running and does not keep it open; the connect then fails with `SdkError::NoLiveSession` when nothing runs.
 
@@ -138,9 +140,11 @@ client.connect().await?;
 
 Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. The app sees a guest as `UserType::Human`.
 
+A guest has no token to renew. The client asks for a new guest token on every `connect` and on every reconnect that joins a new session; a reconnect that resumes the dropped session needs none. When the backend or the app refuses the guest (401 or 403), a reconnect stops at once and the client goes `Offline` (see [Connection Lifecycle](#connection-lifecycle)); only a new `connect` tries again.
+
 ### User Tokens
 
-A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token.
+A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token: `https://api.prod.ikon.live` (`BackendType::Production.base_url()`) for an app on `*.ikonai.app`, `https://api.dev.ikon.live` (`BackendType::Development.base_url()`) for one on `*.dev.ikonai.app`.
 
 An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
@@ -166,6 +170,8 @@ match client.connect().await {
     other => other?,
 }
 ```
+
+`SdkError` is `#[non_exhaustive]` because a later release can add variants. A `match` on it therefore needs a catch-all arm, such as the `other` arm here.
 
 The client cannot renew the token itself. When the backend refuses it (401) or the app refuses the user (403), `connect` fails. During a reconnect, the client stops reconnecting at once, goes `Offline` and reports the refusal on `error_occurred`. `update_auth_token` sets the token that every later connect and reconnect uses. It fails for a client that was not configured with a user token.
 
@@ -195,7 +201,7 @@ A reconnect into a new session uses the same URL, so once its token has expired 
 | `clients` | another client joined, changed its context or left (see Other Clients) |
 | `disconnected`, `stopping`, `error_occurred` | the link dropped, the server is stopping, a connect or reconnect failed |
 
-When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), or, for a client that is not local, the backend or the server refuses the credential (401) or the app refuses the user (403). `disconnect` leaves the session and goes `Idle`. The HTTPS port is used only to get the session. The session itself runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees the session's traffic, and only that link dropping starts a reconnect.
+When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), or, for a client that is not local, the backend or the server refuses the credential (401) or the app refuses the user (403). `disconnect` leaves the session and goes `Idle`. The HTTPS port is used only to get the session. The session itself runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees the session's traffic, and only that link dropping starts a reconnect.
 
 `ikon stop` does not test a reconnect: the server says it is stopping (`stopping`) before it closes the link, so the client goes `Offline` and does not try again. The next `ikon run` can take another port, so a program that should keep going makes a new `IkonClient` with the port that run prints. The IKON tool has no command that drops one client's link on a local run.
 
@@ -495,6 +501,20 @@ println!("{:?}", status.text("content"));
 
 `wait_for_node` returns at once when a node already matches, and otherwise waits for the update that adds one. `call_node_action` returns whether the app's handler completed; `false` means the app refused the call, for example for a control that has since been removed from the UI. A call made while the client reconnects waits for it, as a function call does.
 
+The standard components put their text and labels in these props:
+
+| Node type | Text and labels | Action and its payload |
+|---|---|---|
+| `std.text` | `content` | |
+| `std.heading` | `content`, and `level` 1 to 6 | |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
+| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
+| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+
+To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
 Nodes never change: an update replaces the nodes on the changed path, so a node read earlier keeps its old props. The `ui` event delivers each stream as it changes:
 
 <!-- ikon-example: rust-sdk-ui-events -->
@@ -711,12 +731,12 @@ The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendM
 
 `IkonClientConfig::with_local`, `with_api_key`, `with_guest`, `with_user_token` and `with_connect_url` fill in the defaults; change a field on the value before `IkonClient::new`.
 
-- `timeouts` holds `connection` (the join), `provisioning` (waiting for the app's server to start), `max_reconnect_attempts` and `reconnect_backoff`.
-- `description`, `product_id`, `version_id`, `install_id`, `user_agent` and `locale` describe the client to the app.
-- `device_id` names the device. Left `None`, `IkonClient::new` sets a random one, which every connect and reconnect of that client sends; `client.config().device_id` reads it.
-- `parameters` are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
-- `opcode_groups_from_server` and `opcode_groups_to_server` choose the kinds of message the client receives and sends; the default is every group, `Opcode::GROUP_ALL | Opcode::GROUP_APP_LOCAL`.
-- `local_client_proof` matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `LocalConfig::user_id`. A program on the same machine connecting to `localhost` needs none.
+- `timeouts` is a `TimeoutConfig` holding `connection` (the join, a `Duration`, 30 s), `provisioning` (waiting for the app's server to start, 60 s), `max_reconnect_attempts` (`u32`, 6) and `reconnect_backoff` (`Duration`, 500 ms).
+- `description` and `locale` (`String`, defaults `"Ikon SDK Rust"` and `"en-US"`) and `product_id`, `version_id`, `install_id` and `user_agent` (`Option<String>`) describe the client to the app.
+- `device_id` (`Option<String>`) names the device. Left `None`, `IkonClient::new` sets a random one, which every connect and reconnect of that client sends; `client.config().device_id` reads it.
+- `parameters` (`BTreeMap<String, String>`) are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
+- `opcode_groups_from_server` and `opcode_groups_to_server` (`u32`) choose the kinds of message the client receives and sends; the default is every group, `Opcode::GROUP_ALL | Opcode::GROUP_APP_LOCAL`.
+- `local_client_proof` (`Option<String>`) matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `LocalConfig::user_id`. A program on the same machine connecting to `localhost` needs none.
 
 ### Post-Quantum Key Exchange
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 23c3141ad5c2d263cdd04676 -->
+<!-- checked-against: 65438f3fd5c2d263cdd04676 -->
 
 # Ikon.App.Email Guide
 
@@ -29,7 +29,8 @@ and transient delivery failures are retried server-side. A recipient the platfor
 refused at send time with an `EmailRecipientUndeliverableException`. It carries the `Recipient` and
 a `Reason` (an `EmailUndeliverableReason`): `ReservedDomain` for the domains `example.com`,
 `example.net`, `example.org` and the `.test`, `.example`, `.invalid` and `.localhost` TLDs, and
-`Suppressed` for an address that bounced or complained before. Retrying the same recipient fails the
+`Suppressed` for an address that bounced or complained before. The exception's message names the
+reason but not the address, so you can log it. Retrying the same recipient fails the
 same way. The exception is an `HttpRequestException` with status 422, so a handler for that still
 catches it. Replace the `To` above with a real address before running it. Missing
 fields and the limits below, except the metadata key count, throw `ArgumentException` locally, before

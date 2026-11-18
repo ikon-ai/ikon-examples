@@ -1,4 +1,4 @@
-<!-- checked-against: 4f96b665bf764ff50cde5d60 -->
+<!-- checked-against: 4f96b6659bcff6470cde5d60 -->
 
 # Google Connector Guide
 

@@ -1,4 +1,4 @@
-<!-- checked-against: bb776fbe2b3643c4e3b0c442 -->
+<!-- checked-against: a43fe160c52d19b2e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -223,7 +223,7 @@ Each device id gets a guest user of its own, unless the app's guest sign-in puts
 
 ### User Tokens
 
-A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token.
+A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token: `https://api.prod.ikon.live` for an app on `*.ikonai.app`, `https://api.dev.ikon.live` for one on `*.dev.ikonai.app`.
 
 An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
@@ -731,6 +731,20 @@ if (std::shared_ptr<const UIStream> page = ui.Page())
 
 A `UIStream` is one mount at one moment: `category` is `"ikon-ui"` for the app's page (also `Page()`), `"ikon.platform"` for the platform's layer above it, or another mount the app declares. `Streams()` lists them all. A `UINode` has an `id`, a `type` naming the component (`"std.button"`, `"std.text-field"`), its `props` as JSON, its `children` and its `styleIds` into `Styles()`. Nodes are immutable: an update replaces the nodes on the changed path and keeps the rest, so a node read earlier stays as it was. `UINode::Find` and `UIStream::FindNode` search a tree depth first.
 
+The standard components put their text and labels in these props:
+
+| Node type | Text and labels | Action and its payload |
+|---|---|---|
+| `std.text` | `content` | |
+| `std.heading` | `content`, and `level` 1 to 6 | |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
+| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
+| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+
+To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
 `Actions()` lists a node's actions by prop: `"onInvokeId"` for a button's press, `"onValueChangeId"` for a text field's new value, `"onCheckedChangeId"` for a checkbox. `CallAction` sends `"{}"` by default; a text field's payload is the text itself, a checkbox's `"true"` or `"false"`. It blocks until the app answers and returns whether the handler completed, and throws `std::runtime_error` when not connected, on a timeout (30 s by default), and when the client moves to a new server session before the answer arrives. `StreamUpdated` and `StreamEnded` run on the receive thread, which delivers `CallAction`'s answer, so never call `CallAction` from them or from `MessageReceived`. A reconnect into the same session asks for every tree again; one into a new session ends every stream. `RequestResync(stream)` asks for a whole tree on demand.
 
 A client that leaves `Opcode::GROUP_UI` out of `IkonClientConfig::opcodeGroupsFromServer` gets no UI: `IsEnabled()` is false and the trees stay empty.
@@ -863,6 +877,8 @@ private:
 };
 ```
 
+On Linux and macOS, a write to a connection the peer has reset raises `SIGPIPE`, which ends the program by default. A network client must turn it into a failed write: `ExampleNetworkClient` sets `SO_NOSIGPIPE` on the socket where it exists (macOS) and on Linux gives OpenSSL a socket BIO of its own (`ExampleSocketBio`) that writes with `send(..., MSG_NOSIGNAL)`. A client that writes with `send` itself passes `MSG_NOSIGNAL` the same way.
+
 The SDK calls `SetVerifyServerCertificate` before each `Connect`: `true` (the default) for the cloud, and `false` only when `IkonClientConfig::local` is set, because a local IKON server's certificate is self-signed. `ExampleNetworkClient` verifies the chain against the system's trusted roots (the Windows root store on Windows, OpenSSL's default paths elsewhere) and checks the host name or IP address; when verification fails, `Connect` throws `std::runtime_error` naming the host and the reason.
 
 ## Advanced Configuration
@@ -882,11 +898,11 @@ In API-key mode the `/init` request that waits up to `provisioningTimeoutSec` is
 
 ### Reconnection
 
-When a connection the client joined drops, the client reconnects by itself. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one. After `maxReconnectAttempts` failed attempts it goes `Offline`, and only a new `Connect()` connects it again. The client stops reconnecting at once and goes `Offline` when retrying cannot help: a `joinOnly` client finds no live session, the platform refuses the client's build (`ClientUpgradeRequiredException`), the backend refuses the credential or the app refuses the user (`AuthRefusedException`), or a server refuses the token in an `externalConnectUrl`.
+When a connection the client joined drops, the client reconnects by itself. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `RateLimitedException` (a 429 that is not a full server), the next attempt waits at least its `retryAfter`, capped at 5 minutes, plus up to half as long again. After `maxReconnectAttempts` failed attempts it goes `Offline`, and only a new `Connect()` connects it again. The client stops reconnecting at once and goes `Offline` when retrying cannot help: a `joinOnly` client finds no live session, the platform refuses the client's build (`ClientUpgradeRequiredException`), the backend says the app is not available (`SpaceNotFoundException`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), the backend refuses the credential or the app refuses the user (`AuthRefusedException`), or a server refuses the token in an `externalConnectUrl`.
 
 Each attempt first tries to resume the session the client had. It opens a new connection to the same server address with that session's auth ticket and does not ask for a new session, so the app still has the client's session and what it keeps for it. The server holds a dropped session for its soft-retry window, which it sends in `AuthResponse.SoftRetryWindowMs` and which is 5 minutes by default. The attempt starts a new session instead, as `Connect()` does, when the window has passed, or when the server closes the connection before the client has joined, which is how it refuses a session it no longer holds. The server then ends the old session. Once the server has answered a request for a new session, the later attempts start new sessions too.
 
-An attempt that cannot open a connection at all, as while the network is down, costs the server nothing. During the first half of the attempts, the next attempt tries to resume the session again. From the second half on, such an attempt also asks for a new session, so a server that has gone away is replaced. A request for a new session that reaches nothing leaves the old session held, and the next attempt tries to resume it again. With the default 6 attempts and 500 ms backoff, the attempts run about 0.5, 1.5, 3.5, 7.5, 15.5 and 31.5 seconds after the drop, so a client whose network comes back within about 15 seconds returns to the session it had.
+An attempt that cannot open a connection at all, as while the network is down, costs the server nothing. During the first half of the attempts, the next attempt tries to resume the session again. From the second half on, such an attempt also asks for a new session, so a server that has gone away is replaced. A request for a new session that reaches nothing leaves the old session held, and the next attempt tries to resume it again. With the default 6 attempts and 500 ms backoff, the attempts run at most about 0.5, 1.5, 3.5, 7.5, 15.5 and 31.5 seconds after the drop, so a client whose network comes back within about 15 seconds returns to the session it had.
 
 A resumed join ends the same way as a new one: the client announces its shared functions, reports ready, and `Ready` runs.
 

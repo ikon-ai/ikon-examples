@@ -1,4 +1,4 @@
-<!-- checked-against: cd6178e990a1e549830d690b -->
+<!-- checked-against: 9e1508bb9a53c59554704d17 -->
 
 # IKON C# SDK
 
@@ -138,7 +138,7 @@ when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and 
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`.
 
 <!-- ikon-example: sdk-api-key-config -->
 ```csharp
@@ -287,7 +287,7 @@ other `Ikon.*` libraries, and is on nuget.org. That published package also works
 that this machine builds from platform sources, locally and deployed, so the program needs no
 source build of its own. When `ikon update` raises the versions in the app's csproj, raise the
 program's `Ikon.Sdk` to match. `OnMessage<T>`, `IkonClientConfig.LogFilter`, the console log at
-`Info` on stderr and `LocalConfig.SpaceId` need `Ikon.Sdk` 2.0.54 or later; `ikon update` raises an
+`Info` on stderr and `LocalConfig.SpaceId` need `Ikon.Sdk` 2.0.54 or later, which every 2.1 and later release is; `ikon update` raises an
 app whose csproj lists an earlier one. An earlier package logs
 every connect step to stdout; `Log.Instance.Filter = LogFilter.Info;` before creating the client
 keeps the steps out.
@@ -607,14 +607,14 @@ var config = new IkonClientConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
         MaxReconnectAttempts = 4,                                 // Max attempts (default)
-        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
         ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted. A `JoinOnly` client whose reconnect finds the session ended does not: it stays `Offline`.
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying from the `Offline` state after the fast reconnection attempts are exhausted. It waits 10 seconds, doubled after each failed attempt up to `MaxReconnectDelay` (5 minutes), and at least as long as a 429's `Retry-After`. It stops and stays `Offline` when retrying cannot help: a refused sign-in (401, 403), an app that is not available (404, 410: suspended, unpublished or not deployed), an SDK or app build the platform no longer runs (426), or a `JoinOnly` reconnect that finds the session ended.
 
 A function call made while the client is reconnecting waits for the reconnect and is sent once the
 client is ready again; see [Calling Functions](#calling-functions).
@@ -641,6 +641,11 @@ client.CredentialRejectedAsync += async e =>
 reconnecting with the new token at once. Call it whenever the program renews the token, too; a
 connected client uses it the next time it signs in. A first `ConnectAsync` that is refused throws
 the `HttpRequestException` instead.
+
+An `ApiKey` client posts its key at every sign-in, so it has no token to renew. A key that was
+deleted is refused with 403: the client raises `ErrorOccurredAsync` and `DisconnectedAsync` and
+stays `Offline`, and `CredentialRejectedAsync` is not raised. It connects again only through a new
+client configured with a new key.
 
 ## Sending Messages
 
@@ -1008,8 +1013,21 @@ be empty then; `WaitForNodeAsync` waits for it. A node's `Actions` lists its act
 `onInvokeId`, a text field's new value `onValueChangeId`, a checkbox's `onCheckedChangeId`. A press
 sends `{}`, a text field the text itself, a checkbox `true` or `false`. A disabled control carries no
 action, so waiting until `node.GetActionId("onInvokeId")` is not null waits until a button can be
-pressed. The props hold a control's text: `label` on a button, `content` on `std.text` and
-`std.heading`.
+pressed.
+
+The standard components put their text and labels in these props:
+
+| Node type | Text and labels | Action and its payload |
+|---|---|---|
+| `std.text` | `content` | |
+| `std.heading` | `content`, and `level` 1 to 6 | |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
+| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
+| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+
+To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
 
 The SDK acknowledges each tree it applies, so the app can remove the actions no client can call any
 longer. When a change cannot be applied, or after the connection drops and the client rejoins the same
@@ -1257,7 +1275,7 @@ var config = new IkonClientConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
         MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
-        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
         ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }

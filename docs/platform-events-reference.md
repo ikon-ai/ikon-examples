@@ -1,4 +1,4 @@
-<!-- checked-against: 076f8713bb7f03754fb1f942 -->
+<!-- checked-against: 894774f4bb7f03754fb1f942 -->
 
 # IKON Platform Events
 
@@ -45,7 +45,11 @@ has a `.`/`_`/`-`-delimited segment naming an email, phone number (`phone`, `msi
 tag it `{ sensitive: true, value }`. The segment must be one of these spellings whole, so
 `card_number`, `national_id` or `bank_account` is not matched. Tagging a value can only add
 protection, never remove it: a key matching the pattern is withheld whether you tag it or not. Keep
-personal data out of event parameters anyway, and do not rely on this filter to catch it.
+personal data out of event parameters anyway, and do not rely on this filter to catch it. When a
+.NET app uploads an event, email addresses, international phone numbers, home folders and the computer's account name in every
+value you did not tag are replaced with `<email>`, `<phone>`, `<home>` and `<user>` before the event is sent.
+An untagged `email` parameter is therefore withheld with the value `<email>`. Tag a value if you
+need its real value kept.
 
 No event records a client IP address. Where a client connected from is reported as a country, region
 and city by `client_geo` below, resolved at the network edge without the platform reading the
@@ -105,7 +109,7 @@ Kept 30 days.
 | `server_initialized` | `CORE_SERVER_INIT` message processing finished — plugins + extensions loaded | `durationMs` (block duration), `pluginsInitMs`, `extensionsInitMs` |
 | `server_started` | Server is fully started and accepting traffic | `elapsedTimeMs` |
 | `server_stopped` | Server has shut down cleanly | `stopDurationMs` |
-| `server_failed` | Uncaught exception in the server entry point | `class` (`dependency` when the backend, the network or a database failed under it, else `defect`), `type`, `message`, `stackTrace` |
+| `server_failed` | Uncaught exception in the server entry point | `class` (`expected` for a cancellation while the server was being stopped, `dependency` when the backend, the network or a database failed under it, else `defect`), `type`, `message`, `stackTrace` |
 
 ## Client / session lifecycle
 
@@ -305,6 +309,18 @@ on them shows the old names. If you query the raw events directly, you have to h
 `pipeline-run` also still emits the superseded `toolkitRelease` / `toolkitReleaseVersion` spellings
 alongside the `ikonTool*` pair. Prefer the `ikonTool*` keys in anything new.
 
+## Connection outages
+
+Kept 30 days.
+
+| Event | Source | Payload |
+|---|---|---|
+| `client_connection_recovery` | TypeScript SDK in the browser, once per outage of a client that had been connected: when the connection is back, when the client stops trying, when the app closes the client, or when the page closes first | `clientInstanceId`, `detector` (what noticed the connection was gone: `keepalive`, `resume` for a page that woke from suspension, `networkChange`, `lateAck` for a late action ack, `ackTimeout`, or `transportClose` when the browser reported it closed), `closeReason`, `outcome` (`soft`, `fullReauth` and `newSession` are recoveries; `gaveUp`, `closed`, `pageLeft` are not), `outageMs` (from the moment the outage was noticed), `hiddenAtDetection`, `endpointType`; `tabId` and `netType` unless the visitor asked not to be tracked |
+
+The SDK's log lines from the same page carry `pageLoadId`, `clientInstanceId`,
+`connectedAppSessionId` and `connectedIkonServerId` as labels, so the lines around an outage can be
+found by the `clientInstanceId` the event names.
+
 ## Connect latency timeline
 
 Kept 30 days.
@@ -360,7 +376,7 @@ zero of them. Successful calls are not tracked individually.
 | Event | When | Payload |
 |---|---|---|
 | `rpc_server_call_failed` | A function call was rejected at validation, or threw while executing | `class`, `callId`, `functionName`, `version` (requested), `versionResolution`, `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
-| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or threw — after its retries ran out, or on its first attempt when the error was not one to retry. Not emitted on first-attempt success. | `class`, `callId`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
+| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or threw — after its retries ran out, or on its first attempt when the error was not one to retry. Not emitted on first-attempt success. | `class`, `callId`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed` / `app_stopped`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
 | `rpc_server_version_resolved` | A hosted function version served a call for the first time, once per version and calling app. Hosts that register no versions stay silent, so an ordinary app emits none. | `functionName`, `version` (requested), `hostedVersion`, `versionResolution`, `callerSpaceId`, `callerSessionId` |
 
 `versionResolution` taxonomy: `None`, `Exact`, `Floor`, `Greatest`, `Current`, `Unversioned`,
@@ -379,11 +395,13 @@ itself, such as subscribing to a reactive the server does not have, is `user_err
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
 `RemoteError`, `IOError`, `Other`. On the client, `class` is `expected` for `succeeded_after_retry`,
-for a call the caller cancelled itself, and for a spend limit or policy denial the far side enforced
+for `app_stopped`, for a call the caller cancelled itself, and for a spend limit or policy denial the far side enforced
 on purpose. A denial whose limit check itself failed stays `dependency`, as on the server. Any other
 call that `failed` is classed by the error the far side threw, using the same rule as the AI
 operation's own `{eventName}_failed` row (below): a refused prompt, and a plan, credit or spend limit that denied the call on purpose, are `expected`, a request the model rejects is `user_error`, an empty provider account
-is `provider_credit`, and everything else is `dependency`.
+is `provider_credit`, and everything else is `dependency`. When an app stops, every call still
+waiting on its Ikon.AI connection fails at once. Only the first of them records a row, with
+`finalOutcome` `app_stopped`, so each stop adds one row.
 
 ## Resource and health
 
@@ -393,7 +411,7 @@ Kept 30 days.
 |---|---|---|
 | `ikon_server_resource_usage` | A server's session ended and its host sent the server's final usage counters. One row per session, two when its stop was reported twice. A hosted server sends none. | `appSession`, `ikonServer`, `source`, `prestarted`, `customerHost`, `shape` (the size by its current name), `customLimits`, `computeProfile`, `ikonServerVersion`, `appBundleVersion`, `lifetimeSeconds`, `peakHumanClients`, `memoryLimitMb`, `startWorkingSetMb` and `startManagedMb` (from a status ping at least a minute into the session and a minute after the server's first ping; absent when none came), `peakWorkingSetMb` (the highest working set the host polled), `peakMemoryMb` (the cgroup's high-water mark, page cache included), `endWorkingSetMb` (the working set when the server stopped; absent when its container was already gone), `oomKills`, `managedOoms`, `managedOomExits` (the ones known when the final usage counters arrived; a kill or exit that only the server's failure report names is in `ikon_server_oom`, not here), `cpuThrottledSeconds` |
 | `ikon_server_oom` | A server ran out of memory and was killed. Reported from outside the dying process, so it survives even a hard kill. | `class` (`expected` when the app outgrew its own memory limit, `dependency` when the host ran short of memory, which is always the case for a server with no limit of its own), `ikonServerId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `memoryLimitMb`, `peakMemoryUsageBytes` (the highest working set the host's 5-second polls read from the server's cgroup: `memory.current` less inactive page cache, shared memory included), `cgroupMemoryPeakBytes` (the cgroup's own high-water mark, page cache included: what the kernel counted against the limit, or 0 when it could not be read), `exitCode`, `failureCategory`, `failureSubCategory`, `cgroupMemoryLimited`, `isStartupFailure`, `uptimeMs`, and from the kernel's counters of the dead container, null when they could not be read: `memoryLimitReached` (how often usage reached the limit), `oomKillCount` (the processes killed for memory; more than 1 means a child process was killed before the server), `shmemAtExitBytes` (shared memory still charged to the container after its processes ended, such as files in a tmpfs or `/dev/shm`) and `fileAtExitBytes` (the page cache still charged, shared memory included) |
-| `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
+| `oom_recovered` | The in-process memory guard recovered from memory pressure and the process survived. Once per process lifetime, so a thrashing spike cannot flood analytics. | `heapSizeBytes`, `totalAvailableMemoryBytes`, `memoryLoadBytes`, `highMemoryLoadThresholdBytes`, `recoveriesInWindow`, `maxRecoveriesPerWindow`, `recoveryWindowSeconds`, `recoveriesInLongWindow`, `maxRecoveriesPerLongWindow`, `longRecoveryWindowSeconds`, `processMemoryBytes`, `containerMemoryLimitBytes`, `memoryInfo` |
 | `host_server_needs_recycle` | A host server decided it must be recycled | `hostServerSessionId`, `reason` |
 | `legacy_usage_observed` | A deprecated code path was reached, reported by the server, the host agent (a started bundle's platform version) or the backend (an old client and the space that sent it). Deduplicated per process on every field but `sessionId`, so it reports first contact, not call volume. | `feature`, `detail`, `sessionId`, `callerSpaceId`, `spaceId`, `contextType`, `userType`, `sdkType`, `productId` |
 
@@ -519,7 +537,7 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 | `billing_async_payment_completed` | A deferred payment method settled later | `paymentProvider`, and the settlement details |
 | `billing_invoice_paid` | An invoice was paid | the invoice and period details |
 | `billing_credits_added` | Credits were added to an organisation | `source`, `credits`, `subscriptionRemaining`, `purchasedRemaining` |
-| `billing_credits_reset` | The monthly credit allowance was reset | the subscription and period details |
+| `billing_credits_reset` | The plan credits were reset for a new billing period | the subscription and period details |
 | `billing_subscription_updated` | A subscription changed | `subscription`, and the change details |
 | `billing_subscription_cancelled` | A subscription was cancelled | `subscription`, and the cancellation details |
 | `billing_subscription_reconciled` | A subscription was reconciled against the payment provider | `subscription`, and the reconciliation details |
@@ -556,7 +574,7 @@ The CLI reports a command that rejected your input separately from one that brok
 | *(nothing)* | The command asked for `--yes` and did not get it | — |
 | `tool_command_finished` | Every command, when it ends: `outcome` (`succeeded`, `failed`, `rejected`, `cancelled` or `confirmation`), `exitCode`, `durationMs` and `outputFormat` (`default`, `auto`, `text`, `json`, `csv` or `other`; never the raw argument) | — |
 | `tool_installed` | The first run after an installer finished, with the installer's result: `ok`, `code`, `signedIn`, `components` (each one's `component`, `status` and `version`), `installer` and `finishedAt` | — |
-| `tool_updated` | After `ikon self update`, an automatic update or `ikon self reset` replaced the tool, with the result of the script that replaced it. It is sent by the first run of the tool that ends after the script: the command that started the script, or the command that an automatic update ran next. When the script ran in a window of its own, as `ikon self reset` and a switch of channel do on Windows, the next command you run sends it. It carries `ok`, `step` (where a failed one stopped: `remove`, `install`, `finish` or `after-install`), `kind` (`update` or `reset`), `automatic`, `fromVersion`, `toVersion`, `channel` (`stable` or `dev`), `switched` (it moved between the two), `fallback` (`dotnet tool update` failed and a fresh install was tried) and `finishedAt` | — |
+| `tool_updated` | After `ikon self update`, an automatic update or `ikon self reset` replaced the tool, with the result of the script that replaced it. It is sent by the first run of the tool that ends after the script: the command that started the script, or the command that an automatic update ran next. When the script ran in a window of its own, as `ikon self reset` and a switch of channel do on Windows, the next command you run sends it. It carries `ok`, `step` (where a failed one stopped: `remove`, `install`, `finish` or `after-install`), `kind` (`update` or `reset`), `automatic`, `fromVersion`, `toVersion`, `channel` (`stable` or `dev`), `switched` (it moved between the two), `fallback` (`dotnet tool update` failed and a fresh install was tried), `finishedAt`, and for a failed one `exitCode` (the exit code of the program that failed) and `error` (the script's own sentence saying what failed, never a program's output or a path) | — |
 | `app_run_stopped` | `ikon run`'s app ended because `ikon stop` asked it to (`graceful` says whether it shut down on its own or was killed because it did not stop in time), or it was killed by a signal | `expected` |
 | `app_run_exited` | `ikon run`'s app process ended on its own with a non-zero exit code. It is sent for each such end, including one after which `ikon run` started the app again. It carries `exitCode`, `crash` (the code is a fault such as an access violation, not an error the app returned), `afterLiveApply` (the last hot reload before the exit changed the running app without a restart), `liveApplyMemberCount` and `liveApplyCount` (how many members that reload changed, and how many such reloads the process had taken), `secondsAfterLiveApply`, `startedAgain` (`ikon run` built the app and started it again), `startsAgainBefore` (how many times it had done so earlier in the run) and `startLimitReached` (it did not, because it had done so 3 times in 10 minutes). No member, file or message text is sent | `defect` for a fault right after such a reload, otherwise `user_error` |
 | `app_run_hot_reloads` | An app process of `ikon run` ended, however it ended, after at least one hot reload. It carries what the process counted: `reloads`, `onReloadedBuild` (how many began on a build an earlier reload had made), `files` and `members` (how many were changed, in total), `outcomes` and `durationMs` (the count and the total time for each of `applied-live`, `restarted`, `restarted-runtime-refused`, `compile-failed` and `failed`), `reasons` (the reloads that were not applied to the running app, counted by a fixed code for why, such as `signature`, `static-field` or `project-file`), `lastOutcome` and `lastReason` (those of the newest reload), `exitCode` and `crash`. It holds counts and those codes only, and no name of a member, type or file | — |
@@ -580,7 +598,8 @@ The CLI sends `caller` only for a program it knows, with an optional version mad
 dots. A program the CLI starts itself, such as a coding agent, does not inherit `IKON_CALLER`.
 
 Before a row is sent, the home folder becomes `<home>`, the app project's folder `<project>`, a
-person's account name `<user>` and an email address `<email>`. A person's row names no app: it has no
+person's account name `<user>`, an email address `<email>` and an international phone number
+`<phone>`. A person's row names no app: it has no
 `spaceId` or `bundleId`, and an id inside a message becomes `<id>`. Rows from a hosted run or from the
 platform's own CI keep `spaceId`, `bundleId` and the ids.
 

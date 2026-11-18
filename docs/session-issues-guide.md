@@ -1,4 +1,4 @@
-<!-- checked-against: 1f950b114a42dd1ca4e4e53a -->
+<!-- checked-against: a731d2c84a42dd1ca4e4e53a -->
 
 # Session issues
 
@@ -96,5 +96,5 @@ An issue stays open while the app runs no sessions, because the issue has had no
 Your app is analysed on a fixed cadence — daily by default; `ikon autopilot set --analysis-cadence 6h` or
 `ikon autopilot set --analysis-cadence hourly` analyses it more often. Model usage appears in your app's
 own costs (`ikon costs`) like any other AI call, bounded by the classifications above and a
-daily cap. An organisation out of credits is still analysed and counted, but its new
+daily cap. An organisation out of IKON credits is still analysed and counted, but its new
 issues open unnamed, and one is named only when it recurs in a later run that has credit.

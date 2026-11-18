@@ -1,4 +1,4 @@
-<!-- checked-against: 52278b0984668899622e3004 -->
+<!-- checked-against: 65cca1f2595ec1bef5c9980a -->
 
 # Ikon.AI Library Overview
 
@@ -282,7 +282,7 @@ context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about Joh
 // Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
 // run stops or completes without one; EmergeEventExtensions.FinalAsync hands back a nullable
 // result plus the updated context, and still throws when the run stops.
-var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
+var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt61Terra, context, pass =>
 {
     pass.Command = "Return invented personal details about the person the user asked about.";
 });
@@ -308,7 +308,7 @@ Region support is available via `pass.Regions`:
 
 <!-- ikon-example: air-object-generation -->
 ```csharp
-var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
+var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt61Terra, pass =>
 {
     pass.Command = "Return invented personal details about a person.";
     pass.Regions = [ModelRegion.Eu, ModelRegion.Global];
@@ -333,12 +333,12 @@ var context = new KernelContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Summarise the latest release highlights. Here are the notes: ..."));
 
-await foreach (var llmEvent in Emerge.Generate(LLMModel.Gpt5Mini, context, regions: [ModelRegion.Eu]))
+await foreach (var llmEvent in Emerge.Generate(LLMModel.Gpt61Terra, context, regions: [ModelRegion.Eu]))
 {
     Log.Instance.Info($"{llmEvent.Source} | {llmEvent}");
 }
 
-var stringResult = await Emerge.Generate(LLMModel.Gpt5Mini, context).AsStringAsync();
+var stringResult = await Emerge.Generate(LLMModel.Gpt61Terra, context).AsStringAsync();
 Log.Instance.Info($"String result: {stringResult}");
 ```
 
@@ -445,7 +445,7 @@ Key behaviors of every custom model:
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.ImageGeneration.md` in an app project).
 
-One-shot — defaults to `Gemini25FlashImage` (cheap+fast). The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the image:
+One-shot — defaults to `ImageGeneratorModel.Default`: `Gemini31FlashLiteImage` (cheap+fast), or `Gemini31FlashImage` under an EU-only region policy. The result is never null: a failure throws an `AIException` (`RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request), so catch `AIException` to continue without the image:
 
 Needs the `Ikon.AI.ImageGeneration` using directive.
 
@@ -463,7 +463,7 @@ Needs the `Ikon.AI.ImageGeneration` using directive.
 
 <!-- ikon-example: ai-imagegeneration-2 -->
 ```csharp
-using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini31FlashLiteImage);
 
 var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
 {
@@ -952,7 +952,7 @@ Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
 <!-- ikon-example: ai-speechgeneration-2 -->
 ```csharp
-using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gpt4OmniMiniTts);
+using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gemini38FlashTts);
 
 foreach (var voiceId in speechGenerator.VoiceIds)
 {
@@ -963,7 +963,7 @@ List<float> samples = [];
 
 var config = new SpeechGeneratorConfig
 {
-    VoiceId = "ballad",
+    VoiceId = "Kore",
     Instructions = "Speak like a angry pirate.",
     Text = "There once was a ship that put to sea. The name of that ship was a Billy of Tea."
 };
@@ -1004,7 +1004,7 @@ Needs the `Ikon.AI.SpeechRecognition`, `Ikon.Resonance` using directives.
 
 <!-- ikon-example: ai-speechrecognition-2 -->
 ```csharp
-var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.Whisper2);
+var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.GptTranscribe);
 
 var audioBytes = await File.ReadAllBytesAsync("audio.raw");
 
@@ -1168,7 +1168,7 @@ Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
 <!-- ikon-example: ai-soundeffectgeneration-2 -->
 ```csharp
-using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV3);
 
 var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig
 {

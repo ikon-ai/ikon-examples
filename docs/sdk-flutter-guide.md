@@ -1,4 +1,4 @@
-<!-- checked-against: 503acf9a2ed0e6b2e3b0c442 -->
+<!-- checked-against: 5bec36f86b0216cde3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -318,6 +318,19 @@ Requires Xcode installed:
 flutter run -d macos --dart-define=IKON_PORT=8443
 ```
 
+### Linux Desktop
+
+Requires a C++ toolchain, GTK 3, libsecret (the SDK keeps its install id and sign-in in the system
+keyring) and the system's Opus library. On Ubuntu and Debian, `ikon install flutter` installs them
+with apt when sudo needs no password. Otherwise it prints the `apt-get install` command for the
+missing packages and finishes the rest of the install. On other distributions, install the matching
+packages yourself:
+
+```bash
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libstdc++-12-dev libopus0
+flutter run -d linux --dart-define=IKON_PORT=8443
+```
+
 ### Android
 
 Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
@@ -440,12 +453,25 @@ emulator connecting to the machine it runs on needs none.
 
 <!-- ikon-example: flutter-sdk-auth-guest -->
 ```dart
+// A development app: the host of the cloudUrl that `ikon status` prints, and dev's auth service
 final client = await IkonClient.connectGuest(
-  serverHost: 'myapp.ikon.ai',
+  serverHost: 'my-app-1a2b3c4d.dev.ikonai.app',
   spaceId: 'my-space-id',
-  authUrl: 'https://auth.ikonai.com',
+  authUrl: 'https://auth.dev.ikonai.com',
 );
 ```
+
+`serverHost` is the host of the app's `cloudUrl` that `ikon status` prints, and `authUrl` is the
+auth service of the app's environment. The auth service of the other environment refuses the app
+with 403.
+
+| Environment | `serverHost` | `authUrl` |
+| --- | --- | --- |
+| Development | `<domain>.dev.ikonai.app` | `https://auth.dev.ikonai.com` |
+| Production | `<domain>.ikonai.app` | `https://auth.ikonai.com` |
+
+`https://<serverHost>/ikon/auth` reaches the same auth service through the app's own host, in either
+environment. `IkonNativeSignIn` below takes the same `serverHost` and `authUrl`.
 
 ### Deployed Apps — Signing In (Google, Apple, Microsoft, bank ID, email)
 
@@ -470,7 +496,7 @@ none admits anonymous visitors, `IKON_AUTH_REQUIRE_SIGN_IN=true`. The app templa
 final navigatorKey = GlobalKey<NavigatorState>(); // MaterialApp(navigatorKey: navigatorKey, ...)
 
 final signIn = IkonNativeSignIn(
-  serverHost: 'myapp.ikon.ai',
+  serverHost: 'my-app-1a2b3c4d.ikonai.app', // a production app
   spaceId: 'my-space-id',
   authUrl: 'https://auth.ikonai.com',
   methods: const String.fromEnvironment('IKON_AUTH_METHODS').split(','),
@@ -578,6 +604,8 @@ acts as that person by signing them in by email, where the surface it enters lis
 `IkonAuthenticator.verifyEmailCode` returns a session, and `connectWithToken` connects with its `token`.
 That token lasts 15 minutes. `IkonAuthenticator.refreshSignInSession` renews it with the session's
 `refreshToken`, and each renewal returns a new refresh token.
+These are instance methods that reach only the `authUrl` they are given, never the authenticator's
+host and port, so any authenticator works: `IkonAuthenticator(port: 443).startEmailLogin(...)`.
 The IKON tool hands out no session token for a person.
 
 ### Choosing the app instance
@@ -644,7 +672,11 @@ nothing. The connect helpers call it when the app comes back to the foreground.
 A client from a `connect*` helper also reconnects after the app's server stops: after `ikon stop` and
 a new `ikon run`, or a deploy. The old session is gone, so the client signs in again and joins a new
 session, as it does whenever the server no longer has its session. It keeps trying until it gets in,
-until a refusal that no retry can fix stops it (`IkonClient.lastError`), or until it is disposed. A
+until a refusal that no retry can fix stops it (`IkonClient.lastError`), or until it is disposed. When
+the backend answers a new-session attempt with a failure, the next one waits 10 s, doubling after each
+failure up to 5 minutes and shortened at random by up to a quarter. After a
+`ServerRateLimitedException` (HTTP 429), the next attempt waits at least the `retryAfter` it names.
+The wait starts again from 10 s once the client has connected. A
 `joinOnly` client goes offline instead (see "Joining only a running session"). Function registrations
 and reactive subscriptions go to the new session by themselves.
 
@@ -717,6 +749,14 @@ would be refused again: the client goes `offlineError` with the exception in `Ik
 On a 401 it also fires `IkonClient.onCredentialRejected`, so the app can get a new token and pass it
 to `client.updateAuthToken(token)`, which resumes the reconnect with it, or sign the person out.
 `IkonNativeSignIn.register` does the sign-out for you.
+
+### When the app is not available
+
+A connect to an app that is suspended, unpublished, removed or not yet deployed throws
+`SpaceNotFoundException` (HTTP 404 or 410). Only the app's owner can change that, so when a reconnect
+gets this answer, the client goes `offlineError` instead of retrying, with the exception in
+`IkonClient.lastError`. The sign-in is still valid, so keep the stored token and connect again later,
+for example when the person asks to.
 
 ### When the platform no longer accepts the client
 
@@ -936,23 +976,25 @@ When `mount` is `null`, the most recently updated `ikon-ui` stream is rendered, 
 A program can read and drive the app's UI without rendering it. `IkonUiCore(client)` keeps the
 tree the app sends: `currentTree` is its root `UiNode`, or null before the first update, and
 `onUpdate(listener)` calls the listener with the root after each update and returns the function that
-stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. The standard
-components use these props:
+stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. The standard components put their text and labels in these props:
 
-| Node type | Prop | Holds |
+| Node type | Text and labels | Action and its payload |
 |---|---|---|
-| `std.text` | `content` | the text it shows |
-| `std.heading` | `content`, `level` | the text of a `view.Heading`, or of a `view.Text` styled `Text.H1` to `Text.H6`, and its level, 1 to 6 |
-| `std.button` | `label` | its label |
-| `std.button` | `onInvokeId` | the action a press sends |
-| `std.text-field` | `value`, `onValueChangeId` | its text, and the action a change sends |
-| `std.file-upload` | `uploadActionId` | the id an upload to it names (see "File Upload") |
+| `std.text` | `content` | |
+| `std.heading` | `content`, and `level` 1 to 6 | |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
+| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
+| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
 
-To find a text whatever its style, match both `std.text` and `std.heading`.
+To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
 
 `client.sendAction(actionId, payloadJson, onResult)` sends an action as a tap would. A button press
 sends `'{}'`, the default. A text field change sends the new text itself as the payload, not JSON.
-`onResult` is called with whether the app's handler succeeded, once it has run:
+`onResult` is called with whether the app's handler succeeded, once it has run. A handler that waits
+on an AI call can take minutes, and sending the action again meanwhile runs the handler a second
+time, so watch the app's UI for its busy state instead:
 
 <!-- ikon-example: flutter-sdk-ui-without-view -->
 ```dart
@@ -1034,13 +1076,18 @@ client.onClientLeft.listen((other) => clients.remove(other.sessionId));
 ```
 
 The client reports each other client once per session. On joining, `onClientJoined` fires for each
-client already there. A reconnect into the same session reports only what changed while the client was
-away: `onClientJoined` for a client that became ready meanwhile, and `onClientUpdated` for a known
-client whose viewport, theme, timezone or visibility changed. A reconnect into a new session reports
-every client again, as the first join did. `onClientUpdated` and `onClientLeft` fire only for a client
-`onClientJoined` reported, so a client that leaves before it is ready raises nothing. A client that left
-while this client was away raises `onClientLeft` once the server has sent the clients still there after
-the reconnect. A disposed client
+client already there. The server sends these events in answer to the ClientReady message that
+`connect()` and the connect helpers send just before they return. So add the listeners as soon as the
+connect returns, with no `await` in between, or, on a client built with `IkonClient(...)`, before
+`connect()`. Events that arrive before a listener is added are not kept for it. To catch up later, read
+`client.globalStateHandler.state.clients`. It holds the session's clients by session id, including this
+client and the app, and the client keeps it up to date from the same events. A reconnect into the same session
+reports only what changed while the client was away: `onClientJoined` for a client that became ready
+meanwhile, and `onClientUpdated` for a known client whose viewport, theme, timezone or visibility
+changed. A reconnect into a new session reports every client again, as the first join did.
+`onClientUpdated` and `onClientLeft` fire only for a client `onClientJoined` reported, so a client that
+leaves before it is ready raises nothing. A client that left while this client was away raises
+`onClientLeft` once the server has sent the clients still there after the reconnect. A disposed client
 tells the server it is leaving, so the others get `onClientLeft` at once rather than when its reconnect
 window ends.
 

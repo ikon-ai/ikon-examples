@@ -1,4 +1,4 @@
-<!-- checked-against: 1100dd8d73be22214b709545 -->
+<!-- checked-against: f7a76d23a284f338466aaa7d -->
 
 # Ikon.App.Telephony Guide
 
@@ -30,7 +30,7 @@ It picks a number in that market and connects it to your app. Incoming texts rea
 handler as soon as it is deployed. Incoming calls can only be pointed at a deployed app, so a number
 bought before the first deploy rings nowhere until you deploy and run `ikon phone bind`, as the
 command then says. A number **rents monthly** for as long as
-the app holds it, charged to the app's credits, so the command asks for confirmation before
+the app holds it, charged in IKON credits, so the command asks for confirmation before
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
 when an agent runs it). The cost shows up in `ikon costs` like any other usage.
 
@@ -340,7 +340,7 @@ limits.
 
 ## What it costs
 
-Everything is charged in **platform credits**, and credits are the only figure the API and the CLI
+Everything is charged in **IKON credits**, and credits are the only figure the API and the CLI
 report — read what an app has spent with `ikon costs`. Metering follows the real cost of each
 message and call rather than an average, so an expensive destination costs more than a cheap one
 instead of being smoothed into a single rate.

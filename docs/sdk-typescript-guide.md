@@ -1,4 +1,4 @@
-<!-- checked-against: b597418a28b44172e3b0c442 -->
+<!-- checked-against: 914efbfbe7bfd07be3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -8,7 +8,7 @@ The IKON TypeScript SDK connects browser and Node.js applications to an IKON app
 
 - Four authentication modes: Guest, API Key, Local Development, Session Token
 - UI-friendly connection states, with slow-connection detection in the React layer (`isConnectingSlow`)
-- Automatic reconnection with fixed-delay retries
+- Automatic reconnection, backing off from 10 seconds to 5 minutes while a new session cannot be started
 - Web Worker support for off-UI-thread protocol processing
 - Automatic endpoint selection (WebSocket → proxied variants → HTTP stream; opt-in WebTransport preferred when enabled)
 - Function registration and remote invocation
@@ -40,6 +40,9 @@ npm install @ikonai/sdk-ui
 ```
 
 ### In Node.js
+
+A Node program is an ES module: `npm pkg set type=module` in its folder, because the `package.json`
+that `npm init -y` writes makes it CommonJS, where a top-level `await` fails.
 
 WebRTC and Web Workers exist only in a browser. In Node the SDK carries audio and video over its
 protocol channels, and a program sends and receives them as frames through `client.rawMedia` (see
@@ -153,7 +156,7 @@ const client = new IkonClient({
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`.
 
 <!-- ikon-example: ts-sdk-auth-api-key -->
 ```ts
@@ -406,6 +409,8 @@ if (client.lastError) {
 
 A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the person on another shard; when none has room, `connect()` throws `ServerFullError`.
 
+When the first connect fails, the client first goes `offline` (`onConnectionStateChange`), then calls `onError` with the error, and then `connect()` rejects with that same error. A credential the backend refuses, such as a deleted or wrong API key (HTTP 403 `Invalid key`), is an `AuthenticationError` whose message names the status; a sign-in for an app that is not available is a `SpaceNotFoundError`. Tell errors apart with `instanceof` or `error.name`; `error.constructor.name` is shortened in the published bundle. `onCredentialRejected` is not called for a first connect: it is only for a token refused while the client re-authenticates to reconnect.
+
 ### Automatic Reconnection
 
 The SDK automatically attempts to reconnect when the connection is lost unexpectedly. Configure reconnection behavior:
@@ -424,6 +429,8 @@ const client = new IkonClient({
 ```
 
 The first reconnect attempt is immediate; each later one waits a fixed delay (2s by default).
+
+When the client cannot start a new session, it tries again after 10 seconds, doubling the wait after each failure up to 5 minutes. The wait goes back to 10 seconds once it connects. A 429 from the backend makes it wait at least its `Retry-After`. It stops and goes `offline` when retrying cannot help: a refused sign-in (401, 403), an app that is not available (404, 410: suspended, unpublished or not deployed, raised as `SpaceNotFoundError`), an SDK or app build the platform no longer runs (426), a full app or a failed app start.
 
 With `reconnectToNewSession: false` the client only ever resumes the session it has. Where it would authenticate a new one, it goes `offline` with `client.sessionLost` set, and the caller decides when to connect again. The React layer sets it for a surface with `Recovery = "seamless"`.
 
@@ -540,12 +547,20 @@ for (const unsubscribe of unsubscribers) {
 // Send a protocol message
 client.sendProtocolMessage(message);
 
-// Send an action call: actionId is a UI node's action id (a GUID, such as a button's onClickId)
-client.sendActionCall(actionId, JSON.stringify({ key: 'value' }));
+// Send an action call: actionId is a UI node's action id (a GUID, such as a button's onInvokeId).
+// A button's payload is '{}', a text field's is the text itself (the table under "Custom UI Renderers")
+client.sendActionCall(actionId, '{}');
 ```
 
 `sendProtocolMessage` returns false when the client has no connection to send on, or no channel of
 it carries the message's opcode group, and the message is dropped.
+
+`sendActionCall` returns nothing and reports no failure. `sendActionCallWithResult(actionId, payload, timeoutMs)`
+returns a promise of `{ success, errorMessage }`, which resolves when the app's handler returns:
+`success` is false when it threw, and `errorMessage` is always empty. It rejects when no result
+arrives within `timeoutMs`, 15000 by default, and the outcome is then unknown, not failed. A handler
+that waits on an AI call can take longer, so pass a longer timeout. Calling again after a rejection
+runs the handler a second time.
 
 ### App Messages
 
@@ -1145,11 +1160,25 @@ Access the UI store for stream snapshots:
 
 <!-- ikon-example: ts-sdk-ui-store -->
 ```ts
-// Get all stream snapshots
+import type { UiNode } from '@ikonai/sdk-ui';
+
+// Get all stream snapshots. Each holds views and payloads as Maps, which JSON.stringify prints as {}
 const snapshots = uiCore.uiStore.getSnapshots();
 
 // Get specific stream
 const snapshot = uiCore.uiStore.getSnapshot(streamId);
+
+// Print a stream's UI tree, walking it from the root view
+function printNode(node: UiNode, depth = 0): void {
+  console.log(`${'  '.repeat(depth)}${node.type} ${JSON.stringify(node.props)}`);
+  node.children.forEach((child) => printNode(child, depth + 1));
+}
+
+const root = snapshot?.rootViewId ? snapshot.views.get(snapshot.rootViewId) : undefined;
+
+if (root) {
+  printNode(root);
+}
 ```
 
 ### Custom UI Renderers
@@ -1172,6 +1201,20 @@ const handler = cache.getHandler('node-id', 'action-id', (actionId) => {
   client.sendActionCall(actionId);
 });
 ```
+
+The standard components put their text and labels in these props:
+
+| Node type | Text and labels | Action and its payload |
+|---|---|---|
+| `std.text` | `content` | |
+| `std.heading` | `content`, and `level` 1 to 6 | |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
+| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
+| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+
+To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
 
 The `sdk-ui` library is designed to be framework-agnostic. For React integration, see `@ikonai/sdk-react-ui`.
 
@@ -1441,7 +1484,7 @@ The SDK has a typed error for each kind of failure:
 | `AuthRejectedError` | Server closed the transport immediately after handshake (e.g. cached auth ticket expired) |
 | `MaxRetriesExceededError` | Maximum reconnection attempts exhausted |
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
-| `SpaceNotFoundError` | No app found for the given domain (exported, but the SDK does not currently raise it) |
+| `SpaceNotFoundError` | The app is not available: suspended, unpublished, removed or never deployed (HTTP 404 or 410). Terminal, and the sign-in stays valid |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
 | `ServerFullError` | Every instance the connect may use is at its client limit, after asking /init for another up to three times (terminal) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
@@ -1553,7 +1596,7 @@ const client = new IkonClient({
 | `AuthRejectedError` | Server closed transport immediately after handshake (auth-rejection signal) |
 | `MaxRetriesExceededError` | Max retries exceeded |
 | `ProvisioningTimeoutError` | Provisioning timeout |
-| `SpaceNotFoundError` | No app found (not currently raised) |
+| `SpaceNotFoundError` | App not available (terminal) |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
 | `ServerFullError` | No instance with room (terminal) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |

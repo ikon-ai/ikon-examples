@@ -1,4 +1,4 @@
-<!-- checked-against: 0390edc8823a0e9f8ce1d90b -->
+<!-- checked-against: effaa123823a0e9f8ce1d90b -->
 
 # Ikon.App.Payments Guide
 
@@ -8,7 +8,7 @@ chosen at enable time), ingests provider webhooks, and **pushes normalized event
 sends commands and reacts to events: there is no webhook to host and no payment state to persist.
 
 > This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon credits`,
-> `ikon plan show`: the organisation's credits and plan that pay for the platform). They are separate systems, and the money in them is separate too.
+> `ikon plan show`: the organisation's IKON credits and plan that pay for the platform). They are separate systems, and the money in them is separate too.
 
 ## Enable a provider (once per app)
 

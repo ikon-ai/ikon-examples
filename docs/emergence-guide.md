@@ -1,4 +1,4 @@
-<!-- checked-against: e50e39d779559fd646e2328b -->
+<!-- checked-against: 2e9c21fb00b4f3b6d28534a3 -->
 
 # Ikon.AI.Emergence Guide
 
@@ -148,7 +148,7 @@ Classification result = await Emerge.AskAsync<Classification>(
     "Classify this support ticket: \"My laptop won't turn on\"");
 
 // Explicit model override
-string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
+string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude55Sonnet);
 ```
 
 The structured overload throws `EmergenceStoppedException` if the model returns nothing or invalid JSON.
@@ -161,7 +161,7 @@ The core pattern. Generates a typed JSON result with optional tool use.
 
 <!-- ikon-example: emergence-with-tools -->
 ```csharp
-var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
+var result = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, pass =>
 {
     pass.SystemPrompt = "You are a helpful assistant.";
     pass.Command = "Answer the user's question.";
@@ -176,7 +176,7 @@ A fresh `KernelContext` is created internally. Pass your own when you seed the c
 
 <!-- ikon-example: emergence-final -->
 ```csharp
-var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
+var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, context, pass =>
 {
     pass.Command = "Answer the user's question.";
 }).FinalAsync();
@@ -228,7 +228,7 @@ Run N independent attempts (sequentially, one after another) and select the best
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.Count = 5;
     opt.Command = "Solve this problem step by step.";
@@ -263,7 +263,7 @@ var rubric = new ScoreBreakdownBuilder<Answer>()
     .Metric("correctness", 3, a => a.Correctness)
     .Metric("brevity", 1, a => a.Brevity);
 
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.Command = "Solve this problem step by step.";
     opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
@@ -288,7 +288,7 @@ Split input into chunks, process each in parallel, then reduce to a final result
 
 <!-- ikon-example: emergence-mapreduce -->
 ```csharp
-var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.Chunks = documents;
     opt.MaxParallel = 8;
@@ -324,7 +324,7 @@ Generate an initial result, then iteratively improve it based on feedback.
 
 <!-- ikon-example: emergence-refine -->
 ```csharp
-var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+var final = await Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -360,7 +360,7 @@ progress line on screen, then:
 
 <!-- ikon-example: emergence-refine-rounds -->
 ```csharp
-await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.MaxRefinements = 3;
     opt.Initial(s => s.Command = "Write initial implementation of the feature.");
@@ -392,7 +392,7 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 // Without s.Model every solver runs on opt.Model when that is set, else on the model passed here; so does the merger without m.Model
 LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
-var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.SolverCount = models.Length;
     opt.MaxParallel = models.Length;
@@ -434,7 +434,7 @@ The tree types live in `Ikon.AI.Emergence.Tree`, which the scaffold's global usi
 ```csharp
 // Step 1: Build a tree index from content
 TreeIndex? index = null;
-await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentContent,
+await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude55Sonnet, documentContent,
     new TreeIndexOptions { MaxDepth = 4, GenerateSummaries = true }))
 {
     if (ev is Completed<TreeIndex> done)
@@ -444,7 +444,7 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentC
 }
 
 // Step 2: Search the tree
-TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";
@@ -495,7 +495,7 @@ Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered o
 
 <!-- ikon-example: emx-tool-registration -->
 ```csharp
-await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
 {
     pass.AddTool(Tool.Of("write_file", "Write content to a file",
             ([Description("Workspace-relative path")] string path, string content) => WriteFile(path, content)))
@@ -661,7 +661,7 @@ lambda.
 <!-- ikon-example: ems-testing-with-mock-llm -->
 ```csharp
 var result = await Emerge.Run<MyType>(
-    LLMModel.Claude45Sonnet,
+    LLMModel.Claude55Sonnet,
     pass => { pass.Command = task; },
     Emerge.Scripted(responses)  // Replays the given texts in order; no provider call
 );
