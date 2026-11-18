@@ -45,7 +45,7 @@ internal static class GenerateGlobeDataShader
             """;
 
         var result = await Emerge.Run<GlobeDataSet>(
-            LLMModel.Gpt41,
+            LLMModel.Gpt6Luna,
             pass =>
             {
                 pass.Command = command;

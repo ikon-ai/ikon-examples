@@ -24,7 +24,7 @@ internal static class ProcessDataQueryShader
             """;
 
         var result = await Emerge.Run<DataQueryResult>(
-            LLMModel.Gpt41Mini,
+            LLMModel.Gpt6Luna,
             pass =>
             {
                 pass.Command = command;
