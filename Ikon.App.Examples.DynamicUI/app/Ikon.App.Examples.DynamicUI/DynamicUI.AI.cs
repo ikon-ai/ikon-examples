@@ -63,7 +63,7 @@ public partial class DynamicUI
 
         _chatContext = _chatContext.Add(new MessageBlock(MessageBlockRole.User, userMessage));
 
-        var (chatResponse, newContext) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, _chatContext, pass =>
+        var (chatResponse, newContext) = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, _chatContext, pass =>
         {
             pass.Temperature = 0.7f;
             pass.MaxOutputTokens = 1000;
@@ -163,7 +163,7 @@ public partial class DynamicUI
     {
         string? validationError = initialError;
 
-        var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = MaxAutoRetries;
             opt.Temperature = 0.3f;
