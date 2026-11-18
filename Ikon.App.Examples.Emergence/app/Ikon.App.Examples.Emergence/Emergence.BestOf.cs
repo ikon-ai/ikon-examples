@@ -195,7 +195,7 @@ public partial class Emergence
             state.Log($"Generating {count} candidates for: \"{prompt}\"", LogLevel.Info);
             state.Log($"Temperature range: {0.7 - variance:F1} to {0.7 + variance:F1}", LogLevel.Info);
 
-            await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude45Sonnet, ctx, bo =>
+            await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude55Sonnet, ctx, bo =>
             {
                 bo.Command = $"""
                     {prompt}

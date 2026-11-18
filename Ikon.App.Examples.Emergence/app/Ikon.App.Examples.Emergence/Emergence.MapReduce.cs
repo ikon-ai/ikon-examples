@@ -457,7 +457,7 @@ Disappointed with the battery - doesn't last a full day for me.
             var mapTemp = _mapTemperature.Value;
             var reduceTemp = _reduceTemperature.Value;
 
-            await foreach (var ev in Emerge.MapReduce<string, ChunkSummary, DocumentSummary>(LLMModel.Claude45Sonnet, ctx, mr =>
+            await foreach (var ev in Emerge.MapReduce<string, ChunkSummary, DocumentSummary>(LLMModel.Claude55Sonnet, ctx, mr =>
             {
                 mr.Chunks = documentChunks;
                 mr.MaxParallel = parallel;
@@ -536,7 +536,7 @@ Disappointed with the battery - doesn't last a full day for me.
             var mapTemp = _mapTemperature.Value;
             var reduceTemp = _reduceTemperature.Value;
 
-            await foreach (var ev in Emerge.MapReduce<string, ReviewAnalysis, ProductReport>(LLMModel.Claude45Sonnet, ctx, mr =>
+            await foreach (var ev in Emerge.MapReduce<string, ReviewAnalysis, ProductReport>(LLMModel.Claude55Sonnet, ctx, mr =>
             {
                 mr.Chunks = reviews;
                 mr.MaxParallel = parallel;

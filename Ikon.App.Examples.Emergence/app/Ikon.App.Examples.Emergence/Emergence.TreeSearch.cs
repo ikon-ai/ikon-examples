@@ -470,7 +470,7 @@ public partial class Emergence
 
             TreeIndex? index = null;
 
-            await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, document, new TreeIndexOptions
+            await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude55Sonnet, document, new TreeIndexOptions
             {
                 MaxDepth = 4,
                 GenerateSummaries = true
@@ -531,7 +531,7 @@ public partial class Emergence
             // Phase 1: Build tree index
             TreeIndex? index = null;
 
-            await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, document, new TreeIndexOptions
+            await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude55Sonnet, document, new TreeIndexOptions
             {
                 MaxDepth = 4,
                 GenerateSummaries = true
@@ -557,7 +557,7 @@ public partial class Emergence
 
             var ctx = CreateContext();
 
-            await foreach (var ev in Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, options =>
+            await foreach (var ev in Emerge.TreeSearch(LLMModel.Claude55Sonnet, ctx, options =>
             {
                 options.Index = index;
                 options.Query = query;

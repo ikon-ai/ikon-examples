@@ -252,7 +252,7 @@ public partial class Emergence
             state.Log($"Starting agentic coder with task: {TruncateJson(task, 80)}", LogLevel.Info);
             state.Log($"Max iterations: {maxIterations}, Temperature: {temperature:F1}", LogLevel.Info);
 
-            await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+            await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
             {
                 // Add file system tools
                 pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",

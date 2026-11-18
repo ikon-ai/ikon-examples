@@ -75,7 +75,7 @@ public partial class Emergence
 
             state.Log($"Starting Refine: maxRefinements={maxRefinements}, targetLength<={targetLength}", LogLevel.Info);
 
-            await foreach (var ev in Emerge.Refine<RefinedText>(LLMModel.Claude45Sonnet, ctx, opt =>
+            await foreach (var ev in Emerge.Refine<RefinedText>(LLMModel.Claude55Sonnet, ctx, opt =>
             {
                 opt.MaxRefinements = maxRefinements;
 

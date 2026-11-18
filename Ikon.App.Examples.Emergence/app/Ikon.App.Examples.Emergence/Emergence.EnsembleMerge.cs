@@ -67,7 +67,7 @@ public partial class Emergence
 
             state.Log($"Starting EnsembleMerge with {solverCount} solvers", LogLevel.Info);
 
-            await foreach (var ev in Emerge.EnsembleMerge<MergedIdeas>(LLMModel.Claude45Sonnet, ctx, opt =>
+            await foreach (var ev in Emerge.EnsembleMerge<MergedIdeas>(LLMModel.Claude55Sonnet, ctx, opt =>
             {
                 opt.SolverCount = solverCount;
                 opt.MaxParallel = solverCount;

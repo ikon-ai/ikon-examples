@@ -300,7 +300,7 @@ public partial class Emergence
             var ctx = CreateContext();
             state.Log("Starting simple Run<T> - no tools, single iteration expected", LogLevel.Info);
 
-            await foreach (var ev in Emerge.Run<SimpleResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+            await foreach (var ev in Emerge.Run<SimpleResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
             {
                 pass.Command = $"""
                     What are the three most important principles of software engineering?
@@ -352,7 +352,7 @@ public partial class Emergence
             state.Log($"Starting research on: {topic}", LogLevel.Info);
             state.Log($"Temperature: {_temperature.Value:F1}, Max Iterations: {_maxIterations.Value}", LogLevel.Info);
 
-            await foreach (var ev in Emerge.Run<ResearchResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+            await foreach (var ev in Emerge.Run<ResearchResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
             {
                 pass.AddTool(Tool.Of("search_web", "Search the web for information on a topic", (string query) => SearchWeb(query)))
                     .AddTool(Tool.Of("get_statistics", "Get statistics and data about a topic", (string t) => GetStatistics(t)));
