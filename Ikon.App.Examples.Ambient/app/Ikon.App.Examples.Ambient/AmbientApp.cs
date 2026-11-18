@@ -356,7 +356,7 @@ public class AmbientApp
 
         try
         {
-            using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+            using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV3);
             var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig
             {
                 Prompt = experience.AudioPrompt,
