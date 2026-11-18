@@ -28,9 +28,9 @@ Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`,
 and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. `ikon build` type-checks
 the frontend too, even during a run. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs: share the local one after a UI change. `ikon stop` saves persistent state and ends the run. A `.cs` edit under `app/<App>/` hot-reloads
-the run (a compile error keeps the previous build, an `OnStarting` that throws leaves
-none, and `browse` prints the error;
-`ikon status --wait` returns once the reload applied, or exits 1 if it failed; wait after the last save); a `.csproj`
+the run (a compile error keeps the old build, a throwing `OnStarting` leaves
+none, editing `Main` itself restarts, and `browse` prints the error;
+`ikon status --wait` waits for the reload, exits 1 if failed; wait after the last save); a `.csproj`
 or `ikon-config*.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
 
 ```bash
