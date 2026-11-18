@@ -851,7 +851,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
         var chunks = SplitTranscript(transcriptText, 4000);
         TranscriptAnalysis? analysis = null;
 
-        await foreach (var ev in Emerge.MapReduce<string, TranscriptChunkSummary, TranscriptAnalysis>(LLMModel.Claude45Sonnet, ctx, mr =>
+        await foreach (var ev in Emerge.MapReduce<string, TranscriptChunkSummary, TranscriptAnalysis>(LLMModel.Claude55Sonnet, ctx, mr =>
                        {
                            mr.Chunks = chunks;
                            mr.MaxParallel = 3;
