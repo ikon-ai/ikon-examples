@@ -1,4 +1,4 @@
-<!-- checked-against: 65cca1f2595ec1bef5c9980a -->
+<!-- checked-against: f11f609fba1c5ad80e039193 -->
 
 # Ikon.AI Library Overview
 
@@ -41,8 +41,8 @@ acceptable.
    other.
 2. **Then the regions.** The call's `Regions` (`Global` when omitted), narrowed by the organisation's
    AI region policy. Under an EU-only policy the Claude models run on their AWS Bedrock route in the
-   EU, and the GPT models on Azure's, except `Gpt52`, `Gpt53Codex`, `Gpt54Nano`, `GptOss120B`, `O3` and
-   the `Pro` models, which have no EU route.
+   EU, and the GPT models on Azure's, except `Gpt52`, `GptOss120B`, the `Pro` models and the deprecated
+   `Gpt53Codex`, `Gpt54Nano` and `O3`, which have no EU route.
 3. **Then the order in the code.** In each allowed region, in the order the call lists them, the
    first provider the library lists for the model.
 
@@ -1050,7 +1050,7 @@ for a granularity the model does not support throws** rather than returning an e
 `SpeechRecognizer.GetCapabilities(model)`, which reports `SupportsWordTimestamps`,
 `SupportsSegmentTimestamps` and `SupportsDiarization` alongside the existing flags.
 
-`Diarize = true` needs a model with `SupportsDiarization`; the example above assumes one, and with `SpeechRecognizerModel.Whisper2` (or any other Whisper model) it throws. To get speakers from Whisper text, take the segments from Whisper and have a diarizing model, or an LLM, assign the speakers in a second pass.
+`Diarize = true` needs a model with `SupportsDiarization`; the example above assumes one, and with `SpeechRecognizerModel.WhisperLarge3` (or any other Whisper model) it throws. To get speakers from Whisper text, take the segments from Whisper and have a diarizing model, or an LLM, assign the speakers in a second pass.
 
 Two provider limits throw exceptions rather than leaving fields empty:
 

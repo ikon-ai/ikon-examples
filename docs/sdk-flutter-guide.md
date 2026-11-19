@@ -1,4 +1,4 @@
-<!-- checked-against: 5bec36f86b0216cde3b0c442 -->
+<!-- checked-against: b672316d91a9564ae3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -331,6 +331,12 @@ sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecre
 flutter run -d linux --dart-define=IKON_PORT=8443
 ```
 
+The program is a GTK window, so it needs a display: on a headless machine start one with `Xvfb :99` and run
+the program with `DISPLAY=:99`, or it exits with `cannot open display`. The keyring needs a running Secret
+Service (gnome-keyring, KeePassXC); without one the SDK logs `The secure store refused the install id` and
+may fall back to an install id for that run only. `libpulse` is optional: without it the build warns
+`libpulse NOT found` and only system-audio loopback capture is off.
+
 ### Android
 
 Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
@@ -443,6 +449,13 @@ reconnect that finds another app goes offline with the exception in `IkonClient.
 The app reads it as the client's `UserType`, and such a client does not hold the session open. It is
 `UserType.human` by default.
 
+Every Flutter client, on the web, a phone or a desktop, joins with `ContextType.browser`, because it
+connects over WebSocket and renders the app's UI as a browser does. A .NET, C++ or Rust program joins
+as `ContextType.plugin` by default. So the app tells a program from a person's screen by `UserType`, not by
+`ContextType`. `UserType`, `ContextType` and the other protocol enums are `int`-backed extension types:
+compare them with `==`, and `.name` gives the member's name (`'browser'`) or the number for a value
+that names no member.
+
 `localClientProof:` matters only for a local connect that does not look local to the run, such as one
 through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the
 app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a
@@ -504,12 +517,23 @@ final signIn = IkonNativeSignIn(
   onIdentityChanged: reconnect, // dispose the client and connect again
 );
 
+// An app that admits no guest shows its sign-in first when no one is signed in on this phone:
+// IkonSignInChooser(methods: signIn.supportedMethods, canClose: false, onChosen: signIn.signInWith)
+if (!signIn.admitsGuests && signIn.supportedMethods.isNotEmpty && await signIn.storedToken() == null) {
+  return null;
+}
+
 final client = await signIn.connect(); // the stored user, else a guest
 signIn.register(client);               // answers login, loginShow and logout
 ```
 
-An app that requires sign-in shows `IkonSignInChooser(methods: signIn.supportedMethods, canClose: false, onChosen: signIn.signInWith)`
-before connecting when `signIn.storedToken()` is null.
+`signIn.admitsGuests` is false when `IKON_AUTH_REQUIRE_SIGN_IN` is true, or, in a build without that
+define, when `methods` lists neither `guest` nor `global`. Such an app shows the chooser before
+connecting when `signIn.storedToken()` is null, and `connect()` does not connect it as a guest: with
+no one signed in, or with a stored sign-in the backend refused, it throws `IkonSignInRequiredException`
+(an `IkonAuthRejectedException`), and the app shows the chooser then too. When `supportedMethods` is
+empty (the app lists only `sso:` or passkey sign-in) there is no chooser to show, so `connect()` tries
+a guest and throws the backend's refusal.
 
 The reason the app passes to `LoginShowAsync` appears under the heading of the chooser, and of the email
 page that opens directly when email is the only method. `Title`, `Subtitle` and `EmailHint` in the
@@ -580,7 +604,8 @@ signed-in page there asks the person to approve.
 
 A program, such as a test, a bot or a device without a person signing in, connects with its space's
 API key. The key is exchanged at the platform's backend, not at the app's host, so the call names
-the backend (`IkonBackendType.production` by default, or `development`) and no app host:
+the backend (`IkonBackendType.production` by default, or `development` for an app on
+`*.dev.ikonai.app`, which `ikon status` shows as the app's `environment`) and no app host:
 
 <!-- ikon-example: flutter-sdk-auth-api-key -->
 ```dart
@@ -597,6 +622,8 @@ built-in client functions and sends `ClientReady`. A key the backend refuses thr
 `IkonAuthRejectedException`. It also takes `parameters`, `userType`, `joinOnly` and `surface`, as
 `connectGuest` does.
 
+`ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
+
 The user an API key connects as is the program's own: it is never one of the app's existing people
 and has no email, so a role the app gives by email does not reach it. A program that a person runs
 acts as that person by signing them in by email, where the surface it enters lists `email`:
@@ -607,6 +634,8 @@ That token lasts 15 minutes. `IkonAuthenticator.refreshSignInSession` renews it 
 These are instance methods that reach only the `authUrl` they are given, never the authenticator's
 host and port, so any authenticator works: `IkonAuthenticator(port: 443).startEmailLogin(...)`.
 The IKON tool hands out no session token for a person.
+
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, throws `IkonAuthRejectedException` with `statusCode` 403 and `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
 ### Choosing the app instance
 
@@ -725,7 +754,8 @@ for it while it runs. A client that should only join a session someone else open
 device, a monitor — passes `joinOnly: true` to `IkonClient.connectWithToken`, `IkonClient.connectGuest`
 or the `IkonAuthenticator.authenticate*` call behind them. Such a connect never starts a server.
 When no session is live, the connect throws `NoLiveSessionException`, whose `retryAfter` is how long
-the backend asks the client to wait before trying again. A client whose session ends goes offline
+the backend asks the client to wait before trying again. An `authenticateApiKey` connect looks only in
+its `userId`'s own instance of a per-user app, and the exception names that user (`externalUserId`). A client whose session ends goes offline
 with that exception in `IkonClient.lastError` instead of reconnecting into a new server. Pass `userType: UserType.machine`
 with it so the connection does not count as a person in the session and the session still ends when
 its people leave.
@@ -744,7 +774,7 @@ the servers that refused it, so a sharded app places the person on another shard
 
 A connect whose token the backend refuses throws `IkonAuthRejectedException`. Its `statusCode` is 401
 when the token itself was refused (expired, or the sign-in revoked) and 403 when the app or surface
-does not admit the person. A reconnect that meets either one stops retrying, because the same token
+does not admit the person, or when an API key is unknown or deleted (`Invalid key`). A reconnect that meets either one stops retrying, because the same token
 would be refused again: the client goes `offlineError` with the exception in `IkonClient.lastError`.
 On a 401 it also fires `IkonClient.onCredentialRejected`, so the app can get a new token and pass it
 to `client.updateAuthToken(token)`, which resumes the reconnect with it, or sign the person out.
@@ -883,6 +913,11 @@ platform hostname, each custom hostname that serves the app (`www.` of one that 
 
 ## Responsiveness
 
+`IkonParallaxView` sends the app its size, the device theme and whether the app is in the
+foreground each time one of them changes, and sends the device's time zone with the first of these
+updates. So the app lays out for the screen with no code in your Flutter program. `client.viewportUpdater.sendTimezone` reports another
+time zone.
+
 A Flutter app reacts to a tap before the server answers, with no app code:
 
 - Value controls (tabs, selects, radio groups, toggle groups, switches, checkboxes, sliders) show
@@ -986,9 +1021,17 @@ stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. T
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
+| `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
+| `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `onResult` gets false, and the reason is only in the app's log (`ikon logs --level warn`).
 
 `client.sendAction(actionId, payloadJson, onResult)` sends an action as a tap would. A button press
 sends `'{}'`, the default. A text field change sends the new text itself as the payload, not JSON.
@@ -1194,6 +1237,30 @@ try {
   // The app's CancellationToken fired too
 }
 ```
+
+## Reactive Values
+
+`client.reactiveRegistry` follows a reactive of the app. `subscribeByName` finds a reactive field or
+auto-property of the app's `[App]` class by its name in the source, through the app's
+`Ikon.Reactive.GetStableIdByName` function, and its future fails when the app has no reactive by that
+name, or more than one. For a reactive kept anywhere else, the app returns its `StableId` from an
+`External` function and the program passes that id to `subscribe`. Both return a function that
+unsubscribes:
+
+<!-- ikon-example: flutter-sdk-reactive-by-name -->
+```dart
+// The callback runs once with the current value before the future completes, then on every change
+final unsubscribe = await client.reactiveRegistry.subscribeByName<int>('_visitorCount', (count) {
+  print('Visitors today: $count');
+});
+
+// Later: stop receiving changes
+unsubscribe();
+```
+
+The value arrives as parsed JSON (`jsonDecode`) with the C# property names. Changes made close
+together can arrive as one call with the latest value. After a reconnect the client subscribes to
+each reactive again.
 
 ## App Messages
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 914efbfbe7bfd07be3b0c442 -->
+<!-- checked-against: ac00a216bc4ce178e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -53,9 +53,9 @@ later update leaves out keeps the one sent before. The program tells the app the
 a file with `uploadFile` and a `File` made from a `Buffer` (`new File([buffer], 'report.pdf')`) or
 `fs.openAsBlob(path)` (see "Uploading Files" below). `rawMedia`, `setPath` and keeping the values an
 update leaves out need `@ikonai/sdk` 1.19 or later.
-`@ikonai/sdk` 1.13.2 and earlier try WebRTC in Node anyway and log a
-stack trace and a retry every 10 seconds; `webRtc: { enabled: false }` in the configuration stops
-that (those versions have no `media` option), and `setLogLevel(LogLevel.WARN)` hides the info lines.
+A Node program needs no `webRtc` setting, because a runtime without `RTCPeerConnection` never
+negotiates WebRTC; there is no `webRtc.enabled`, and `webRtc: { media: 'none' }` is the option that
+turns it off in a browser. `setLogLevel(LogLevel.WARN)` hides the SDK's info lines.
 
 Run a program that imports an app's generated message codec (`frontend-node/src/generated/protocol/*.ts`,
 see "App Messages" below) with `tsx` (`npx tsx client.ts`). `node client.ts` fails, because the codec
@@ -176,6 +176,8 @@ const client = new IkonClient({
 
 `userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
 
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with the key refused. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
+
 ### Local Development
 
 Connect directly to a local IKON server during development.
@@ -253,6 +255,8 @@ on Windows and macOS. On Linux, set `NODE_EXTRA_CA_CERTS` to the certificate exp
 ### Session Token Authentication
 
 Use this when the session token was obtained from OAuth flow or anonymous authentication. The JWT token already contains the internal userId.
+
+A program without a page (Node) joins in this mode as a `ContextType.Plugin` client and a page as `ContextType.Browser`, as in the `local` mode. Earlier than `@ikonai/sdk` 1.21, a `sessionToken` client is always a `Browser` client, which the app counts as a person on a page.
 
 An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
@@ -391,12 +395,14 @@ console.log(client.sessionId);
 // GlobalState is null until it arrives, which can be after connect() resolves; onReady marks it
 console.log(client.globalState);
 
-// Notify the server of client context changes (only while connected)
-client.sendUpdateClientContext({
+// Notify the server of client context changes; false when it was dropped (not connected).
+// Earlier than @ikonai/sdk 1.21 it returns nothing
+const sent = client.sendUpdateClientContext({
   viewportWidth: window.innerWidth,
   viewportHeight: window.innerHeight,
   theme: 'dark',
 });
+console.log(`Context update sent: ${sent}`);
 
 // Disconnect (connect() runs once per client; to connect again, build a new client)
 client.disconnect();
@@ -520,6 +526,12 @@ clients that stayed in it are not reported again. A client whose viewport, theme
 visibility changed while this one was away is reported through `onClientUpdated`, and one that left
 meanwhile through `onClientLeft`. A reconnect into a new session reports its clients as a first join
 does. Needs `@ikonai/sdk` 1.19 or later.
+
+A client whose connection drops is not reported as gone at once: the server holds its session for the
+soft-retry window, 5 minutes by default, so it can resume. Until then its `Context` has
+`IsSoftDisconnected` true and `SoftDisconnectAt` set, and `onClientLeft` is called when the window has
+passed. `PreciseJoinedAt` and `SoftDisconnectAt` are `bigint`, which `JSON.stringify` refuses, so print
+a `Context` with a replacer: `JSON.stringify(other, (_, value) => typeof value === 'bigint' ? value.toString() : value)`.
 
 <!-- ikon-example: ts-sdk-client-events -->
 ```ts
@@ -824,6 +836,12 @@ the next join's list arrives, so await `waitForRemoteFunctions()` (`@ikonai/sdk`
 first, which waits the same 10 seconds at most. It resolves to true once the list has arrived, and to
 false after the 10 seconds, or at once when the client is not connecting or connected (from
 `@ikonai/sdk` 1.19; earlier it resolves with nothing either way).
+Each entry of `getRemoteFunctions()` (and `getRemoteFunction(name)`) is a `RemoteFunction`: `name`,
+`id`, `description`, `resultTypeName`, `isEnumerable`, `requiresInstance`, `clientSessionId` (the
+session that registered it) and `parameters`. `parameters` is the protocol's list as the app sent it,
+with PascalCase fields: `ParameterName`, `TypeName` (the C# type's full name, such as
+`System.String` or `System.Int32`), `HasDefaultValue`, `DefaultValueJson` (JSON text, empty without a
+default), `Description`, `IsEnumerable` and `ParameterIndex`, in call order.
 A function that returns a C# record or class resolves to the parsed JSON, with the C# property
 names as they are (`{ Name, SinceUtc }`, PascalCase) and enums as their names, so type the call
 with an interface that has those names:
@@ -1083,8 +1101,9 @@ receives media as frames through `client.rawMedia` (`@ikonai/sdk` 1.19 or later)
 reaches only the app. `sendAudio` encodes PCM to Opus (it needs `@ikonai/sdk-libopus`) at 8, 12, 16,
 24 or 48 kHz in 20 ms frames. Samples that do not fill a frame wait for the next call, and `isLast`
 pads the last frame. `sendOpusFrame` sends a frame already encoded. The app's speech recognition
-skips audio without a `correlationId`, so give one to audio meant for it. `sendVideoFrame` sends one encoded frame, announcing the
-stream first and again when its size, codec, source type, correlation id or frame rate changes; the
+skips audio without a `correlationId`, so give one to audio meant for it. `sendVideoFrame` sends one encoded frame: for H.264 one access unit (every slice of one
+picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver
+decodes from the parameters in the stream. It announces the stream first and again when its size, codec, source type, correlation id or frame rate changes; the
 SDK does not encode video. A reconnect into a new session announces every stream again before its
 next frame. Sending throws when the client is not connected. Received streams are named
 `"{senderId}_{trackId}"`, and `senderStreamId` is the id the sender gave; `requestVideoKeyFrame`
@@ -1162,7 +1181,8 @@ Access the UI store for stream snapshots:
 ```ts
 import type { UiNode } from '@ikonai/sdk-ui';
 
-// Get all stream snapshots. Each holds views and payloads as Maps, which JSON.stringify prints as {}
+// An array with one snapshot per stream (the page, the platform's layer, other mounts), each with its
+// streamId and category. Each holds views and payloads as Maps, which JSON.stringify prints as {}
 const snapshots = uiCore.uiStore.getSnapshots();
 
 // Get specific stream
@@ -1212,9 +1232,17 @@ The standard components put their text and labels in these props:
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
+| `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
+| `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `sendActionCallWithResult` resolves with `success: false` and an empty `errorMessage`, and the reason is only in the app's log (`ikon logs --level warn`).
 
 The `sdk-ui` library is designed to be framework-agnostic. For React integration, see `@ikonai/sdk-react-ui`.
 
@@ -1312,7 +1340,7 @@ if (isDebugModeEnabled()) {
 
 ### Feedback
 
-When the app offers feedback (a platform setting, changed in Studio or with `ikon feedback set`), `IkonApp` draws the platform's feedback button and sheet. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
+When the app offers feedback (a platform setting, changed in Studio or with `ikon feedback set`), `IkonApp` draws the platform's feedback button and sheet. The button's label is in the language of the app's `locale` option (`useIkonApp().locale`), or of the browser without it, and in English for a language it has no label in. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
 
 <!-- ikon-example: ts-sdk-feedback -->
 ```tsx
@@ -1495,7 +1523,7 @@ The SDK has a typed error for each kind of failure:
 | `SdkUpgradeRequiredError` | The platform no longer accepts this SDK version, HTTP 426: update the app's IKON packages with `ikon update` and deploy it again (terminal, exposes `reason`, the platform's message) |
 | `AppUpgradeRequiredError` | The platform no longer runs the app's deployed bundle, HTTP 426, because it was built on IKON libraries that are too old: the app's developer runs `ikon update` and deploys again (terminal, exposes `reason`) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
-| `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal, exposes `spaceId` and `retryAfterMs`, the backend's suggested wait) |
+| `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal; exposes `spaceId`, `retryAfterMs` (the backend's suggested wait), and the `externalUserId` and `sessionIdentityHash` it looked for, which the message also names. With a per-user `SessionIdentity`, a session running for another external user is not joined) |
 | `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
 | `ServerRateLimitedError` | A rate limiter refused the request with HTTP 429: the ikon server's, which counts per address, or the backend's. The connect asks an ikon server again after the wait it named, 30 s at most, and raises this when its budget runs out while a rate limiter's refusal is the most telling answer it got. Says nothing about the sign-in (extends `ServerUnavailableError`, exposes `retryAfterMs`) |
 | `ServerNotReadyError` | The connect ran out of its budget on an ikon server that kept not answering, refusing the connection or answering 5xx. A credential refusal on any connect URL is raised as `AuthenticationError` instead, and a rate limiter's as `ServerRateLimitedError` (extends `ServerUnavailableError`, exposes `status`, 0 when the try got no answer) |

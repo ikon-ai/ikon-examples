@@ -1,4 +1,4 @@
-<!-- checked-against: 77c2a967f22c630a7e97225d -->
+<!-- checked-against: d80585dfbac9b37be2c29c38 -->
 
 # Ikon.Parallax Library Overview
 
@@ -122,7 +122,7 @@ other input.
 
 ### When an Action Handler Throws
 
-An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one:
+An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one. An app made with `ikon new` already subscribes a handler that shows a generic error alert. Change that handler rather than adding a second one:
 
 <!-- ikon-example: px-when-an-action-handler-throws -->
 ```csharp

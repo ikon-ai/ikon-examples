@@ -1,4 +1,4 @@
-<!-- checked-against: 4318f750fe0b46dde3b0c442 -->
+<!-- checked-against: 4cb82b69fe0b46dde3b0c442 -->
 
 # IKON Rust SDK
 
@@ -53,7 +53,7 @@ use ikon_sdk::{
 
 ### API Key Authentication
 
-A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`.
+A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
 
 <!-- ikon-example: rust-sdk-connect -->
 ```rust
@@ -82,6 +82,8 @@ client.disconnect().await?;
 `IkonClient::new` returns `Result<Arc<IkonClient>>`, and the client's methods take `self: &Arc<Self>`, so a function of the program's own takes the client as `fn f(client: &Arc<IkonClient>)`, and a spawned task gets `Arc::clone(&client)`.
 
 `connect` returns once the client is in the session and the app knows it, so code after it can call the app at once. `join_only: true` with `UserType::Machine` joins only a session that is already running and does not keep it open; the connect then fails with `SdkError::NoLiveSession` when nothing runs.
+
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `SdkError::HttpStatus` 403 and the body `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
 ### Local Development
 
@@ -173,7 +175,7 @@ match client.connect().await {
 
 `SdkError` is `#[non_exhaustive]` because a later release can add variants. A `match` on it therefore needs a catch-all arm, such as the `other` arm here.
 
-The client cannot renew the token itself. When the backend refuses it (401) or the app refuses the user (403), `connect` fails. During a reconnect, the client stops reconnecting at once, goes `Offline` and reports the refusal on `error_occurred`. `update_auth_token` sets the token that every later connect and reconnect uses. It fails for a client that was not configured with a user token.
+The client cannot renew the token itself. When the backend refuses it (401) or the app refuses the user (403), `connect` fails. A 401 from `/init` means the backend did not take the token as a valid session token for the app's space: it expired, was revoked, or is of another kind, such as the IKON tool's tokens (`ikon mcp token`, `ikon auth token create`). Its error says so: the SDK appends that note to the error's `body`, after the backend's answer. During a reconnect, the client stops reconnecting at once, goes `Offline` and reports the refusal on `error_occurred`. `update_auth_token` sets the token that every later connect and reconnect uses. It fails for a client that was not configured with a user token.
 
 ### Connect URLs
 
@@ -201,7 +203,7 @@ A reconnect into a new session uses the same URL, so once its token has expired 
 | `clients` | another client joined, changed its context or left (see Other Clients) |
 | `disconnected`, `stopping`, `error_occurred` | the link dropped, the server is stopping, a connect or reconnect failed |
 
-When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), or, for a client that is not local, the backend or the server refuses the credential (401) or the app refuses the user (403). `disconnect` leaves the session and goes `Idle`. The HTTPS port is used only to get the session. The session itself runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees the session's traffic, and only that link dropping starts a reconnect.
+When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), or, for a client that is not local, the backend or the server refuses the credential (401), or the app refuses the user or the backend an unknown API key (403). `disconnect` leaves the session and goes `Idle`. The HTTPS port is used only to get the session. The session itself runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees the session's traffic, and only that link dropping starts a reconnect.
 
 `ikon stop` does not test a reconnect: the server says it is stopping (`stopping`) before it closes the link, so the client goes `Offline` and does not try again. The next `ikon run` can take another port, so a program that should keep going makes a new `IkonClient` with the port that run prints. The IKON tool has no command that drops one client's link on a local run.
 
@@ -440,6 +442,8 @@ score.unsubscribe().await;
 
 The callback gets the current value before `subscribe` returns, then the value after each change, in order. The app sends one value at a time. Changes made while a value is on its way arrive as one call with the latest value, so the last call always has the current value. After a reconnect the registry subscribes again and delivers the value as it is then. Pass the mount id for a `MountReactive<T>`, or `""`.
 
+The value arrives as the JSON of the C# value. A record or class keeps its C# property names, which are PascalCase (`{ "Name": ..., "Score": ... }`), so derive the Rust struct with `#[serde(rename_all = "PascalCase")]`. A list arrives as a JSON array and a dictionary as a JSON object keyed by the dictionary's keys.
+
 ## Client Context
 
 A browser tells the app its viewport, theme, timezone and visibility, and the path it shows. A program does the same:
@@ -499,7 +503,7 @@ let status = ui
 println!("{:?}", status.text("content"));
 ```
 
-`wait_for_node` returns at once when a node already matches, and otherwise waits for the update that adds one. `call_node_action` returns whether the app's handler completed; `false` means the app refused the call, for example for a control that has since been removed from the UI. A call made while the client reconnects waits for it, as a function call does.
+The first tree can arrive just after `connect` returns, so `page().root` may still be `None` then; `ui.wait_for_node(|_| true, timeout)` waits for it. `wait_for_node` returns at once when a node already matches, and otherwise waits for the update that adds one. `call_node_action` returns once the handler has run, which can be before the update it made reaches the client, so wait for the new value with `wait_for_node`, as the example above reads the status. `call_node_action` returns whether the app's handler completed; `false` means the app refused the call, for example for a control that has since been removed from the UI. A call made while the client reconnects waits for it, as a function call does.
 
 The standard components put their text and labels in these props:
 
@@ -511,9 +515,17 @@ The standard components put their text and labels in these props:
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
+| `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
+| `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `call_node_action` returns false, and the reason is only in the app's log (`ikon logs --level warn`).
 
 Nodes never change: an update replaces the nodes on the changed path, so a node read earlier keeps its old props. The `ui` event delivers each stream as it changes:
 
@@ -585,7 +597,7 @@ The id comes from an upload control the app shows that program's client, as abov
 
 ## Media
 
-The SDK sends and receives encoded frames. The program does the encoding and decoding. A client's audio and video reach the app only. Frames sent while the client is still joining are dropped.
+The SDK sends and receives encoded frames. The program does the encoding and decoding: for Opus, the `audiopus` crate builds its own libopus with `cmake` when the system has none, so it needs no system package. A client's audio and video reach the app only. Frames sent while the client is still joining are dropped.
 
 ### Sending Audio
 

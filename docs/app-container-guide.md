@@ -1,4 +1,4 @@
-<!-- checked-against: acdad635d6f3c7e0db3691ae -->
+<!-- checked-against: b95c8fb8d6f3c7e0db3691ae -->
 
 # App Container Guide
 
@@ -56,6 +56,11 @@ Strip = 1                            # path components dropped from every entry,
 Dest = "renode"                      # inside tools/<runtime>/; empty is the folder itself
 ```
 
+`Strip = 1` drops the one top folder this archive keeps everything in (`renode-1.17.0/`). An archive
+with `bin/` and `lib/` at its root, such as a qpdf zip, keeps the default `Strip = 0`. A new app has
+only `ikon-config.development.toml`, so the entries go there; a target file written later
+(`ikon link --target`) copies them.
+
 Nothing runs to fetch them: the tool downloads what `Url` names, refuses it unless it hashes to
 `Sha256` (64 hex characters), and extracts it inside `tools/<Runtime>/` only, dropping `Strip` leading
 path components. An entry whose destination already holds what it fetched, by the marker the fetch
@@ -77,7 +82,7 @@ exec "$(dirname "$0")/renode-portable/renode" "$@"
 A program that loads plugins or reads a config folder (ImageMagick's `modules-*/coders` with their
 `.la` files, and its XML config) ships those folders beside it too, and is started with the
 variables that point at them set: in such a launcher, relative to `$(dirname "$0")`, or through
-`ProcessStartInfo.Environment`.
+`ProcessStartInfo.Environment`. "A program with plugins: ImageMagick" below is a worked example.
 
 An AppImage, such as ImageMagick's Linux download, mounts itself with FUSE, which the server image
 lacks. Fetch it as one file and start it with `APPIMAGE_EXTRACT_AND_RUN=1` set, so it unpacks itself
@@ -95,6 +100,60 @@ Name = "magick"                      # started as Process.Start("magick")
 Set the variable in `ProcessStartInfo.Environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"`, or in a
 launcher script that runs the AppImage under another name. Alternatively, unpack it once with
 `--appimage-extract` in a custom container's Dockerfile.
+
+**A Debian package.** A program that Debian packages, such as `sox` or `gpsbabel`, is unpacked from its `.deb`
+files, because the server image does not run `apt-get`. In a container of the image's release, download the package
+with every package it depends on that the plain image lacks, and unpack them all:
+
+```bash
+docker run --rm -v "$PWD/deb:/out" -w /out -e OWNER="$(id -u):$(id -g)" debian:trixie sh -c \
+  'apt-get update && apt-get install -y --download-only gpsbabel && cp /var/cache/apt/archives/*.deb . &&
+   for f in *.deb; do dpkg-deb -x "$f" root; done && chown -R "$OWNER" /out'
+```
+
+The closing `chown` gives the files to you: files a container writes are owned by root, and `ikon save`
+cannot then replace them with `.ikonasset` pointers.
+
+Copy the binary into `tools/linux-x64/`, then let `ldd` list the shared libraries it loads and copy those that came
+from the unpacked packages into `tools/linux-x64/lib/`. A library that `ldd` finds in the system folders is already in
+the image, so it is not copied. That keeps out libc and the dynamic loader (`ld-linux`), which must never be copied:
+
+```bash
+docker run --rm -v "$PWD:/w" -w /w -e OWNER="$(id -u):$(id -g)" debian:trixie sh -c '
+  mkdir -p tools/linux-x64/lib && cp deb/root/usr/bin/gpsbabel tools/linux-x64/ &&
+  LD_LIBRARY_PATH=deb/root/usr/lib/x86_64-linux-gnu ldd tools/linux-x64/gpsbabel |
+    grep -o "deb/root/[^ ]*" | xargs -r cp -L -t tools/linux-x64/lib/ &&
+  chown -R "$OWNER" tools/linux-x64'
+```
+
+`cp -L` writes a library's versioned link (`libQt6Core.so.6`) as the file it points at. The app puts
+`tools/linux-x64/lib/` on `LD_LIBRARY_PATH` for every program it starts, so the binary needs no launcher. Test it in a
+plain `debian:trixie` container with `LD_LIBRARY_PATH=tools/linux-x64/lib ldd tools/linux-x64/gpsbabel` and a real
+run before deploying. A library that is still `not found` is either in an unpacked folder the command above did not
+search (add that folder to its `LD_LIBRARY_PATH`) or in a package you have not downloaded yet (download it the same way).
+
+**A program with plugins: ImageMagick.** Unpack `imagemagick` the same way. Copy the
+binary (`usr/bin/magick`, or the `magick-im7.q16` it links to) to `tools/linux-x64/magick.bin`, its libraries
+to `tools/linux-x64/lib/` as above (never libc or `ld-linux`), the `coders` and `filters` folders from
+`usr/lib/x86_64-linux-gnu/ImageMagick-7*/modules-Q16/` to `tools/linux-x64/magick-modules/`, and
+`etc/ImageMagick-7/` to `tools/linux-x64/magick-config/`. Then add the launcher `tools/linux-x64/magick`, and
+make it executable (`chmod +x`), so `Process.Start("magick")` starts it:
+
+```sh
+#!/bin/sh
+D=$(dirname "$0")
+export MAGICK_CODER_MODULE_PATH="$D/magick-modules/coders"
+export MAGICK_FILTER_MODULE_PATH="$D/magick-modules/filters"
+export MAGICK_CONFIGURE_PATH="$D/magick-config"
+exec "$D/magick.bin" "$@"
+```
+
+Check it in a plain `debian:trixie` container with `LD_LIBRARY_PATH=tools/linux-x64/lib tools/linux-x64/magick
+in.png out.jpg`: a missing coder fails with `no decode delegate for this image format`.
+
+**A pure-Perl tool** such as `exiftool` needs no build: put its script and `lib/` folder in
+`tools/linux-x64/exiftool-dist/` and start it with a `sh` launcher `tools/linux-x64/exiftool` that runs
+`exec perl "$(dirname "$0")/exiftool-dist/exiftool" "$@"` on the image's own `perl`.
 
 The bundle, tools included, is limited to 512 MB.
 

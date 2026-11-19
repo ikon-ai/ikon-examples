@@ -1,4 +1,4 @@
-<!-- checked-against: 715e1579848ff238ab327d0f -->
+<!-- checked-against: 0506e59f675f26b80af72354 -->
 
 # Teleport message schema specification
 
@@ -373,7 +373,7 @@ OPUS  = 2
 - Every member within the same enum must use the same value kind (all integers or all strings).
 - References appear as `AudioCodec` field types.
 - Defaults: `AudioCodec = PCM16`.
-- Numeric enums generate real enums in every target language except Dart, which emits an int-backed `extension type` so values outside the declared members (flags) survive a round trip.
+- Numeric enums generate real enums in C#, TypeScript and C++. Dart emits an int-backed `extension type` and Rust a newtype over the integer (`UserType(pub i32)`) with a constant per member, so values outside the declared members (flags, or a member a newer schema added) survive a round trip. Dart's `.name` gives the member's name (the first one declared when two members share a value), or the number for a value that names no member; Rust's `name()` returns `None` for such a value.
 - String enums generate TypeScript enums with string initializers, and `public static class` declarations with `const string` fields in C#.
 - Fields that use string enums are serialized as strings on the wire while still exposing strongly typed constants in each target language.
 

@@ -1,4 +1,4 @@
-<!-- checked-against: a43fe160c52d19b2e3b0c442 -->
+<!-- checked-against: 1f1d0b72e68590e6e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -123,7 +123,7 @@ The SDK supports five authentication modes: an API key, local development, a gue
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
 
 <!-- ikon-example: cpp-sdk-auth-api-key -->
 ```cpp
@@ -167,6 +167,8 @@ through `ErrorOccurred` and goes offline, because only a new build fixes it:
 
 Both derive from `ClientUpgradeRequiredException`, whose `reason` is the platform's message and
 `minimum` the oldest version it accepts.
+
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with the key refused. `Connect()` throws `AuthRefusedException`, whose `what()` is a short reason with the backend's request id (`The API key was refused (403 Invalid key; request <id>)`) and whose `response` holds the request and the backend's whole answer. `IkonClient` logs that answer at Debug. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
 ### Local Development
 
@@ -329,6 +331,10 @@ client.Disconnect();
 
 // Or let destructor handle it
 ```
+
+A failed `Connect()` reports its error twice, with the same message: first through `ErrorOccurred`, then as the
+exception it throws. Show the exception for a connect your code called, and keep `ErrorOccurred` for failures no
+call returns, such as a reconnect that gives up.
 
 Once the connection is open, `Connect()` waits for the server to send the session state and the app's functions, up to `timeouts.joinTimeoutSec` (30 seconds). If they do not arrive, it closes the connection and throws `JoinTimeoutException`, and the client goes `Offline` without running `Ready`; call `Connect()` again to retry. A reconnect attempt that runs out of this time counts as a failed attempt.
 
@@ -618,7 +624,7 @@ A program that plays the app's audio reports how far it has played each stream w
 
 ### Encoding and Decoding Audio
 
-Any Opus library works. libopus comes from vcpkg (`opus` in a `vcpkg.json`, or `vcpkg install opus`). Find it with `find_package(Opus CONFIG REQUIRED)` in a build configured with vcpkg's toolchain file (see "Building a Program"), and link it as `Opus::opus`. Encode 20 ms frames, 960 samples per channel at 48 kHz, as the .NET SDK does, and pass the same sample rate, channel count and frame size to `SendAudioFrame`. Make a decoder for each incoming stream in `AudioStreamBegan` from `begin.SampleRate` and `begin.Channels`, never from what the app sent: audio the app sends as mono can arrive as 48 kHz stereo.
+Any Opus library works. libopus comes from vcpkg (`opus` in a `vcpkg.json`, or `vcpkg install opus`). Find it with `find_package(Opus CONFIG REQUIRED)` in a build configured with vcpkg's toolchain file (see "Building a Program"), and link it as `Opus::opus`. On Linux the system package works without vcpkg: `apt install libopus-dev` (`dnf install opus-devel` on Fedora), then `find_package(PkgConfig REQUIRED)` and `pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)`, and link `PkgConfig::opus`. Either way, include it as `#include <opus.h>`. Encode 20 ms frames, 960 samples per channel at 48 kHz, as the .NET SDK does, and pass the same sample rate, channel count and frame size to `SendAudioFrame`. Make a decoder for each incoming stream in `AudioStreamBegan` from `begin.SampleRate` and `begin.Channels`, never from what the app sent: audio the app sends as mono can arrive as 48 kHz stereo.
 
 <!-- example-skip: needs libopus, which the SDK does not include -->
 ```cpp
@@ -656,7 +662,7 @@ client.ClientLeft = [](const Context& other)
 client.Connect();
 ```
 
-`ClientJoined` runs once a client has finished joining, when the server has sent it the session's state, so the app can answer it from then on. On joining, it runs for each client already there. A client that leaves before it has finished joining is never reported, and `ClientUpdated` and `ClientLeft` run only for a client `ClientJoined` reported. Each client is reported once per session. A reconnect into the same session reports only what changed while this client was away: `ClientJoined` for a client that joined meanwhile, and `ClientUpdated` for one whose viewport, theme, timezone or visibility changed. A client that left meanwhile raises `ClientLeft` once the server has sent the clients still there. A reconnect into a new session reports its clients as a first join does. `ClientUpdated` runs when a client reports a new viewport, theme, timezone or visibility, and is read from the client's context in each `GlobalState` the server sends. The events are never about this client, and a lifecycle batch the server sends is reported event by event. They run on the receive thread, so a handler should return quickly and must not wait for a remote call's result. Set them before `Connect()`.
+`ClientJoined` runs once a client has finished joining, when the server has sent it the session's state, so the app can answer it from then on. On joining, it runs for each client already there. A client that leaves before it has finished joining is never reported, and `ClientUpdated` and `ClientLeft` run only for a client `ClientJoined` reported. Each client is reported once per session. A reconnect into the same session reports only what changed while this client was away: `ClientJoined` for a client that joined meanwhile, and `ClientUpdated` for one whose viewport, theme, timezone or visibility changed. A client that left meanwhile raises `ClientLeft` once the server has sent the clients still there. A reconnect into a new session reports its clients as a first join does. `ClientUpdated` runs when a client reports a new viewport, theme, timezone or visibility, and is read from the client's context in each `GlobalState` the server sends. The app is one of the clients: a `ContextType::Plugin` client with `IsInternal` true, which gets a new `SessionId` each time the app restarts or hot reloads. The events are never about this client, and a lifecycle batch the server sends is reported event by event. They run on the receive thread, so a handler should return quickly and must not wait for a remote call's result. Set them before `Connect()`.
 
 ## Reactive Subscriptions
 
@@ -741,9 +747,17 @@ The standard components put their text and labels in these props:
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
+| `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
+| `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `CallAction` returns false, and the reason is only in the app's log (`ikon logs --level warn`).
 
 `Actions()` lists a node's actions by prop: `"onInvokeId"` for a button's press, `"onValueChangeId"` for a text field's new value, `"onCheckedChangeId"` for a checkbox. `CallAction` sends `"{}"` by default; a text field's payload is the text itself, a checkbox's `"true"` or `"false"`. It blocks until the app answers and returns whether the handler completed, and throws `std::runtime_error` when not connected, on a timeout (30 s by default), and when the client moves to a new server session before the answer arrives. `StreamUpdated` and `StreamEnded` run on the receive thread, which delivers `CallAction`'s answer, so never call `CallAction` from them or from `MessageReceived`. A reconnect into the same session asks for every tree again; one into a new session ends every stream. `RequestResync(stream)` asks for a whole tree on demand.
 
@@ -816,6 +830,8 @@ private:
     }
 };
 ```
+
+`ExampleLogger` prints every line; `ExampleLogger(ExampleLogger::Level::Info)` drops the trace and debug lines.
 
 ### IHttpInterface
 

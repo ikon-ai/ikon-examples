@@ -1,4 +1,4 @@
-<!-- checked-against: 9e1508bb9a53c59554704d17 -->
+<!-- checked-against: c26d4894755a53323b9e9f73 -->
 
 # IKON C# SDK
 
@@ -157,6 +157,8 @@ var config = new IkonClientConfig
 };
 ```
 
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with 403 `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets 403 `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
+
 ### Local Development
 
 Connect directly to a local IKON server during development.
@@ -238,6 +240,8 @@ var config = new IkonClientConfig
     UserLogin = new UserLoginConfig
     {
         SpaceId = "...",              // required
+        // An app on *.dev.ikonai.app, as `ikon status` shows its environment; null for the process's own platform
+        Environment = IkonBackend.EnvironmentType.Development,
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
     }
@@ -623,7 +627,7 @@ client is ready again; see [Calling Functions](#calling-functions).
 
 A reconnect signs in again, and the backend can refuse it: with 401 when the token expired or the
 person's sign-in was revoked (for example, their organisation's directory removed them), with 403 when the
-app or surface does not admit them. The same credential would be refused on every retry, so the
+app or surface does not admit them, or when an API key is unknown or deleted (`Invalid key`). The same credential would be refused on every retry, so the
 client stops: it raises `ErrorOccurredAsync` and `DisconnectedAsync`, goes `Offline` and does not
 retry in the background. A server that is down or busy (5xx, network errors) is still retried as
 above. On a 401 it also raises `CredentialRejectedAsync`, so the program can act:
@@ -1011,7 +1015,7 @@ await client.UI.CallActionAsync(name, "onValueChangeId", "Ada");
 platform's own layer. The first tree can arrive just after `ConnectAsync` returns, so `Page` may still
 be empty then; `WaitForNodeAsync` waits for it. A node's `Actions` lists its actions by prop name: a button's press is
 `onInvokeId`, a text field's new value `onValueChangeId`, a checkbox's `onCheckedChangeId`. A press
-sends `{}`, a text field the text itself, a checkbox `true` or `false`. A disabled control carries no
+sends `{}`, a text field the text itself (`Ada`, not JSON `"Ada"`), a checkbox `true` or `false`. A disabled control carries no
 action, so waiting until `node.GetActionId("onInvokeId")` is not null waits until a button can be
 pressed.
 
@@ -1025,9 +1029,17 @@ The standard components put their text and labels in these props:
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
+| `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
+| `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
+
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `CallActionAsync` returns false, and the reason is only in the app's log (`ikon logs --level warn`).
 
 The SDK acknowledges each tree it applies, so the app can remove the actions no client can call any
 longer. When a change cannot be applied, or after the connection drops and the client rejoins the same

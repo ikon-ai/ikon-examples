@@ -1,4 +1,4 @@
-<!-- checked-against: 3dd6a679b8a7aa80c95cb3ff -->
+<!-- checked-against: 8f1a8fd958d8c023c95cb3ff -->
 
 # IKON Persistent State Guide
 
@@ -119,8 +119,9 @@ The platform's backend keeps a global value, and each instance keeps a copy that
 `PersistentUserReactive`'s do (see "Save semantics").
 
 - **A write shows at once in the instance that made it.** The instance sends it to the backend in
-  the background, and the other instances usually see it within a few seconds, always within a
-  minute while the backend can be reached.
+  the background, and the other instances usually see it within a few seconds, at worst after about
+  two minutes. An instance that missed the backend's change notice catches up at its next check, up
+  to a minute later, and a value written often can wait up to a minute before it is sent.
 - **Writes in quick succession are delayed.** The first two writes to a value after a quiet spell are
   sent at once. When a third comes soon after, it waits a second, and the wait doubles with each
   further such write, up to 60 seconds; the writes made while it waits are sent as one. A value
