@@ -1,4 +1,4 @@
-<!-- checked-against: efb43078aa0fc9a24fb063e7 -->
+<!-- checked-against: fdc138fdaa0fc9a24fb063e7 -->
 
 # Ikon.App.Sso Guide
 
@@ -13,6 +13,22 @@ A connection belongs to the app. An app that serves many customers holds one
 connection per customer and decides for itself which connection belongs to which of its tenants.
 Creating one needs the app's `sso-connection.per-space` quota, which the plans that include SSO
 raise.
+
+Your own organisation can also have connections of its own, set up by its admins in Studio's
+Single sign-on settings. Such a connection signs its members in to every app of the organisation, so
+your app needs no connection of its own for the organisation's members. It changes these things for your app:
+
+- An app connection cannot use an email domain that the app's organisation holds. People on that
+  domain sign in through the organisation's connection.
+- When the organisation requires SSO, its members cannot enter your app with another sign-in
+  method. A session through the organisation's connection also meets your app's own requirement
+  (`SsoRequiredMode`) for a domain the organisation holds.
+- `Context.SsoConnectionId` can be the organisation's connection, which `SsoConnections` does not
+  list, so don't treat an unknown id as an error.
+- An address on a domain the organisation holds is routed to the organisation's connection, unless
+  your app has its own connection for that domain.
+- A person who signs in to Studio through an organisation's connection can reach only that
+  organisation, even when they are also a member of another one.
 
 ## Turn on the sign-in UI
 

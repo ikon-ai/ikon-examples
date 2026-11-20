@@ -1,4 +1,4 @@
-<!-- checked-against: b672316d91a9564ae3b0c442 -->
+<!-- checked-against: 466761d688dcbd63e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -334,8 +334,20 @@ flutter run -d linux --dart-define=IKON_PORT=8443
 The program is a GTK window, so it needs a display: on a headless machine start one with `Xvfb :99` and run
 the program with `DISPLAY=:99`, or it exits with `cannot open display`. The keyring needs a running Secret
 Service (gnome-keyring, KeePassXC); without one the SDK logs `The secure store refused the install id` and
-may fall back to an install id for that run only. `libpulse` is optional: without it the build warns
-`libpulse NOT found` and only system-audio loopback capture is off.
+may fall back to an install id for that run only.
+
+Audio on Linux needs a sound server (PulseAudio or PipeWire) or a sound card:
+
+- WebRTC media (`enableIkonWebRtcMedia`) aborts the process in native code with `Failed to initialize
+  the ADM` when the machine has no audio device, before any Dart code can catch it. On a machine with
+  no sound, leave `enableIkonWebRtcMedia` out.
+- The microphone runs `parecord`, so it needs `pulseaudio-utils` and a running sound server; without them
+  the capture fails with `PlatformException(record, Cannot run parecord ...)`.
+- The SDK's Opus playback (`enableIkonAudioPlayback`) plays on Android, iOS and macOS only: its speaker
+  output, `flutter_pcm_sound`, has no Linux, Windows or web build. On Linux it logs `Audio playback
+  failed to initialise`, and the app's audio plays only through WebRTC media.
+- `libpulse` is optional: without it the build warns `libpulse NOT found` and only system-audio
+  loopback capture is off.
 
 ### Android
 
@@ -466,7 +478,7 @@ emulator connecting to the machine it runs on needs none.
 
 <!-- ikon-example: flutter-sdk-auth-guest -->
 ```dart
-// A development app: the host of the cloudUrl that `ikon status` prints, and dev's auth service
+// A development app: the host of the url `ikon app show <app-id>` prints, and dev's auth service
 final client = await IkonClient.connectGuest(
   serverHost: 'my-app-1a2b3c4d.dev.ikonai.app',
   spaceId: 'my-space-id',
@@ -474,7 +486,8 @@ final client = await IkonClient.connectGuest(
 );
 ```
 
-`serverHost` is the host of the app's `cloudUrl` that `ikon status` prints, and `authUrl` is the
+`serverHost` is the host of the app's `url` that `ikon app show <app-id>` prints from any folder (`ikon status`
+shows it as `cloudUrl` only in a folder linked to the app), and `authUrl` is the
 auth service of the app's environment. The auth service of the other environment refuses the app
 with 403.
 
@@ -681,6 +694,10 @@ before the first connect, `connecting` during it, `connected`, `reconnecting` fr
 is seen until a reconnect's connection opens, and `offline` or `offlineError` once the client has
 stopped trying. `dispose()` sets `idle` again, and that change is the last `onStateChange` reports. A UI that shows the connection watches `onStateChange`. Work that must not send while the app
 cannot be reached watches readiness instead, below.
+
+`IkonClient.debugDropConnection()` closes the connection as a network failure does, without telling the server the client is leaving, and the client reconnects as after any drop. It does nothing unless the client is connected. It is for tests: a test calls it to simulate a drop and check the program's own recovery against a deployed app, whose socket a test cannot reach.
+
+A connect that reaches no server (no network, no DNS answer, a refused port) throws `IkonServerUnreachableException` from `connectGuest`, `connectWithToken`, `connectWithApiKey`, `connectWithUrl` and `connectLocal`, and says nothing about the credentials, so the program retries it later. A refusal is an `IkonAuthRejectedException`.
 
 Three members follow readiness, and they differ in timing:
 
@@ -1025,6 +1042,7 @@ stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. T
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The Flutter view moves the client to that path itself when the action is pressed, and back when the app refuses it; a client without the view calls the action with `sendAction`, and the app then moves it |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
 | `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
@@ -1132,7 +1150,9 @@ changed. A reconnect into a new session reports every client again, as the first
 leaves before it is ready raises nothing. A client that left while this client was away raises
 `onClientLeft` once the server has sent the clients still there after the reconnect. A disposed client
 tells the server it is leaving, so the others get `onClientLeft` at once rather than when its reconnect
-window ends.
+window ends. A client whose connection drops, a program that was killed included, stays listed for that
+soft-retry window, 5 minutes by default, so it can resume: until then its `Context` has
+`isSoftDisconnected` true and `softDisconnectAt` set, and `onClientLeft` fires when the window has passed.
 
 ## Client Functions
 
@@ -1446,7 +1466,7 @@ Frames sent before `ClientReady` are dropped and the send returns false. After a
 frame announces the stream again. `isFirst` starts a new audio segment, and a new `correlationId`
 given with it announces the stream again. The app's speech recognition skips an audio stream without
 a correlation id. `onKeyFrameRequested` fires when the app asks for a keyframe, and the
-next frame sent should be one. H.264 goes in Annex B form.
+next frame sent should be one. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS.
 
 `sendPlaybackReport` tells the app how far this client has played a stream it receives. The app
 reads the latest report with `Audio.Raw.GetPlaybackStatus` and paces what it says to what was heard.

@@ -1,4 +1,4 @@
-<!-- checked-against: f11f609fba1c5ad80e039193 -->
+<!-- checked-against: 6c36516eba1c5ad88ba033ba -->
 
 # Ikon.AI Library Overview
 
@@ -478,7 +478,9 @@ await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
 A size outside the model's range is refused rather than clamped to a nearby one, with an exception
-naming what the model accepts; inside the range, Gemini, xAI and FLUX Kontext take only the nearest
+naming what the model accepts, before any provider is called, so `ikon run --ai mock` refuses it too
+(the longer edge is at most 4096 on Gemini, 1024 on Gemini 3.1 Flash Lite, 2048 on xAI and 1440 on
+FLUX.1 and FLUX 1.1); inside the range, Gemini, xAI and FLUX Kontext take only the nearest
 aspect ratio they support, so a 1000x700 request does not come back as 1000x700. The OpenAI
 models list their sizes in `ImageGenerator.GetCapabilities(model).SizeRules`: gpt-image-1.5 and
 gpt-image-2 render 1024x1024, 1536x1024 and 1024x1536 only, while gpt-image-2.5 and 2.6 take any size with
@@ -824,7 +826,7 @@ Log.Instance.Info($"Parts: {parts.GlbUrl}, repainted: {repainted.GlbUrl}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.VideoGeneration.md` in an app project).
 
-One-shot text-to-video — defaults to `Veo31Fast`, a premium model that a plan without premium models refuses (`AIAccessDeniedException`); pass a `VideoGeneratorModel` as the second argument to pick another:
+One-shot text-to-video — defaults to `Veo31Fast`; pass a `VideoGeneratorModel` as the second argument to pick another:
 
 Needs the `Ikon.AI.VideoGeneration` using directive.
 
@@ -1399,7 +1401,7 @@ Log.Instance.Info(result.Text);
 | `SupportedMimeTypes` | What the provider documents as readable input. Advisory — a type outside the list is still passed through, because the provider is the authority on what it will read. |
 | `SupportsWordLevelText` | Whether `IncludeWords` fills `result.Words`. Asking a model that reports `false` is refused rather than answered with an empty list, so check this before branching on word geometry. |
 
-A `0` on either numeric limit means the provider publishes no limit — not a zero budget.
+A `0` on either numeric limit means the provider publishes no limit — not a zero budget. Azure Document Intelligence reads an image only when it is at least 50 pixels on each side, so a smaller image passed as `Data` is refused with `NonRetryableAIException` before the call, under `ikon run --ai mock` too.
 
 ## Reranking
 

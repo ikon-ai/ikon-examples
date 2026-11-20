@@ -1,4 +1,4 @@
-<!-- checked-against: c26d4894755a53323b9e9f73 -->
+<!-- checked-against: 7c99a56359cd4240359b7e23 -->
 
 # IKON C# SDK
 
@@ -40,7 +40,7 @@ var config = new IkonClientConfig
         ApiKey = Environment.GetEnvironmentVariable("IKON_API_KEY")!,
         SpaceId = "your-space-id",
         ExternalUserId = "user-123",
-        BackendType = BackendType.Production // Development for an app on *.dev.ikonai.app
+        BackendType = BackendType.Production // The default; Development for an app `ikon status` lists under development (*.dev.ikonai.app)
     },
     Description = "My App"
 };
@@ -150,7 +150,7 @@ var config = new IkonClientConfig
         SpaceId = "...",                  // The app's id
         ExternalUserId = "user-123",      // Your user identifier
         SessionIdentityHash = "...",      // Optional: attach to a specific live session (connect fails if none owns this hash)
-        BackendType = BackendType.Production, // Development for an app on *.dev.ikonai.app
+        BackendType = BackendType.Production, // The default; Development for an app on *.dev.ikonai.app
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
     }
@@ -231,7 +231,9 @@ through the cloud gateway like a browser client. Intended for dev tooling, spike
 tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other seven modes.
 `Environment` names the platform the app is on. If it names a platform other than the process's own,
 the client signs in with that platform's saved sign-in. Otherwise, or when it is null, the process's
-own sign-in is used.
+own sign-in is used. `JoinOnly = true` joins only a session already running and starts none; pair it
+with `UserType = UserType.Machine` so the connection does not hold the session open ("A Console
+Program That Joins An App").
 
 <!-- ikon-example: sdk-user-login-config -->
 ```csharp
@@ -442,7 +444,47 @@ while (true)
 }
 ```
 
-Against a deployed app, each connect starts the app's server if none is running.
+Against a deployed app, each connect starts the app's server if none is running. A watcher that
+should only join a session already running sets `JoinOnly = true` (on `ApiKey`, `UserLogin`,
+`UserToken` or `Backend`) with `UserType = UserType.Machine`: the connect then throws
+`NoLiveSessionException` when nothing runs and starts nothing, a reconnect after the server went away
+goes offline instead of retrying, and the Machine user does not hold the session open.
+
+A program killed without `DisposeAsync` stays in the session for the soft-retry window ("Client
+Events" below), so the other clients see it leave only 5 minutes later. Dispose the client on Ctrl+C
+and on a service manager's SIGTERM (`using System.Runtime.InteropServices;` for
+`PosixSignalRegistration`). A shell starts a background job (`&`) with SIGINT ignored, so stop such a
+program with SIGTERM:
+
+<!-- ikon-example: sdk-console-shutdown -->
+```csharp
+// Ctrl+C (SIGINT) and a service manager's stop (SIGTERM) both end the wait below, and leaving the
+// scope disposes the client, which tells the server the program is leaving: the others get
+// ClientLeftAsync at once instead of after the 5-minute soft-retry window
+using var stop = new CancellationTokenSource();
+using var onTerminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+{
+    context.Cancel = true;
+    stop.Cancel();
+});
+using var onInterrupt = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
+{
+    context.Cancel = true;
+    stop.Cancel();
+});
+
+await using var client = new IkonClient(config);
+await client.ConnectAsync();
+
+try
+{
+    await Task.Delay(Timeout.Infinite, stop.Token);
+}
+catch (OperationCanceledException)
+{
+    // The stop signal: fall through to the disposal
+}
+```
 
 ## Connection Lifecycle
 
@@ -544,6 +586,12 @@ A client is reported once per session. After a reconnect into the same session, 
 meanwhile raises `ClientJoinedAsync`, and a client that changed its viewport, theme, timezone or
 visibility meanwhile raises `ClientUpdatedAsync`, and a client that left meanwhile raises
 `ClientLeftAsync`. A reconnect into a new session reports its clients as a first join does.
+
+A client whose connection drops, a program that was killed included, is not reported as gone at
+once: the server holds its session for the soft-retry window, 5 minutes by default, so it can resume.
+Until then its `Context` has `IsSoftDisconnected` true and `SoftDisconnectAt` set, and
+`ClientLeftAsync` is raised when the window has passed. A program that calls `DisconnectAsync` or `DisposeAsync` tells the
+server it is leaving, so the others get `ClientLeftAsync` at once.
 
 The client event handlers run on the client's receive loop. A handler that awaits an answer from the
 app, such as a function call or `client.UI.CallActionAsync`, holds every later message, that answer
@@ -866,7 +914,7 @@ to this client arrives through the events below.
 
 Send each frame as you encode it. The first frame of a stream announces it, and a frame in another
 size or codec announces it again. Send a keyframe first and whenever `VideoKeyFrameRequestedAsync`
-fires, because the app shows nothing until it has one.
+fires, because the app shows nothing until it has one. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS.
 
 <!-- ikon-example: sdk-send-video -->
 ```csharp
@@ -1033,6 +1081,7 @@ The standard components put their text and labels in these props:
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The call moves the client to that path itself, as `SetPathAsync` does, and moves back when the app refuses it or the call fails |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
 | `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
@@ -1133,6 +1182,34 @@ client.FunctionRegistry.AddFunction(
     )
 );
 ```
+
+### Built-In Client Functions
+
+The app calls these on a client through `ClientFunctions` (`GetLocationAsync`, `LoginShowAsync`, `SetUrlAsync` and the rest). This SDK registers none of them: a program that wants to answer registers the ones it supports as shared functions, under these names. Arguments arrive in the order below.
+
+| Function | Arguments | Reply |
+|---|---|---|
+| `ikon.client.getLanguage` | none | a locale string such as `"en-US"`, or null |
+| `ikon.client.getTimezone` | none | an IANA name such as `"Europe/Helsinki"`, or null |
+| `ikon.client.getUrl` | none | the path and query, such as `"/room/7?x=1"`, or null |
+| `ikon.client.setUrl` | url, replace (bool), preserveQueryParams (bool) | bool |
+| `ikon.client.goBack` | fallbackPath | bool |
+| `ikon.client.openExternalUrl`, `ikon.client.navigateTo` | url | bool |
+| `ikon.client.setTheme` | theme name (`"dark"`, `"light"`), persist (bool) | bool |
+| `ikon.client.getVisibility` | none | `"visible"` or `"hidden"` |
+| `ikon.client.getLocation` | none | `{"latitude": 60.17, "longitude": 24.94, "accuracy": 12.0}`, or null when unavailable |
+| `ikon.client.getBatteryLevel` | none | 0 to 100, or null |
+| `ikon.client.getNetworkType` | none | a string such as `"wifi"`, or null |
+| `ikon.client.vibrate` | pattern as text, such as `"200"` or `"100,50,100"` | bool |
+| `ikon.client.keepScreenAwake` | enabled (bool) | bool |
+| `ikon.client.scrollTo` | x, y, smooth (bool) | bool |
+| `ikon.client.setBadge` | count | bool |
+| `ikon.client.loginShow` | reason (text, empty for none) | bool |
+| `ikon.client.login` | provider | bool |
+| `ikon.client.loginDismiss`, `ikon.client.logout` | none | bool |
+| `ikon.client.openFeedback` | none | bool |
+
+A reply of `true` means the client did what was asked, `false` that it declined or cannot. A bool function that answers `null` counts as `false`. If a program does not register a function, the app's `ClientFunctions` call for it returns `false`, `null`, an empty list or `Unknown` at once.
 
 ### Function Visibility
 

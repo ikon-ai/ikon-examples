@@ -1,4 +1,4 @@
-<!-- checked-against: 1f1d0b72e68590e6e3b0c442 -->
+<!-- checked-against: d31227e9f5418b80e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -35,6 +35,8 @@ The SDK is headers only, with no library of its own to build. Each release is a 
 - `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLogger`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL, which `ExampleNetworkClient` needs. `ExampleHttpClient` uses WinHTTP on Windows, except for [post-quantum key exchange](#post-quantum-key-exchange); elsewhere it uses cpp-httplib over OpenSSL. The target exists only when CMake finds OpenSSL.
 
 Compiling the SDK is slow: a translation unit that uses `IkonClient` can take several minutes and over 1 GB of compiler memory in a Release build, and about a minute and a half in Debug, while one that only includes `ikon_sdk.h` builds in seconds. Keep the code that uses the SDK in one `.cpp` file, and give the rest of the program a header of your own that does not include `ikon_sdk.h`, so that a change elsewhere does not compile the SDK again. Allow for it in a build that has a time limit.
+
+A program that adds the SDK's source folder with `add_subdirectory` or `FetchContent` gets a generated `ikon_version.h` that names the version `v0.0.0-source`. The platform accepts it, so connects work; only a release zip carries a real version.
 
 Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. A minimal `CMakeLists.txt` that downloads a release with `FetchContent`, with the zip's address and SHA-256 copied from the release:
 
@@ -132,7 +134,7 @@ apiKey.apiKey = "ikon-xxxxx";             // API key from portal
 apiKey.spaceId = "...";                   // The app's id (ikon app list)
 apiKey.externalUserId = "user-123";       // Your user identifier
 apiKey.sessionId = "session-xyz";         // Optional: target a precomputed session
-apiKey.backendType = BackendType::Production;
+apiKey.backendType = BackendType::Production; // The default; Development for an app on *.dev.ikonai.app
 apiKey.userType = UserType::Human;
 apiKey.clientType = ClientType::DesktopApp;
 
@@ -222,6 +224,14 @@ config.deviceId = "device-1234";          // Keep it to come back as the same gu
 ```
 
 Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. Without `deviceId` the client picks a random one, which it keeps until it is destroyed. The app sees a guest as `UserType::Human`. When the app lets no guests in, `Connect()` throws `AuthRefusedException` with `statusCode` 403.
+
+A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; left empty, the client enters, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods`, or `Connect()` throws `AuthRefusedException` with `statusCode` 403, even when another surface admits guests. `IkonClientConfig::initialPath` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
+
+<!-- example-skip: two fields of the config above -->
+```cpp
+config.surface = "kiosk";                 // A surface whose Methods list guest
+config.initialPath = "/menu";
+```
 
 ### User Tokens
 
@@ -334,7 +344,9 @@ client.Disconnect();
 
 A failed `Connect()` reports its error twice, with the same message: first through `ErrorOccurred`, then as the
 exception it throws. Show the exception for a connect your code called, and keep `ErrorOccurred` for failures no
-call returns, such as a reconnect that gives up.
+call returns, such as a reconnect attempt that fails. `ErrorOccurred` runs for every failed reconnect attempt, not only the last, while the client stays `Reconnecting`; the client has given up when `StateChanged` reports `Offline`.
+
+A program whose output goes to a file or a pipe (a log, a CI step) has its `std::cout` buffered, so lines that show a join in progress can appear long after it happened. Set `std::cout.setf(std::ios::unitbuf);` at the start of `main`, or end lines with `std::endl`, as the examples do.
 
 Once the connection is open, `Connect()` waits for the server to send the session state and the app's functions, up to `timeouts.joinTimeoutSec` (30 seconds). If they do not arrive, it closes the connection and throws `JoinTimeoutException`, and the client goes `Offline` without running `Ready`; call `Connect()` again to retry. A reconnect attempt that runs out of this time counts as a failed attempt.
 
@@ -530,6 +542,34 @@ client.Connect();
 
 The handler runs on the registry's own threads, as a `RegisterFunction` handler does. Each `Write()` sends one item, the stream ends when the handler returns, and what the handler throws reaches the app as the stream's error. `itemTypeName` is the C# type (`"System.Int32"`, `"System.String"`) that the app reads each item's JSON as. When the app cancels the call or stops reading, `Write()` returns false and sends nothing, and the handler should return; `IsCancelled()` gives the same answer without writing. A dropped connection or a new session cancels every running stream the same way. The `FunctionStreamWriter` is valid only while the handler runs.
 
+## Built-In Client Functions
+
+The app calls these on a client through `ClientFunctions` (`GetLocationAsync`, `LoginShowAsync`, `SetUrlAsync` and the rest). The C++ SDK registers none of them: a program that wants to answer registers the ones it supports as shared functions, under these names. Arguments arrive as a JSON array in the order below.
+
+| Function | Arguments | Reply |
+|---|---|---|
+| `ikon.client.getLanguage` | none | a locale string such as `"en-US"`, or null |
+| `ikon.client.getTimezone` | none | an IANA name such as `"Europe/Helsinki"`, or null |
+| `ikon.client.getUrl` | none | the path and query, such as `"/room/7?x=1"`, or null |
+| `ikon.client.setUrl` | url, replace (bool), preserveQueryParams (bool) | bool |
+| `ikon.client.goBack` | fallbackPath | bool |
+| `ikon.client.openExternalUrl`, `ikon.client.navigateTo` | url | bool |
+| `ikon.client.setTheme` | theme name (`"dark"`, `"light"`), persist (bool) | bool |
+| `ikon.client.getVisibility` | none | `"visible"` or `"hidden"` |
+| `ikon.client.getLocation` | none | `{"latitude": 60.17, "longitude": 24.94, "accuracy": 12.0}`, or null when unavailable |
+| `ikon.client.getBatteryLevel` | none | 0 to 100, or null |
+| `ikon.client.getNetworkType` | none | a string such as `"wifi"`, or null |
+| `ikon.client.vibrate` | pattern as text, such as `"200"` or `"100,50,100"` | bool |
+| `ikon.client.keepScreenAwake` | enabled (bool) | bool |
+| `ikon.client.scrollTo` | x, y, smooth (bool) | bool |
+| `ikon.client.setBadge` | count | bool |
+| `ikon.client.loginShow` | reason (text, empty for none) | bool |
+| `ikon.client.login` | provider | bool |
+| `ikon.client.loginDismiss`, `ikon.client.logout` | none | bool |
+| `ikon.client.openFeedback` | none | bool |
+
+A reply of `true` means the client did what was asked, `false` that it declined or cannot. A bool function that answers `null` counts as `false`. If a program does not register a function, the app's `ClientFunctions` call for it returns `false`, `null`, an empty list or `Unknown` at once.
+
 ## Client Context and Path
 
 The app sees each client's viewport size, theme, timezone and visibility in the client's context. Tell it when one of them changes, and when the client shows another path:
@@ -555,7 +595,7 @@ Both throw `std::runtime_error` when the client is not connected. The server rep
 
 ## Audio and Video
 
-The SDK sends and receives media as encoded frames. It does not encode or decode them: the program brings its own encoders and decoders ("Encoding and Decoding Audio" below shows Opus). Audio is Opus; video is H.264 (Annex B), VP8 or VP9. A client's audio and video reach the app only. In the example, `opusPackets` holds your encoder's packets and `playingStreamId` names a stream your player is playing.
+The SDK sends and receives media as encoded frames. It does not encode or decode them: the program brings its own encoders and decoders ("Encoding and Decoding Audio" below shows Opus). Audio is Opus; video is H.264 (Annex B), VP8 or VP9. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS. A client's audio and video reach the app only. In the example, `opusPackets` holds your encoder's packets and `playingStreamId` names a stream your player is playing.
 
 <!-- ikon-example: cpp-sdk-media -->
 ```cpp
@@ -641,7 +681,7 @@ int samplesPerChannel = opus_decode(decoder, frame.Samples.data(), static_cast<o
 
 ## Client Events
 
-Client events tell this client about the other clients in the session and about the app itself. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility.
+Client events tell this client about the other clients in the session and about the app itself. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility. `Context::ContextType` is an `int32_t` in `ikon_protocol.h`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
 
 <!-- ikon-example: cpp-sdk-client-events -->
 ```cpp
@@ -751,6 +791,7 @@ The standard components put their text and labels in these props:
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The call moves the client to that path itself, as `SetPath` does, and moves back when the app refuses it or the call fails |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
 | `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
@@ -799,6 +840,8 @@ catch (const UploadFailedException& ex)
     std::cout << "Upload failed: " << ex.what() << (ex.IsRetriable() ? " (worth retrying)" : "") << std::endl;
 }
 ```
+
+The control is in the UI tree only on the screen the app shows for the client's path, so a program that cannot find it opens that screen first: set `IkonClientConfig::initialPath` (for example `"/photos"`) before `Connect()`, or call `SetPath` and wait for the node again. `GetText("uploadActionId")` is the string `UploadFile` takes.
 
 `UploadFile` blocks until the app's `onUploadComplete` has run and returns the upload's id, size and the lowercase hex SHA-256 of the bytes, which the app verified before storing them. It reads the stream from its position to its end, and again from the last acknowledged byte after a resume, so the stream must be seekable and outlive the call. If the connection drops after the upload started and the client reconnects within 45 s, the upload resumes on the new connection. It throws `std::runtime_error` when not connected, `std::invalid_argument` for a missing id or name or an unseekable stream, and `UploadFailedException` when the app refuses the upload or it fails; `IsRetriable()` says whether sending the same bytes again is likely to work. `UploadOptions` also takes the `uploadId` the app sees in every upload hook (empty generates one) and, for a file from a folder, its `relativePath`. `progress` runs on the receive thread, so it should return quickly. At most 8 uploads per client run at once; later calls wait. Never call `UploadFile` on the receive thread.
 

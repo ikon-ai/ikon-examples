@@ -1,4 +1,4 @@
-<!-- checked-against: ac00a216bc4ce178e3b0c442 -->
+<!-- checked-against: 5df47ecbb4057cd9e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -40,6 +40,15 @@ npm install @ikonai/sdk-ui
 ```
 
 ### In Node.js
+
+A Node program, in short:
+
+- Node.js 22 or later, an ES module (below), `@ikonai/sdk` and `@ikonai/sdk-libopus`; `@ikonai/sdk-ui` to read and use the app's UI.
+- Join a deployed app with `guest` or `apiKey` and a local run with `local` ("Authentication Modes"); without a page it joins as a `ContextType.Plugin` client.
+- Tell the app the path and context a page would report: `client.setPath` and `client.sendUpdateClientContext` (below).
+- Upload with `uploadFile` and a `File` made from a `Buffer` or `fs.openAsBlob` ("Uploading Files").
+- Read and drive the UI with `IkonUiCore` and the node table in "Custom UI Renderers"; Node has no `Worker`, so `uiWorker: 'auto'` runs on the main thread.
+- Send and receive audio and video as frames through `client.rawMedia` ("Audio and Video Without a Page").
 
 A Node program is an ES module: `npm pkg set type=module` in its folder, because the `package.json`
 that `npm init -y` writes makes it CommonJS, where a top-level `await` fails.
@@ -1103,12 +1112,17 @@ reaches only the app. `sendAudio` encodes PCM to Opus (it needs `@ikonai/sdk-lib
 pads the last frame. `sendOpusFrame` sends a frame already encoded. The app's speech recognition
 skips audio without a `correlationId`, so give one to audio meant for it. `sendVideoFrame` sends one encoded frame: for H.264 one access unit (every slice of one
 picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver
-decodes from the parameters in the stream. It announces the stream first and again when its size, codec, source type, correlation id or frame rate changes; the
+decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS. It announces the stream first and again when its size, codec, source type, correlation id or frame rate changes; the
 SDK does not encode video. A reconnect into a new session announces every stream again before its
 next frame. Sending throws when the client is not connected. Received streams are named
 `"{senderId}_{trackId}"`, and `senderStreamId` is the id the sender gave; `requestVideoKeyFrame`
 takes the received id. A dropped connection ends every received stream, and the app begins those
 still open again when the client rejoins.
+
+`client.globalState.AudioStreams` and `VideoStreams` hold the streams that were open when the
+`GlobalState` arrived, keyed by the same `"{senderId}_{trackId}"` id, each with its `ClientSessionId`,
+`TrackId` and begin `Info`. The SDK does not change them afterwards, so follow later streams with
+`rawMedia.onAudioStreamBegin`, `onVideoStreamBegin` and their `End` events.
 
 <!-- ikon-example: ts-sdk-raw-media -->
 ```ts
@@ -1140,7 +1154,10 @@ The `@ikonai/sdk-ui` library provides framework-agnostic UI state management for
 
 ### IkonUiCore
 
-The core class handles protocol messages and maintains UI state:
+The core class handles protocol messages and maintains UI state. `uiWorker: 'auto'` runs the UI
+state in a Web Worker where the runtime has `Worker`, and on the main thread where it has none, as in
+Node. The build-time boot snapshot (`bootSnapshot`) is read only on a page, so a program without one
+can leave it at its default.
 
 <!-- ikon-example: ts-sdk-ui-core -->
 ```ts
@@ -1235,7 +1252,9 @@ The standard components put their text and labels in these props:
 | `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
+| `std.code-editor` | `value`, `language`, `placeholder`. A `label:` is a `std.text` node just before the editor, and also its `aria-label` | `onValueChangeId`, the text itself; `onInvokeId` on Ctrl+Enter, the text itself |
 | `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The renderer moves the page itself. To do the same, pass the path to `sendActionCall(actionId, payload, { path })`; without it the app moves the client |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
 | `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |

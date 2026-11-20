@@ -1,4 +1,4 @@
-<!-- checked-against: cb3d15858cea28630db89ca2 -->
+<!-- checked-against: be3c727f8cea28632f31f637 -->
 
 # App Files Guide
 
@@ -54,7 +54,7 @@ A running session keeps a URL it loaded into state until it asks again, so after
 delete it shows the old file or a broken one until the app reloads the URL or restarts.
 
 A root-relative path has no host, so server code cannot fetch it:
-`Audio.Play` takes only absolute http or https URLs and throws `ArgumentException` for any other. A file shipped in `public/` plays from
+`Audio.Play` takes only absolute http or https URLs and throws `ArgumentException` for any other (for an `/ikon/assets/…` path the message names `GetAbsoluteUrlAsync`). A file shipped in `public/` plays from
 `GetAbsoluteUrlAsync(path)` in a local run and in a deployed app. A local run cannot fetch its own
 local address, so it reads the file from the folder instead. To play a file the app wrote, read its bytes and play them as a stream (`Audio` is the app class's `private Audio Audio { get; } = new(app);` property):
 
