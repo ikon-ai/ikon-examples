@@ -113,5 +113,6 @@ global using WebUtility = System.Net.WebUtility;
 global using HttpContext = Microsoft.AspNetCore.Http.HttpContext;
 // </ikon-usings>
 global using System.Text.Json.Nodes;
+global using System.Text.RegularExpressions;
 
 global using Ikon.App.Examples.Ambient;
