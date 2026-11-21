@@ -1,4 +1,4 @@
-<!-- checked-against: fdc138fdaa0fc9a24fb063e7 -->
+<!-- checked-against: fdc138fd086ac8c34fb063e7 -->
 
 # Ikon.App.Sso Guide
 

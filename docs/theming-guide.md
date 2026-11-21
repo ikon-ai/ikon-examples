@@ -1,4 +1,4 @@
-<!-- checked-against: ee29c1b49897a0b7ead8f6be -->
+<!-- checked-against: 054ebfd08de0de139ceeaa32 -->
 
 # IKON Theming Guide
 
@@ -74,7 +74,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 
 The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref (`var(--color-amber-400)`), an IKON scale step → its own variable (`brand-600` → `var(--brand-600)`), `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"`, `["primary"] = "brand-600"` and `["primary"] = "#F5A524"` all work. `neutral` is both a Tailwind family and an IKON scale; as a value, `neutral-600` is the Tailwind step, which a `["neutral-600"]` override moves along with the IKON one.
 
-Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per app start (a hot reload warns again for a key still wrong), in a local run and a Studio preview; an app running in the cloud logs none. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
+Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per app start (a hot reload warns again for a key still wrong), in a local run and a Studio preview; an app running in the cloud logs none unless `IKON_DEV_WARNINGS=1` is set. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
 
 ## What's NOT in the system
 
@@ -119,7 +119,7 @@ var theme = new IkonTheme
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette is emitted under `[data-theme="dark"]` and `.dark`, without the media fallback; the SDK always sets `data-theme`, from the OS preference until the app picks a theme. A `dark` class in an element's style array therefore draws that element's subtree in the dark palette on web clients, which is how a light adaptive app shows a dark panel: `view.Column(["dark", "bg-card text-foreground p-6"], content: ...)`.
 
-For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme` keeps each client on its own saved scheme, starts a client with none on Dark (`UseTheme(Theme.Light)` starts it light), and returns a `ThemeControl` whose `ToggleAsync` flips the calling client and whose `Current` the button reads (`UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)`: with `followClient: false` every client gets `defaultTheme`; to apply a saved choice on join, call `theme.SetAsync(Theme.Dark)`: it sets `Current` and pushes the theme, while a direct `ClientFunctions.SetThemeAsync` leaves `Current` stale, so never call it beside `UseTheme`; "Theme Activation" in the Crosswind styling and motion guide has the rest). It switches an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
+For a light/dark switch that the user presses, call `UI.UseTheme()` once in `Main`, before clients join. `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` keeps each client on its own saved scheme and starts a client with none on Dark (`UseTheme(Theme.Light)` starts it light). With `followClient: false` every client gets `defaultTheme`. It returns a `ThemeControl`: `ToggleAsync` flips the calling client, and `Current` is a reactive (`.Value`) the button reads. To apply a saved choice on join, call `theme.SetAsync(Theme.Dark)` in `app.OnClientJoined` (its argument is a `Context`, not a `ClientContext`). It sets `Current` and pushes the theme. A direct `ClientFunctions.SetThemeAsync` leaves `Current` stale, so never call it beside `UseTheme`. "Theme Activation" in the Crosswind styling and motion guide has the rest. The switch works on an adaptive theme; under `ThemeMode.Fixed` both schemes look the same, so a Fixed app has no switch:
 
 <!-- ikon-example: px-light-dark-switching-with-usetheme -->
 ```csharp

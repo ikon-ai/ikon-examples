@@ -1,4 +1,4 @@
-<!-- checked-against: d31227e9f5418b80e3b0c442 -->
+<!-- checked-against: 30055b4bf5418b80e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -121,7 +121,7 @@ int main()
 
 The SDK supports five authentication modes: an API key, local development, a guest, a user token and a connect URL. Exactly one must be configured.
 
-`config.parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance here: `config.parameters["room"] = "harbour";` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
+`config.parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance here: `config.parameters["room"] = "harbour";` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). The key is the property name of the app's client-parameters record, as the URL query spells it: an app that reads `?guest=anna` takes `config.parameters["guest"] = "anna";`. Without it the client joins the instance with that field empty.
 
 ### API Key Authentication
 
@@ -225,7 +225,7 @@ config.deviceId = "device-1234";          // Keep it to come back as the same gu
 
 Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. Without `deviceId` the client picks a random one, which it keeps until it is destroyed. The app sees a guest as `UserType::Human`. When the app lets no guests in, `Connect()` throws `AuthRefusedException` with `statusCode` 403.
 
-A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; left empty, the client enters, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods`, or `Connect()` throws `AuthRefusedException` with `statusCode` 403, even when another surface admits guests. `IkonClientConfig::initialPath` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
+A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; left empty, the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods` (a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only), or `Connect()` throws `AuthRefusedException` with `statusCode` 403, even when another surface admits guests. `IkonClientConfig::initialPath` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
 
 <!-- example-skip: two fields of the config above -->
 ```cpp
@@ -321,6 +321,8 @@ client.MessageReceived = [](const ProtocolMessage& message)
     std::cout << "Message opcode: " << static_cast<int>(message.GetOpcode()) << std::endl;
 };
 ```
+
+`Ready` runs on the thread that called `Connect()` for the first connect, and on the client's reconnect thread after a drop; blocking calls such as `Functions().Call` and `Subscribe` are fine there, because the connection's receive thread stays free to deliver the replies. `Stopping` runs on whichever thread stops the connection: the caller of `Disconnect()` or of the destructor, the connection's own thread when it drops, or the reconnect thread, and it fires before each reconnect attempt, so a program that retries sees it once per attempt. `Disconnected` runs on the connection's receive thread, only for a drop the program did not ask for, never for `Disconnect()`. Do not make a blocking call from `Stopping` or `Disconnected`: the connection is going away, so no reply arrives. Hand the work to a thread of your own.
 
 ### Connecting and Disconnecting
 
@@ -681,7 +683,7 @@ int samplesPerChannel = opus_decode(decoder, frame.Samples.data(), static_cast<o
 
 ## Client Events
 
-Client events tell this client about the other clients in the session and about the app itself. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility. `Context::ContextType` is an `int32_t` in `ikon_protocol.h`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
+Client events tell this client about the other clients in the session and about the app itself. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility. `Context::ContextType` is an `int32_t` in `ikon_protocol.h`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
 
 <!-- ikon-example: cpp-sdk-client-events -->
 ```cpp
@@ -727,7 +729,7 @@ ReactiveSubscription subscription = client.Reactives().Subscribe(stableId, [](co
 subscription.Unsubscribe();
 ```
 
-`Subscribe` blocks for the app's reply and throws `std::runtime_error` when the app refuses the subscription or the client is not connected. The callback gets the current value before `Subscribe` returns, on the calling thread, then every change in the order the app made it, on one of the registry's threads; a reactive with no value yet is not delivered. What the callback throws for the current value is rethrown by `Subscribe`, which then leaves the value unsubscribed; what it throws for a later change is logged as a warning. Pass `mountId` for a `MountReactive<T>`. Destroying a `ReactiveSubscription` keeps its callback; `Unsubscribe()` removes it, blocking for the app's reply. A reconnect can end up in a new session that has none of the subscriptions, so each time the client is ready, the SDK subscribes every followed value again and delivers its current value; `Resubscribe()` does the same on demand. A `ReactiveSubscription` must not outlive the `IkonClient`.
+`Subscribe` blocks for the app's reply and throws `std::runtime_error` when the app refuses the subscription or the client is not connected. The callback gets the current value before `Subscribe` returns, on the calling thread, then every change in the order the app made it, on one of the registry's threads; a reactive with no value yet is not delivered. What the callback throws for the current value is rethrown by `Subscribe`, which then leaves the value unsubscribed; what it throws for a later change is logged as a warning. Pass `mountId` for a `MountReactive<T>`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it. Destroying a `ReactiveSubscription` keeps its callback; `Unsubscribe()` removes it, blocking for the app's reply. A reconnect can end up in a new session that has none of the subscriptions, so each time the client is ready, the SDK subscribes every followed value again and delivers its current value; `Resubscribe()` does the same on demand. A `ReactiveSubscription` must not outlive the `IkonClient`.
 
 ## UI
 
@@ -775,7 +777,7 @@ if (std::shared_ptr<const UIStream> page = ui.Page())
 }
 ```
 
-A `UIStream` is one mount at one moment: `category` is `"ikon-ui"` for the app's page (also `Page()`), `"ikon.platform"` for the platform's layer above it, or another mount the app declares. `Streams()` lists them all. A `UINode` has an `id`, a `type` naming the component (`"std.button"`, `"std.text-field"`), its `props` as JSON, its `children` and its `styleIds` into `Styles()`. Nodes are immutable: an update replaces the nodes on the changed path and keeps the rest, so a node read earlier stays as it was. `UINode::Find` and `UIStream::FindNode` search a tree depth first.
+A `UIStream` is one mount at one moment: `category` is `"ikon-ui"` for the app's page (also `Page()`), `"ikon.platform"` for the platform's layer above it, or another mount the app declares. `Streams()` lists them all. A `UINode` has an `id`, a `type` naming the component (`"std.button"`, `"std.text-field"`), its `props` as JSON, its `children` and its `styleIds` into `Styles()`. Nodes are immutable: an update replaces the nodes on the changed path and keeps the rest, so a node read earlier stays as it was. `UINode::Find` and `UIStream::FindNode` search a tree depth first. `WaitForNode(match, timeout)` returns at once when a node already matches, else waits up to `timeout` (30 s when left out) and returns `nullptr` when none appeared.
 
 The standard components put their text and labels in these props:
 
@@ -790,7 +792,7 @@ The standard components put their text and labels in these props:
 | `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
-| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names; `accept`, the MIME types or extensions the control takes (absent when it takes any); `disabled` | None: pass the id to the upload call. The SDK does not check `accept` or `disabled` before it uploads, so a program reads them first |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The call moves the client to that path itself, as `SetPath` does, and moves back when the app refuses it or the call fails |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
@@ -874,7 +876,7 @@ private:
 };
 ```
 
-`ExampleLogger` prints every line; `ExampleLogger(ExampleLogger::Level::Info)` drops the trace and debug lines.
+`ExampleLogger` prints every line, in colour on a terminal and plain when stdout is redirected to a file or pipe; `ExampleLogger(ExampleLogger::Level::Info)` drops the trace and debug lines.
 
 ### IHttpInterface
 

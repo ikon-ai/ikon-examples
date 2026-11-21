@@ -1,4 +1,4 @@
-<!-- checked-against: 5695b6d20f2e07cae27d8877 -->
+<!-- checked-against: 5695b6d2ac4a9ae9e27d8877 -->
 
 # Ikon.App.WhatsApp Guide
 

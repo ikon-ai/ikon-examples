@@ -1,4 +1,4 @@
-<!-- checked-against: be3c727f8cea28632f31f637 -->
+<!-- checked-against: cb93a7b2a403d7c52f31f637 -->
 
 # App Files Guide
 
@@ -74,6 +74,22 @@ runtime-written file at that path first. Start independent calls together and aw
 `Task.WhenAll` rather than one after another. Do not call `ExistsAsync` before a read. Read the file
 and catch `FileNotFoundException`, which costs one round trip rather than two.
 
+## Runtime files from the IKON tool
+
+The files the app wrote at runtime can be managed from the command line, by the same paths the app
+uses. `--public` acts on `app.Files.Public`, and `--target` on a named target's app:
+
+```bash
+ikon file list reports                                   # what the app stored under reports/
+ikon file upload reports/2026.pdf --input ./2026.pdf     # store a file where the app reads it
+ikon file show reports/2026.pdf                          # its type, size, tags and a download URL
+ikon file download reports/2026.pdf --output -           # its bytes, on stdout
+ikon file delete reports/2026.pdf --yes
+```
+
+An upload replaces a file already at the path only with `--overwrite`. Uploading and deleting need
+edit rights on the app; a viewer of the app can list, show and download.
+
 ## Binaries in git — nothing to run
 
 Binary files never make a repo large: the tooling moves them to the Asset store and back when you
@@ -92,6 +108,8 @@ repository's files alone.
 offload the binaries among them, test fixtures included. Keep test files in `scratch/`, which the
 app's `.gitignore` lists, or list their folder (`testdata/`) there, to keep them out of the
 repository and the Asset store.
+A folder with a `.git` of its own, such as an app made with `ikon new --allow-nested`, is skipped: the
+save adds it to the app's `.gitignore` and says so.
 
 The native project folders of a Flutter frontend (`frontend-flutter/android`, `ios`, `macos`,
 `windows`, `linux`) stay in git as they are, because the Android and iOS builds refuse files they do

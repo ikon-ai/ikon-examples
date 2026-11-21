@@ -1,4 +1,4 @@
-<!-- checked-against: 7c99a56359cd4240359b7e23 -->
+<!-- checked-against: b273060f3d3db4d3359b7e23 -->
 
 # IKON C# SDK
 
@@ -129,12 +129,12 @@ shared setup, so with them, connect before the program opens other TLS connectio
 The SDK supports eight authentication modes. Exactly one must be configured, or the `IkonClient` constructor throws `ArgumentException`:
 `ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, `UserLogin`, `UserToken`, `Guest`, or `ResumeAuthResponse` (another connection's `IkonClient.LastAuthResponse`, to join its client session). `UserLogin` authenticates as the
 developer signed in on this machine (the ikon CLI's stored sign-in) and is intended for dev tooling and
-headless tests; production clients use `ApiKey` or `Backend`. `UserToken` connects as a person with a session
+headless tests; production clients use `ApiKey` or `Backend`. A program a person runs at their own desk also fits it, since it acts as the person signed in there and needs no key. `UserToken` connects as a person with a session
 token for the space that was issued elsewhere. The constructor also throws `ArgumentException`
 when the chosen mode lacks a required field: `ApiKey`'s `ApiKey`, `SpaceId` and `ExternalUserId`, `Backend`'s
 `SpaceId` and `ExternalUserId`, `UserLogin`'s or `Guest`'s `SpaceId`, `UserToken`'s `SpaceId`, `Token` and `BackendUrl`, or `Local`'s `Host` and a positive `HttpsPort`.
 
-`IkonClientConfig.Parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance there: `Parameters = new Dictionary<string, string> { ["room"] = "harbour" }` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty. A connect URL or a resumed auth response already names its instance.
+`IkonClientConfig.Parameters` are the app's client parameters, and a program has no URL to carry them, so it picks the app instance there: `Parameters = new Dictionary<string, string> { ["room"] = "harbour" }` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). The key is the property name of the app's client-parameters record, as the URL query spells it: an app that reads `?guest=anna` takes `["guest"] = "anna"`. Without it the client joins the instance with that field empty. A connect URL or a resumed auth response already names its instance.
 
 ### API Key Authentication
 
@@ -279,10 +279,20 @@ A standalone program has not signed in, so it must set `Environment`; otherwise 
 Unknown"). For a local server, `LocalConfig.IsAnonymous = true` connects as a guest in the same way,
 under the `UserId` you give it.
 
+A guest connect needs each of these, and a missing one is the usual cause of a 403 or an `ArgumentException`:
+
+| Setting | What to check |
+|---|---|
+| `GuestConfig.SpaceId` | The app's id. |
+| `GuestConfig.Environment` | Set it in a standalone program, which has not signed in. |
+| `IkonClientConfig.DeviceId` | One id per guest; keep it to come back as the same guest. |
+| The surface's `Methods` | The surface the client enters (`IkonClientConfig.Surface`) lists `guest` or `global` in its `[Surface.Auth] Methods`. |
+| `IkonClientConfig.Parameters` | The same parameters a browser would carry, such as the room, when the app picks its instance by them. |
+
 ## A Console Program That Joins An App
 
 A kiosk, a bot or a script that shows an app's live state or calls its functions is a console
-program with this SDK. Kept with an app, it goes in the app's `devices/<name>/` folder, which is
+program with this SDK. It may live anywhere, such as a folder of its own beside the app. Kept with an app, it goes in the app's `devices/<name>/` folder, which is
 kept in the app's repository (the save before a deploy commits it) but is not built or run by the
 deploy or by `ikon run`. Create it from the app's folder with `dotnet new console -n <Name> -o devices/<name>`,
 which puts `<Name>.csproj` directly in `devices/<name>/` (the `device-typed-messages` pattern's
@@ -307,12 +317,14 @@ using Ikon.Common.Core.Protocol;
 using Ikon.Sdk;
 ```
 
+A deployed app's session ends after it has been idle for 15 minutes while its clients are all machines, and after 12 hours of idleness once a `UserType.Human` client has joined; a program that joins as `UserType.Machine` is no person. Idle means no message from a human client, and the app's idle-timeout settings can change both limits. A program that waits in an empty session is stopped with it, and its next connect starts a new session.
+
 Which authentication mode to use depends on where the app runs:
 
 | The app | Mode | What it needs |
 |---|---|---|
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (the project's port from its last run while that is free, else the first free one from 8443), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
-| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods` |
+| Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods`; a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`, and `ikon new --private` writes `email` and `passkey` only, so a program of a private app needs an API key |
 | Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
@@ -571,7 +583,7 @@ drops before ready.
 
 ### Client Events
 
-The client events say who else is in the session. `ClientJoinedAsync` is raised when another client
+The client events say who else is in the session. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. `ClientJoinedAsync` is raised when another client
 is ready: it has finished joining and the app knows who it is. On joining, it is raised once for each
 ready client already there, which can be after `ConnectAsync` has returned. A client that leaves
 before it is ready raises no event. `ClientUpdatedAsync` and `ClientLeftAsync` are raised only for a
@@ -983,7 +995,9 @@ await client.SetPathAsync("/room/7");
 ```
 
 The app reads them from the client's context (`app.GlobalState.GetClientContext(sessionId)`) and its
-`Navigation.CurrentPath`, and its client-updated and `Navigation.PathChangedAsync` handlers run.
+`Navigation.CurrentPath`, and its client-updated and `Navigation.PathChangedAsync` handlers run. `SetPathAsync` sends the path and returns: it does not wait
+for the app to take it, so read `Navigation.CurrentPath` on the app's side, or wait for the page's nodes,
+to know the app moved.
 
 ## File Upload
 
@@ -1061,7 +1075,7 @@ await client.UI.CallActionAsync(name, "onValueChangeId", "Ada");
 
 `client.UI.Page` is the stream of the app's page; another stream is a mount the app declares or the
 platform's own layer. The first tree can arrive just after `ConnectAsync` returns, so `Page` may still
-be empty then; `WaitForNodeAsync` waits for it. A node's `Actions` lists its actions by prop name: a button's press is
+be empty then; `WaitForNodeAsync` waits for it, and for as long as its token allows, so a program that must not wait forever passes `new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token`, which makes it throw `OperationCanceledException` when no node matches in time. A node's `Actions` lists its actions by prop name: a button's press is
 `onInvokeId`, a text field's new value `onValueChangeId`, a checkbox's `onCheckedChangeId`. A press
 sends `{}`, a text field the text itself (`Ada`, not JSON `"Ada"`), a checkbox `true` or `false`. A disabled control carries no
 action, so waiting until `node.GetActionId("onInvokeId")` is not null waits until a button can be
@@ -1080,7 +1094,7 @@ The standard components put their text and labels in these props:
 | `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
-| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names | None: pass the id to the upload call |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The call moves the client to that path itself, as `SetPathAsync` does, and moves back when the app refuses it or the call fails |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |

@@ -1,4 +1,4 @@
-<!-- checked-against: 62b299a4b09aecc8c80e8d9d -->
+<!-- checked-against: d077a0b77c12768e19ba7e06 -->
 
 # Ikon.Parallax Library Overview
 
@@ -122,7 +122,7 @@ other input.
 
 ### When an Action Handler Throws
 
-An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one. An app made with `ikon new` already subscribes a handler that shows a generic error alert. Change that handler rather than adding a second one:
+An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one. An app made with `ikon new` already subscribes a handler that shows a generic error alert in a deployed app and the exception's message in a local run. Change that handler rather than adding a second one:
 
 <!-- ikon-example: px-when-an-action-handler-throws -->
 ```csharp
@@ -406,7 +406,7 @@ view.StatCard("Revenue", "$12,400", delta: "+8%", trend: StatTrend.Up, icon: "tr
     iconTone: SemanticTone.Success);
 ```
 
-Toasts are a per-client queue rendered by a single `ToastHost` in the root UI. The queue is a `ClientReactive`, so call `Toasts.Success`/`Error`/`Show` where a client scope is active (a UI render or a client event handler); from background work outside one they throw instead of showing a toast:
+Toasts are a per-client queue rendered by a single `ToastHost` in the root UI. The queue is a `ClientReactive`, so call `Toasts.Success`/`Error`/`Show` where a client scope is active (a UI render or a client event handler); from background work outside one they throw instead of showing a toast. Capture `ReactiveScope.ClientId` in the handler, then call inside `using ReactiveScope.Use(new ClientScope(clientId))`:
 
 <!-- ikon-example: px-app-chrome-and-semantictone-2 -->
 ```csharp
@@ -483,7 +483,7 @@ view.FormDialog(_preset, title: _editingPreset.Value ? "Edit preset" : "New pres
         f.TextField(value: _preset.Draft.Name,
             onValueChange: v => { _preset.Edit(d => d with { Name = v }); return Task.CompletedTask; }));
     form.FormError(_preset);
-    form.FormSubmit(_preset, "Save", SavePresetAsync,
+    form.FormSubmit(_preset, "Save", onSubmit: SavePresetAsync,
         validate: d => string.IsNullOrWhiteSpace(d.Name) ? [new FormFieldError("Name", "Required")] : []);
 });
 ```

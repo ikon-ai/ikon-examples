@@ -1,4 +1,4 @@
-<!-- checked-against: 466761d688dcbd63e3b0c442 -->
+<!-- checked-against: dfd1aaeddbde1c8de3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -159,7 +159,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk: ^1.15.0
+  ikon_sdk: ^1.20.0
 
 flutter:
   uses-material-design: true
@@ -334,7 +334,7 @@ flutter run -d linux --dart-define=IKON_PORT=8443
 The program is a GTK window, so it needs a display: on a headless machine start one with `Xvfb :99` and run
 the program with `DISPLAY=:99`, or it exits with `cannot open display`. The keyring needs a running Secret
 Service (gnome-keyring, KeePassXC); without one the SDK logs `The secure store refused the install id` and
-may fall back to an install id for that run only.
+uses the install id kept in the app's support directory, or one for that run only when there is none, so the program is then a new device each time it starts.
 
 Audio on Linux needs a sound server (PulseAudio or PipeWire) or a sound card:
 
@@ -546,7 +546,7 @@ connecting when `signIn.storedToken()` is null, and `connect()` does not connect
 no one signed in, or with a stored sign-in the backend refused, it throws `IkonSignInRequiredException`
 (an `IkonAuthRejectedException`), and the app shows the chooser then too. When `supportedMethods` is
 empty (the app lists only `sso:` or passkey sign-in) there is no chooser to show, so `connect()` tries
-a guest and throws the backend's refusal.
+a guest and throws the backend's refusal, an `IkonGuestRefusedException`.
 
 The reason the app passes to `LoginShowAsync` appears under the heading of the chooser, and of the email
 page that opens directly when email is the only method. `Title`, `Subtitle` and `EmailHint` in the
@@ -613,6 +613,47 @@ and both open only this app's page, never another app's:
 A phone with no app can approve too. Its camera opens the QR code's address in the browser, and a
 signed-in page there asks the person to approve.
 
+### Deployed Apps — A Program Signed In as a Person
+
+A desktop program that acts as a person, where the surface it enters lists `email` in its
+`[Surface.Auth] Methods`, signs them in by email. `IkonAuthenticator.startEmailLogin` mails them a code, the
+person types it in, `IkonAuthenticator.verifyEmailCode` returns an `IkonSignInSession`, and
+`IkonClient.connectWithSession` connects with it:
+
+<!-- ikon-example: flutter-sdk-program-email-sign-in -->
+```dart
+const authUrl = 'https://auth.ikonai.com'; // https://auth.dev.ikonai.com for a development app
+final authenticator = IkonAuthenticator(host: 'my-app-1a2b3c4d.ikonai.app', port: 443);
+
+await authenticator.startEmailLogin(email: email, spaceId: 'my-space-id', authUrl: authUrl);
+
+// The person types in the code from the email; a wrong or used one throws IkonAuthRejectedException
+final session = await authenticator.verifyEmailCode(
+  email: email,
+  code: await askForCode(),
+  spaceId: 'my-space-id',
+  authUrl: authUrl,
+);
+
+final client = await IkonClient.connectWithSession(
+  serverHost: 'my-app-1a2b3c4d.ikonai.app',
+  spaceId: 'my-space-id',
+  session: session,
+  authUrl: authUrl,
+  onSessionRenewed: store, // keep the new refresh token, which replaces the old one
+);
+```
+
+The session's token lasts 15 minutes. `connectWithSession` renews it shortly before it expires and when the
+backend refuses it during a reconnect, and hands each renewed session to `onSessionRenewed`, so the program
+can store its new refresh token (each renewal returns a new one). `IkonAuthenticator.refreshSignInSession`
+renews one by hand. When the session has ended, the client stays offline with an `IkonAuthRejectedException`
+in `lastError`. A wrong or expired code, or a refused address, throws `IkonAuthRejectedException` with
+`statusCode` 401 or 403; a service that cannot be reached throws a plain `Exception`.
+These are instance methods that reach only the `authUrl` they are given, never the authenticator's
+host and port, so any authenticator works: `IkonAuthenticator(port: 443).startEmailLogin(...)`.
+The IKON tool hands out no session token for a person.
+
 ### Deployed Apps — API Key
 
 A program, such as a test, a bot or a device without a person signing in, connects with its space's
@@ -638,15 +679,7 @@ built-in client functions and sends `ClientReady`. A key the backend refuses thr
 `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
 
 The user an API key connects as is the program's own: it is never one of the app's existing people
-and has no email, so a role the app gives by email does not reach it. A program that a person runs
-acts as that person by signing them in by email, where the surface it enters lists `email`:
-`IkonAuthenticator.startEmailLogin` mails them a code, the person types it in, and
-`IkonAuthenticator.verifyEmailCode` returns a session, and `connectWithToken` connects with its `token`.
-That token lasts 15 minutes. `IkonAuthenticator.refreshSignInSession` renews it with the session's
-`refreshToken`, and each renewal returns a new refresh token.
-These are instance methods that reach only the `authUrl` they are given, never the authenticator's
-host and port, so any authenticator works: `IkonAuthenticator(port: 443).startEmailLogin(...)`.
-The IKON tool hands out no session token for a person.
+and has no email, so a role the app gives by email does not reach it. A program that acts as a person signs them in instead, as the next section shows.
 
 A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, throws `IkonAuthRejectedException` with `statusCode` 403 and `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
@@ -726,6 +759,12 @@ The wait starts again from 10 s once the client has connected. A
 `joinOnly` client goes offline instead (see "Joining only a running session"). Function registrations
 and reactive subscriptions go to the new session by themselves.
 
+A new session starts without the app's per-client reactive state for this client, because that state belongs to the
+session the app's server dropped. `client.sessionId` changes when the client joins a new session, so a program that
+keeps such state compares it after a reconnect and sets the state up again when it differs.
+
+After every reconnect the client sends its last viewport, theme, timezone and visibility again, so the app sees them in the new session. A client that never reported its context sends nothing.
+
 To test how a program handles a drop, drop the connection in a proxy in the session's path. A proxy
 in front of the port given to `connectLocal` does not see the session: that port serves only the
 sign-in, and the session runs over the WebSocket URL the server returns (`IkonAuthResult.websocketUrl`).
@@ -759,7 +798,7 @@ does not reconnect when the app comes back to the foreground; the helpers do bot
 `surface:` on `IkonClient.connectWithToken` and `IkonClient.connectGuest` names the `[[Surface]]` of the
 app's `ikon-config.toml` the client enters. The backend checks the person against that surface's
 `Methods` and `Roles` before it provisions anything, and refuses the connect otherwise. A guest enters
-only a surface listing `guest` or `global`. Without `surface:` the client enters, leaving out sign-in pages,
+only a surface listing `guest` or `global`; a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`, and `ikon new --private` writes `email` and `passkey` only. Without `surface:` the client enters, leaving out sign-in pages,
 the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. A native
 build sends no browser `Origin`, so it can never enter a surface that has a `Host`, named or by default:
 the connect fails with 403. The app reads which surface a client entered from its `Context` (the `Surface` field). `IkonClient.connectLocal` takes `surface:` too, for a local run.
@@ -795,6 +834,10 @@ does not admit the person, or when an API key is unknown or deleted (`Invalid ke
 would be refused again: the client goes `offlineError` with the exception in `IkonClient.lastError`.
 On a 401 it also fires `IkonClient.onCredentialRejected`, so the app can get a new token and pass it
 to `client.updateAuthToken(token)`, which resumes the reconnect with it, or sign the person out.
+A guest the space refuses, with a 401 or 403, throws `IkonGuestRefusedException` (an
+`IkonAuthRejectedException`): there is no token to replace, so a client that meets it on a reconnect
+stays `offlineError` without firing `onCredentialRejected`, whose listeners would reconnect as a guest
+again. Show the sign-in instead.
 `IkonNativeSignIn.register` does the sign-out for you.
 
 ### When the app is not available
@@ -1041,7 +1084,7 @@ stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. T
 | `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
-| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names | None: pass the id to the upload call |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The Flutter view moves the client to that path itself when the action is pressed, and back when the app refuses it; a client without the view calls the action with `sendAction`, and the app then moves it |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
@@ -1114,11 +1157,14 @@ arrive before it exists and passes them to it, so the first tree is not lost. Af
 the app for the whole tree again, and `onUpdate` fires with it. A reconnect into a new session can
 change the action ids, so read them from the current tree rather than keeping them.
 
+`waitForNode` above waits for as long as the app takes. A program that must not wait forever bounds it:
+`await waitForNode(ui, match).timeout(const Duration(seconds: 10))` throws a `TimeoutException` when no node matches in time.
+
 ## Client Events
 
 `IkonClient.onClientJoined`, `onClientUpdated` and `onClientLeft` are streams of the other clients in
 the session, the app included, joining, reporting a new viewport, theme, timezone or visibility, and
-leaving. A client is reported as joined once it is ready: the app knows who it is, and it has been sent
+leaving. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. A client is reported as joined once it is ready: the app knows who it is, and it has been sent
 the session's state, so the app can answer it at once. Each event carries the client's `Context` as
 other clients see it: `sessionId`, `userId`, `contextType` and what it reports of its viewport, theme,
 timezone and visibility, without the device and sign-in fields only the app sees. None is ever about

@@ -1,4 +1,4 @@
-<!-- checked-against: c25f3891418e4294e3b0c442 -->
+<!-- checked-against: 5e6f49d703919a30e3b0c442 -->
 
 # IKON Rust SDK
 
@@ -51,6 +51,8 @@ use ikon_sdk::{
 
 ## Connecting
 
+No mode acts as the person signed in with `ikon login`; only the .NET SDK's `UserLogin` does.
+
 ### API Key Authentication
 
 A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
@@ -81,7 +83,7 @@ client.disconnect().await?;
 
 `IkonClient::new` returns `Result<Arc<IkonClient>>`, and the client's methods take `self: &Arc<Self>`, so a function of the program's own takes the client as `fn f(client: &Arc<IkonClient>)`, and a spawned task gets `Arc::clone(&client)`.
 
-`connect` returns once the client is in the session and the app knows it, so code after it can call the app at once. `join_only: true` with `UserType::Machine` joins only a session that is already running and does not keep it open; the connect then fails with `SdkError::NoLiveSession` when nothing runs.
+`connect` returns once the client is in the session and the app knows it, so code after it can call the app at once. It does not wait for the app's `OnClientJoined` handler to finish, so a program that needs something that handler sets up waits for it to show, such as a function with `wait_for_function`. `join_only: true` with `UserType::Machine` joins only a session that is already running and does not keep it open; the connect then fails with `SdkError::NoLiveSession` when nothing runs.
 
 A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `SdkError::HttpStatus` 403 whose body is the backend's JSON error with the `message` `Invalid key` (`{"statusCode":403,...,"message":"Invalid key","error":"Forbidden",...}`), its answer to a key it does not know: match the `message`, not the whole body. That 403 is about the key, not the app refusing the user; a key of another app gets the `message` `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
@@ -124,7 +126,7 @@ The app sees a local client as `user_id` (`"local"` when it is `None`), `user_ty
 
 ### Guests
 
-A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. The app must let guests in; otherwise the connect fails with `SdkError::HttpStatus` 403.
+A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. The app must let guests in; otherwise the connect fails with `SdkError::HttpStatus` 403. `client_type` says what kind of device the program runs on, not that it is a visitor: `DesktopApp` for a program on a computer, `MobileApp` for one on a phone; `DesktopWeb` and `MobileWeb` are for a page in a browser.
 
 <!-- ikon-example: rust-sdk-connect-guest -->
 ```rust
@@ -142,7 +144,7 @@ client.connect().await?;
 
 Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. The app sees a guest as `UserType::Human`.
 
-A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; with `None` the client enters, leaving out sign-in pages, the only surface left, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods`, or the connect fails with `SdkError::HttpStatus` 403, even when another surface admits guests. `IkonClientConfig::initial_path` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
+A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; with `None` the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods` (a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only), or the connect fails with `SdkError::HttpStatus` 403, even when another surface admits guests. `IkonClientConfig::initial_path` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
 
 <!-- example-skip: two fields of the config above -->
 ```rust
@@ -219,6 +221,33 @@ An app hot reload is not a reconnect either. The client stays in the session, an
 
 `client.clients()` lists the session's clients as the server describes them, this one included, and `wait_for_client(ClientPredicate { user_id: Some(..), ..Default::default() }, timeout)` waits until the server lists one.
 
+### Stopping a Program
+
+A program killed without `disconnect` stays in the session until the server's soft-retry window ends, so the other clients see it leave only minutes later. Start the stop listener before `connect`, so a Ctrl+C that arrives while the join is still running is not lost. Call `disconnect` when the listener fires, including during `connect`. `disconnect` stops a connect that is under way. If the server already accepted the join, it also tells the server the client is leaving and waits at most 1 s for that message:
+
+<!-- ikon-example: rust-sdk-stopping -->
+```rust
+let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
+tokio::spawn(async move {
+    let _ = tokio::signal::ctrl_c().await;
+    let _ = stop_tx.send(true);
+});
+
+let client = IkonClient::new(config)?;
+tokio::select! {
+    result = client.connect() => result?,
+    _ = stop_rx.changed() => {
+        // The join may already be accepted, so leave it rather than hold the session for the soft-retry window
+        client.disconnect().await?;
+        return Ok(());
+    }
+}
+
+// The program's work goes here; this wait ends it on Ctrl+C
+let _ = stop_rx.changed().await;
+client.disconnect().await?;
+```
+
 ### Other Clients
 
 `clients` reports the other clients of the session, never this one:
@@ -250,11 +279,11 @@ while let Ok(event) = events.recv().await {
 }
 ```
 
-`Joined` comes once a client is ready, when the server has sent it the session's state and the app knows who it is, so the app can answer it from then on. It also comes for each client already in the session when this one joined; those arrive just after `connect` returns. `Updated` carries the new viewport, theme, timezone or visibility. `Updated` and `Left` come only for a client reported as joined, so a client that leaves before it is ready is never reported. After a reconnect into the same session, `clients` reports only what changed while this client was away: `Joined` for a client that came meanwhile, and `Updated` for one that changed its viewport, theme, timezone or visibility. A client that left meanwhile comes as `Left` once the server has sent the clients still there, and `clients()` lists the session as it is then. A reconnect into a new session is a new join, so `clients` reports the clients there as it does on joining. When presence is off for the app's surface, a client is told only about the app's own connections.
+`Joined` comes once a client is ready, when the server has sent it the session's state and the app knows who it is, so the app can answer it from then on. It also comes for each client already in the session when this one joined; those arrive just after `connect` returns. `Updated` carries the new viewport, theme, timezone or visibility. `Updated` and `Left` come only for a client reported as joined, so a client that leaves before it is ready is never reported. After a reconnect into the same session, `clients` reports only what changed while this client was away: `Joined` for a client that came meanwhile, and `Updated` for one that changed its viewport, theme, timezone or visibility. A client that left meanwhile comes as `Left` once the server has sent the clients still there, and `clients()` lists the session as it is then. A reconnect into a new session is a new join, so `clients` reports the clients there as it does on joining. A client is told only about clients in the same app instance, which the app's `SessionIdentity` decides, and only when the app's surface has `Presence = true`. When presence is off for the app's surface, it is told only about the app's own connections.
 
 A client whose connection drops, a program that was killed included, is not reported as gone at once: the server holds its session for the soft-retry window, 5 minutes by default, so it can resume. Until then its `Context` has `is_soft_disconnected` true and `soft_disconnect_at` set, and `Left` comes when the window has passed. A program that calls `disconnect` tells the server it is leaving, so the others get `Left` at once. The window also bounds this client's own resume: a reconnect within it rejoins the same session without signing in again, which is why a device whose API key was deleted keeps going after a short drop.
 
-Each event carries the other client's `ikon_sdk::protocol::Context`, which `event.client()` returns. `is_internal` is true for the app's own connections: they are reported too, and leave and join again under a new `session_id` each time the app hot-reloads. Of the rest, another client's `Context` carries `session_id`, `user_id`, `description` (`IkonClientConfig::description` for an SDK client), `product_id`, `version_id`, `locale`, `is_anonymous`, `is_ready`, and the viewport, theme, timezone and visibility it reports. `user_type`, `client_type`, `context_type` and `sdk_type` have the types `UserType`, `ClientType`, `ContextType` and `SdkType`: compare with `UserType::Machine`. Each holds the wire value as `.0`, so a value a newer server sends that names no constant is kept, and `name()` returns `None` for it. `sdk_type` names the SDK the client runs on, and a web page joins as `ContextType::Browser`. The server leaves another client's device, sign-in, host and location fields empty; only the app sees them.
+Each event carries the other client's `ikon_sdk::protocol::Context`, which `event.client()` returns. `is_internal` is true for the app's own connections: they are reported too, and leave and join again under a new `session_id` each time the app hot-reloads. Of the rest, another client's `Context` carries `session_id`, `user_id`, `description` (`IkonClientConfig::description` for an SDK client), `product_id`, `version_id`, `locale`, `is_anonymous`, `is_ready`, and the viewport, theme, timezone and visibility it reports. `user_type`, `client_type`, `context_type` and `sdk_type` have the types `UserType`, `ClientType`, `ContextType` and `SdkType`: compare with `UserType::Machine`. Each holds the wire value as `.0`, so a value a newer server sends that names no constant is kept, and `name()` returns `None` for it. `sdk_type` names the SDK the client runs on, and a web page joins as `ContextType::Browser`. The server leaves another client's device, sign-in, host, surface and location fields empty (`surface` among them); only the app sees them.
 
 ## Functions
 
@@ -478,7 +507,7 @@ let score = reactive
 score.unsubscribe().await;
 ```
 
-The callback gets the current value before `subscribe` returns, then the value after each change, in order. The app sends one value at a time. Changes made while a value is on its way arrive as one call with the latest value, so the last call always has the current value. After a reconnect the registry subscribes again and delivers the value as it is then. Pass the mount id for a `MountReactive<T>`, or `""`.
+The callback gets the current value before `subscribe` returns, then the value after each change, in order. The app sends one value at a time. Changes made while a value is on its way arrive as one call with the latest value, so the last call always has the current value. After a reconnect the registry subscribes again and delivers the value as it is then. Pass the mount id for a `MountReactive<T>`, or `""`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it.
 
 The value arrives as the JSON of the C# value. A record or class keeps its C# property names, which are PascalCase (`{ "Name": ..., "Score": ... }`), so derive the Rust struct with `#[serde(rename_all = "PascalCase")]`. A list arrives as a JSON array and a dictionary as a JSON object keyed by the dictionary's keys.
 
@@ -554,10 +583,10 @@ The standard components put their text and labels in these props:
 | `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
 | `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
 | `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
-| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
+| `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step`. The slider's name is its `aria-label`, not a `label` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
-| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names | None: pass the id to the upload call |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The call moves the client to that path itself, as `set_path` does, and moves back when the app refuses it or the call fails |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
@@ -786,7 +815,7 @@ The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendM
 - `timeouts` is a `TimeoutConfig` holding `connection` (the join, a `Duration`, 30 s), `provisioning` (waiting for the app's server to start, 60 s), `max_reconnect_attempts` (`u32`, 6) and `reconnect_backoff` (`Duration`, 500 ms).
 - `description` and `locale` (`String`, defaults `"Ikon SDK Rust"` and `"en-US"`) and `product_id`, `version_id`, `install_id` and `user_agent` (`Option<String>`) describe the client to the app.
 - `device_id` (`Option<String>`) names the device. Left `None`, `IkonClient::new` sets a random one, which every connect and reconnect of that client sends; `client.config().device_id` reads it.
-- `parameters` (`BTreeMap<String, String>`) are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
+- `parameters` (`BTreeMap<String, String>`) are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). The key is the property name of the app's client-parameters record, as the URL query spells it: an app that reads `?guest=anna` takes `config.parameters.insert("guest".into(), "anna".into())`. Without it the client joins the instance with that field empty.
 - `opcode_groups_from_server` and `opcode_groups_to_server` (`u32`) choose the kinds of message the client receives and sends; the default is every group, `Opcode::GROUP_ALL | Opcode::GROUP_APP_LOCAL`.
 - `local_client_proof` (`Option<String>`) matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `LocalConfig::user_id`. A program on the same machine connecting to `localhost` needs none.
 

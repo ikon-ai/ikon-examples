@@ -1,4 +1,4 @@
-<!-- checked-against: 5df47ecbb4057cd9e3b0c442 -->
+<!-- checked-against: 71e2813fb4057cd9e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -43,7 +43,7 @@ npm install @ikonai/sdk-ui
 
 A Node program, in short:
 
-- Node.js 22 or later, an ES module (below), `@ikonai/sdk` and `@ikonai/sdk-libopus`; `@ikonai/sdk-ui` to read and use the app's UI.
+- Node.js 22 or later, an ES module (below), `@ikonai/sdk` and `@ikonai/sdk-libopus`; `@ikonai/sdk-ui` to read and use the app's UI, including the ids an upload needs.
 - Join a deployed app with `guest` or `apiKey` and a local run with `local` ("Authentication Modes"); without a page it joins as a `ContextType.Plugin` client.
 - Tell the app the path and context a page would report: `client.setPath` and `client.sendUpdateClientContext` (below).
 - Upload with `uploadFile` and a `File` made from a `Buffer` or `fs.openAsBlob` ("Uploading Files").
@@ -131,7 +131,7 @@ await client.connect();
 
 ## Authentication Modes
 
-The SDK supports four authentication modes. Exactly one must be configured.
+The SDK supports four authentication modes. Exactly one must be configured. None of them acts as the person signed in with `ikon login`; only the .NET SDK's `UserLogin` does.
 
 ### Guest
 
@@ -142,10 +142,10 @@ device id are the same guest, and a client without one gets a new device id each
 store one (every run of a Node program). When the app lists `global`, the sign-in ignores `deviceId`
 and every guest is the same space-wide user. The connect fails with 403 "Anonymous users not allowed" when none of the app's surfaces
 lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' requires sign-in with one of: …"
-when the surface the client enters does not list one. `guest` listed on another surface does not let the
+when the surface the client enters does not list one. A surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only. `guest` listed on another surface does not let the
 client in. Leaving out sign-in pages (surfaces another surface names as its sign-in page), the client
 enters the only surface left, else the one with neither `Routes` nor `Host`, else the first declared,
-unless `surface` names another, in the `guest` (or other connection) block or at the top of the config, where it applies to that block when it names none. A program connects to such a private app with an API key. The app must have been deployed once
+unless `surface` names another, in the `guest` (or other connection) block or at the top of the config, where it applies to that block when it names none. A client with no `surface` joins that catch-all surface, and its `Presence` decides which other clients the client sees. A program connects to such a private app with an API key. The app must have been deployed once
 (`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
 ever local is reached with the `local` mode below.
 
@@ -189,7 +189,9 @@ A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or withou
 
 ### Local Development
 
-Connect directly to a local IKON server during development.
+Connect directly to a local IKON server during development. A Node program on Linux starts with
+`NODE_EXTRA_CA_CERTS=ikon-local.pem` (the certificate note below says where it comes from), or its connect fails with
+`fetch failed`. Both `host` and `httpsPort` are required; without them the connect throws an `AuthenticationError` naming them.
 
 <!-- ikon-example: ts-sdk-auth-local -->
 ```ts
@@ -424,7 +426,7 @@ if (client.lastError) {
 
 A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the person on another shard; when none has room, `connect()` throws `ServerFullError`.
 
-When the first connect fails, the client first goes `offline` (`onConnectionStateChange`), then calls `onError` with the error, and then `connect()` rejects with that same error. A credential the backend refuses, such as a deleted or wrong API key (HTTP 403 `Invalid key`), is an `AuthenticationError` whose message names the status; a sign-in for an app that is not available is a `SpaceNotFoundError`. Tell errors apart with `instanceof` or `error.name`; `error.constructor.name` is shortened in the published bundle. `onCredentialRejected` is not called for a first connect: it is only for a token refused while the client re-authenticates to reconnect.
+When the first connect fails, the client first goes `offline` (`onConnectionStateChange`), then calls `onError` with the error, and then `connect()` rejects with that same error. A credential the backend refuses, such as a deleted or wrong API key (HTTP 403 `Invalid key`), is an `AuthenticationError` whose message names the status; a sign-in for an app that is not available, or a guest sign-in for an app id that does not exist (the auth service answers 403 "Space … not found"), is a `SpaceNotFoundError`. Tell errors apart with `instanceof` or `error.name`; `error.constructor.name` is shortened in the published bundle. `onCredentialRejected` is not called for a first connect: it is only for a token refused while the client re-authenticates to reconnect.
 
 ### Automatic Reconnection
 
@@ -522,7 +524,7 @@ unsubscribe();
 
 ### Other Clients
 
-The client events say who else is in the session, each with the other client's `Context`
+The client events say who else is in the session. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each event carries the other client's `Context`
 (`SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and
 visibility). A client counts as joined once it is ready: it has finished joining, the app knows who
 it is, and it can be reached. `onClientJoined` is called then, and on joining it is called once for
@@ -686,7 +688,7 @@ app has the file: every byte arrived and matched the file's size and SHA-256 has
 `retriable` is true when sending the file again may work, such as after a stall, or after a
 connection that dropped and did not come back within 45 seconds. The upload carries on by itself
 across a shorter drop. `retriable` is false when the server refused the upload, such as with
-`The app rejected the upload` when `onStart` refused the file or no upload action has that id. It is
+`The app rejected the upload` when `onStart` refused the file or no upload action has that id; a refusal at the pre-start step adds the app's reason, `The app rejected the upload: <reason>`. It is
 also false when the client cannot learn the outcome after the whole file was sent, and that error's
 message says to check whether the file was stored before sending it again. A call before the client has a session rejects at once with
 `Session not ready`. A client sends up to 8 files at once, and the rest wait their turn.
@@ -954,7 +956,9 @@ with everyone belongs in an app with one instance (`public record SessionIdentit
 `GlobalReactive` or `PersistentGlobalReactive` field, which every instance shares. The program
 usually sees another instance's write within seconds. A counter there uses `Update(v => v + 1)`,
 because an assignment is last-writer-wins. The value arrives as
-parsed JSON with the C# property names. The callback gets the value as it is when the app sends it,
+parsed JSON with the C# property names. A JSON object's keys are always strings, so a C# dictionary
+with numeric keys arrives as an object whose keys are the numbers as text (`Dictionary<int, string>`
+`{ [1] = "a" }` is `{ "1": "a" }`; read it with `value["1"]` or `Object.entries`). The callback gets the value as it is when the app sends it,
 and is not called once per change. Changes made close together, such as five calls in a row that each add an item,
 can arrive as fewer calls, the last of them with the latest value. Any client that joins, a guest
 included, can subscribe to
@@ -1016,6 +1020,20 @@ watchVisitors();
 ```
 
 Against a deployed app, each new client starts the app's server if none is running.
+
+A new client does not fix a credential the backend refuses (a deleted API key, a guest the app does not admit): `connect()` rejects with an `AuthenticationError` and the loop above would try again every 15 seconds forever. A watcher that should stop then keeps the timer and clears it when the connect fails that way:
+
+<!-- example-skip: a fragment of the watcher above, not a program of its own -->
+```ts
+// The offline handler keeps its timer: `retry = setTimeout(...)`
+let retry: ReturnType<typeof setTimeout> | undefined;
+
+// ...and the connect's catch stops it, because the refused connect went offline first
+if (error instanceof AuthenticationError) {
+  clearTimeout(retry);
+  return;
+}
+```
 
 ### Value Descriptors
 
@@ -1122,7 +1140,9 @@ still open again when the client rejoins.
 `client.globalState.AudioStreams` and `VideoStreams` hold the streams that were open when the
 `GlobalState` arrived, keyed by the same `"{senderId}_{trackId}"` id, each with its `ClientSessionId`,
 `TrackId` and begin `Info`. The SDK does not change them afterwards, so follow later streams with
-`rawMedia.onAudioStreamBegin`, `onVideoStreamBegin` and their `End` events.
+`rawMedia.onAudioStreamBegin`, `onVideoStreamBegin` and their `End` events. An app's audio clip ends with
+`isLast` on its last frame, and the stream usually stays open for the next clip, so `onAudioStreamEnd`
+does not fire after a clip: wait for the frame with `isLast`.
 
 <!-- ikon-example: ts-sdk-raw-media -->
 ```ts
@@ -1253,7 +1273,7 @@ The standard components put their text and labels in these props:
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.code-editor` | `value`, `language`, `placeholder`. A `label:` is a `std.text` node just before the editor, and also its `aria-label` | `onValueChangeId`, the text itself; `onInvokeId` on Ctrl+Enter, the text itself |
-| `std.file-upload`, `std.file-upload-zone` | | `uploadActionId`, the id an upload names |
+| `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names | None: pass the id to the upload call |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The renderer moves the page itself. To do the same, pass the path to `sendActionCall(actionId, payload, { path })`; without it the app moves the client |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
