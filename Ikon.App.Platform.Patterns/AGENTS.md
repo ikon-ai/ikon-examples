@@ -25,8 +25,8 @@ A deployed instance has 1 CPU and 256 MB by default (more: `scaling`), shared wi
 
 Test locally, not deployed. `ikon run --format text` blocks.
 Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
-and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. `ikon build` type-checks
-the frontend too, even in a run. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
+and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. After a run starts, only
+`ikon build` type-checks edits. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs: share the local one after a UI change. `ikon stop` saves persistent state, ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the old build, a throwing `OnStarting` leaves
 none, a `Main` edit outside its lambdas restarts, and `browse` prints the error;
