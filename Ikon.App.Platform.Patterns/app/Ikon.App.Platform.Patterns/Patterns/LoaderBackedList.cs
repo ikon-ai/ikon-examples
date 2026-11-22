@@ -123,7 +123,7 @@ internal sealed class LoaderBackedList : IPatternDemo
             });
 
             // While another folder's first load runs, the list shown here stays on screen, dimmed
-            var notes = Notes.GetOrPrevious(_folder.Value, "notes");
+            Loaded<IReadOnlyList<Note>> notes = Notes.GetOrPrevious(_folder.Value, "notes");
 
             if (notes.Value is null)
             {

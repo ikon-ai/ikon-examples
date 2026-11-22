@@ -13,7 +13,12 @@ file sealed class DocAudioEffects(IApp<SessionIdentity, ClientParameters> app)
         #region example:audio-effects-mixer
         // Effects run in order on one playback — Play, PlayLive or Speak; each playback creates its own effect state.
         Audio.Speak(MediaTargets.Everyone, "Is anyone down here?",
-            options: new PlayOptions { Effects = [new ReverbAudioEffect(), new DelayAudioEffect()] });
+            options: new PlayOptions
+            {
+                Effects = [new ReverbAudioEffect(), new DelayAudioEffect()],
+                // The music slot drops to 20% volume while the line plays, then comes back.
+                Duck = [new SlotDuck("music", 0.2f)],
+            });
         Audio.Play(MediaTargets.Everyone, chunk.Samples, chunk.SampleRate, chunk.ChannelCount,
             new PlayOptions { Effects = [new ReverbAudioEffect(), new DelayAudioEffect()] });
         #endregion

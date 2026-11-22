@@ -17,13 +17,17 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
             col.Row(["gap-2 items-center"], content: row =>
             {
                 row.Button([Button.GhostSm], text: "Collapse all", onClick: async () => _expanded.Clear());
+                row.Button([Button.GhostSm], text: "Add sub-thread", onClick: async () =>
+                    AddThread(_sampleThreads, new ThreadInfo($"thread-{++_addedCount}", $"New sub-thread {_addedCount}", _selectedThreadId.Value ?? "draft", ThreadStatus.Pending)));
                 row.Text(["text-xs text-muted-foreground"],
                     _selectedThreadId.Value is { } id ? $"Selected: {_sampleThreads.First(t => t.Id == id).Title}" : "Nothing selected");
             });
         });
     }
 
-    private readonly List<ThreadInfo> _sampleThreads =
+    private int _addedCount;
+
+    private readonly ReactiveList<ThreadInfo> _sampleThreads = new(
     [
         new("market", "Market sizing for e-bikes in Finland", null, ThreadStatus.Active),
         new("sources", "Gather sales statistics", "market", ThreadStatus.Done),
@@ -35,7 +39,7 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
         new("pricing-eu", "Compare EU list prices", "pricing", ThreadStatus.Done),
         new("pricing-us", "Compare US list prices", "pricing", ThreadStatus.Done),
         new("support", "Answer a dealer question about warranty terms", null, ThreadStatus.Done),
-    ];
+    ]);
 
     private enum ThreadStatus { Pending, Active, Done }
 
@@ -71,6 +75,18 @@ internal sealed class TreeWithExpandCollapse : IPatternDemo
 
         var open = children.Count(c => c.Status != ThreadStatus.Done);
         return open == 0 ? $"{thread.Title} · all {children.Count} done" : $"{thread.Title} · {open} of {children.Count} open";
+    }
+
+    // A node created at run time is not in the set the tree started with, so under a collapsed
+    // branch it would stay hidden: open every branch above it, not only its parent.
+    private void AddThread(ReactiveList<ThreadInfo> threads, ThreadInfo thread)
+    {
+        threads.Add(thread);
+
+        for (var parentId = thread.ParentId; parentId != null; parentId = threads.Find(t => t.Id == parentId)?.ParentId)
+        {
+            _expanded.Expand(parentId);
+        }
     }
     #endregion
 }

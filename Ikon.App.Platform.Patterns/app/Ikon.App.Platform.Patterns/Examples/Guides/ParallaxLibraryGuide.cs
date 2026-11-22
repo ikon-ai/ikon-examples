@@ -356,7 +356,7 @@ file sealed class PxFormsAndDialogsWithFormstateExamples(IApp<SessionIdentity, C
                 f.TextField(value: _preset.Draft.Name,
                     onValueChange: v => { _preset.Edit(d => d with { Name = v }); return Task.CompletedTask; }));
             form.FormError(_preset);
-            form.FormSubmit(_preset, "Save", SavePresetAsync,
+            form.FormSubmit(_preset, "Save", onSubmit: SavePresetAsync,
                 validate: d => string.IsNullOrWhiteSpace(d.Name) ? [new FormFieldError("Name", "Required")] : []);
         });
         #endregion

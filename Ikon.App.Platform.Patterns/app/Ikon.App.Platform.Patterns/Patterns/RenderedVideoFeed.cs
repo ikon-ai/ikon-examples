@@ -36,7 +36,7 @@ internal sealed class RenderedVideoFeed(IAppBase app) : IPatternDemo
         _feed = feed;
         _live.Value = true;
         _error.Value = null;
-        _ = Task.Run(() => RunFeedAsync(feed));
+        Task.Run(() => RunFeedAsync(feed)).ObserveInBackground();
     }
 
     private void StopFeed()

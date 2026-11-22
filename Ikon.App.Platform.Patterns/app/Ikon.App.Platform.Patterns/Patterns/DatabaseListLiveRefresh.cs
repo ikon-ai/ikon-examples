@@ -120,3 +120,139 @@ internal sealed class DatabaseListLiveRefresh(IApp<SessionIdentity, ClientParame
     }
     #endregion
 }
+
+// The database-list-live-refresh doc's private-rows example; it draws nothing in the gallery.
+internal sealed class DatabaseListPrivateRows(IApp<SessionIdentity, ClientParameters> app)
+{
+    #region example:pattern-database-list-private-rows
+    private sealed record Trip(long Id, string OwnerId, string Destination, DateTime CreatedAt);
+
+    // Written per user with SetFor, so a client reads its own user's trips and no one else's
+    private readonly UserReactive<IReadOnlyList<Trip>> _myTrips = new([]);
+
+    // Every trip, written only for staff user ids, in a reactive of its own
+    private readonly UserReactive<IReadOnlyList<Trip>> _allTrips = new([]);
+    private readonly UserReactive<bool> _isStaff = new(false);
+
+    private readonly GlobalReactive<long> _tripsRevision = new(0, key: "trips-revision");
+
+    // The revision each user's lists were last loaded at. A join and a bump can load one user at the
+    // same time, and a load that read an older revision must not overwrite a newer one's rows.
+    private readonly UserReactive<long> _loadedRevision = new(-1);
+    private readonly Lock _loadLock = new();
+
+    private ReactiveEffect? _reloadTrips;
+
+    private ClientProfiles Profiles { get; } = new(app);
+
+    /// <summary>Call from app.OnStarting.</summary>
+    private async Task StartTripsAsync()
+    {
+        await using (var db = await app.DatabaseAsync())
+        {
+            await db.OpenAsync();
+            await db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS trips (
+                    id bigserial PRIMARY KEY, owner_id text NOT NULL, destination text NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now())
+                """);
+        }
+
+        // The effect reloads only the users connected when the revision changes, so a person who
+        // arrives between bumps is loaded as they join
+        app.OnClientJoined(async ctx =>
+        {
+            var profile = await Profiles.GetProfileAsync(ctx);
+            _isStaff.SetFor(ctx.UserId, profile?.HasRole(UserRole.Moderator) == true);
+            await LoadTripsAsync([ctx.UserId], _tripsRevision.Value);
+        });
+
+        _reloadTrips = new ReactiveEffect(async cancellationToken =>
+        {
+            var revision = _tripsRevision.Value;
+            var userIds = app.Clients.Select(client => client.UserId).Where(id => id.Length > 0).Distinct().ToList();
+            await LoadTripsAsync(userIds, revision, cancellationToken);
+        }, _tripsRevision);
+    }
+
+    // One query loads every listed user's own trips and one the staff list, however many users are
+    // connected. The revision is read before the queries, so the rows are at least that new.
+    private async Task LoadTripsAsync(IReadOnlyList<string> userIds, long revision, CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return;
+        }
+
+        await using var db = await app.DatabaseAsync();
+        await db.OpenAsync();
+
+        var owned = (await db.QueryAsync<Trip>("""
+            SELECT id AS Id, owner_id AS OwnerId, destination AS Destination, created_at AS CreatedAt
+            FROM (SELECT *, row_number() OVER (PARTITION BY owner_id ORDER BY created_at DESC) AS n
+                  FROM trips WHERE owner_id = ANY(@userIds)) newest
+            WHERE n <= 100 ORDER BY created_at DESC
+            """, new { userIds = userIds.ToArray() })).ToLookup(trip => trip.OwnerId);
+
+        var staff = userIds.Where(userId => _isStaff.ValueFor(userId)).ToList();
+        IReadOnlyList<Trip> all = staff.Count == 0 ? [] : (await db.QueryAsync<Trip>(
+            "SELECT id AS Id, owner_id AS OwnerId, destination AS Destination, created_at AS CreatedAt FROM trips ORDER BY created_at DESC LIMIT 200")).ToList();
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_loadLock)
+        {
+            foreach (var userId in userIds)
+            {
+                if (_loadedRevision.ValueFor(userId) > revision)
+                {
+                    continue;
+                }
+
+                _loadedRevision.SetFor(userId, revision);
+                _myTrips.SetFor(userId, owned[userId].ToList());
+
+                if (staff.Contains(userId))
+                {
+                    _allTrips.SetFor(userId, all);
+                }
+            }
+        }
+    }
+
+    // A staff handler, a [Cron] or an endpoint writes for someone else the same way: store, then bump
+    private async Task AddTripAsync(string ownerId, string destination)
+    {
+        await using (var db = await app.DatabaseAsync())
+        {
+            await db.OpenAsync();
+            await db.ExecuteAsync("INSERT INTO trips (owner_id, destination) VALUES (@ownerId, @destination)", new { ownerId, destination });
+        }
+
+        _tripsRevision.Update(revision => revision + 1);
+    }
+
+    private void Render(UIView view)
+    {
+        view.Column(["gap-3 w-full max-w-md"], content: col =>
+        {
+            col.Text([Text.H3], "My trips");
+
+            foreach (var trip in _myTrips.Value)
+            {
+                col.Text([Text.Body], key: $"mine-{trip.Id}", text: trip.Destination);
+            }
+
+            if (_isStaff.Value)
+            {
+                col.Text([Text.H3], "All trips");
+
+                foreach (var trip in _allTrips.Value)
+                {
+                    col.Text([Text.Body], key: $"all-{trip.Id}", text: $"{trip.Destination} ({trip.OwnerId})");
+                }
+            }
+        });
+    }
+    #endregion
+}

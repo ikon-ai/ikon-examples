@@ -1,5 +1,6 @@
 using Ikon.Agent.Skills;
 using Ikon.Agent.Storage.Postgres;
+using Ikon.Connect.App;
 
 namespace Ikon.App.Platform.Patterns.Examples;
 
@@ -18,6 +19,79 @@ public static class AgentThreadExamples
     }
     #endregion
 
+    #region example:agent-brain
+    // Claude Code on this computer answers the thread, through the persona's own tools; on a deployed
+    // app, pick a computer a person connected from app.Computers.For(userId) instead
+    public static async Task AnswerWithClaudeCodeAsync(IAppBase app, AgentThread thread)
+    {
+        if (app.Computers.Local is { } computer && computer.CanRun("claude-code"))
+        {
+            await thread.UseBrainAsync(Brain.ClaudeCode(computer));
+        }
+
+        await thread.DriveAsync(DriveMode.UntilQuiescent);
+    }
+
+    // A coder: Claude Code with all of its own tools, working in a checkout on that computer
+    public static Brain CoderOn(Computer computer, string checkout) =>
+        Brain.ClaudeCode(computer) with { WorkingDirectory = checkout, OwnTools = OwnTools.All };
+
+    // An operator: acts through the app's own MCP server, reads files freely, asks a person before
+    // anything else, and the page shows each step and each message as the agent writes it. Build it
+    // once per thread: a new object with new delegates restarts the agent's process.
+    public static ComputerBrain OperatorOn(Computer computer, string appMcpUrl, Func<ToolPermission, CancellationToken, Task<bool>> askPerson, Action<string> showStep) =>
+        Brain.ClaudeCode(computer) with
+        {
+            OwnTools = OwnTools.All,
+            McpServers = [new SessionMcpServer("app", appMcpUrl)],
+            Approve = async (permission, ct) => permission.Tool is "Read" or "Grep" or "Glob" || await askPerson(permission, ct)
+                ? ToolAnswer.Allowed
+                : ToolAnswer.Refused("The person declined this; ask them in your reply what to do instead."),
+            Watch = update =>
+            {
+                if (update is SessionToolUse use)
+                {
+                    showStep($"Using {use.Tool}");
+                }
+            },
+            PostEveryMessage = true,
+        };
+    #endregion
+
+    #region example:agent-computer-session
+    // Claude Code works on a task in a folder on the computer, and the app shows what it does. The task's
+    // id names the session, so after a restart Open follows the same one again.
+    public static async Task<string?> StartCodingTaskAsync(IAppBase app, Computer computer, string taskId, string folder, string brief, Action<string> show)
+    {
+        ComputerSession? session = null;
+        session = app.Computers.Open(computer.Id, taskId, update =>
+        {
+            switch (update)
+            {
+                case SessionText text:
+                    show(text.Text);
+                    break;
+
+                case SessionToolUse use:
+                    show($"Using {use.Tool}");
+                    break;
+
+                case SessionRequested { Request: ToolPermission permission }:
+                    // Reading is fine; anything else waits for a person in a real app
+                    _ = session!.AnswerAsync(permission, allow: permission.Tool is "Read" or "Grep" or "Glob");
+                    break;
+
+                case SessionTurnEnded ended:
+                    show($"Done (${ended.CostUsd ?? 0:0.00}): {ended.Reply}");
+                    break;
+            }
+        });
+
+        var brain = Brain.ClaudeCode(computer) with { WorkingDirectory = folder, OwnTools = OwnTools.All };
+        return await session.StartAsync(brain, new SessionStartInfo(brief) { Conversation = taskId });
+    }
+    #endregion
+
     #region example:agent-subagent-call
     public static Task<string> SummariseAsync(AgentThread parent, string document, CancellationToken ct)
     {
@@ -33,6 +107,8 @@ public static class AgentThreadExamples
                 return Task.FromResult(reply?.GetText());
             },
             maxPasses: 6,
+            // maxPasses already bounds the passes; a Stop budget also ends a child that runs too long.
+            budget: new Budget(BudgetAction.Stop, MaxTurns: 6, MaxWallTime: TimeSpan.FromMinutes(2)),
             ct: ct);
     }
     #endregion
@@ -49,6 +125,7 @@ public static class AgentThreadExamples
             skills: [],
             inputs: photo,
             maxPasses: 3,
+            budget: new Budget(BudgetAction.Stop, MaxTurns: 3, MaxWallTime: TimeSpan.FromMinutes(2)),
             ct: ct);
     }
     #endregion
@@ -292,5 +369,17 @@ public static class AgentThreadExamples
                 (ctx, name) => Task.FromResult(ctx.Thread.Plan.ReadSection(name)?.Content ?? "")),
         ];
     }
+    #endregion
+
+    #region example:agent-artifact-tool
+    // Tool.OfContext passes the tool's ToolContext as the first parameter, ctx, ahead of the model's arguments
+    public static Tool SaveShortlistTool() =>
+        Tool.OfContext<string, string[], string>("save_shortlist",
+            "Saves the shortlist for one topic, replacing an earlier one.",
+            async (ctx, topic, items) =>
+            {
+                await ctx.WriteArtifactAsync($"shortlist-{topic}", items);
+                return $"Saved {items.Length} items for {topic}";
+            });
     #endregion
 }

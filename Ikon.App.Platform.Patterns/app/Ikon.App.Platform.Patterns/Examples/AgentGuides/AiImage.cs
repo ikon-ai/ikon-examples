@@ -30,7 +30,7 @@ internal sealed partial class AgentGuideExamples
     private static async Task DocImageGenerateConfigAsync()
     {
         #region example:image-generate-config
-        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini31FlashLiteImage);
         var results = await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
         {
             Prompt = "A neon-lit cyberpunk street",
@@ -44,7 +44,7 @@ internal sealed partial class AgentGuideExamples
     private static async Task DocImageEditConfigAsync(byte[] photoBytes)
     {
         #region example:image-edit-input
-        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini31FlashLiteImage);
         var results = await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
         {
             Prompt = "Edit the provided image. Keep its composition and people; change only the lighting to sunset.",
@@ -82,7 +82,7 @@ internal sealed partial class AgentGuideExamples
     private static async Task<string> GenerateImageOneShotAsync(string prompt)
     {
         #region example:image-generate-one-shot
-        var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
+        var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // ImageGeneratorModel.Default (cheap+fast) by default
         var bytes = await image.GetDataAsync();  // payload bytes, downloaded transparently when delivered as a URL
         // image.MimeType — never null; throws AIException on failure
         #endregion

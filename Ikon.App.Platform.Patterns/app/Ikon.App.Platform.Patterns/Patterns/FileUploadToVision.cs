@@ -36,7 +36,7 @@ internal sealed class FileUploadToVision : IPatternDemo
 
                     // The model takes seconds, and this hook must return within 50 s of the last chunk
                     var clientSessionId = ReactiveScope.ClientId;
-                    _ = Task.Run(() => IdentifyAsync(clientSessionId, photo));
+                    Task.Run(() => IdentifyAsync(clientSessionId, photo)).ObserveInBackground();
                 },
                 label: "Choose or take a photo of the plant", hint: "JPEG or PNG, up to 15 MB");
 

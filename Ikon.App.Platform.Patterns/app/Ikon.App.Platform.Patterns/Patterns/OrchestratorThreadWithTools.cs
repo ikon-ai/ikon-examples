@@ -37,7 +37,9 @@ internal sealed class OrchestratorThreadWithTools : IPatternDemo
                 + "Use the tools to ground every claim. Reply briefly.",
             Skills: [new BuildingSkill(this)],
             Reasoning: new Reasoning(Capability.Standard, ModelFamily.Claude, Temperature: 0.4, MaxOutputTokensPerPass: 8000)));
-        await _mind.ResumeAsync();
+        // includeTerminal brings back a finished thread too, so CreateThreadAsync returns it instead of
+        // starting a second one; it matters most with a thread per record
+        await _mind.ResumeAsync(includeTerminal: true);
 
         _thread = await _mind.CreateThreadAsync(
             PersonaName,

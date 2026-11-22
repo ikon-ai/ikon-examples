@@ -203,8 +203,8 @@ file sealed class InputsExamples
                 group.ToggleGroupItem([ToggleGroup.Item, "flex-1"], value: "grid", content: v => v.Text(text: "Grid"));
             });
         view.FileUpload(
-            onUploadComplete: async args => { /* args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
-            onUploadProgress: async args => { /* args.ProgressPercentage (0-100), args.BytesUploaded, args.Size */ },
+            onUploadComplete: async args => { /* FileUploadCompleteArgs: args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
+            onUploadProgress: async args => { /* FileUploadProgressArgs: args.ProgressPercentage (0-100), args.BytesUploaded, args.Size */ },
             accept: [".jpg", ".png", ".pdf"],  // optional file type filter
             multiple: true,                     // without it, one file per pick; each file is a separate upload with its own onUploadComplete
             maxFileSize: 10 * 1024 * 1024,     // optional max size in bytes, per file

@@ -41,7 +41,7 @@ internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
         {
             // Not awaited: the platform waits for the joined handler before the client sees what it
             // sets, so a slow query here would delay the page. The started task keeps the client's scope.
-            _ = LoadLandingPageAsync(app.Navigation.CurrentPath ?? "/");
+            LoadLandingPageAsync(app.Navigation.CurrentPath ?? "/").ObserveInBackground();
             return Task.CompletedTask;
         });
     }

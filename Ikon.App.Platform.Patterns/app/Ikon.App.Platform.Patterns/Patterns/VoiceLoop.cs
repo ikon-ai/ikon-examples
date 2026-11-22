@@ -69,7 +69,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
             // The frame handler holds up every client's messages for as long as it runs, and the
             // round trip below takes seconds, so start it and return. A task started here keeps
             // the client's scope, so _processing still writes to this client.
-            _ = Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount));
+            Task.Run(() => RespondAsync(samples.ToArray(), sampleRate, channelCount)).ObserveInBackground();
         };
 
         UI.Root([Page.Default], content: view =>
@@ -124,7 +124,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
             _turns.Add(new VoiceTurn("You", heard));
 
             var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
-            var replyRaw = await Emerge.Run<string>(LLMModel.Claude45Haiku,
+            var replyRaw = await Emerge.Run<string>(LLMModel.Default,
                 pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; });
             var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
             _turns.Add(new VoiceTurn("Tutor", reply));

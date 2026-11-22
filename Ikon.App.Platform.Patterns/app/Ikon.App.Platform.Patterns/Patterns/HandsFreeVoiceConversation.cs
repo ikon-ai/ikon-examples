@@ -37,8 +37,11 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
         // mid-sentence (a learner, a slow speaker) is not split into two turns. With
         // pauseWhileAppSpeaking: false the microphone stays live while the app talks, so the user
         // can interrupt it (barge-in).
+        // SpeechRecognizer.GetCapabilities(model).Languages lists what a model transcribes (empty: no
+        // list), and a language outside it throws here. For such a language, use a model that lists it, or
+        // SpeechRecognizerModel.AzureSpeechService with language: "fi" (any locale Azure reads).
         Audio.UseTurnDetection(
-            SpeechRecognizerModel.VoxtralMiniTranscribe2,
+            SpeechRecognizerModel.VoxtralMiniTranscribe3,
             config: new TurnDetectorConfig
             {
                 TurnEndSilence = TimeSpan.FromSeconds(1.2),
@@ -75,7 +78,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
 
             var reply = new CancellationTokenSource();
             _replies[args.ClientSessionId] = reply;
-            _ = Task.Run(() => ReplyAsync(args.ClientSessionId, reply.Token));
+            Task.Run(() => ReplyAsync(args.ClientSessionId, reply.Token)).ObserveInBackground();
         };
 
         // Exactly one of SpeechRecognizedAsync and this ends every turn, so both release the turn.
@@ -98,7 +101,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
 
             if (args.IsLast && _recordings.TryRemove(args.StreamId, out var recorded) && _formats.TryGetValue(args.StreamId, out var format))
             {
-                _ = SaveRecordingAsync([.. recorded], format.SampleRate, format.ChannelCount);
+                SaveRecordingAsync([.. recorded], format.SampleRate, format.ChannelCount).ObserveInBackground();
             }
         };
 
@@ -152,7 +155,7 @@ internal sealed class HandsFreeVoiceConversation(IAppBase app) : IPatternDemo
         try
         {
             var transcript = string.Join("\n", _lines.Select(l => $"{l.Speaker}: {l.Text}"));
-            var reply = await Emerge.Run<string>(LLMModel.Claude45Haiku, pass =>
+            var reply = await Emerge.Run<string>(LLMModel.Default, pass =>
             {
                 pass.Command = $"Conversation:\n{transcript}\n\nReply in one or two short spoken sentences.";
             }, ct);

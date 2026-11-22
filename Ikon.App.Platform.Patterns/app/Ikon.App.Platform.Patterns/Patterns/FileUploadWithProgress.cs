@@ -13,8 +13,11 @@ internal sealed class FileUploadWithProgress : IPatternDemo
 
     private const long MaxFileSizeBytes = 2_000_000_000;
 
+    private readonly IAppBase app = null!;
+
     private static string T(string key) => throw new NotImplementedException();
     private static Task SaveUploadAsync(Guid ownerId, string fileName, string hash, string localPath) => throw new NotImplementedException();
+    private static Task ProcessUploadAsync(Guid ownerId, string hash) => throw new NotImplementedException();
 
     #region example:pattern-file-upload-with-progress
     private sealed class UploadTracker
@@ -97,6 +100,8 @@ internal sealed class FileUploadWithProgress : IPatternDemo
 
     private async Task OnFileUploadCompleteAsync(Guid caseId, FileUploadCompleteArgs args)
     {
+        // The visitor sees the upload fail unless this returns within 50 s of the last byte:
+        // store the file here, and run anything slower (a model call, a conversion) in the background.
         await SaveUploadAsync(caseId, args.FileName, args.Hash, args.LocalTempFilePath!);
 
         var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
@@ -104,6 +109,13 @@ internal sealed class FileUploadWithProgress : IPatternDemo
         {
             _activeUploads.Remove(tracker);
         }
+
+        var hash = args.Hash;
+        Task.Run(async () =>
+        {
+            await using var work = await app.BackgroundWork.StartAsync(TimeSpan.FromMinutes(10), $"processing upload {hash}");
+            await ProcessUploadAsync(caseId, hash);
+        }).ObserveInBackground(ex => Log.Instance.Error($"Processing upload {hash} of case {caseId} failed: {ex.Message}"));
     }
 
     private Task OnFileUploadErrorAsync(Guid caseId, FileUploadErrorArgs args)

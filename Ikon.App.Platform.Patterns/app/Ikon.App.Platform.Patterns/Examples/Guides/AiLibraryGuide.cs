@@ -15,12 +15,12 @@ file static class AiDirectExamples
         context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
         context = context.Add(new MessageBlock(MessageBlockRole.User, "Summarise the latest release highlights. Here are the notes: ..."));
 
-        await foreach (var llmEvent in Emerge.Generate(LLMModel.Gpt5Mini, context, regions: [ModelRegion.Eu]))
+        await foreach (var llmEvent in Emerge.Generate(LLMModel.Gpt61Terra, context, regions: [ModelRegion.Eu]))
         {
             Log.Instance.Info($"{llmEvent.Source} | {llmEvent}");
         }
 
-        var stringResult = await Emerge.Generate(LLMModel.Gpt5Mini, context).AsStringAsync();
+        var stringResult = await Emerge.Generate(LLMModel.Gpt61Terra, context).AsStringAsync();
         Log.Instance.Info($"String result: {stringResult}");
         #endregion
     }
@@ -126,7 +126,7 @@ file static class AiOverviewExamples
         // Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
         // run stops or completes without one; EmergeEventExtensions.FinalAsync hands back a nullable
         // result plus the updated context, and still throws when the run stops.
-        var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
+        var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt61Terra, context, pass =>
         {
             pass.Command = "Return invented personal details about the person the user asked about.";
         });
@@ -146,7 +146,7 @@ file static class AiOverviewExamples
     public static async Task AiImagegeneration2()
     {
         #region example:ai-imagegeneration-2
-        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+        using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini31FlashLiteImage);
 
         var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
         {
@@ -435,7 +435,7 @@ file static class AiOverviewExamples
     public static async Task AiSpeechgeneration2()
     {
         #region example:ai-speechgeneration-2
-        using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gpt4OmniMiniTts);
+        using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gemini38FlashTts);
 
         foreach (var voiceId in speechGenerator.VoiceIds)
         {
@@ -446,7 +446,7 @@ file static class AiOverviewExamples
 
         var config = new SpeechGeneratorConfig
         {
-            VoiceId = "ballad",
+            VoiceId = "Kore",
             Instructions = "Speak like a angry pirate.",
             Text = "There once was a ship that put to sea. The name of that ship was a Billy of Tea."
         };
@@ -472,7 +472,7 @@ file static class AiOverviewExamples
     public static async Task AiSpeechrecognition2()
     {
         #region example:ai-speechrecognition-2
-        var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.Whisper2);
+        var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.GptTranscribe);
 
         var audioBytes = await File.ReadAllBytesAsync("audio.raw");
 
@@ -573,7 +573,7 @@ file static class AiOverviewExamples
     public static async Task AiSoundeffectgeneration2()
     {
         #region example:ai-soundeffectgeneration-2
-        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV3);
 
         var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig
         {
@@ -827,7 +827,7 @@ internal static class AiRObjectGenerationExamples
     public static async Task<PersonDetails> AirObjectGenerationAsync()
     {
         #region example:air-object-generation
-        var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
+        var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt61Terra, pass =>
         {
             pass.Command = "Return invented personal details about a person.";
             pass.Regions = [ModelRegion.Eu, ModelRegion.Global];

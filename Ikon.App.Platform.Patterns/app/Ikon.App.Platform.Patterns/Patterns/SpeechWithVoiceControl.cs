@@ -28,8 +28,8 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
 
         // Instructions need ElevenLabs v3; with the default ElevenFlash25 Speak throws, and Azure,
         // the default under an EU-only policy, ignores them. No Speed: ElevenLabs and Gemini 3.8 TTS
-        // refuse any but 1.0. Pass one only with an OpenAI, Azure or Google Cloud TTS model, e.g.
-        // Model = SpeechGeneratorModel.Gpt4OmniMiniTts, Speed = 0.95.
+        // refuse any but 1.0. Pass one only with an Azure or Google Cloud TTS model, e.g.
+        // Model = SpeechGeneratorModel.AzureSpeechService, Speed = 0.95.
         var line = Audio.Speak(MediaTargets.Everyone, text, new SpeechOptions
         {
             Model = SpeechGeneratorModel.Eleven3,
@@ -112,7 +112,7 @@ internal sealed class SpeechWithVoiceControl(IAppBase app) : IPatternDemo
     /// </summary>
     private static async Task<SoundEffectGeneratorResult> AmbienceAsync(string prompt)
     {
-        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV3);
 
         return await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig
         {

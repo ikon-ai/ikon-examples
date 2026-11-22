@@ -181,7 +181,7 @@ internal sealed class ScalingLeaderboardExamples(IAppBase app)
                 created_at timestamptz NOT NULL DEFAULT now());
             CREATE SEQUENCE IF NOT EXISTS leaderboard_version;
             """);
-        _ = Task.Run(PublishTopAsync);
+        Task.Run(PublishTopAsync).ObserveInBackground();
     }
 
     // The database row is the record. The cell only sends the current top ten to every instance.

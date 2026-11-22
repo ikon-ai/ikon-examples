@@ -34,7 +34,7 @@ internal sealed class RosterEmailMatch(IAppBase app) : IPatternDemo
             // Not awaited: the client sees what this handler sets only once it returns, so the
             // database reads would hold up its first frame. The started task keeps the client's scope.
             _rosterStatus.Value = RosterStatus.Checking;
-            _ = MatchRosterAsync(ctx);
+            MatchRosterAsync(ctx).ObserveInBackground();
             return Task.CompletedTask;
         });
     }

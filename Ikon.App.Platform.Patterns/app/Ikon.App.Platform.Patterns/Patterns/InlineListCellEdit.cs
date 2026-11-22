@@ -99,7 +99,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
     private void RemoveState(string stateId)
     {
         _states.RemoveAll(s => s.Id == stateId);
-        _ = SaveProjectAsync();
+        SaveProjectAsync().ObserveInBackground();
     }
 
     private Task SaveProjectAsync()
@@ -128,7 +128,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
                     {
                         state.Name = value;
                         _states[index] = state;
-                        _ = SaveProjectAsync();
+                        SaveProjectAsync().ObserveInBackground();
                     });
 
                 // Image upload / thumbnail
@@ -156,7 +156,7 @@ internal sealed class InlineListCellEdit : IPatternDemo
                 {
                     view.Button([Button.SecondaryMd, "flex-1 text-sm"], statusLabel,
                         disabled: !canGenerate,
-                        onClick: async () => { _ = GenerateLoopVideoAsync(stateId); });
+                        onClick: async () => { GenerateLoopVideoAsync(stateId).ObserveInBackground(); });
 
                     view.Button([Button.GhostMd, Button.Icon, "text-destructive"], ariaLabel: "Remove state",
                         onClick: async () => { RemoveState(stateId); },

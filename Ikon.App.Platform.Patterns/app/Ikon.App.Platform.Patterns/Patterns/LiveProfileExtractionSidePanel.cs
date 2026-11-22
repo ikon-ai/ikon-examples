@@ -37,7 +37,7 @@ internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
         var conversation = string.Join("\n", recent);
 
         var result = await Emerge.Run<ProfileExtraction>(
-            LLMModel.Claude45Haiku, pass =>
+            LLMModel.Default, pass =>
             {
                 pass.SystemPrompt = "Extract customer info. Return only fields that are mentioned. " +
                                     "Empty strings for unknown fields.";
@@ -62,7 +62,7 @@ internal sealed class LiveProfileExtractionSidePanel : IPatternDemo
     private void OnCompleted()
     {
         // Fired after each Completed event:
-        _ = ExtractProfileAsync();
+        ExtractProfileAsync().ObserveInBackground();
     }
     #endregion
 }

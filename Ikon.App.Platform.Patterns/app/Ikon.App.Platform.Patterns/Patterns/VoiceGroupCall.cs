@@ -79,14 +79,14 @@ internal sealed class VoiceGroupCall(IApp<SessionIdentity, ClientParameters> app
         // One pump sends each person their own mix, 20 ms at a time. The frames are already mixed
         // and paced, so they go out through Audio.Raw. Send each frame inside the loop, because the
         // frames share a buffer.
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in _mixer.StreamAsync(app.StoppingToken))
             {
                 await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples,
                     frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast);
             }
-        });
+        }).ObserveInBackground();
     }
 
     private void JoinCall(int clientId, string name)
@@ -274,21 +274,21 @@ file sealed class VoiceGroupCallRooms(IApp<SessionIdentity, ClientParameters> ap
 
         if (emptied is not null)
         {
-            _ = emptied.Mixer.DisposeAsync().AsTask();
+            emptied.Mixer.DisposeAsync().AsTask().ObserveInBackground();
         }
     }
 
     // The same pump as the single call, one per room
     private void StartPump(RoomCall call)
     {
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in call.Mixer.StreamAsync(app.StoppingToken))
             {
                 await Audio.Raw.SendFrameAsync(MediaTargets.To([participantId]), frame.StreamId, frame.Samples,
                     frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast);
             }
-        });
+        }).ObserveInBackground();
     }
     #endregion
 }

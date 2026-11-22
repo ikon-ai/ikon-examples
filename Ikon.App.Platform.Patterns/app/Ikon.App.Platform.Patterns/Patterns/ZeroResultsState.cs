@@ -75,14 +75,8 @@ internal sealed class ZeroResultsState : IPatternDemo
     private static void RenderEmpty(
         IView view, string icon, string title, string description, string actionLabel, Func<Task> action)
     {
-        view.Column([EmptyState.Root], content: view =>
-        {
-            view.Box([EmptyState.IconWrap], content: v => v.Icon([EmptyState.IconSize], name: icon));
-            view.Text([EmptyState.Title], text: title);
-            view.Text([EmptyState.Description], text: description);
-            view.Row([EmptyState.Actions], content: v =>
-                v.Button([Button.PrimaryMd], text: actionLabel, onClick: action));
-        });
+        view.EmptyState(title: title, description: description, icon: icon,
+            action: v => v.Button([Button.PrimaryMd], text: actionLabel, onClick: action));
     }
     #endregion
 }

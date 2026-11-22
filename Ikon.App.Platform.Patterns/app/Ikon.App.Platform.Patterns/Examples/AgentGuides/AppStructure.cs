@@ -44,6 +44,15 @@ file sealed class ViewportExamples
 
 internal sealed partial class AgentGuideExamples
 {
+    private readonly Reactive<string?> _whatsNew = new(null);
+
+    private async Task DocReleaseNotesAsync()
+    {
+        #region example:release-notes-load
+        var notes = await ReleaseNotes.LoadAsync(app.DataDirectory, audience: "users", count: 3);
+        _whatsNew.Value = notes.Count > 0 ? ReleaseNotes.ToMarkdown(notes) : null;
+        #endregion
+    }
 
     private void DocConditionalRendering(UIView view)
     {
@@ -293,6 +302,7 @@ internal sealed partial class AgentGuideExamples
             // ctx is a Context, the parameter type of a separate handler method, as in Task Greet(Context ctx).
             // ctx.ClientSessionId (alias of ctx.SessionId), ctx.UserId, ctx.Theme, ctx.Timezone,
             // ctx.ClientType, ctx.InitialPath, ctx.InitialUrl, ctx.ViewportWidth
+            // The boot snapshot client joins as snapshot-0: skip it (if (ctx.IsSnapshot) return;) before a roster row or a first-user rule
             var client = app.Clients[ctx.ClientSessionId];
         });
         app.OnClientLeft(async ctx => { /* cleanup client state */ });
@@ -309,7 +319,7 @@ internal sealed partial class AgentGuideExamples
                 return;
             }
 
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 while (!app.StoppingToken.IsCancellationRequested)
                 {
@@ -325,7 +335,7 @@ internal sealed partial class AgentGuideExamples
 
                     await Task.Delay(1000, app.StoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
-            });
+            }).ObserveInBackground();
         });
         // Main() is a method, not a constructor, so assigning a `readonly` field there is
         // CS0191; the loop needs no field at all.

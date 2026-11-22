@@ -17,7 +17,7 @@ internal sealed partial class AgentGuideExamples
     private async Task DocSoundEffectStreamedAsync()
     {
         #region example:sound-effect-streamed
-        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+        using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV3);
         LiveAudioPlayback? thunder = null;
 
         await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig

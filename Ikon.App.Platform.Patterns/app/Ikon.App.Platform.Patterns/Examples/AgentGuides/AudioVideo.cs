@@ -43,6 +43,11 @@ file sealed class AudioExamples(IApp<SessionIdentity, ClientParameters> app)
         Audio.Play(MediaTargets.Everyone, new Uri("https://cdn.example.com/theme.mp3"),
             new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music", Loop = true });
 
+        //     A file the app ships in public/ plays from its absolute URL, locally and deployed
+        //     (a relative /ikon/assets/ path is not one the server can fetch).
+        Audio.Play(MediaTargets.Everyone, new Uri(await app.Files.Public.GetAbsoluteUrlAsync("music/theme.mp3")),
+            new PlayOptions { Mode = AudioMixMode.Replace, Slot = "music", Loop = true });
+
         // 2b. A short fixed sound replayed often (a pad, a click, a notification): make it once.
         //     A client that can cache it plays its own copy, without the streaming delay; others hear it mixed.
         var hit = Audio.CreateSound(new AudioClip(samples, sampleRate, channelCount));
@@ -123,7 +128,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
 
         // 4. Frames the app encodes itself (ffmpeg, a headless browser): a live playback paces
         //    them by timestamp. Force a keyframe in your encoder when a viewer asks for one.
-        var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264);
+        var live = Video.PlayLive(MediaTargets.Everyone, "stage", VideoCodec.H264, width: 1280, height: 720, framerate: 30);   // the size and rate viewers are told
         live.KeyFrameRequestedAsync += async request => { /* make the encoder's next frame a keyframe */ };
         await live.WriteAsync(encoded, isKey, timestamp, ct);   // one picture, all its slices; false once ended
         await live.WriteH264StreamAsync(ffmpegStdout, frameRate: 30, ct);   // or a whole H.264 stream, split for you
@@ -135,7 +140,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
 
         // 6. Raw: your own stream id, UNPACED and ungated, for engines that manage streams and
         //    keyframes themselves. Render it with view.VideoStreamCanvas(streamId: ...).
-        await Video.Raw.SendFrameAsync(MediaTargets.Everyone, streamId, encoded, isKey, timestamp, VideoCodec.H264, width, height);
+        await Video.Raw.SendFrameAsync(MediaTargets.Everyone, streamId, encoded, isKey, timestamp, VideoCodec.H264, width, height, framerate: 30);   // announced rate and each frame's duration
         await Video.Raw.CloseStreamAsync(streamId);
 
         // Stop: one playback, a surface, or everything this Video holds.
@@ -170,7 +175,7 @@ file sealed class VideoExamples(IApp<SessionIdentity, ClientParameters> app)
             }
 
             _camera = Video.PlayLive(MediaTargets.To(viewers), "shop-camera", VideoCodec.H264);
-            _ = RunCameraEncoderAsync(_camera);
+            RunCameraEncoderAsync(_camera).ObserveInBackground();
         }
     }
     #endregion

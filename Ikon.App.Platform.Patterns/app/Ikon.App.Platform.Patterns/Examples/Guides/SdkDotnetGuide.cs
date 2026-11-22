@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Ikon.App.Platform.Patterns.Protocol;
 #region example:sdk-console-usings
 using Ikon.Common.Core;
@@ -68,7 +69,7 @@ file static class SdkReadmeExamples
                 ApiKey = Environment.GetEnvironmentVariable("IKON_API_KEY")!,
                 SpaceId = "your-space-id",
                 ExternalUserId = "user-123",
-                BackendType = BackendType.Production // Development for an app on *.dev.ikonai.app
+                BackendType = BackendType.Production // The default; Development for an app `ikon status` lists under development (*.dev.ikonai.app)
             },
             Description = "My App"
         };
@@ -103,6 +104,19 @@ file static class SdkReadmeExamples
         Log.Instance.Debug($"{config}");
     }
 
+    public static void RequirePostQuantum()
+    {
+        #region example:sdk-require-post-quantum
+        var config = new IkonClientConfig
+        {
+            // ... authentication ...
+            RequirePostQuantum = true,
+        };
+        #endregion
+
+        Log.Instance.Debug($"{config}");
+    }
+
     public static void ApiKeyConfig()
     {
         #region example:sdk-api-key-config
@@ -114,7 +128,7 @@ file static class SdkReadmeExamples
                 SpaceId = "...",                  // The app's id
                 ExternalUserId = "user-123",      // Your user identifier
                 SessionIdentityHash = "...",      // Optional: attach to a specific live session (connect fails if none owns this hash)
-                BackendType = BackendType.Production, // Development for an app on *.dev.ikonai.app
+                BackendType = BackendType.Production, // The default; Development for an app on *.dev.ikonai.app
                 UserType = UserType.Human,
                 ClientType = ClientType.DesktopApp
             }
@@ -183,6 +197,8 @@ file static class SdkReadmeExamples
             UserLogin = new UserLoginConfig
             {
                 SpaceId = "...",              // required
+                // An app on *.dev.ikonai.app, as `ikon status` shows its environment; null for the process's own platform
+                Environment = IkonBackend.EnvironmentType.Development,
                 UserType = UserType.Human,
                 ClientType = ClientType.DesktopApp
             }
@@ -235,7 +251,7 @@ file static class SdkReadmeExamples
             {
                 InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
                 MaxReconnectAttempts = 4,                                 // Max attempts (default)
-                MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+                MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
                 ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
                 BackgroundReconnect = true                                // Keep retrying after max attempts (default)
             }
@@ -734,7 +750,7 @@ file static class SdkExtraExamples
             {
                 InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
                 MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
-                MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+                MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
                 ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
                 BackgroundReconnect = true                                // Keep retrying after max attempts (default)
             }
@@ -821,6 +837,38 @@ file static class SdkConsoleClientExamples
         #endregion
 
         Log.Instance.Debug($"{answer}");
+    }
+
+    public static async Task RunUntilStoppedAsync(IkonClientConfig config)
+    {
+        #region example:sdk-console-shutdown
+        // Ctrl+C (SIGINT) and a service manager's stop (SIGTERM) both end the wait below, and leaving the
+        // scope disposes the client, which tells the server the program is leaving: the others get
+        // ClientLeftAsync at once instead of after the 5-minute soft-retry window
+        using var stop = new CancellationTokenSource();
+        using var onTerminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+        {
+            context.Cancel = true;
+            stop.Cancel();
+        });
+        using var onInterrupt = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
+        {
+            context.Cancel = true;
+            stop.Cancel();
+        });
+
+        await using var client = new IkonClient(config);
+        await client.ConnectAsync();
+
+        try
+        {
+            await Task.Delay(Timeout.Infinite, stop.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The stop signal: fall through to the disposal
+        }
+        #endregion
     }
 
     public static async Task StayConnectedAsync(IkonClient client)

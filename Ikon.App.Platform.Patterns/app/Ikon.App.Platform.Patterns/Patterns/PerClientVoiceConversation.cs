@@ -69,7 +69,7 @@ internal sealed class PerClientVoiceConversation(IAppBase app) : IPatternDemo
         _lines.AddFor(clientSessionId, new Line("You", text.Trim()));
 
         // The reply takes seconds and the handler returns at once
-        _ = Task.Run(() => ReplyAsync(clientSessionId, turn));
+        Task.Run(() => ReplyAsync(clientSessionId, turn)).ObserveInBackground();
     }
 
     private async Task ReplyAsync(int clientSessionId, int turn)
@@ -80,7 +80,7 @@ internal sealed class PerClientVoiceConversation(IAppBase app) : IPatternDemo
         try
         {
             var transcript = string.Join("\n", _lines.ValueFor(clientSessionId).TakeLast(20).Select(l => $"{l.Speaker}: {l.Text}"));
-            var reply = await Emerge.Run<string>(LLMModel.Claude45Haiku, pass =>
+            var reply = await Emerge.Run<string>(LLMModel.Default, pass =>
             {
                 pass.SystemPrompt = "You argue the other side of a debate. Answer the last point in two short spoken sentences.";
                 pass.Command = transcript;

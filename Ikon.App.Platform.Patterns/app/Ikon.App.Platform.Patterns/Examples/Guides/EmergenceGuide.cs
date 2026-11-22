@@ -88,7 +88,7 @@ file static class EmergenceGuideExamples
             "Classify this support ticket: \"My laptop won't turn on\"");
 
         // Explicit model override
-        string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
+        string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude55Sonnet);
         #endregion
 
         Log.Instance.Debug($"{reply} {result} {harder}");
@@ -97,7 +97,7 @@ file static class EmergenceGuideExamples
     public static async Task WithToolsAsync()
     {
         #region example:emergence-with-tools
-        var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
+        var result = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, pass =>
         {
             pass.SystemPrompt = "You are a helpful assistant.";
             pass.Command = "Answer the user's question.";
@@ -114,7 +114,7 @@ file static class EmergenceGuideExamples
     public static async Task FinalAsync(KernelContext context)
     {
         #region example:emergence-final
-        var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
+        var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, context, pass =>
         {
             pass.Command = "Answer the user's question.";
         }).FinalAsync();
@@ -126,7 +126,7 @@ file static class EmergenceGuideExamples
     public static async Task BestOfAsync()
     {
         #region example:emergence-bestof
-        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.Count = 5;
             opt.Command = "Solve this problem step by step.";
@@ -150,7 +150,7 @@ file static class EmergenceGuideExamples
             .Metric("correctness", 3, a => a.Correctness)
             .Metric("brevity", 1, a => a.Brevity);
 
-        var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.Command = "Solve this problem step by step.";
             opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
@@ -167,7 +167,7 @@ file static class EmergenceGuideExamples
     public static async Task MapReduceAsync(IReadOnlyList<string> documents)
     {
         #region example:emergence-mapreduce
-        var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.Chunks = documents;
             opt.MaxParallel = 8;
@@ -192,7 +192,7 @@ file static class EmergenceGuideExamples
     public static async Task RefineAsync()
     {
         #region example:emergence-refine
-        var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var final = await Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = 3;
 
@@ -221,7 +221,7 @@ file static class EmergenceGuideExamples
     private static async Task RefineWithProgressAsync(Reactive<string> status, Reactive<Implementation?> draft)
     {
         #region example:emergence-refine-rounds
-        await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = 3;
             opt.Initial(s => s.Command = "Write initial implementation of the feature.");
@@ -249,7 +249,7 @@ file static class EmergenceGuideExamples
         // Without s.Model every solver runs on opt.Model when that is set, else on the model passed here; so does the merger without m.Model
         LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
-        var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.SolverCount = models.Length;
             opt.MaxParallel = models.Length;
@@ -277,7 +277,7 @@ file static class EmergenceGuideExamples
         #region example:emergence-tree-search
         // Step 1: Build a tree index from content
         TreeIndex? index = null;
-        await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentContent,
+        await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude55Sonnet, documentContent,
             new TreeIndexOptions { MaxDepth = 4, GenerateSummaries = true }))
         {
             if (ev is Completed<TreeIndex> done)
@@ -287,7 +287,7 @@ file static class EmergenceGuideExamples
         }
 
         // Step 2: Search the tree
-        TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
         {
             opt.Index = index;
             opt.Query = "How does authentication work?";
@@ -426,7 +426,7 @@ file static class EmergenceExtraExamples
     public static async Task EmxToolRegistration()
     {
         #region example:emx-tool-registration
-        await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+        await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude55Sonnet, ctx, pass =>
         {
             pass.AddTool(Tool.Of("write_file", "Write content to a file",
                     ([Description("Workspace-relative path")] string path, string content) => WriteFile(path, content)))
@@ -479,7 +479,7 @@ file static class EmergeScriptedExamples
     {
         #region example:ems-testing-with-mock-llm
         var result = await Emerge.Run<MyType>(
-            LLMModel.Claude45Sonnet,
+            LLMModel.Claude55Sonnet,
             pass => { pass.Command = task; },
             Emerge.Scripted(responses)  // Replays the given texts in order; no provider call
         );

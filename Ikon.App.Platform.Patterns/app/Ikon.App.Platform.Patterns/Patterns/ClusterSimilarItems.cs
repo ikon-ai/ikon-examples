@@ -89,7 +89,7 @@ internal sealed class ClusterSimilarItems : IPatternDemo
         var themes = _themes.Value;
         var listing = string.Join("\n", themes.Select((t, i) => $"{i + 1}. {string.Join(" | ", t.Items.Take(8).Select(f => f.Text))}"));
 
-        var names = await Emerge.Run<List<ThemeName>>(LLMModel.Gpt5Mini, pass =>
+        var names = await Emerge.Run<List<ThemeName>>(LLMModel.Gpt61Terra, pass =>
         {
             pass.Command = $"Name each numbered group of user feedback in two to five words, as a product team would.\n\n{listing}";
         });

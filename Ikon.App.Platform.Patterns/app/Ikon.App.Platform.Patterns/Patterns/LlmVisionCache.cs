@@ -36,7 +36,7 @@ internal sealed class LlmVisionCache : IPatternDemo
             foreach (var url in urls.Take(3)) { parts.Add(new ImageUrlPart(url)); }
             var ctx = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts.ToArray()));
 
-            var result = await Emerge.Run<VisualDescription>(LLMModel.Claude45Haiku, ctx, pass =>
+            var result = await Emerge.Run<VisualDescription>(LLMModel.Default, ctx, pass =>
             {
                 pass.SystemPrompt = "Describe used-item photos so a sales agent can comment naturally. " +
                                     "Be concrete and honest. Only describe what's visible. 1 sentence per field.";

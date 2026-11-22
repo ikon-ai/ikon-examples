@@ -60,7 +60,7 @@ internal sealed class SampleStillsToVision(IAppBase app) : IPatternDemo
             {
                 var stills = StopSampling(args.StreamId);
                 var clientSessionId = args.ClientSessionId;
-                _ = Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount, stills));
+                Task.Run(() => AnalyseAsync(clientSessionId, [.. take], format.SampleRate, format.ChannelCount, stills)).ObserveInBackground();
             }
         };
 
@@ -80,7 +80,7 @@ internal sealed class SampleStillsToVision(IAppBase app) : IPatternDemo
         var stills = new List<byte[]>();
         _sampling[streamId] = (stop, stills);
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             using var timer = new PeriodicTimer(StillInterval);
 
@@ -106,7 +106,7 @@ internal sealed class SampleStillsToVision(IAppBase app) : IPatternDemo
             {
                 Log.Instance.Warning($"Camera stills stopped for client {clientSessionId}, the take is analysed from its words alone: {ex.Message}");
             }
-        });
+        }).ObserveInBackground();
     }
 
     private List<byte[]> StopSampling(string streamId)

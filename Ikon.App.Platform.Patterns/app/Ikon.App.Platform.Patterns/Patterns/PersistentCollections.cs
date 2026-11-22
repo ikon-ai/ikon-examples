@@ -40,7 +40,7 @@ internal sealed class PersistentCollections : IPatternDemo
         // A Task.Run started here inherits this callback's scope, but a loop or timer started from
         // Main() has none: capturing the id and using the ...For accessor works from either.
         var userId = ReactiveScope.UserId;
-        _ = Task.Run(() => _votesByPoll.SetFor(userId, pollId, option));
+        Task.Run(() => _votesByPoll.SetFor(userId, pollId, option)).ObserveInBackground();
     }
 
     private void ToggleTag(string tag)

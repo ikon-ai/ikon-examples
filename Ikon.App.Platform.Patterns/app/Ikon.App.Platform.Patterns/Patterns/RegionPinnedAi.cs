@@ -28,7 +28,7 @@ internal sealed class RegionPinnedAi : IPatternDemo
     /// </summary>
     private static async Task<ImageGeneratorResult?> GenerateInEuAsync(string prompt)
     {
-        const ImageGeneratorModel Model = ImageGeneratorModel.Gemini25FlashImage;
+        const ImageGeneratorModel Model = ImageGeneratorModel.Gemini31FlashImage;
 
         // Ask BEFORE constructing. A model that serves no listed region makes the constructor
         // throw; checking first surfaces that at startup rather than at request time.

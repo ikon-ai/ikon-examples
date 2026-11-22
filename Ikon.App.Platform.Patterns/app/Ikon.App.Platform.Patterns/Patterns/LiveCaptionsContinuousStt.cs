@@ -33,7 +33,7 @@ internal sealed class LiveCaptionsContinuousStt : IPatternDemo
             {
                 var segment = System.Threading.Channels.Channel.CreateUnbounded<float[]>();
                 _segments[args.StreamId] = segment;
-                _ = Task.Run(() => CaptionAsync(segment.Reader, format.SampleRate, format.ChannelCount));
+                Task.Run(() => CaptionAsync(segment.Reader, format.SampleRate, format.ChannelCount)).ObserveInBackground();
             }
 
             if (_segments.TryGetValue(args.StreamId, out var open))

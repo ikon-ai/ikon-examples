@@ -4,28 +4,28 @@
 
 ## Quick start
 
-1. New app: from `ikon docs _start --outline`, read only the parts for your kind of app and the request's words, one at a time (`--section "Data and state"`), `ikon docs --search "<words>"`, their patterns and `ikon docs product-design --section "First build checklist"`. Write the app, run `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Deploy when asked.
-2. Pick the language (not English: change what `frontend-fundamentals` "Internationalization (i18n)" lists) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; one room for everyone is `SessionIdentity()` with `guest` (many visitors: `[Sharding] Enabled = true`, `scaling`), `SessionIdentity(string? Room)` one per `?room=`; `global` is not a room: it makes all signed-out visitors one user.
-   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; a public site with staff keeps `guest`, no `--private` (`public-site-staff-area`); staff screens check a role; none holds `admin` by default (`first-user-becomes-admin`; skip `ctx.IsSnapshot`). Guests sign in from a button calling `ClientFunctions.LoginShowAsync(reason)`.
-3. Only `Global*` reactives are shared by every instance; `[Cron]` (hourly at most), MCP tools and endpoints (`[HttpGet("/x")]` serves `/api/x`) run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`). Any client, guests too, reads every `[App]` reactive, private or not: personal data goes in `User*` reactives or a database.
-4. A local run uses the app's cloud data, a deployed copy's too (`databases`): once deployed, `--ai mock` needs `--yes`. Put required rows in `OnStarting`; samples: `ikon db seed --profile demo`.
-5. Database commands act on the linked app unless `--target` names another.
-   `--ai mock` calls no tools; `--ai-script turns.json` scripts replies and tool calls (`ai-models`).
-6. Before reporting a change done, review its diff and fix what the review confirms (Claude Code: the code-review skill; else a review command or re-read).
+1. New app: the word table's six `###` parts (`ikon docs _start --outline`), read those the request touches (`--section "<subsection>"`) or `--search` each feature word, then your kind of app's part, their patterns and `ikon docs product-design --section "First build checklist"`. Write it, `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Any guide: `ikon docs <name>`; changing an app: `--search` each feature word.
+2. Pick the language (not English: translate all `frontend-fundamentals` "Internationalization (i18n)" lists, `emails/*.html` and `en.ts` too) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; one room for everyone is `SessionIdentity()` with `guest`, `SessionIdentity(string? Room)` one per `?room=`; `global` is not a room: it makes all signed-out visitors one user.
+   Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; a public site with staff keeps `guest` (`public-site-staff-area`); staff screens check a role; nobody is `admin` until `ikon profile role add admin --me` or `first-user-becomes-admin`.
+3. Instances share nothing but `Global*` reactives, so a local run and a deployed one differ; `[Cron]` (hourly at most), MCP tools and endpoints (`[HttpGet("/x")]` serves `/api/x`) run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`). Any client, guests too, reads every `[App]` reactive: personal data goes in `User*` reactives or a database.
+4. A local run uses the app's cloud data, and a deploy then serves those rows, mock answers too (`databases`; once deployed, `--ai mock` needs `--yes`). Delete test data: `ikon db query "delete ..." --yes` (restart a running app), `ikon file delete`; `db state reset` keeps `PersistentGlobal*`. Required rows go in `OnStarting`.
+5. Database commands act on the linked app unless `--target` names another. A program outside the app: `docs/Ikon.Sdk/`.
+   `--ai mock` calls no tools; `--ai-script turns.json` scripts them (`ai-models`).
+6. Before calling a change done, review its diff and fix what it confirms.
 
 ## Architecture
 
-A deployed instance has 1 CPU and 256 MB by default (more: `scaling`), shared with `ffmpeg` (`media-analysis`); the image has .NET and `ffmpeg`, no Python or extra fonts. Databases and files stay in the EU; AI calls do only with an EU-only policy (`ikon org set --ai-region eu-only`) or EU call regions; many models are global-only (`ikon model list --eu`, `region-pinned-ai`).
+A deployed instance has 1 CPU and 256 MB by default (`scaling`); the image has .NET and `ffmpeg`, no Python or extra fonts. Databases and files stay in the EU; AI calls do only with an EU-only policy (`ikon org set --ai-region eu-only`) or EU call regions; many models are global-only (`region-pinned-ai`).
 
-**UI** is C#: `view` (`UIView`) method calls in `UI.Root([Page.Default], content: view => { ... })`. `frontend-node` is that UI's shell: write React only in custom nodes (3D, WebGL, canvas games) and never `fetch` the app's endpoints (for outside callers).
+**UI** is C#: `view` (`UIView`) method calls in `UI.Root([Page.Default], content: view => { ... })`. `frontend-node` is that UI's shell: write React only in custom nodes (3D, WebGL, canvas games) and never `fetch` the app's endpoints.
 
-**Styling:** Crosswind (Tailwind v4 classes and more) in one C# string array. Use semantic theme classes and `Ikon.Parallax.Theming` tokens (`styling-and-motion`). A missing colour is a theme role (`new IkonTheme { ["primary"] = "amber-400" }`, `theming`); a raw hex (`bg-[#…]`) is IKON013, except a colour from the data: `$"bg-[{item.Hex}]"`.
+**Styling:** Crosswind (Tailwind v4 classes and more) in one C# string array. Use semantic theme classes (`styling-and-motion`). A missing colour is a theme role (`new IkonTheme { ["primary"] = "amber-400" }`, `theming`); a raw hex (`bg-[#…]`) is IKON013, except a colour from the data: `$"bg-[{item.Hex}]"`.
 
 ## Running and checking the app
 
 Test locally, not deployed. `ikon run --format text` blocks.
-Builds take minutes. Avoid short timeouts and `| tail`. Use `--detach` on `run`, `link`
-and `deploy` (not `bundle`), then poll `ikon status --wait --timeout 80`. After a run starts, only
+Builds take minutes: no short timeouts or `| tail`. Use `--detach` on `run`, `link`
+and `deploy` (not `bundle`), then `ikon status --wait --timeout 80` (at most 100; exit 3 = wait again). After a run starts, only
 `ikon build` type-checks edits. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
 has the URLs: share the local one after a UI change. `ikon stop` saves persistent state, ends the run. A `.cs` edit under `app/<App>/` hot-reloads
 the run (a compile error keeps the old build, a throwing `OnStarting` leaves
@@ -90,24 +90,24 @@ Every control works or is disabled with a visible reason; changes, AI-made too, 
 ## How the app must look
 
 Before the first `view.*` call, set a visual direction with `new IkonTheme { … }`, `["primary"]` included (IKON015; one look, dark or light, only with `Mode = ThemeMode.Fixed`; the scaffold is Adaptive), and write it to `branding/brand.md` (`product-design`).
-**Build warnings:** `view.Card` pads itself: no `p-*` on it or its only child (IKON026), but a `Column([Card.*])` needs `p-5` (IKON034); empty lists: `view.EmptyState` (IKON038); tabs: `view.Tabs`, `listStyle: [Tabs.NavList], triggerStyle: [Tabs.NavTriggerMd]` (IKON039), not buttons (IKON041), four at most (IKON052).
+**Build warnings:** `view.Card` pads itself: no `p-*` on it or its only child (IKON026), but a Column styled as a card without `view.Card` needs `p-5` (IKON034); empty lists: `view.EmptyState` (IKON038); tabs: `view.Tabs`, `listStyle: [Tabs.NavList], triggerStyle: [Tabs.NavTriggerMd]` (IKON039), not buttons (IKON041), four at most (IKON052).
 One primary action per screen; `Card.Elevated` for what matters and one flat colour per card (IKON011); padding in a max-width `Layout.Page` (a Column, never a Row; header rows: `Layout.PageWidth`);
-loading and error states; buttons beside a title in `Layout.Row.Actions`; a phone is the default client: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, rows that wrap or stack below `md:`, checked at phone width before the first report; pages: `view.NavOutlet` + `path:` (`app-structure`).
+loading and error states; buttons beside a title in `Layout.Row.Actions`; a phone is the default client: an `h-screen` root, a `ScrollArea` in a `flex-1 min-h-0` parent, rows that wrap or stack below `md:`, checked at phone width before the first report; pages: one `view.NavOutlet` per screen, switch on `app.Navigation.CurrentPath`, `path:` on the opening control (`app-structure`); tab titles: `accessibility`.
 
 ## Common Pitfalls
 
-`pitfalls` has each rule in full.
+`pitfalls`: each rule in full.
 
 - **State**: reactives are fields built with their initial value, `private readonly ClientReactive<int> _count = new(0);`, no `app` argument (CS1503). Lists are `[Client]ReactiveList<T>`/`ReactiveDictionary`/`ReactiveHashSet` (IKON002), changed on the reactive (`_todos.Add(x)`; `.Value.Add` is CS1061). A render reruns only for a reactive it read, not a plain field (join-time state: a `ClientReactive`); there is no `view.Dynamic`/`Watch`/`Bind`/`Keyed` (CS1061). A render only reads (IKON031/059), cannot `await` (CS4034): load in a handler.
   Outside a handler, name the client: `_x.SetFor(ctx.ClientSessionId, v)` (an `int`). A field a `TextField`/`Select` binds to is a `ClientReactive`: a `Reactive<T>` is shared by the instance's browsers (IKON018/019).
-- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`. AI calls throw: catch and show a retry. A control handler that throws shows nothing: subscribe `UI.ActionFailedAsync` once in `Main`.
-- **View calls**: the leading style array is positional (`CopyField`: `value` first), `"default"` first or the theme goes (IKON025), and the rest is named (CS1744, CS8323, IKON003). The display string is `text:` (`Markdown`: `content:`); Dialog and Alert: `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange: async v => …` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
+- **Emerge** is static: `await Emerge.Run<T>(LLMModel.Claude55Sonnet, pass => { pass.Command = prompt; })`. AI calls throw: catch, show a retry. A control handler that throws shows nothing: subscribe `UI.ActionFailedAsync` once in `Main`.
+- **View calls**: the leading style array is positional (`CopyField`: `value` first), `"default"` first or the theme goes (IKON025: `["default", "gap-3"]`), the rest named (CS1744, CS8323, IKON003). Display text is `text:` (`Markdown`: `content:`); Dialog, Alert, EmptyState: `title:`/`description:`. Form controls take `bind:` or `value:` + `onValueChange: async v => …` (a lone `value:` is read-only, IKON027). Only `Box`, `Button`, `Card`, `Image`, `Link`, `NavItem`, `TableRow`, `ToolbarButton` and charts take `onClick:`.
   A button's style is one token, `[Button.PrimaryMd]`; no `variant:`/`size:`.
 - **Databases** (Dapper): a `snake_case` column needs an alias (`client_id AS ClientId`); a list filter is `= ANY(@ids)` (`IN @ids`: error 42601); `bigserial`/`bigint`/`count(*)` read as `long`; `EXTRACT`, `avg` of an integer, `sum` of a `bigint` as `decimal` (cast for `double`); `timestamptz` as `DateTime` (UTC, not `DateTimeOffset`), `date` as `DateOnly`.
 - **Logging**: `Log.Instance.Info/Warning/Error($"…")`, not `app.Logger` (CS1061).
 - **Inputs**: `TextField`/`TextArea`, not `Input`; `Select(ariaLabel: "x", options: [new SelectOption(v, l)])`.
-- **Colours**: `bg-primary` is the page surface; brand fill `bg-brand-solid`, brand text `text-brand-secondary`; the tone is `SemanticTone.Error`, no `Danger`.
-- **Structure**: keep the `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Each extra .cs file wraps its code in `public partial class <App>` (CS0106/CS8803), extension methods in a top-level `public static class`.
+- **Colours**: `bg-primary` is the page surface; brand fill `bg-brand-solid`, brand text `text-brand-secondary`.
+- **Structure**: keep the `[App]` class, its two records, the top-level `return await App.Run(args);` (CS5001) and the global namespace (CS0234/CS8956). Each extra .cs file wraps its code in `public partial class <App>` (CS0106/CS8803), extension methods in a top-level `public static class`; a record a top-level type uses stays top-level (CS0246).
 
 ## API Reference Guides
 
@@ -163,7 +163,7 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 - **telephony**: SMS and phone calls
 - **theming**: IkonTheme: palettes, dark mode and design tokens
 - **ui-api-reference**: the parameters every component shares; where signatures are
-- **ui-components**: every UI component with examples: layout, inputs, overlays, drag and drop
+- **ui-components**: every UI component with examples: layout, inputs, overlays, drag and drop; charts: `charts`
 - **utilities**: retries, embedded resources, fuzzy matching, logger providers
 - **whatsapp**: WhatsApp messaging
 
@@ -172,15 +172,15 @@ Each agent guide is `docs/Ikon.Agent.Docs/guides/<name>.md`, one subject per gui
 
 A whole job's procedure, `docs/Ikon.Agent.Docs/playbooks/<slug>/SKILL.md` with its files beside it; read it before planning:
 
-- **cad**: Manufacturable CAD for a physical product, on the developer's computer, exact B-rep solids in build123d with holes, threads, fits, an interference audit, STEP files, drawing sheets, a web GLB and a release manifest. For a visual mesh model or a Blender scene use `modeling`.
-- **convert**: Convert, port or migrate an existing web app (Lovable, Replit, Next.js, React and Tailwind) into an IKON app, its screens rewritten in C#, from a folder, zip, repository link or live site, or when a brief names an export under reference/.
-- **modeling**: Model a physical product, device, enclosure or assembly in 3D in a live Blender scene on the developer's computer, every internal part with real fits, then export a glTF digital twin with an explode animation. For STEP files and drawings use `cad`.
+- **cad**: Manufacturable CAD for a physical product on the developer's computer: exact B-rep solids in build123d with holes, threads, fits, STEP files, drawing sheets and a web GLB. For a visual mesh model or a Blender scene use `modeling`.
+- **convert**: Convert, port or migrate an existing web app (Lovable, Replit, Next.js, React and Tailwind) into an IKON app, from a folder, zip, repository link or live site, or when a brief names an export under reference/.
+- **modeling**: Model a physical product or assembly in 3D in a live Blender scene on the developer's computer, with real fits, then export a glTF digital twin with an explode animation. For STEP files and drawings use `cad`.
 
 
 ## API Signatures
 
-Exact signatures of every public platform type are in `docs/Ikon.Agent.Docs/api/`, one file per namespace (`Ikon.App.md`; `-2`, `-3` parts listed in `_index.md`); they win over a guide. Grep them by name before guessing a signature (CS1739, CS1061). A type's line is indented two spaces and its members four. A long match prints `[Omitted long matching line]`: read the file at that line.
-Database in a handler: `await using var conn = await app.DatabaseAsync(); await conn.OpenAsync();`; without `app`: `AppServices.Instance.OpenDatabaseAsync()` (no `app.Services`).
+Exact signatures of every public platform type are in `docs/Ikon.Agent.Docs/api/`, one file per namespace (`Ikon.App.md`; `-2`, `-3` parts listed in `_index.md`); they win over a guide. Grep them before guessing a signature (CS1739, CS1061). A type's line is indented two spaces and its members four. A long match prints `[Omitted long matching line]`: read the file there.
+Database in a handler: `await using var conn = await app.DatabaseAsync(); await conn.OpenAsync();`; without `app`: `AppServices.Instance.OpenDatabaseAsync()` (already open; no `app.Services`).
 
 
 ## Code Patterns

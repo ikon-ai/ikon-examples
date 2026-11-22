@@ -31,7 +31,7 @@ internal sealed class GeneratedImageWithResult(IAppBase app) : IPatternDemo
 
         try
         {
-            using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+            using var generator = new ImageGenerator(ImageGeneratorModel.Gemini31FlashLiteImage);
 
             // GenerateImageAsync returns a LIST -- one entry per Count. The single-image
             // convenience is the static ImageGenerator.GenerateAsync(prompt).

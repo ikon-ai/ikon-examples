@@ -50,7 +50,7 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
         // The reader overload is the one for anything that arrives in pieces; StringContentReader
         // is the in-memory case, and IContentReader is the seam for a PDF or a database cursor.
         _index.Value = await TreeIndex.BuildAsync(
-            LLMModel.Claude45Haiku,
+            LLMModel.Default,
             new StringContentReader(document),
             new TreeIndexOptions { GenerateSummaries = true, MaxDepth = 3 });
     }
@@ -84,14 +84,14 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
             });
 
             // Empty Sections alone cannot tell a document with no answer from a navigator that never
-        // read it; only the second is a failed search.
-        if (found.StoppedReason == "NoToolCall")
-        {
-            _error.Value = "The search didn't finish — try again.";
-            return;
-        }
+            // read it; only the second is a failed search.
+            if (found.StoppedReason == "NoToolCall")
+            {
+                _error.Value = "The search didn't finish — try again.";
+                return;
+            }
 
-        _hits.ReplaceAll(found.Sections);
+            _hits.ReplaceAll(found.Sections);
         }
         // A walk that stops without a result throws EmergenceStoppedException; a generation failure
         // that cannot be retried is rethrown as is. Either way the previous hits stay on screen.
@@ -133,41 +133,39 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
     /// A manual that already has headings needs no model to index it. One node per heading holds the
     /// text under it, so a hit is that section rather than the whole document, and a long manual costs
     /// nothing to index. The summary is the section's first line, which is what the navigator reads.
-    /// The document's title is the <c>title</c> argument: every <c># </c> line in <c>markdown</c> becomes a
-    /// chapter, so a leading <c># Title</c> line would become chapter 1.
     /// </summary>
     internal static TreeIndex IndexFromHeadings(string title, string markdown)
     {
         var root = new TreeNode("root", title);
         TreeNode? chapter = null;
-        TreeNode? current = null;
+        var current = root;
         var text = new System.Text.StringBuilder();
+        var lines = markdown.Split('\n');
 
+        // Text above the first heading, or under a skipped title line, stays readable as the root's own
         void Close()
         {
-            if (current is not null)
-            {
-                current.Content = text.ToString().Trim();
-                current.Summary = current.Content.Split('\n')[0] is var first && first.Length > 160 ? first[..160] : first;
-            }
-
+            current.Content = text.ToString().Trim();
+            current.Summary = current.Content.Split('\n')[0] is var first && first.Length > 160 ? first[..160] : first;
             text.Clear();
         }
 
-        foreach (var line in markdown.Split('\n'))
+        for (var i = TitleLineCount(title, lines); i < lines.Length; i++)
         {
+            var line = lines[i];
+
             if (line.StartsWith("# ", StringComparison.Ordinal))
             {
                 Close();
-                chapter = new TreeNode($"{root.Children.Count + 1}", line[2..].Trim());
+                chapter = new TreeNode("", line[2..].Trim());
                 root.AddChild(chapter);
                 current = chapter;
             }
-            else if (line.StartsWith("## ", StringComparison.Ordinal) && chapter is not null)
+            else if (line.StartsWith("## ", StringComparison.Ordinal))
             {
                 Close();
-                current = new TreeNode($"{chapter.Id}.{chapter.Children.Count + 1}", line[3..].Trim());
-                chapter.AddChild(current);
+                current = new TreeNode("", line[3..].Trim());
+                (chapter ?? root).AddChild(current);
             }
             else
             {
@@ -176,7 +174,85 @@ internal sealed class TreeSearchOverLongDocument : IPatternDemo
         }
 
         Close();
+        NumberChildren(root, "");
         return new TreeIndex(root);
+    }
+
+    // "3 Gearbox", "3. Gearbox" and "3.2 Oil checks" keep the document's own numbers as ids, so a node
+    // id matches what the manual and its readers call the section. Siblings keep them only when every
+    // one has its own distinct number, and are counted otherwise: a counted id beside a document's own
+    // could repeat it, and a TreeIndex keeps only the last node of an id.
+    private static void NumberChildren(TreeNode parent, string parentNumber)
+    {
+        var own = parent.Children.Select(child => HeadingNumber(child.Title, parentNumber)).ToList();
+        var keepOwn = own.All(number => number is not null) && own.Distinct().Count() == own.Count;
+
+        for (var i = 0; i < parent.Children.Count; i++)
+        {
+            var child = parent.Children[i];
+            child.Id = keepOwn ? own[i]! : parentNumber.Length == 0 ? $"{i + 1}" : $"{parentNumber}.{i + 1}";
+            NumberChildren(child, child.Id);
+        }
+    }
+
+    // A section number has one part more than its parent's and starts with it ("3.2" under "3"). A year
+    // ("# 2024 Service manual") or a measure ("## 10 mm bolts") is part of the heading's text.
+    private static string? HeadingNumber(string heading, string parentNumber)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(heading,
+            @"^(\d{1,3}(?:\.\d{1,3})*)\.?\s+(?!(?:mm|cm|m|km|mg|g|kg|ml|v|kv|w|kw|nm|hz|bar|psi|ft|lbs?|%|°c)(?:\s|$))\S",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var number = match.Groups[1].Value;
+        var depth = parentNumber.Length == 0 ? 1 : parentNumber.Split('.').Length + 1;
+
+        if (number.Split('.').Length != depth || (parentNumber.Length > 0 && !number.StartsWith(parentNumber + ".", StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        return number;
+    }
+
+    // A first "# " line that names the document is not chapter 1: indexing it as one would shift
+    // every counted chapter id by one, and the navigator would cite the wrong section.
+    private static int TitleLineCount(string title, string[] lines)
+    {
+        var first = Array.FindIndex(lines, line => line.Trim().Length > 0);
+
+        if (first < 0 || !lines[first].StartsWith("# ", StringComparison.Ordinal))
+        {
+            return 0;
+        }
+
+        var heading = lines[first][2..].Trim();
+
+        if (string.Equals(heading, title.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return first + 1;
+        }
+
+        if (HeadingNumber(heading, "") is not null)
+        {
+            return 0;
+        }
+
+        var laterChapters = lines.Skip(first + 1).Where(line => line.StartsWith("# ", StringComparison.Ordinal)).ToList();
+
+        if (laterChapters.Count > 0)
+        {
+            // Unnumbered above numbered chapters is a title; above unnumbered ones it is chapter 1.
+            return laterChapters.All(line => HeadingNumber(line[2..].Trim(), "") is not null) ? first + 1 : 0;
+        }
+
+        // The only "# " line, directly over "## " headings, titles a document whose chapters are "## ".
+        var next = Array.FindIndex(lines, first + 1, line => line.Trim().Length > 0);
+        return next >= 0 && lines[next].StartsWith("## ", StringComparison.Ordinal) ? first + 1 : 0;
     }
     #endregion
 }

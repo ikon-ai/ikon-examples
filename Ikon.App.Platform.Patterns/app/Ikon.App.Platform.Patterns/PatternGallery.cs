@@ -20,7 +20,6 @@ public static class PatternGallery
         new AudioReactiveVisuals(app),
         new AnimatedRankReorder(),
         new BackgroundProcessingPipeline(),
-        new BackgroundWorker(),
         new BarcodeScan(),
         new BatchedTurnWindow(),
         new BestOfWithRubric(),

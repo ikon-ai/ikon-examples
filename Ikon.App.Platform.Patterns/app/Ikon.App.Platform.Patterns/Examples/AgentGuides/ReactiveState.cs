@@ -204,7 +204,7 @@ file sealed class ClockExamples(IApp<SessionIdentity, ClientParameters> app)
     private readonly Reactive<DateTime> _now = new(DateTime.UtcNow);
 
     // Call it once from Main.
-    public void StartClock() => _ = TickAsync();
+    public void StartClock() => TickAsync().ObserveInBackground();
 
     private async Task TickAsync()
     {

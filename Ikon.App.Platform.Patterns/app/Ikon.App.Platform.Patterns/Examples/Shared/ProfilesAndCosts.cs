@@ -17,7 +17,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
             // The profile lookup runs in the background so the join is not held up by it, and the flag
             // is written for this client alone
             var cid = ctx.ClientSessionId;
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 try
                 {
@@ -28,7 +28,7 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
                 {
                     Log.Instance.Warning($"Could not read the referee role of client {cid}: {ex.Message}");
                 }
-            });
+            }).ObserveInBackground();
 
             return Task.CompletedTask;
         });
@@ -92,8 +92,11 @@ public sealed class ProfilesAndCostsExamples(IAppBase app)
             return "Welcome";
         }
 
-        // VisibleName is empty until the person sets a preferred or first name
-        var name = profile.VisibleName is { Length: > 0 } visibleName ? visibleName : profile.Name ?? profile.Email ?? "there";
+        // VisibleName is empty until the person sets a preferred or first name, and an email sign-in
+        // sets Name to the email address until then: skip a Name with '@' wherever others see it
+        var name = profile.VisibleName is { Length: > 0 } visibleName ? visibleName
+            : profile.Name is { } fullName && !fullName.Contains('@') ? fullName
+            : "there";
 
         return profile.HasRole(UserRole.Admin)
             ? $"Welcome back, {name} (admin)"

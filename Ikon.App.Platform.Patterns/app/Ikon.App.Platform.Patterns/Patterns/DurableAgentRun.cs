@@ -49,7 +49,7 @@ file abstract class DurableAgentRunExample(IAppBase app)
                 return;
             }
 
-            _ = DriveUnfinishedRunsAsync();
+            DriveUnfinishedRunsAsync().ObserveInBackground();
         });
     }
 
@@ -94,7 +94,7 @@ file abstract class DurableAgentRunExample(IAppBase app)
 
         foreach (var (id, task) in claimed)
         {
-            _ = DriveRunAsync(id, task);
+            DriveRunAsync(id, task).ObserveInBackground();
         }
     }
 

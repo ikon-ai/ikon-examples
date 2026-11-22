@@ -6,7 +6,8 @@ internal sealed partial class AgentGuideExamples
     private static async Task<string> DocVideoGenerateOneShotAsync()
     {
         #region example:video-generate-one-shot
-        var video = await VideoGenerator.GenerateAsync("A timelapse of a flower blooming");  // Veo31Fast (cheap+fast) by default
+        // Without a model the default is Veo31Fast
+        var video = await VideoGenerator.GenerateAsync("A timelapse of a flower blooming", VideoGeneratorModel.Kling40Flash);
         // video.Url (string)
         #endregion
 

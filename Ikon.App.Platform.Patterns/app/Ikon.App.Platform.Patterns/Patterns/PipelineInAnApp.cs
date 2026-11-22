@@ -30,7 +30,7 @@ internal sealed class PipelineInAnApp(IAppBase app) : IPatternDemo
             var text = await document.GetContentAsString();
 
             // Billed to the app's space, like an AI call from a button handler
-            var summary = await Emerge.Run<string>(LLMModel.Claude45Haiku, pass =>
+            var summary = await Emerge.Run<string>(LLMModel.Default, pass =>
             {
                 pass.SystemPrompt = "Summarise the document in two sentences.";
                 pass.Command = text;
