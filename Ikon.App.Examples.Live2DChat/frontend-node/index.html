@@ -46,13 +46,14 @@
     <script>
       // Shows a message instead of a blank page when the app cannot start. Add ?ikon-logs to the URL to show the console output on the page.
       (function () {
-        var logs = /[?&]ikon[-_]logs\b/.test(location.search), first = null, box, ran = false, over = null, watch = 0;
+        var logs = /[?&]ikon[-_]logs\b/.test(location.search), first = null, cause = null, box, ran = false, over = null, watch = 0;
         function esc(v) { return String(v).replace(/[&<>]/g, function (c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'; }); }
-        function str(v) { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch (e) { return String(v); } }
+        function str(v) { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch (e) { try { return String(v); } catch (e2) { return '[unprintable]'; } } }
         function root() { return document.getElementById('root'); }
         function paint(title, body) {
           var host = root();
           if (!host || over) return;
+          release();
           over = host.appendChild(document.createElement('div'));
           over.className = 'ikon-boot';
           over.innerHTML = '<div class="ikon-boot-inner"><div class="ikon-boot-title">' + title +
@@ -77,6 +78,20 @@
           box.scrollTop = box.scrollHeight;
         }
         function fail(what) { first = first || str(what); log('error', str(what)); }
+        // Vite reports which import broke (a module that cannot be resolved) only on the console; the script that fails to load is always main.tsx.
+        // The wrapper is only for the boot: it is taken off once the app shows or the boot error is painted
+        var wasError = console.error;
+        function wrapped() {
+          try {
+            if (!cause) {
+              var text = Array.prototype.map.call(arguments, str).join(' ');
+              if (/Failed to resolve import|Failed to fetch dynamically imported module/.test(text)) cause = text.split('\n').slice(0, 3).join(' ');
+            }
+          } catch (e) { /* a console argument that cannot be read only costs the extra hint */ }
+          if (wasError) return wasError.apply(console, arguments);
+        }
+        function release() { if (console.error === wrapped) console.error = wasError; }
+        console.error = wrapped;
         if (logs) {
           ['log', 'info', 'warn', 'error'].forEach(function (kind) {
             var was = console[kind];
@@ -100,11 +115,12 @@
             if (shown()) {
               if (over && over.parentNode) over.parentNode.removeChild(over);
               over = null;
+              release();
               return clearInterval(watch);
             }
             var alive = ran || window.__ikonBundleRunning === true || !document.querySelector('script[type=module]');
             var waited = Date.now() - since;
-            if (first || !alive) { if (waited >= 12000) paint('This app could not start', first ? 'Error: ' + first : 'The app bundle did not run.'); }
+            if (first || !alive) { if (waited >= 12000) paint('This app could not start', first ? 'Error: ' + first + (cause ? ' (' + cause + ')' : '') : 'The app bundle did not run.'); }
             else if (waited >= 30000) paint('This app could not start', 'The page loaded but nothing rendered, and nothing was reported.');
           }, 500);
         });
