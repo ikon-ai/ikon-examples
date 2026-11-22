@@ -6,6 +6,7 @@ public partial class Validation
     private readonly Reactive<bool> _videoUnderstandingProcessing = new(false);
     private readonly Reactive<string?> _videoUnderstandingResult = new(null);
     private readonly Reactive<string?> _videoUnderstandingError = new(null);
+    private readonly Reactive<string?> _videoUnderstandingStatus = new(null);
     private readonly Reactive<string?> _videoUnderstandingAssetInfo = new(null);
     private readonly Reactive<string> _videoUnderstandingFileName = new("");
     private string? _videoUnderstandingFilePath;
@@ -135,6 +136,8 @@ public partial class Validation
                         view.Text([Text.Body, "whitespace-pre-wrap"], _videoUnderstandingResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _videoUnderstandingStatus, "ai-video-understanding-status");
             });
         });
     }
@@ -174,6 +177,7 @@ public partial class Validation
         _videoUnderstandingError.Value = null;
         _videoUnderstandingResult.Value = null;
         _videoUnderstandingAssetInfo.Value = null;
+        _videoUnderstandingStatus.Value = null;
 
         try
         {
@@ -202,14 +206,17 @@ public partial class Validation
             if (reply is null)
             {
                 _videoUnderstandingError.Value = "Generation failed";
+                _videoUnderstandingStatus.Value = FailStatus("the model returned no reply");
                 return;
             }
 
             _videoUnderstandingResult.Value = reply.Description;
+            _videoUnderstandingStatus.Value = CheckVideoDescription(reply.Description);
         }
         catch (Exception ex)
         {
             _videoUnderstandingError.Value = ex.Message;
+            _videoUnderstandingStatus.Value = FailStatus(ex.Message);
         }
     }
 }

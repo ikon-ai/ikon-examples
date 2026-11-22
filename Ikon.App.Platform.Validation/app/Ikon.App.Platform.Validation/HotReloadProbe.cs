@@ -1,6 +1,6 @@
 /// <summary>
 /// The values the hot reload battery (validation/validate_hot_reload.py) rewrites in the running app.
-/// It edits this file in place and restores it afterwards, so it must stay this shape: one constant per line.
+/// It edits this file in place and restores it afterwards, so it must stay this shape: one value per line.
 /// </summary>
 public static class HotReloadProbe
 {
@@ -11,4 +11,8 @@ public static class HotReloadProbe
 
     // A class no other screen uses, so the reload has to send each connected client a style it never had
     public const string Accent = "bg-success-500";
+
+    // A method body and not a constant, so a reload that changes only this text applies to the running
+    // instance and does not restart the app
+    public static string LiveText() => "original";
 }

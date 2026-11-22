@@ -1,7 +1,7 @@
 public partial class Validation
 {
-    // Not a reactive, so each reload's instance shows a new one: a page still showing the old id was
-    // never sent the new instance's UI
+    // Not a reactive, so each instance a reload starts shows a new one: a page still showing the old id
+    // after the app restarted was never sent the new instance's UI
     private readonly string _hotReloadInstance = Guid.NewGuid().ToString("N")[..8];
 
     private const string HotReloadCellWorkspace = "hot-reload";
@@ -14,6 +14,12 @@ public partial class Validation
     private readonly Reactive<string> _hotReloadCellStart = new("Running…");
     private readonly ClientReactive<string?> _hotReloadCellError = new(null);
 
+    // How many builds of the app the process holds, for the hot reload battery: a restart reload loads
+    // the new build beside the old one and unloads the old one, so more builds than the one that runs,
+    // the one the run started with and one that is still being collected means replaced builds stay in
+    // memory. Empty until the button is pressed, because the measurement runs full collections
+    private readonly ClientReactive<string> _hotReloadLoadedBuilds = new("");
+
     private void RenderHotReloadSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -25,6 +31,7 @@ public partial class Validation
                 view.Column([Layout.Column.Sm], content: view =>
                 {
                     view.Text([Text.Body], $"Build: {HotReloadProbe.Build}", props: TestId("hot-reload-build"));
+                    view.Text([Text.Body], $"Live text: {HotReloadProbe.LiveText()}", props: TestId("hot-reload-live-text"));
                     view.Text([Text.Body], $"Instance: {_hotReloadInstance}", props: TestId("hot-reload-instance"));
                     view.Text([Text.Body], $"Resource: {ReadHotReloadProbeResource()}", props: TestId("hot-reload-resource"));
                     view.Text([Text.Body], $"Shared count: {_hotReloadSharedCount.Value}", props: TestId("hot-reload-shared-count"));
@@ -43,6 +50,19 @@ public partial class Validation
 
                         view.Box([HotReloadProbe.Accent, "h-10 w-32 rounded-md"], props: TestId("hot-reload-accent"));
                     });
+
+                    if (app.GlobalState.ServerRunType == ServerRunType.Local)
+                    {
+                        view.Row([Layout.Row.Md, "items-center"], content: view =>
+                        {
+                            view.Button([Button.SecondaryMd],
+                                text: "Count loaded builds",
+                                props: TestId("hot-reload-measure-builds"),
+                                onClick: async () => _hotReloadLoadedBuilds.Value = MeasureLoadedAppBuilds());
+
+                            view.Text([Text.Body], _hotReloadLoadedBuilds.Value, props: TestId("hot-reload-loaded-builds"));
+                        });
+                    }
                 });
             });
 
@@ -50,8 +70,24 @@ public partial class Validation
         });
     }
 
-    // A reload stops the run's cells, so the cell this page mirrors starts again from the new build and
-    // the page's mirror has to subscribe to it again
+    // A build has unloaded when its assembly is gone from the list, which takes more than one collection.
+    // The tick count makes two measurements differ, so the battery sees that the second one has arrived
+    private static string MeasureLoadedAppBuilds()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+        }
+
+        string appName = typeof(Validation).Assembly.GetName().Name ?? "";
+        int builds = AppDomain.CurrentDomain.GetAssemblies().Count(assembly => assembly.GetName().Name == appName);
+
+        return $"Loaded builds: {builds} (measured at {Environment.TickCount64})";
+    }
+
+    // A reload that restarts the app stops the run's cells, so the cell this page mirrors starts again
+    // from the new build and the page's mirror has to subscribe to it again
     private void RenderHotReloadCellCard(UIView view)
     {
         view.Box([Card.Default, "p-6"], content: view =>

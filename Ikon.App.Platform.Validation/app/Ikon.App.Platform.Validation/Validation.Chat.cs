@@ -4,6 +4,7 @@ public partial class Validation
     private readonly Reactive<string?> _chatError = new(null);
     private readonly Reactive<string?> _chatErrorKind = new(null);
     private readonly Reactive<string?> _chatTokenEstimate = new(null);
+    private readonly Reactive<string?> _chatStatus = new(null);
     private readonly ClientReactive<string> _composerDraft = new("");
     private readonly ClientReactiveList<ComposerAttachment> _composerAttachments = new();
     private readonly ClientReactive<string> _composerEcho = new("Echo: (nothing sent yet)");
@@ -197,6 +198,8 @@ public partial class Validation
                     view.Text([Text.Caption], _chatTokenEstimate.Value, props: TestId("ai-chat-tokens"));
                 }
 
+                RenderAIStatus(view, _chatStatus, "ai-chat-status");
+
                 if (!string.IsNullOrEmpty(_chatError.Value))
                 {
                     view.Box([Alert.Error, "mt-4"], props: TestId("ai-chat-error"), content: view =>
@@ -237,6 +240,7 @@ public partial class Validation
         using var _ = _chatIsProcessing.AsToken();
         _chatError.Value = null;
         _chatErrorKind.Value = null;
+        _chatStatus.Value = null;
 
         try
         {
@@ -268,6 +272,11 @@ public partial class Validation
             var reasoning = _chatReasoning.Value;
             _chatTokenEstimate.Value = $"Estimated input tokens (KernelContext.EstimateInputTokens): {ctx.EstimateInputTokens()}";
 
+            // The bubble shows the streamed text as it arrives, so after a run that ended without a result it
+            // holds partial JSON; the status goes by the run's own ending instead
+            string? reply = null;
+            string? noResult = null;
+
             await foreach (var ev in Emerge.Run<ChatReply>(model, ctx, pass =>
             {
                 pass.Command = userMessage;
@@ -284,10 +293,34 @@ public partial class Validation
                         assistantEntry.Content.Value = responseText.ToString();
                         break;
 
-                    case Completed<ChatReply> { Result: { } result }:
-                        assistantEntry.Content.Value = result.Response;
+                    case Completed<ChatReply> { HasResult: true, Result: { } result }:
+                        reply = result.Response ?? "";
+                        assistantEntry.Content.Value = reply;
+                        break;
+
+                    case Completed<ChatReply> completed:
+                        noResult = $"the run completed without a result: {completed.NoResultReason ?? "no reason given"}";
+                        break;
+
+                    case Stopped<ChatReply> stopped:
+                        noResult = $"the run stopped without a result: {stopped.Reason ?? "no reason given"}";
                         break;
                 }
+            }
+
+            if (noResult != null)
+            {
+                _chatStatus.Value = FailStatus(noResult);
+            }
+            else if (reply == null)
+            {
+                _chatStatus.Value = FailStatus("the run ended without a Completed event");
+            }
+            else
+            {
+                _chatStatus.Value = string.IsNullOrWhiteSpace(reply)
+                    ? FailStatus("the model sent an empty reply")
+                    : $"PASS Replied: {reply.Length} characters";
             }
         }
         catch (Exception ex)
@@ -295,6 +328,7 @@ public partial class Validation
             var (kind, message) = DescribeAIFailure(ex);
             _chatErrorKind.Value = kind;
             _chatError.Value = message;
+            _chatStatus.Value = FailStatus($"{kind}: {message}");
 
             var errorEntry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
             errorEntry.Content.Value = $"Error: {message}";

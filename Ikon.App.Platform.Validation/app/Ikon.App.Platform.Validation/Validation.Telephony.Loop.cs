@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -7,7 +8,12 @@ public partial class Validation
     private static readonly TimeSpan TelCallLoopRing = TimeSpan.FromSeconds(40);
     private static readonly TimeSpan TelCallLoopListen = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan TelCallLoopToneLength = TimeSpan.FromSeconds(4);
-    private static readonly TimeSpan TelCallLoopCalleeWait = TimeSpan.FromSeconds(15);
+
+    // B reports only after its hang-up (10 s at most) and its record check, which can take two
+    // 10 s attempts 3 s apart.
+    private static readonly TimeSpan TelCallLoopCalleeWait = TimeSpan.FromSeconds(40);
+    private static readonly TimeSpan TelCallRecordCheckLimit = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan TelCallRecordCheckRetryDelay = TimeSpan.FromSeconds(3);
 
     // B stays on the line past A's listen window, so A's interrupt check still has a call to run on.
     private static readonly TimeSpan TelCallLoopCalleeLine = TimeSpan.FromSeconds(25);
@@ -344,9 +350,16 @@ public partial class Validation
                 ? "B's side never reported answering (did the call reach the app's shared instance?)"
                 : $"B heard A's tone {callee.ToneSeconds:0.0} s ({callee.Summary})";
 
-            bool pass = meter.ToneSeconds >= TelLoopToneSecondsNeeded && callee != null && callee.ToneSeconds >= TelLoopToneSecondsNeeded && interrupt.Ok;
+            // Put first on a failing line, because the call can sound perfect while the platform
+            // neither caps nor meters it.
+            string? notRecorded = callee is { RecordFailure: { } failure }
+                ? $"the backend did not confirm it recorded B's incoming call {callee.CallId} ({a.Provider} → {b.Provider}), and an unrecorded call is neither capped nor metered: {failure}; "
+                : null;
+            string recorded = callee is { RecordFailure: null } ? $", B's call {callee.CallId} recorded" : "";
 
-            return $"{(pass ? "PASS" : "FAIL")} call loop {a.Number}→{b.Number}: connected in {connectedMs:0}ms, {aHeard}, {bHeard}, {interrupt.Summary}, total {totalMs:0}ms";
+            bool pass = meter.ToneSeconds >= TelLoopToneSecondsNeeded && callee != null && callee.ToneSeconds >= TelLoopToneSecondsNeeded && interrupt.Ok && notRecorded == null;
+
+            return $"{(pass ? "PASS" : "FAIL")} call loop {a.Number}→{b.Number}: {notRecorded}connected in {connectedMs:0}ms, {aHeard}, {bHeard}{recorded}, {interrupt.Summary}, total {totalMs:0}ms";
         }
         finally
         {
@@ -486,7 +499,8 @@ public partial class Validation
                 Log.Instance.Debug($"Hang-up of validation loop call {call.CallId}: {ex.Message}");
             }
 
-            var callee = new TelLoopCallee(meter.ToneSeconds, meter.Describe());
+            var recordFailure = await CheckCallRecordedAsync(call.CallId);
+            var callee = new TelLoopCallee(meter.ToneSeconds, meter.Describe(), call.CallId, recordFailure);
             loop.Result.TrySetResult(callee);
 
             if (loop.ReportThroughAsset)
@@ -502,7 +516,58 @@ public partial class Validation
                 }
             }
 
-            AddCallLog(new TelCallEntry(DateTime.UtcNow, "loop", call.CallId, call.From, call.To, meter.Describe()));
+            AddCallLog(new TelCallEntry(DateTime.UtcNow, "loop", call.CallId, call.From, call.To,
+                recordFailure == null ? meter.Describe() : $"{meter.Describe()}; not recorded by the backend: {recordFailure}"));
+        }
+    }
+
+    // The call webhook writes the backend's row for an incoming call before bridging it, and the
+    // backend caps, counts and meters the call by that row. The SDK's own hang-up only logs a refusal,
+    // so the hang-up is asked for again here, on a call that has ended by now. The backend looks the
+    // row up first and refuses a call that has no row with a 500 ("does not belong to space"). After
+    // that lookup, a provider refusing to end a call that is already over answers 400, 429 or 502,
+    // and a refusal from 46elks comes back as a success. Returns null when the row exists.
+    private static async Task<string?> CheckCallRecordedAsync(string callId)
+    {
+        // A 429 or 502 can come from the rate limiter or the load balancer before the backend looks
+        // the call up, so it proves nothing about the record. The check is tried once more, then
+        // reported as unchecked, not as passed
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                using var limit = new CancellationTokenSource(TelCallRecordCheckLimit);
+                await IkonBackend.Instance.HangUpTelephonyCallAsync(callId, limit.Token);
+                return null;
+            }
+            catch (UserException)
+            {
+                // The backend turns a provider's refusal into a 400, and it asks the provider only after it found the row
+                return null;
+            }
+            catch (BackendRequestException ex) when (ex.StatusCode is HttpStatusCode.BadRequest)
+            {
+                // The provider refused to end a call that has ended, and the backend asks it only after it found the row
+                return null;
+            }
+            catch (BackendRequestException ex) when (ex.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway)
+            {
+                if (attempt >= 2)
+                {
+                    return $"the record could not be checked: HTTP {(int)ex.StatusCode!} twice, a status that can come before the backend looks the call up";
+                }
+
+                await Task.Delay(TelCallRecordCheckRetryDelay);
+            }
+            catch (BackendRequestException ex)
+            {
+                string said = ex.BackendMessage.Length > 0 ? ex.BackendMessage : ex.Message;
+                return $"the hang-up was refused with HTTP {(ex.StatusCode is { } status ? (int)status : 0)}: {said}";
+            }
+            catch (Exception ex)
+            {
+                return $"the record could not be checked: {ex.GetType().Name}: {ex.Message}";
+            }
         }
     }
 }
@@ -526,4 +591,5 @@ internal sealed class TelLoopCall(string callerNumber, string calleeNumber, bool
     }
 }
 
-internal sealed record TelLoopCallee(double ToneSeconds, string Summary);
+/// <summary>What B heard, and why the backend's record of B's call could not be confirmed (null when it was).</summary>
+internal sealed record TelLoopCallee(double ToneSeconds, string Summary, string CallId, string? RecordFailure);

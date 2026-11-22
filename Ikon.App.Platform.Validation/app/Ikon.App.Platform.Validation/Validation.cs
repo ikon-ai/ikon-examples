@@ -360,6 +360,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         InitSiblingClientEvents();
         InitGoogleDrive();
         InitCells();
+        InitLiveReloadLab();
         StartPortEchoes();
 
         app.OnStopping(ClearDatabaseAsync);
@@ -377,7 +378,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             // A tab's own pages sit under its path (/app-nav/inbox), so the first segment names the tab
             var tab = args.Path.TrimStart('/').Split('/', 2)[0];
 
-            if (ValidTabs.Contains(tab))
+            if (IsValidTab(tab))
             {
                 ActivateTab(tab);
             }
@@ -391,7 +392,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             // InitialPath carries the deep link's query string too — tab names are path-only
             var tab = args.ClientContext.InitialPath.Split('?', 2)[0].TrimStart('/').Split('/', 2)[0];
 
-            if (ValidTabs.Contains(tab))
+            if (IsValidTab(tab))
             {
                 ActivateTab(tab);
             }
@@ -419,6 +420,12 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
                 view.Column([Container.Xl4, "py-4 px-3 sm:py-8 sm:px-4"], content: view =>
                 {
+                    if (_activeTab.Value == LiveReloadLabTab)
+                    {
+                        // The live reload rig edits this text: an edit inside the root render, in the app's main file
+                        view.Text([Text.Caption], "root-render-1", props: TestId("lab-root-render"));
+                    }
+
                     // Header with title and theme toggle
                     view.Row(["flex justify-between items-center mb-4 sm:mb-6"], content: view =>
                     {
@@ -499,10 +506,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("sharepoint", "SharePoint", RenderSharePointSection),
                             new TabItem("google-drive", "Google Drive", RenderGoogleDriveSection),
                             new TabItem("hot-reload", "Hot Reload", RenderHotReloadSection),
+                            .. LiveReloadLabTabs(),
                         ]);
                 });
             });
     }
+
+    // Edited by the live reload rig, as a method in the file that holds the app's top-level statement
+    private static string LiveReloadLabMainFile() => "main-file-1";
+
+    private bool IsValidTab(string tab) => ValidTabs.Contains(tab) || (tab == LiveReloadLabTab && LiveReloadLabShown);
 
     private void ActivateTab(string tab)
     {

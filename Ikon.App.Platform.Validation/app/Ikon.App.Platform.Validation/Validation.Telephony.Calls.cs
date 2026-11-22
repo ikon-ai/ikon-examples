@@ -344,7 +344,7 @@ public partial class Validation
         }
         catch (Exception ex)
         {
-            Log.Instance.Warning($"Validation incoming call {call.CallId} from {call.From} failed in {mode} mode: {ex.GetType().Name}: {ex.Message}");
+            Log.Instance.Warning($"Validation incoming call {call.CallId} failed in {mode} mode: {ex.GetType().Name}: {ex.Message}");
             result = $"Error: {ex.GetType().Name}: {ex.Message}";
         }
         finally

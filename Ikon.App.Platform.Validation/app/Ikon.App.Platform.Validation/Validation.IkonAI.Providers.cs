@@ -21,6 +21,8 @@ public partial class Validation
     private readonly ClientReactive<bool> _aiOwnKeyRunning = new(false);
     private readonly ClientReactive<string?> _aiOwnKeyResult = new(null);
 
+    private static readonly HttpClient _anonymousCatalogHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+
     private void RenderAIProvidersCard(UIView view)
     {
         view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-providers-card"), content: view =>
@@ -89,7 +91,11 @@ public partial class Validation
 
     private static async Task<string> CheckAICatalogAsync()
     {
+        // The anonymous catalog is priced at the free tier from the live pricing data, so it proves the backend turns list
+        // prices into credits even when this organisation's catalog is all zeros
+        var anonymousRead = ReadAnonymousCatalogPricesAsync();
         var fetch = await IkonBackend.Instance.GetAICatalogAsync(ifNoneMatch: null);
+        var anonymous = await anonymousRead;
 
         if (fetch.Body is null)
         {
@@ -101,10 +107,91 @@ public partial class Validation
         var tier = StringProperty(root, "tier") ?? "(none)";
         var hostVersion = StringProperty(root, "ikonAIVersion");
         var appVersion = AppIkonAIVersion();
+        var prices = CountCatalogPrices(root);
+        var failures = new List<string>();
+
+        if (prices.Kinds.Count < 3)
+        {
+            failures.Add($"models of {prices.Kinds.Count} kinds ({string.Join(", ", prices.Kinds)}), expected several");
+        }
+
+        // Billing charges a billing-exempt organisation nothing, so its catalog prices every usage at 0 credits
+        if (prices.BillingExempt)
+        {
+            if (prices.PricedRoutes == 0)
+            {
+                failures.Add("the organisation is billing-exempt, but no route has a priced usage on IKON's key");
+            }
+
+            if (prices.OwnKeyPricedRoutes == 0)
+            {
+                failures.Add("the organisation is billing-exempt, but no route has a priced usage on its own key");
+            }
+
+            if (prices.ChargedRoutes > 0 || prices.OwnKeyChargedRoutes > 0)
+            {
+                failures.Add($"the organisation is billing-exempt, but {prices.ChargedRoutes} routes are priced above 0 credits on IKON's key and {prices.OwnKeyChargedRoutes} on its own key");
+            }
+        }
+        else
+        {
+            AddMissingCharges(failures, prices, "");
+        }
+
+        if (anonymous.Failure is { } anonymousFailure)
+        {
+            failures.Add(anonymousFailure);
+        }
+
+        if (anonymous.Prices is { } anonymousPrices)
+        {
+            AddMissingCharges(failures, anonymousPrices, "the anonymous catalog: ");
+        }
+
+        if (string.IsNullOrEmpty(fetch.ETag))
+        {
+            failures.Add("no ETag");
+        }
+
+        if (hostVersion is null)
+        {
+            failures.Add("no ikonAIVersion: no model catalog was uploaded with 'ikon data upload models'");
+        }
+        else if (!AreNearVersions(hostVersion, appVersion))
+        {
+            failures.Add($"ikonAIVersion {hostVersion} is not near this app's Ikon.AI {appVersion}");
+        }
+
+        var ownPrices = $"{(prices.BillingExempt ? "billing-exempt, " : "")}{prices.PricedRoutes} priced routes, {prices.ChargedRoutes} priced above 0 credits, {prices.OwnKeyChargedRoutes} on own keys";
+        var anonymousSummary = anonymous.Prices is { } free ? $"; anonymous catalog: {free.ChargedRoutes} routes priced above 0 credits, {free.OwnKeyChargedRoutes} on own keys" : "";
+        var summary = $"{prices.Models} models of {prices.Kinds.Count} kinds, tier {tier}, {ownPrices}{anonymousSummary}, catalog of Ikon.AI {hostVersion ?? "?"} (app {appVersion})";
+
+        if (failures.Count > 0)
+        {
+            return $"FAIL catalog: {string.Join("; ", failures)}\n{summary}";
+        }
+
+        // The ETag covers the prices, which only change with the catalog, so a read right after must be a 304
+        var again = await IkonBackend.Instance.GetAICatalogAsync(fetch.ETag);
+
+        if (!again.NotModified)
+        {
+            return $"FAIL catalog: a second read with ETag {fetch.ETag} was not answered 304\n{summary}";
+        }
+
+        return $"PASS catalog: {summary}; a read with its ETag answered 304";
+    }
+
+    /// <param name="PricedRoutes">Routes with a usage that has a price, 0 credits included.</param>
+    /// <param name="ChargedRoutes">Routes with a usage priced above 0 credits.</param>
+    private sealed record CatalogPrices(int Models, SortedSet<string> Kinds, bool BillingExempt, int PricedRoutes, int OwnKeyPricedRoutes, int ChargedRoutes, int OwnKeyChargedRoutes);
+
+    private static CatalogPrices CountCatalogPrices(JsonElement root)
+    {
         var kinds = new SortedSet<string>(StringComparer.Ordinal);
-        var models = 0;
-        var pricedRoutes = 0;
-        var ownKeyPricedRoutes = 0;
+        int models = 0, priced = 0, ownKeyPriced = 0, charged = 0, ownKeyCharged = 0;
+        var billingExempt = root.TryGetProperty("pricing", out var pricing) && pricing.ValueKind == JsonValueKind.Object
+            && pricing.TryGetProperty("billingExempt", out var exempt) && exempt.ValueKind == JsonValueKind.True;
 
         if (root.TryGetProperty("models", out var modelList) && modelList.ValueKind == JsonValueKind.Array)
         {
@@ -130,67 +217,53 @@ public partial class Validation
                     }
 
                     var usageList = usages.EnumerateArray().ToList();
-
-                    if (usageList.Any(usage => PositiveNumber(usage, "credits")))
-                    {
-                        pricedRoutes++;
-                    }
-
-                    if (usageList.Any(usage => PositiveNumber(usage, "ownKeyCredits")))
-                    {
-                        ownKeyPricedRoutes++;
-                    }
+                    priced += usageList.Any(usage => IsNumber(usage, "credits")) ? 1 : 0;
+                    ownKeyPriced += usageList.Any(usage => IsNumber(usage, "ownKeyCredits")) ? 1 : 0;
+                    charged += usageList.Any(usage => PositiveNumber(usage, "credits")) ? 1 : 0;
+                    ownKeyCharged += usageList.Any(usage => PositiveNumber(usage, "ownKeyCredits")) ? 1 : 0;
                 }
             }
         }
 
-        var failures = new List<string>();
+        return new CatalogPrices(models, kinds, billingExempt, priced, ownKeyPriced, charged, ownKeyCharged);
+    }
 
-        if (kinds.Count < 3)
+    private static void AddMissingCharges(List<string> failures, CatalogPrices prices, string where)
+    {
+        if (prices.ChargedRoutes == 0)
         {
-            failures.Add($"models of {kinds.Count} kinds ({string.Join(", ", kinds)}), expected several");
+            failures.Add($"{where}no route has a usage priced above 0 credits");
         }
 
-        if (pricedRoutes == 0)
+        if (prices.OwnKeyChargedRoutes == 0)
         {
-            failures.Add("no route has a usage priced above 0 credits");
+            failures.Add($"{where}no route has an own-key price above 0 credits");
         }
+    }
 
-        if (ownKeyPricedRoutes == 0)
+    /// <summary>The catalog a signed-out reader gets, at the free tier's prices, read without the app's token.</summary>
+    private static async Task<(CatalogPrices? Prices, string? Failure)> ReadAnonymousCatalogPricesAsync()
+    {
+        var backendUrl = string.IsNullOrEmpty(IkonBackend.Instance.Url) ? IkonBackend.ProductionBackendEndpointUrl : IkonBackend.Instance.Url;
+
+        try
         {
-            failures.Add("no route has an own-key price above 0 credits");
-        }
+            using var response = await _anonymousCatalogHttp.GetAsync(backendUrl.TrimEnd('/') + IkonBackend.AICatalogEndpoint);
 
-        if (string.IsNullOrEmpty(fetch.ETag))
+            if (!response.IsSuccessStatusCode)
+            {
+                return (null, $"the anonymous catalog answered {(int)response.StatusCode} {response.ReasonPhrase}");
+            }
+
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var prices = CountCatalogPrices(document.RootElement);
+            return prices.BillingExempt ? (prices, "the anonymous catalog says it is billing-exempt") : (prices, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            failures.Add("no ETag");
+            // Reported as a failure of this check rather than thrown, so the result keeps the organisation catalog's findings
+            return (null, $"the anonymous catalog could not be read: {ex.GetType().Name}: {ex.Message}");
         }
-
-        if (hostVersion is null)
-        {
-            failures.Add("no ikonAIVersion: no model catalog was uploaded with 'ikon data upload models'");
-        }
-        else if (!AreNearVersions(hostVersion, appVersion))
-        {
-            failures.Add($"ikonAIVersion {hostVersion} is not near this app's Ikon.AI {appVersion}");
-        }
-
-        var summary = $"{models} models of {kinds.Count} kinds, {pricedRoutes} priced routes, {ownKeyPricedRoutes} with own-key prices, tier {tier}, catalog of Ikon.AI {hostVersion ?? "?"} (app {appVersion})";
-
-        if (failures.Count > 0)
-        {
-            return $"FAIL catalog: {string.Join("; ", failures)}\n{summary}";
-        }
-
-        // The ETag covers the prices, which only change with the catalog, so a read right after must be a 304
-        var again = await IkonBackend.Instance.GetAICatalogAsync(fetch.ETag);
-
-        if (!again.NotModified)
-        {
-            return $"FAIL catalog: a second read with ETag {fetch.ETag} was not answered 304\n{summary}";
-        }
-
-        return $"PASS catalog: {summary}; a read with its ETag answered 304";
     }
 
     private static async Task<string> CheckProviderClassAsync()
@@ -309,14 +382,15 @@ public partial class Validation
 
     private async Task<string> CheckOwnKeyRouteAsync()
     {
-        if (!app.Secrets.TryGet(OwnKeySecret, out var key) || string.IsNullOrWhiteSpace(key))
-        {
-            return $"SKIP own key: the space has no secret {OwnKeySecret} (a person stores a Groq key with `ikon secret set {OwnKeySecret} --stdin`, see the app's AGENTS.md)";
-        }
-
         if (AIMocksSwitchedOn())
         {
             return "SKIP own key: this run is on the AI mocks (ikon run --ai mock), which reach no provider";
+        }
+
+        // Both environments' apps hold the key, so a missing one is a setup fault rather than a reason to skip
+        if (!app.Secrets.TryGet(OwnKeySecret, out var key) || string.IsNullOrWhiteSpace(key))
+        {
+            return $"FAIL own key: the space has no secret {OwnKeySecret} (store the Groq key with `ikon secret set {OwnKeySecret} --stdin`, see the app's AGENTS.md)";
         }
 
         using var capture = new AICallCapture(fragment: OwnKeyApiModelName);
@@ -442,6 +516,9 @@ public partial class Validation
 
     private static bool PositiveNumber(JsonElement element, string name)
         => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.GetDouble() > 0;
+
+    private static bool IsNumber(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number;
 
     private static string? ParameterText(IReadOnlyDictionary<string, object?> parameters, string name)
     {

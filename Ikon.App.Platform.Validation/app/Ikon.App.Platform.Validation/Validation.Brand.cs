@@ -98,7 +98,7 @@ public partial class Validation
         try
         {
             ColorSchemeResult? result = null;
-            await foreach (var ev in Emerge.Run<ColorSchemeResult>(LLMModel.Claude45Sonnet, new KernelContext(), pass =>
+            await foreach (var ev in Emerge.Run<ColorSchemeResult>(LLMModel.Claude55Sonnet, new KernelContext(), pass =>
             {
                 pass.Command = $"""
                     Based on the following description, generate a cohesive color scheme for a UI design system.

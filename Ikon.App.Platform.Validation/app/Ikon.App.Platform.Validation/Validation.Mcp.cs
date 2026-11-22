@@ -29,7 +29,7 @@ public partial class Validation
         [Description("Depth: 1=quick, 3=thorough")] int depth = 2)
     {
         var brief = await Emerge.Run<TopicBrief>(
-            LLMModel.Claude45Sonnet,
+            LLMModel.Claude55Sonnet,
             pass =>
             {
                 pass.SystemPrompt = """

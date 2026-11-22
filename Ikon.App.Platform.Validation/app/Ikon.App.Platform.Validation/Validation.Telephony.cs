@@ -63,7 +63,7 @@ public partial class Validation
         _telLastSms.Value = entry;
         CompleteSmsLoop(message);
         await RecordSmsLoopArrivalAsync(message);
-        Log.Instance.Info($"Validation received SMS {message.Id} from {message.From} to {message.To} ({message.Parts} part)");
+        Log.Instance.Info($"Validation received SMS {message.Id} ({message.Parts} part)");
     }
 
     private void RenderTelephonySection(UIView view)
@@ -271,7 +271,7 @@ public partial class Validation
         }
         catch (Exception ex)
         {
-            Log.Instance.Warning($"Validation SMS to {_telSmsTo.Value} failed: {ex.GetType().Name}: {ex.Message}");
+            Log.Instance.Warning($"Validation SMS failed: {ex.GetType().Name}: {ex.Message}");
             _telSmsResult.Value = $"Error: {ex.GetType().Name}: {ex.Message}";
         }
     }

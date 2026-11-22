@@ -29,16 +29,22 @@ public partial class Validation
         new("global-mcp", "Global cell MCP", v => v.CheckGlobalMcpAsync()),
         new("global-proxy", "Global cell through its interface", v => v.CheckGlobalProxyAsync()),
         new("keyed-proxy", "LabCell through its interface", v => v.CheckLabProxyAsync()),
-        new("idle", "An idle connection closes and the cell-host starts again (about 2 min)", v => v.CheckLabIdleLifecycleAsync()),
+        new("idle", "An idle connection closes and the cell-host starts again", v => v.CheckLabIdleLifecycleAsync()),
     ];
 
     // Short, so that one run sees a connection close and its cell-host stop and start again
     private static readonly TimeSpan CellConnectionIdleLimit = TimeSpan.FromSeconds(15.0);
 
-    // A cell-host stops 60 s after its last connection leaves. A local run notices within its 10 s
-    // sweep, and the cloud within the cell-host's 10 s status ping, so this leaves half a minute for
-    // the stop itself.
-    private static readonly TimeSpan CellHostStopWait = TimeSpan.FromSeconds(100.0);
+    // How long a local run keeps the idle check's cell after its last connection leaves, instead of a
+    // minute. The cloud's 60 s is the backend's and cannot be set for one cell
+    private const double IdleLabCellLocalGraceSeconds = 5.0;
+
+    // In the cloud a cell-host stops 60 s after its last connection leaves, and the backend notices
+    // within the cell-host's 10 s status ping, so 100 s leaves half a minute for the stop itself. A
+    // local run looks every 10 s for instances to stop, which leaves a quarter of a minute here
+    private TimeSpan CellHostStopWait => app.GlobalState.ServerRunType == ServerRunType.Local
+        ? TimeSpan.FromSeconds(IdleLabCellLocalGraceSeconds + 25.0)
+        : TimeSpan.FromSeconds(100.0);
 
     private readonly ClientReactiveDictionary<string, string> _cellCheckResults = new();
     private readonly ClientReactive<bool> _cellChecking = new(false);
@@ -49,7 +55,7 @@ public partial class Validation
     private readonly ClientReactive<string?> _labCellError = new(null);
     private readonly ClientReactive<string?> _globalCellError = new(null);
 
-    // Not awaited by the button, because the idle check runs for about two minutes and an awaited
+    // Not awaited by the button, because the idle check runs for up to two minutes and an awaited
     // handler holds up the app's message loop. RunCellChecksAsync reports every failure in the results
     private Task StartCellChecks(IEnumerable<CellCheck> checks)
     {
@@ -331,9 +337,9 @@ public partial class Validation
     {
         var identity = new LabCellIdentity($"idle-{Guid.NewGuid().ToString("N")[..8]}");
         var fields = CellHost.SessionIdentityFields(identity);
-        var cell = Cells.Instance.Connect<ILabCell>(identity);
+        var cell = Cells.Instance.Connect<IIdleLabCell>(identity);
 
-        if (cell is LabCell)
+        if (cell is IdleLabCell)
         {
             return "SKIP the cell runs in this process, so it has no connection to close";
         }
@@ -341,7 +347,7 @@ public partial class Validation
         await cell.IncrementAsync(1);
         var first = await cell.DescribeAsync();
 
-        if (!Cells.Instance.HasOpenConnection(nameof(LabCell), fields))
+        if (!Cells.Instance.HasOpenConnection(nameof(IdleLabCell), fields))
         {
             return $"FAIL no connection to {identity.Workspace} was open after a call";
         }
@@ -349,7 +355,7 @@ public partial class Validation
         var idleSince = Stopwatch.GetTimestamp();
         var closeDeadline = CellConnectionIdleLimit + TimeSpan.FromSeconds(30.0);
 
-        while (Cells.Instance.HasOpenConnection(nameof(LabCell), fields))
+        while (Cells.Instance.HasOpenConnection(nameof(IdleLabCell), fields))
         {
             if (Stopwatch.GetElapsedTime(idleSince) > closeDeadline)
             {
@@ -360,12 +366,13 @@ public partial class Validation
         }
 
         var closedAfter = Stopwatch.GetElapsedTime(idleSince);
-        await Task.Delay(CellHostStopWait);
+        var stopWait = CellHostStopWait;
+        await Task.Delay(stopWait);
         var second = await cell.DescribeAsync();
 
         if (second.Instance == first.Instance)
         {
-            return $"FAIL cell {first.Instance} in {identity.Workspace} still answered {CellHostStopWait.TotalSeconds:0} s after its connection closed, so its cell-host did not stop";
+            return $"FAIL cell {first.Instance} in {identity.Workspace} still answered {stopWait.TotalSeconds:0} s after its connection closed, so its cell-host did not stop";
         }
 
         if (second.Counter != 0)
@@ -645,6 +652,38 @@ public partial class Validation
             => HttpResult.Ok(new LabSignatureEcho(HttpCallContext.Current?.Header("X-Demo-Signature") ?? "(none)", Identity.Workspace));
 
         private LabSnapshot Snapshot() => new(_counter.Value, [.. _history.Value], Identity.Workspace, _process.Value);
+    }
+
+    /// <summary>What the idle check holds of <see cref="IdleLabCell"/>.</summary>
+    public interface IIdleLabCell
+    {
+        Task IncrementAsync(int delta);
+        Task<LabCellInfo> DescribeAsync();
+    }
+
+    /// <summary>
+    /// The cell the idle check starts, leaves and starts again. It is a cell of its own so that a local
+    /// run can stop it within seconds. LabCell's other checks also call it over HTTP, with no
+    /// connection open, and have to find the instance they called before.
+    /// </summary>
+    [Cell(Compute = "lab-cells"), LocalCellIdleGrace(IdleLabCellLocalGraceSeconds)]
+    public sealed class IdleLabCell(ICell<LabCellIdentity> ctx) : IIdleLabCell
+    {
+        public LabCellIdentity Identity { get; } = ctx.Identity;
+
+        // Not a reactive, so a cell that a new cell-host starts gets a new value and counts from 0
+        private readonly string _instance = Guid.NewGuid().ToString("N")[..8];
+        private int _counter;
+
+        [Function]
+        public Task IncrementAsync(int delta)
+        {
+            Interlocked.Add(ref _counter, delta);
+            return Task.CompletedTask;
+        }
+
+        [Function]
+        public Task<LabCellInfo> DescribeAsync() => Task.FromResult(new LabCellInfo(_instance, Volatile.Read(ref _counter), HotReloadProbe.Build));
     }
 
     /// <summary>

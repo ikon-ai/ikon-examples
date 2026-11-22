@@ -17,7 +17,7 @@
     private readonly UserReactive<bool> _sectionPasswordError = new(false);
 
     // Chat model/region selection
-    private readonly ClientReactive<string> _chatModel = new(nameof(LLMModel.Claude45Sonnet));
+    private readonly ClientReactive<string> _chatModel = new(nameof(LLMModel.Claude55Sonnet));
     private readonly ClientReactive<string> _chatRegion = new(nameof(ModelRegion.Global));
 
     // Classifier state
@@ -26,6 +26,7 @@
     private readonly Reactive<bool> _classifierProcessing = new(false);
     private readonly Reactive<string?> _classifierResult = new(null);
     private readonly Reactive<string?> _classifierError = new(null);
+    private readonly Reactive<string?> _classifierStatus = new(null);
 
     // EmbeddingGenerator state
     private readonly ClientReactive<string> _embeddingModel = new(nameof(EmbeddingModel.OpenAI3Small));
@@ -34,6 +35,7 @@
     private readonly Reactive<bool> _embeddingProcessing = new(false);
     private readonly Reactive<string?> _embeddingResult = new(null);
     private readonly Reactive<string?> _embeddingError = new(null);
+    private readonly Reactive<string?> _embeddingStatus = new(null);
     private readonly ClientReactive<bool> _embeddingAllowTruncation = new(false);
 
     // WebSearcher state
@@ -43,6 +45,7 @@
     private readonly Reactive<bool> _webSearcherProcessing = new(false);
     private readonly Reactive<string?> _webSearcherResult = new(null);
     private readonly Reactive<string?> _webSearcherError = new(null);
+    private readonly Reactive<string?> _webSearcherStatus = new(null);
 
     // WebScraper state
     private readonly ClientReactive<string> _webScraperModel = new(nameof(WebScraperModel.Jina));
@@ -51,6 +54,7 @@
     private readonly Reactive<bool> _webScraperProcessing = new(false);
     private readonly Reactive<string?> _webScraperResult = new(null);
     private readonly Reactive<string?> _webScraperError = new(null);
+    private readonly Reactive<string?> _webScraperStatus = new(null);
 
     // Reranker state
     private readonly ClientReactive<string> _rerankerModel = new(nameof(RerankModel.CohereRerank4Fast));
@@ -59,10 +63,11 @@
     private readonly Reactive<bool> _rerankerProcessing = new(false);
     private readonly Reactive<string?> _rerankerResult = new(null);
     private readonly Reactive<string?> _rerankerError = new(null);
+    private readonly Reactive<string?> _rerankerStatus = new(null);
     private readonly ClientReactive<bool> _rerankerAllowTruncation = new(false);
 
     // ImageGenerator state
-    private readonly ClientReactive<string> _imageGeneratorModel = new(nameof(ImageGeneratorModel.Gemini25FlashImage));
+    private readonly ClientReactive<string> _imageGeneratorModel = new(nameof(ImageGeneratorModel.Gemini31FlashLiteImage));
     private readonly ClientReactive<string> _imageGeneratorPrompt = new("A serene mountain landscape at sunset");
     private readonly ClientReactive<string> _imageGeneratorNegativePrompt = new("");
     private readonly Reactive<int> _imageGeneratorWidth = new(1024);
@@ -71,6 +76,7 @@
     private readonly Reactive<bool> _imageGeneratorProcessing = new(false);
     private readonly Reactive<string?> _imageGeneratorResult = new(null);
     private readonly Reactive<string?> _imageGeneratorError = new(null);
+    private readonly Reactive<string?> _imageGeneratorStatus = new(null);
     private readonly Reactive<string?> _imageGeneratorDownloadUrl = new(null);
     private readonly Reactive<string?> _imageGeneratorProvenance = new(null);
     private readonly Reactive<int> _imageGeneratorSteps = new(0);
@@ -83,28 +89,30 @@
     private readonly ReactiveList<string> _imageGeneratorResultDataUrls = new();
 
     // SpeechGenerator state
-    private readonly Reactive<string> _speechGeneratorModel = new(nameof(SpeechGeneratorModel.Gpt4OmniMiniTts));
+    private readonly Reactive<string> _speechGeneratorModel = new(nameof(SpeechGeneratorModel.Gemini38FlashTts));
     private readonly ClientReactive<string> _speechGeneratorText = new("Hello, this is a test of the speech generation system.");
-    private readonly Reactive<string> _speechGeneratorVoiceId = new("alloy");
-    private readonly Reactive<IReadOnlyList<string>> _speechGeneratorVoiceIds = new(["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"]);
-    // Empty because the card opens on an OpenAI model, and those refuse a language outright rather
-    // than dropping it — the language belongs in Instructions there. ElevenLabs is the model to
-    // select when the field itself is what is being exercised.
+    // Kore is Gemini38FlashTts's own default voice; choosing a model loads that model's voice list
+    private readonly Reactive<string> _speechGeneratorVoiceId = new("Kore");
+    private readonly Reactive<IReadOnlyList<string>> _speechGeneratorVoiceIds = new(["Kore"]);
+    // Empty so the card's automated run sends no language. ElevenLabs is the model to select when the
+    // field itself is what is being exercised.
     private readonly ClientReactive<string> _speechGeneratorLanguage = new("");
     private readonly ClientReactive<string> _speechGeneratorInstructions = new("");
     private readonly Reactive<bool> _speechGeneratorProcessing = new(false);
     private readonly Reactive<string?> _speechGeneratorResult = new(null);
     private readonly Reactive<string?> _speechGeneratorError = new(null);
+    private readonly Reactive<string?> _speechGeneratorStatus = new(null);
     private SpeechGenerator? _speechGenerator;
     private readonly Reactive<string?> _speechGeneratorDownloadUrl = new(null);
 
     // SpeechRecognizer state
-    private readonly Reactive<string> _speechRecognizerModel = new(nameof(SpeechRecognizerModel.Whisper2));
+    private readonly Reactive<string> _speechRecognizerModel = new(nameof(SpeechRecognizerModel.GptTranscribe));
     private readonly Reactive<string> _speechRecognizerLanguage = new("en-US");
     private readonly Reactive<bool> _speechRecognizerRecording = new(false);
     private readonly Reactive<bool> _speechRecognizerProcessing = new(false);
     private readonly Reactive<string?> _speechRecognizerResult = new(null);
     private readonly Reactive<string?> _speechRecognizerError = new(null);
+    private readonly Reactive<string?> _speechRecognizerStatus = new(null);
     private SpeechRecognizer? _speechRecognizerInstance;
     private readonly Reactive<bool> _speechRecognizerContinuous = new(false);
     private Channel<float[]>? _speechRecognizerChannel;
@@ -130,6 +138,7 @@
     private readonly Reactive<bool> _ocrProcessing = new(false);
     private readonly Reactive<string?> _ocrResult = new(null);
     private readonly Reactive<string?> _ocrError = new(null);
+    private readonly Reactive<string?> _ocrStatus = new(null);
     private readonly Reactive<string> _ocrFileName = new("");
     private string? _ocrFilePath;
     private readonly Reactive<string?> _ocrDownloadUrl = new(null);
@@ -140,19 +149,23 @@
     private readonly Reactive<bool> _fileConverterProcessing = new(false);
     private readonly Reactive<string?> _fileConverterResult = new(null);
     private readonly Reactive<string?> _fileConverterError = new(null);
+    private readonly Reactive<string?> _fileConverterStatus = new(null);
     private readonly Reactive<string> _fileConverterFileName = new("");
     private UploadedFile? _fileConverterFile;
     private readonly Reactive<string?> _fileConverterDownloadUrl = new(null);
 
-    // VideoGenerator state
-    private readonly ClientReactive<string> _videoGeneratorModel = new(nameof(VideoGeneratorModel.Pollo20));
+    // VideoGenerator state. The defaults give the cheapest and fastest generation, because the scheduled
+    // validation presses Generate without changing them. A one-second 480p Grok Imagine Lite clip costs
+    // about $0.03 and takes about 20 seconds, while most models take minutes for a five-second clip
+    private readonly ClientReactive<string> _videoGeneratorModel = new(nameof(VideoGeneratorModel.GrokImagineVideo15Lite));
     private readonly ClientReactive<string> _videoGeneratorPrompt = new("A cat playing with a ball of yarn");
-    private readonly Reactive<int> _videoGeneratorLength = new(5);
+    private readonly Reactive<int> _videoGeneratorLength = new(1);
     private readonly ClientReactive<string> _videoGeneratorResolution = new(nameof(VideoGeneratorResolution.Resolution480p));
     private readonly ClientReactive<string> _videoGeneratorAspectRatio = new(nameof(VideoGeneratorAspectRatio.Ratio16x9));
     private readonly Reactive<bool> _videoGeneratorProcessing = new(false);
     private readonly Reactive<string?> _videoGeneratorResultUrl = new(null);
     private readonly Reactive<string?> _videoGeneratorError = new(null);
+    private readonly Reactive<string?> _videoGeneratorStatus = new(null);
     private readonly ClientReactive<string> _videoGeneratorNegativePrompt = new("");
     private readonly Reactive<int> _videoGeneratorSeed = new(0);
     private readonly ClientReactive<bool> _videoGeneratorGenerateAudio = new(false);
@@ -160,12 +173,13 @@
     private readonly Reactive<string> _videoGeneratorInputImageName = new("");
 
     // SoundEffectGenerator state
-    private readonly ClientReactive<string> _soundEffectModel = new(nameof(SoundEffectGeneratorModel.ElevenLabsV2));
+    private readonly ClientReactive<string> _soundEffectModel = new(nameof(SoundEffectGeneratorModel.ElevenLabsV3));
     private readonly ClientReactive<string> _soundEffectPrompt = new("Thunder rumbling in the distance");
     private readonly Reactive<double> _soundEffectDuration = new(5.0);
     private readonly Reactive<bool> _soundEffectProcessing = new(false);
     private readonly Reactive<string?> _soundEffectResult = new(null);
     private readonly Reactive<string?> _soundEffectError = new(null);
+    private readonly Reactive<string?> _soundEffectStatus = new(null);
     private readonly Reactive<string?> _soundEffectDownloadUrl = new(null);
     private readonly ClientReactive<double> _soundEffectPromptInfluence = new(0.3);
     private readonly ClientReactive<bool> _soundEffectLoop = new(false);
@@ -179,6 +193,7 @@
     private readonly Reactive<bool> _musicProcessing = new(false);
     private readonly Reactive<string?> _musicResult = new(null);
     private readonly Reactive<string?> _musicError = new(null);
+    private readonly Reactive<string?> _musicStatus = new(null);
     private readonly Reactive<string?> _musicDownloadUrl = new(null);
     private UploadedInput? _musicInputAudio;
     private readonly Reactive<string> _musicInputAudioName = new("");
@@ -189,6 +204,7 @@
     private readonly Reactive<bool> _videoEnhancerProcessing = new(false);
     private readonly Reactive<string?> _videoEnhancerResultUrl = new(null);
     private readonly Reactive<string?> _videoEnhancerError = new(null);
+    private readonly Reactive<string?> _videoEnhancerStatus = new(null);
     private readonly Reactive<int> _videoEnhancerTargetFps = new(0);
     private readonly Reactive<int> _videoEnhancerStartFrame = new(0);
     private readonly Reactive<int> _videoEnhancerEndFrame = new(0);
@@ -200,6 +216,7 @@
     private readonly Reactive<bool> _imageSegmenterProcessing = new(false);
     private readonly Reactive<string?> _imageSegmenterResult = new(null);
     private readonly Reactive<string?> _imageSegmenterError = new(null);
+    private readonly Reactive<string?> _imageSegmenterStatus = new(null);
     private readonly Reactive<string> _imageSegmenterFileName = new("");
     private UploadedFile? _imageSegmenterFile;
     private readonly ReactiveList<string> _imageSegmenterImageDataUrls = new();
@@ -211,6 +228,7 @@
     private readonly Reactive<bool> _imageUpscalerProcessing = new(false);
     private readonly Reactive<string?> _imageUpscalerResult = new(null);
     private readonly Reactive<string?> _imageUpscalerError = new(null);
+    private readonly Reactive<string?> _imageUpscalerStatus = new(null);
     private readonly Reactive<string> _imageUpscalerFileName = new("");
     private UploadedFile? _imageUpscalerFile;
     private readonly Reactive<string?> _imageUpscalerImageDataUrl = new(null);
@@ -220,6 +238,7 @@
     private readonly Reactive<bool> _depthEstimatorProcessing = new(false);
     private readonly Reactive<string?> _depthEstimatorResult = new(null);
     private readonly Reactive<string?> _depthEstimatorError = new(null);
+    private readonly Reactive<string?> _depthEstimatorStatus = new(null);
     private readonly Reactive<string> _depthEstimatorFileName = new("");
     private UploadedFile? _depthEstimatorFile;
     private readonly Reactive<string?> _depthEstimatorImageDataUrl = new(null);
@@ -231,6 +250,7 @@
     private readonly Reactive<bool> _meshGeneratorProcessing = new(false);
     private readonly Reactive<string?> _meshGeneratorResult = new(null);
     private readonly Reactive<string?> _meshGeneratorError = new(null);
+    private readonly Reactive<string?> _meshGeneratorStatus = new(null);
     private UploadedInput? _meshGeneratorInputImage;
     private readonly Reactive<string> _meshGeneratorInputImageName = new("");
     private MeshGeneratorResult? _meshGeneratorResultData;
@@ -462,6 +482,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _classifierResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _classifierStatus, "ai-classifier-status");
             });
         });
     }
@@ -471,6 +493,7 @@
         using var _ = _classifierProcessing.AsToken();
         _classifierError.Value = null;
         _classifierResult.Value = null;
+        _classifierStatus.Value = null;
 
         try
         {
@@ -492,10 +515,12 @@
             }
 
             _classifierResult.Value = output;
+            _classifierStatus.Value = CheckClassification(result);
         }
         catch (Exception ex)
         {
             _classifierError.Value = ex.Message;
+            _classifierStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -573,6 +598,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _embeddingResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _embeddingStatus, "ai-embedding-status");
             });
         });
     }
@@ -582,6 +609,7 @@
         using var _ = _embeddingProcessing.AsToken();
         _embeddingError.Value = null;
         _embeddingResult.Value = null;
+        _embeddingStatus.Value = null;
 
         try
         {
@@ -602,15 +630,18 @@
                 var preview = string.Join(", ", embedding.Take(10).Select(v => v.ToString("F4")));
                 var declared = EmbeddingGenerator.GetCapabilities(model).EmbeddingVectorSize;
                 _embeddingResult.Value = $"Vector dimension: {embedding.Length} (model declares {declared}, max {generator.MaxInputCount} inputs per request)\nFirst 10 values: [{preview}, ...]";
+                _embeddingStatus.Value = CheckEmbedding(embeddings.Count, embedding, declared);
             }
             else
             {
                 _embeddingError.Value = "The model returned no embedding";
+                _embeddingStatus.Value = FailStatus("the model returned no embedding");
             }
         }
         catch (Exception ex)
         {
             _embeddingError.Value = ex.Message;
+            _embeddingStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -690,6 +721,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _webSearcherResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _webSearcherStatus, "ai-web-searcher-status");
             });
         });
     }
@@ -699,16 +732,18 @@
         using var _ = _webSearcherProcessing.AsToken();
         _webSearcherError.Value = null;
         _webSearcherResult.Value = null;
+        _webSearcherStatus.Value = null;
 
         try
         {
             var model = Enum.Parse<WebSearcherModel>(_webSearcherModel.Value);
             using var searcher = new WebSearcher(model);
+            var maxResults = _webSearcherMaxResults.Value;
 
             var results = await searcher.SearchPagesAsync(new SearchConfig
             {
                 Query = _webSearcherQuery.Value,
-                MaxResults = _webSearcherMaxResults.Value
+                MaxResults = maxResults
             });
 
             var output = $"Found {results.Count} results:\n";
@@ -719,10 +754,12 @@
             }
 
             _webSearcherResult.Value = output;
+            _webSearcherStatus.Value = CheckWebSearch(results, maxResults);
         }
         catch (Exception ex)
         {
             _webSearcherError.Value = ex.Message;
+            _webSearcherStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -795,6 +832,8 @@
                         view.Text([Text.Body, "whitespace-pre-wrap text-sm"], _webScraperResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _webScraperStatus, "ai-web-scraper-status");
             });
         });
     }
@@ -804,6 +843,7 @@
         using var _ = _webScraperProcessing.AsToken();
         _webScraperError.Value = null;
         _webScraperResult.Value = null;
+        _webScraperStatus.Value = null;
 
         try
         {
@@ -818,10 +858,12 @@
             });
 
             _webScraperResult.Value = $"Title: {page.Title}\n\n{page.Content}";
+            _webScraperStatus.Value = CheckScrapedPage(page);
         }
         catch (Exception ex)
         {
             _webScraperError.Value = ex.Message;
+            _webScraperStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -899,6 +941,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _rerankerResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _rerankerStatus, "ai-reranker-status");
             });
         });
     }
@@ -908,6 +952,7 @@
         using var _ = _rerankerProcessing.AsToken();
         _rerankerError.Value = null;
         _rerankerResult.Value = null;
+        _rerankerStatus.Value = null;
 
         try
         {
@@ -930,10 +975,12 @@
             }
 
             _rerankerResult.Value = output;
+            _rerankerStatus.Value = CheckRerank(items, documents.Count);
         }
         catch (Exception ex)
         {
             _rerankerError.Value = ex.Message;
+            _rerankerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -1194,6 +1241,8 @@
                     view.Text([Text.Caption, "mt-4"], _imageGeneratorProvenance.Value, props: TestId("ai-image-generator-provenance"));
                 }
 
+                RenderAIStatus(view, _imageGeneratorStatus, "ai-image-generator-status");
+
                 if (_imageGeneratorResultDataUrls.Value.Count > 0)
                 {
                     view.Flex(["mt-4 flex-wrap gap-4"], content: view =>
@@ -1235,12 +1284,14 @@
         _imageGeneratorResult.Value = null;
         _imageGeneratorDownloadUrl.Value = null;
         _imageGeneratorProvenance.Value = null;
+        _imageGeneratorStatus.Value = null;
         _imageGeneratorResultDataUrls.Value = [];
 
         try
         {
             var model = Enum.Parse<ImageGeneratorModel>(_imageGeneratorModel.Value);
             using var generator = new ImageGenerator(model);
+            var requestedCount = _imageGeneratorCount.Value;
 
             var config = new ImageGeneratorConfig
             {
@@ -1253,7 +1304,7 @@
                 Quality = Enum.Parse<ImageQuality>(_imageGeneratorQuality.Value),
                 Background = Enum.Parse<ImageBackground>(_imageGeneratorBackground.Value),
                 UpsamplePrompt = _imageGeneratorUpsamplePrompt.Value,
-                Count = _imageGeneratorCount.Value
+                Count = requestedCount
             };
 
             if (_imageGeneratorInputImage is { } inputImage)
@@ -1276,10 +1327,13 @@
                 _imageGeneratorProvenance.Value = DescribeImageProvenance(image.Provenance, imageData);
 
                 var dataUrls = new List<string>();
+                var images = new List<(ImageGeneratorResult Result, byte[] Data)>();
 
                 foreach (var r in results)
                 {
-                    dataUrls.Add($"data:{r.MimeType};base64,{Convert.ToBase64String(await r.GetDataAsync())}");
+                    var bytes = await r.GetDataAsync();
+                    images.Add((r, bytes));
+                    dataUrls.Add($"data:{r.MimeType};base64,{Convert.ToBase64String(bytes)}");
                 }
 
                 _imageGeneratorResultDataUrls.Value = dataUrls;
@@ -1287,11 +1341,17 @@
 
                 var ext = image.MimeType == MimeTypes.ImagePng ? "png" : "jpg";
                 _imageGeneratorDownloadUrl.Value = await UploadForDownloadAsync($"generated-image.{ext}", imageData, image.MimeType);
+                _imageGeneratorStatus.Value = CheckGeneratedImages(images, requestedCount);
+            }
+            else
+            {
+                _imageGeneratorStatus.Value = FailStatus("the model returned no image");
             }
         }
         catch (Exception ex)
         {
             _imageGeneratorError.Value = ex.Message;
+            _imageGeneratorStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -1465,6 +1525,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _musicResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _musicStatus, "ai-music-status");
             });
         });
     }
@@ -1475,6 +1537,7 @@
         _musicError.Value = null;
         _musicResult.Value = null;
         _musicDownloadUrl.Value = null;
+        _musicStatus.Value = null;
 
         try
         {
@@ -1509,6 +1572,7 @@
             if (musicData.Length == 0)
             {
                 _musicError.Value = "The model returned no audio";
+                _musicStatus.Value = FailStatus("the model returned no audio");
                 return;
             }
 
@@ -1523,10 +1587,12 @@
             var musicMark = MediaProvenance.ReadMetadataMark(musicData);
             _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({musicData.Length} bytes, {result.MimeType})\nProvenance: {result.Provenance}, metadata mark {(string.IsNullOrEmpty(musicMark) ? "missing" : "present")}";
             _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", musicData, result.MimeType);
+            _musicStatus.Value = CheckAudioFile("music", result.MimeType, musicData.Length, result.DurationSeconds);
         }
         catch (Exception ex)
         {
             _musicError.Value = ex.Message;
+            _musicStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -1544,6 +1610,7 @@
         if (samples.Count == 0)
         {
             _musicError.Value = "The model returned no audio";
+            _musicStatus.Value = FailStatus("the model returned no audio");
             return;
         }
 
@@ -1557,6 +1624,7 @@
 
         _musicResult.Value = $"Streamed {durationSeconds:F1}s of audio at {generator.SampleRate}Hz, {generator.ChannelCount}ch (played live)\nProvenance (MediaProvenance.Apply on the saved WAV): {marking}";
         _musicDownloadUrl.Value = await UploadForDownloadAsync("generated-music.wav", marked, MimeTypes.AudioXWav);
+        _musicStatus.Value = CheckStreamedAudio("music", samples, generator.SampleRate, generator.ChannelCount);
     }
 
     /// <summary>Plays generated audio live as it arrives and returns every sample for the download.</summary>
@@ -1707,6 +1775,8 @@
                         view.Text([Alert.Description], _speechGeneratorResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _speechGeneratorStatus, "ai-speech-generator-status");
             });
         });
     }
@@ -1737,6 +1807,7 @@
         _speechGeneratorError.Value = null;
         _speechGeneratorResult.Value = null;
         _speechGeneratorDownloadUrl.Value = null;
+        _speechGeneratorStatus.Value = null;
 
         try
         {
@@ -1758,18 +1829,23 @@
 
             var allSamples = await PlayGeneratedAudioAsync(_speechGenerator.GenerateSpeechAsync(config), "speech");
 
-            _speechGeneratorResult.Value = $"Generated {(float)allSamples.Count / _speechGenerator.SampleRate:F1}s of audio at {_speechGenerator.SampleRate}Hz";
+            var sampleRate = _speechGenerator.SampleRate;
+            var channelCount = _speechGenerator.ChannelCount;
+            _speechGeneratorResult.Value = $"Generated {(float)allSamples.Count / sampleRate:F1}s of audio at {sampleRate}Hz";
 
             if (allSamples.Count > 0)
             {
-                var wav = new WavFile(_speechGenerator.SampleRate, 1, WavFile.SampleFormat.Float);
+                var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
                 wav.AddSamples(allSamples.ToArray());
                 _speechGeneratorDownloadUrl.Value = await UploadForDownloadAsync("speech.wav", wav.AsArray(), MimeTypes.AudioXWav);
             }
+
+            _speechGeneratorStatus.Value = CheckStreamedAudio("speech", allSamples, sampleRate, channelCount);
         }
         catch (Exception ex)
         {
             _speechGeneratorError.Value = ex.Message;
+            _speechGeneratorStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -1904,6 +1980,7 @@
                                 _speechRecognizerRecording.Value = true;
                                 _speechRecognizerResult.Value = null;
                                 _speechRecognizerError.Value = null;
+                                _speechRecognizerStatus.Value = null;
                             },
                             onCaptureStop: async e =>
                             {
@@ -1946,6 +2023,8 @@
                     });
                 }
 
+                RenderAIStatus(view, _speechRecognizerStatus, "ai-speech-recognizer-status");
+
                 if (!string.IsNullOrEmpty(_speechRecognizerEvents.Value))
                 {
                     view.Text([Text.Caption, "mt-2 whitespace-pre-wrap"], _speechRecognizerEvents.Value, props: TestId("ai-speech-recognizer-events"));
@@ -1968,6 +2047,7 @@
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
         _speechRecognizerDetail.Value = null;
+        _speechRecognizerStatus.Value = null;
 
         try
         {
@@ -1990,10 +2070,12 @@
 
             _speechRecognizerDetail.Value = DescribeTranscriptDetail(transcript, timestamps, diarize);
             _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
+            _speechRecognizerStatus.Value = CheckTranscript(transcript);
         }
         catch (Exception ex)
         {
             _speechRecognizerError.Value = ex.Message;
+            _speechRecognizerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -2135,6 +2217,7 @@
         _speechRecognizerResult.Value = null;
         _speechRecognizerDetail.Value = null;
         _speechRecognizerError.Value = null;
+        _speechRecognizerStatus.Value = null;
 
         _ = RunContinuousRecognitionAsync(_speechRecognizerCts.Token);
     }
@@ -2232,14 +2315,32 @@
                     _speechRecognizerResult.Value += " " + transcriptEvent.Text;
                 }
             }
+
+            SetContinuousRecognitionStatus(cancellationToken, null);
         }
         catch (OperationCanceledException)
         {
+            // Stop ends a continuous recognition by cancelling it, so this is its normal end
+            SetContinuousRecognitionStatus(cancellationToken, null);
         }
         catch (Exception ex)
         {
             _speechRecognizerError.Value = ex.Message;
+            SetContinuousRecognitionStatus(cancellationToken, ex.Message);
         }
+    }
+
+    private void SetContinuousRecognitionStatus(CancellationToken cancellationToken, string? failure)
+    {
+        // A Stop followed by a new Start leaves the status to the new recognition
+        if (_speechRecognizerCts != null && _speechRecognizerCts.Token != cancellationToken)
+        {
+            return;
+        }
+
+        _speechRecognizerStatus.Value = failure != null
+            ? FailStatus(failure)
+            : CheckTranscript(new Transcript { Text = _speechRecognizerResult.Value ?? "" });
     }
 
     private async Task RecognizeFromSampleAsync()
@@ -2248,6 +2349,7 @@
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
         _speechRecognizerDetail.Value = null;
+        _speechRecognizerStatus.Value = null;
 
         try
         {
@@ -2274,10 +2376,12 @@
 
             _speechRecognizerDetail.Value = DescribeTranscriptDetail(transcript, timestamps, diarize);
             _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
+            _speechRecognizerStatus.Value = CheckTranscript(transcript);
         }
         catch (Exception ex)
         {
             _speechRecognizerError.Value = ex.Message;
+            _speechRecognizerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -2369,6 +2473,8 @@
                         view.Text([Text.Body, "whitespace-pre-wrap"], _ocrResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _ocrStatus, "ai-ocr-status");
             });
         });
     }
@@ -2386,6 +2492,7 @@
         _ocrResult.Value = null;
         _ocrDownloadUrl.Value = null;
         _ocrFullResult = null;
+        _ocrStatus.Value = null;
 
         try
         {
@@ -2396,10 +2503,12 @@
             var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
 
             await SetOCRResultAsync(result.Text);
+            _ocrStatus.Value = CheckOCR(result);
         }
         catch (Exception ex)
         {
             _ocrError.Value = ex.Message;
+            _ocrStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -2410,6 +2519,7 @@
         _ocrResult.Value = null;
         _ocrDownloadUrl.Value = null;
         _ocrFullResult = null;
+        _ocrStatus.Value = null;
 
         try
         {
@@ -2421,10 +2531,12 @@
             var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
 
             await SetOCRResultAsync(result.Text);
+            _ocrStatus.Value = CheckOCR(result);
         }
         catch (Exception ex)
         {
             _ocrError.Value = ex.Message;
+            _ocrStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -2552,6 +2664,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _fileConverterResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _fileConverterStatus, "ai-file-converter-status");
             });
         });
     }
@@ -2568,6 +2682,7 @@
         _fileConverterError.Value = null;
         _fileConverterResult.Value = null;
         _fileConverterDownloadUrl.Value = null;
+        _fileConverterStatus.Value = null;
 
         try
         {
@@ -2595,27 +2710,31 @@
             if (!isPdf)
             {
                 _fileConverterError.Value = $"FAIL: the converted payload ({resultData.Length} bytes, {result.MimeType}) does not start with %PDF";
+                _fileConverterStatus.Value = FailStatus($"the converted payload ({resultData.Length} bytes, {result.MimeType}) does not start with %PDF");
                 return;
             }
 
             if (declaredLength is { } length && length != resultData.Length)
             {
                 _fileConverterError.Value = $"FAIL: ResultPayloadStream.Length said {length} bytes but {resultData.Length} were read";
+                _fileConverterStatus.Value = FailStatus($"ResultPayloadStream.Length said {length} bytes but {resultData.Length} were read");
                 return;
             }
 
             _fileConverterResult.Value = $"Converted to {result.Name} ({resultData.Length / 1024} KB)\nRead through OpenReadAsync: delivered as {result.Kind}, stream length {(declaredLength?.ToString() ?? "not declared")}, starts with %PDF";
             _fileConverterDownloadUrl.Value = await UploadForDownloadAsync("converted.pdf", resultData, MimeTypes.ApplicationPdf);
+            _fileConverterStatus.Value = CheckConvertedPdf(resultData);
         }
         catch (Exception ex)
         {
             _fileConverterError.Value = ex.Message;
+            _fileConverterStatus.Value = FailStatus(ex.Message);
         }
     }
 
     private void RenderVideoGeneratorCard(UIView view)
     {
-        var videoModel = Enum.TryParse<VideoGeneratorModel>(_videoGeneratorModel.Value, out var vm) ? vm : VideoGeneratorModel.Pollo20;
+        var videoModel = Enum.TryParse<VideoGeneratorModel>(_videoGeneratorModel.Value, out var vm) ? vm : VideoGeneratorModel.GrokImagineVideo15Lite;
         var videoCapabilities = VideoGenerator.GetCapabilities(videoModel);
 
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
@@ -2835,6 +2954,8 @@
                             playsInline: true);
                     });
                 }
+
+                RenderAIStatus(view, _videoGeneratorStatus, "ai-video-generator-status");
             });
         });
     }
@@ -2844,19 +2965,21 @@
         using var _ = _videoGeneratorProcessing.AsToken();
         _videoGeneratorError.Value = null;
         _videoGeneratorResultUrl.Value = null;
+        _videoGeneratorStatus.Value = null;
 
         try
         {
             var model = Enum.Parse<VideoGeneratorModel>(_videoGeneratorModel.Value);
             var resolution = Enum.Parse<VideoGeneratorResolution>(_videoGeneratorResolution.Value);
             var aspectRatio = Enum.Parse<VideoGeneratorAspectRatio>(_videoGeneratorAspectRatio.Value);
+            var length = _videoGeneratorLength.Value;
             using var generator = new VideoGenerator(model);
 
             var config = new VideoGeneratorConfig
             {
                 Prompt = _videoGeneratorPrompt.Value,
                 NegativePrompt = _videoGeneratorNegativePrompt.Value,
-                Length = _videoGeneratorLength.Value,
+                Length = length,
                 Resolution = resolution,
                 AspectRatio = aspectRatio
             };
@@ -2883,16 +3006,18 @@
             var result = await generator.GenerateVideoAsync(config);
 
             _videoGeneratorResultUrl.Value = result.Url;
+            _videoGeneratorStatus.Value = await CheckGeneratedVideoAsync(result.Url, length, resolution);
         }
         catch (Exception ex)
         {
             _videoGeneratorError.Value = ex.Message;
+            _videoGeneratorStatus.Value = FailStatus(ex.Message);
         }
     }
 
     private void RenderSoundEffectGeneratorCard(UIView view)
     {
-        var sfxModel = Enum.TryParse<SoundEffectGeneratorModel>(_soundEffectModel.Value, out var sm) ? sm : SoundEffectGeneratorModel.ElevenLabsV2;
+        var sfxModel = Enum.TryParse<SoundEffectGeneratorModel>(_soundEffectModel.Value, out var sm) ? sm : SoundEffectGeneratorModel.ElevenLabsV3;
         var sfxCapabilities = SoundEffectGenerator.GetCapabilities(sfxModel);
 
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
@@ -3019,6 +3144,8 @@
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _soundEffectResult.Value);
                     });
                 }
+
+                RenderAIStatus(view, _soundEffectStatus, "ai-sound-effect-status");
             });
         });
     }
@@ -3029,6 +3156,7 @@
         _soundEffectError.Value = null;
         _soundEffectResult.Value = null;
         _soundEffectDownloadUrl.Value = null;
+        _soundEffectStatus.Value = null;
 
         try
         {
@@ -3050,6 +3178,7 @@
                 var fileMark = MediaProvenance.ReadMetadataMark(fileData);
                 _soundEffectResult.Value = $"Generated {file.DurationSeconds:F1}s audio ({fileData.Length} bytes, {file.MimeType}, delivered as {file.Kind})\nProvenance: {file.Provenance}, metadata mark {(string.IsNullOrEmpty(fileMark) ? "missing" : "present")}";
                 _soundEffectDownloadUrl.Value = await UploadForDownloadAsync("sound-effect.wav", fileData, file.MimeType);
+                _soundEffectStatus.Value = CheckAudioFile("sound effect", file.MimeType, fileData.Length, file.DurationSeconds);
                 return;
             }
 
@@ -3060,6 +3189,7 @@
             if (allSamples.Count == 0)
             {
                 _soundEffectResult.Value = $"Generated {durationSeconds:F1}s audio";
+                _soundEffectStatus.Value = FailStatus("the model returned no audio");
                 return;
             }
 
@@ -3071,10 +3201,12 @@
             var readBack = MediaProvenance.ReadMetadataMark(marked);
             _soundEffectResult.Value = $"Generated {durationSeconds:F1}s audio\nProvenance (MediaProvenance.Apply on the saved WAV): {marking}, read back {(string.IsNullOrEmpty(readBack) ? "missing" : "present")}";
             _soundEffectDownloadUrl.Value = await UploadForDownloadAsync("sound-effect.wav", marked, MimeTypes.AudioXWav);
+            _soundEffectStatus.Value = CheckStreamedAudio("sound effect", allSamples, generator.SampleRate, generator.ChannelCount);
         }
         catch (Exception ex)
         {
             _soundEffectError.Value = ex.Message;
+            _soundEffectStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3210,9 +3342,11 @@
                     });
                 }
 
+                RenderAIStatus(view, _videoEnhancerStatus, "ai-video-enhancer-status");
+
                 if (!string.IsNullOrEmpty(_videoEnhancerResultUrl.Value))
                 {
-                    view.Box([Media.VideoContainer, "mt-4"], content: view =>
+                    view.Box([Media.VideoContainer, "mt-4"], props: TestId("ai-video-enhancer-player"), content: view =>
                     {
                         view.VideoUrlPlayer(
                             ["w-full h-full"],
@@ -3260,6 +3394,7 @@
         _videoEnhancerError.Value = null;
         _videoEnhancerResultUrl.Value = null;
         _videoEnhancerResultInfo.Value = null;
+        _videoEnhancerStatus.Value = null;
 
         try
         {
@@ -3272,10 +3407,12 @@
 
             _videoEnhancerResultUrl.Value = result.Url;
             SetVideoEnhancerResultInfo(result);
+            _videoEnhancerStatus.Value = await CheckEnhancedVideoAsync(result);
         }
         catch (Exception ex)
         {
             _videoEnhancerError.Value = ex.Message;
+            _videoEnhancerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3285,6 +3422,7 @@
         _videoEnhancerError.Value = null;
         _videoEnhancerResultUrl.Value = null;
         _videoEnhancerResultInfo.Value = null;
+        _videoEnhancerStatus.Value = null;
 
         try
         {
@@ -3304,10 +3442,12 @@
 
             _videoEnhancerResultUrl.Value = result.Url;
             SetVideoEnhancerResultInfo(result);
+            _videoEnhancerStatus.Value = await CheckEnhancedVideoAsync(result);
         }
         catch (Exception ex)
         {
             _videoEnhancerError.Value = ex.Message;
+            _videoEnhancerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3405,6 +3545,8 @@
                     });
                 }
 
+                RenderAIStatus(view, _imageSegmenterStatus, "ai-segmenter-status");
+
                 if (_imageSegmenterImageDataUrls.Count > 0)
                 {
                     view.Flex(["mt-4 flex-wrap gap-4"], content: view =>
@@ -3440,6 +3582,7 @@
         using var _ = _imageSegmenterProcessing.AsToken();
         _imageSegmenterError.Value = null;
         _imageSegmenterResult.Value = null;
+        _imageSegmenterStatus.Value = null;
         _imageSegmenterImageDataUrls.Clear();
 
         try
@@ -3464,6 +3607,7 @@
             _imageSegmenterResult.Value = output;
 
             var dataUrls = new List<string>();
+            var masks = new List<(OutputImage Mask, byte[] Data)>();
 
             if (result.Preview != null)
             {
@@ -3472,14 +3616,18 @@
 
             foreach (var segment in result.Segments)
             {
-                dataUrls.Add($"data:{segment.Mask.MimeType};base64,{Convert.ToBase64String(await segment.Mask.GetDataAsync())}");
+                var maskData = await segment.Mask.GetDataAsync();
+                masks.Add((segment.Mask, maskData));
+                dataUrls.Add($"data:{segment.Mask.MimeType};base64,{Convert.ToBase64String(maskData)}");
             }
 
             _imageSegmenterImageDataUrls.ReplaceAll(dataUrls);
+            _imageSegmenterStatus.Value = CheckSegments(result, masks);
         }
         catch (Exception ex)
         {
             _imageSegmenterError.Value = ex.Message;
+            _imageSegmenterStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3617,6 +3765,8 @@
                     });
                 }
 
+                RenderAIStatus(view, _imageUpscalerStatus, "ai-upscaler-status");
+
                 if (!string.IsNullOrEmpty(_imageUpscalerImageDataUrl.Value))
                 {
                     view.Image(["mt-4 self-start max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
@@ -3647,6 +3797,7 @@
         _imageUpscalerError.Value = null;
         _imageUpscalerResult.Value = null;
         _imageUpscalerImageDataUrl.Value = null;
+        _imageUpscalerStatus.Value = null;
 
         try
         {
@@ -3666,15 +3817,18 @@
                 Creativity = capabilities.SupportsCreativity ? _imageUpscalerCreativity.Value : 0,
             });
 
-            var marking = ImageProvenance.GetMarkingSupport(await result.Image.GetDataAsync());
+            var upscaledData = await result.Image.GetDataAsync();
+            var marking = ImageProvenance.GetMarkingSupport(upscaledData);
 
             _imageUpscalerResult.Value =
                 $"Upscaled image {inputWidth}x{inputHeight} to {result.Image.Width}x{result.Image.Height} ({result.Image.MimeType}, provenance {marking})";
-            _imageUpscalerImageDataUrl.Value = $"data:{result.Image.MimeType};base64,{Convert.ToBase64String(await result.Image.GetDataAsync())}";
+            _imageUpscalerImageDataUrl.Value = $"data:{result.Image.MimeType};base64,{Convert.ToBase64String(upscaledData)}";
+            _imageUpscalerStatus.Value = CheckUpscaledImage(inputWidth, inputHeight, result.Image, upscaledData);
         }
         catch (Exception ex)
         {
             _imageUpscalerError.Value = ex.Message;
+            _imageUpscalerStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3762,6 +3916,8 @@
                     });
                 }
 
+                RenderAIStatus(view, _depthEstimatorStatus, "ai-depth-status");
+
                 if (!string.IsNullOrEmpty(_depthEstimatorImageDataUrl.Value))
                 {
                     view.Image(["mt-4 self-start max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
@@ -3792,6 +3948,7 @@
         _depthEstimatorError.Value = null;
         _depthEstimatorResult.Value = null;
         _depthEstimatorImageDataUrl.Value = null;
+        _depthEstimatorStatus.Value = null;
 
         try
         {
@@ -3804,12 +3961,15 @@
                 InputImage = new InputImage { Data = data, MimeType = mimeType }
             });
 
+            var depthData = await result.Depth.GetDataAsync();
             _depthEstimatorResult.Value = $"Depth map {result.Depth.Width}x{result.Depth.Height} ({result.Depth.MimeType})";
-            _depthEstimatorImageDataUrl.Value = $"data:{result.Depth.MimeType};base64,{Convert.ToBase64String(await result.Depth.GetDataAsync())}";
+            _depthEstimatorImageDataUrl.Value = $"data:{result.Depth.MimeType};base64,{Convert.ToBase64String(depthData)}";
+            _depthEstimatorStatus.Value = CheckDepthMap(result.Depth, depthData);
         }
         catch (Exception ex)
         {
             _depthEstimatorError.Value = ex.Message;
+            _depthEstimatorStatus.Value = FailStatus(ex.Message);
         }
     }
 
@@ -3960,6 +4120,8 @@
 
                     RenderMeshOperations(view, mesh);
                 }
+
+                RenderAIStatus(view, _meshGeneratorStatus, "ai-mesh-status");
             });
         });
     }
@@ -3987,6 +4149,7 @@
         _meshGeneratorError.Value = null;
         _meshGeneratorResult.Value = null;
         _meshGeneratorResultData = null;
+        _meshGeneratorStatus.Value = null;
 
         try
         {
@@ -4020,10 +4183,12 @@
             _meshGeneratorResult.Value = result.ExpiresAt != null
                 ? $"Mesh generated (links expire {result.ExpiresAt:u}{files})"
                 : $"Mesh generated{files}";
+            _meshGeneratorStatus.Value = await CheckGeneratedMeshAsync(result);
         }
         catch (Exception ex)
         {
             _meshGeneratorError.Value = ex.Message;
+            _meshGeneratorStatus.Value = FailStatus(ex.Message);
         }
     }
 }
