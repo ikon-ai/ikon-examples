@@ -1,4 +1,4 @@
-<!-- checked-against: b273060f3d3db4d3359b7e23 -->
+<!-- checked-against: 46c5d4d64b73d1fd46567480 -->
 
 # IKON C# SDK
 
@@ -28,7 +28,7 @@ dotnet add package Ikon.Sdk
 
 ## Quick Start
 
-Add `using Ikon.Sdk;` and `using Ikon.Common.Core.Protocol;` (the `UserType` and `ClientType` enums live there), then:
+Add `using Ikon.Sdk;` and `using Ikon.Common.Core.Protocol;` (the `UserType` and `ClientType` enums live there), and `using Ikon.Common.Core;` for `MediaTargets` in the media snippets below, then:
 
 <!-- ikon-example: sdk-quickstart -->
 ```csharp
@@ -325,6 +325,7 @@ Which authentication mode to use depends on where the app runs:
 |---|---|---|
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (the project's port from its last run while that is free, else the first free one from 8443), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
 | Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods`; a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`, and `ikon new --private` writes `email` and `passkey` only, so a program of a private app needs an API key |
+| Deployed, as the developer signed in on this machine | `UserLogin` | `SpaceId`, and `Environment` when the app is on another platform than the process's own sign-in (`IkonBackend.EnvironmentType.Development` for `*.dev.ikonai.app`). It uses the `ikon` CLI's stored sign-in, so it is for dev tooling and spikes, not a program deployed elsewhere, and it joins the app as that person. `JoinOnly = true` with `UserType.Machine` watches without holding the session open |
 | Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
@@ -420,7 +421,7 @@ public string RecordVisit(string key, string door)
 - **Keys.** Anyone can join an app that lets guests in, so a function that changes data checks a
   key it is given against an app secret (`ikon secret set KIOSK_KEY`), and the program reads the
   key from its environment.
-- `ContextType.Plugin`, the default, is the right one here, because the program draws no UI.
+- `ContextType.Plugin`, the default, is the right one here, because the program draws no UI. A program that shows the app to a person, such as a screen on a desk, sets `ContextType.Native` (see "A Console Program That Joins An App" above).
 - **Output.** In a program that has not used `Log.Instance` before it creates the client, the SDK
   logs at `LogFilter.Info` to stderr, so stdout holds only what the program prints. Set
   `LogFilter = LogFilter.Debug` in `IkonClientConfig` to see each step of a connect that fails.
@@ -460,7 +461,7 @@ Against a deployed app, each connect starts the app's server if none is running.
 should only join a session already running sets `JoinOnly = true` (on `ApiKey`, `UserLogin`,
 `UserToken` or `Backend`) with `UserType = UserType.Machine`: the connect then throws
 `NoLiveSessionException` when nothing runs and starts nothing, a reconnect after the server went away
-goes offline instead of retrying, and the Machine user does not hold the session open.
+goes offline instead of retrying, and the Machine user does not hold the session open. `UserType` defaults to `Human` in `ApiKey`, `UserLogin`, `UserToken` and `Backend`, so a watcher that leaves it out holds the session open.
 
 A program killed without `DisposeAsync` stays in the session for the soft-retry window ("Client
 Events" below), so the other clients see it leave only 5 minutes later. Dispose the client on Ctrl+C
@@ -588,9 +589,9 @@ is ready: it has finished joining and the app knows who it is. On joining, it is
 ready client already there, which can be after `ConnectAsync` has returned. A client that leaves
 before it is ready raises no event. `ClientUpdatedAsync` and `ClientLeftAsync` are raised only for a
 client `ClientJoinedAsync` has reported, and none of the three is raised about this client itself.
-Each event carries the other client's `Context` as `e.ClientContext`.
+Each event carries the other client's `Context` (`Ikon.Common.Core.Protocol.Context`) as `e.ClientContext`.
 
-The app is one of the clients: a `ContextType.Plugin` with `IsInternal` set. After each restart or
+The app is one of the clients: a `ContextType.Plugin` with `IsInternal` set, and on a local run its `UserId` is `local`. After each restart or
 hot reload it leaves and joins again under a new session, so `ClientLeftAsync` is raised for the old
 session and `ClientJoinedAsync` for the new one.
 
@@ -928,6 +929,8 @@ Send each frame as you encode it. The first frame of a stream announces it, and 
 size or codec announces it again. Send a keyframe first and whenever `VideoKeyFrameRequestedAsync`
 fires, because the app shows nothing until it has one. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS.
 
+The snippet uses `MediaTargets` from `using Ikon.Common.Core;`.
+
 <!-- ikon-example: sdk-send-video -->
 ```csharp
 // The SDK sends frames you have already encoded (H.264 in Annex B form, VP8 or VP9); it
@@ -994,6 +997,10 @@ await client.UpdateClientContextAsync(theme: "light");
 await client.SetPathAsync("/room/7");
 ```
 
+`IkonClientConfig.Timezone`, `ViewportWidth` and `ViewportHeight` set the same values for the connect itself, so the app has them before the first update call; left out, the timezone is this machine's and the viewport is reported as none (0). The values and the path last set with these calls are sent again after a reconnect, so a program calls them once and not from `ReadyAsync`.
+
+A desktop program's `viewportWidth` is the window's width in CSS pixels: physical pixels divided by the display's scale factor (a 2880 px wide window at 200% scaling is 1440).
+
 The app reads them from the client's context (`app.GlobalState.GetClientContext(sessionId)`) and its
 `Navigation.CurrentPath`, and its client-updated and `Navigation.PathChangedAsync` handlers run. `SetPathAsync` sends the path and returns: it does not wait
 for the app to take it, so read `Navigation.CurrentPath` on the app's side, or wait for the page's nodes,
@@ -1029,6 +1036,8 @@ catch (UploadFailedException ex)
     Console.WriteLine($"Upload {ex.UploadId} failed: {ex.Message} (retriable: {ex.Retriable})");
 }
 ```
+
+`System.Progress<T>` posts each report to the thread pool (or the captured synchronization context), so reports can reach the callback out of order; a program that needs them in order passes its own `IProgress<IkonClient.UploadProgress>` whose `Report` handles the report itself, with no post to another thread.
 
 The app's upload hooks run as for a browser upload (`onUploadPreStart`, `onUploadStart`,
 `onUploadComplete`), with the program's client as the uploader. At most 8 uploads of one client run at

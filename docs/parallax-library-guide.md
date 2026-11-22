@@ -1,4 +1,4 @@
-<!-- checked-against: d077a0b77c12768e19ba7e06 -->
+<!-- checked-against: 781cad5e7552a66dcf7ef123 -->
 
 # Ikon.Parallax Library Overview
 
@@ -406,7 +406,9 @@ view.StatCard("Revenue", "$12,400", delta: "+8%", trend: StatTrend.Up, icon: "tr
     iconTone: SemanticTone.Success);
 ```
 
-Toasts are a per-client queue rendered by a single `ToastHost` in the root UI. The queue is a `ClientReactive`, so call `Toasts.Success`/`Error`/`Show` where a client scope is active (a UI render or a client event handler); from background work outside one they throw instead of showing a toast. Capture `ReactiveScope.ClientId` in the handler, then call inside `using ReactiveScope.Use(new ClientScope(clientId))`:
+The feedback sheet that the feedback button opens shows its own texts in the client's language: the platform translates the languages of the built-in components plus Hungarian and Danish, and `UI.SetFeedbackTexts("ro", key => ...)` gives the texts (a `FeedbackText` key each) for any other language, returning null for a key to keep the platform's text. The `Screenshot…` and `Notice…` keys (a screenshot that failed, a file left out, a voice note too long) have no built-in translation, so they are English until set; those with `{0}`, `{1}` placeholders get the file name, count or limit there, and a text with a wrong placeholder falls back to English.
+
+Toasts are a per-client queue rendered by a single `ToastHost` in the root UI; its stack sits at the top of a phone screen, below the safe area and at the bottom right of a larger one. The queue is a `ClientReactive`, so call `Toasts.Success`/`Error`/`Show` where a client scope is active (a UI render or a client event handler); from background work outside one they throw instead of showing a toast. Capture `ReactiveScope.ClientId` in the handler, then call inside `using ReactiveScope.Use(new ClientScope(clientId))`:
 
 <!-- ikon-example: px-app-chrome-and-semantictone-2 -->
 ```csharp

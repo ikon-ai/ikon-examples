@@ -1,4 +1,4 @@
-<!-- checked-against: 0506e59f675f26b80af72354 -->
+<!-- checked-against: 5d9bc93a675f26b80af72354 -->
 
 # Teleport message schema specification
 
@@ -512,9 +512,22 @@ ikon teleport generate --input ./messages/a.tp --input ./messages/b.tp --type cs
 
 # Emit C++ headers for a specific schema
 ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generated
+
+# Compile a folder of schemas as one set into a Rust crate's generated/protocol module
+ikon teleport generate --input ./schema --type rust --output ./src/generated/protocol
 ```
 
-The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For IKON apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
+The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `dart`, `rust`, `cpp`, and `json-ir`. Given `.tp` files, it generates each file on its own, and a message needs an explicit `opcode`.
+
+Given one folder, it compiles every `.tp` file under it as one set, the same way `ikon schema` compiles an app's `schema/` folder. Use it for a program that is not an IKON app, or for a client of an app when you cannot edit the app. The set is compiled like this:
+
+- A message without an `opcode` gets the same app-local opcode `ikon schema` gives it, and two messages with the same opcode are refused. Every schema is compiled before any file is written, so if the compile fails, the output is left as it was.
+- Each schema becomes its own file, and a subfolder of the schema folder becomes a subfolder of the output. Rust gets a `mod.rs` in every folder.
+- Every file under `--output` with the extension of a language the verb generates (`.cs`, `.ts`, `.dart`, `.rs` or `.h`) that this compile does not write is deleted, including hand-written ones. That is why `--output` is required for a folder and must end in `generated/protocol`.
+- `--type` is required for a folder, but for files it defaults to `csharp`. With one `--type`, the files go into `--output` itself. With several, each language goes into `--output/<type>`, such as `generated/protocol/rust`. Changing from one type to several, or back, deletes the files the earlier layout wrote. `json-ir` takes files only.
+- C# is written only when `--type csharp` is given, and `--csharp-namespace` is refused without it. A schema without a `[namespaces]` section gets the namespace `--csharp-namespace` names. The default is `<folder>.Protocol`, and a folder named `schema` takes the name of the folder it is in, so `ikon-station/schema` gives `IkonStation.Protocol`.
+
+For IKON apps, `ikon schema` compiles every `schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
 
 A client outside the app's folder, such as a program in another repository, gets the bindings too when `schema/outputs.toml` names its folder. Each `[[output]]` has a `language` (`typescript`, `dart`, `rust` or `cpp`) and a `dir` relative to the app's folder. The compiler deletes every file in that folder it did not write, so `dir` must end in `generated/protocol`:
 

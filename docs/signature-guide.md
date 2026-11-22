@@ -1,4 +1,4 @@
-<!-- checked-against: 96aef1021c85b116495944aa -->
+<!-- checked-against: 96aef10204686ea85e31644b -->
 
 # IKON Signature Guide
 

@@ -1,6 +1,32 @@
-<!-- checked-against: dfd1aaeddbde1c8de3b0c442 -->
+<!-- checked-against: b15d6b94682288f3e3b0c442 -->
 
 # Flutter SDK Guide
+
+## Contents
+
+- [Why native Flutter rather than a WebView wrapper](#why-native-flutter-rather-than-a-webview-wrapper)
+- [Architecture](#architecture)
+- [Styling: shared classes, per-target overrides](#styling-shared-classes-per-target-overrides)
+- [Quick Start](#quick-start)
+- [Running on Different Platforms](#running-on-different-platforms)
+- [Authentication](#authentication)
+- [Post-quantum key exchange](#post-quantum-key-exchange)
+- [Links and Notification Taps](#links-and-notification-taps)
+- [Store Identity and App Links](#store-identity-and-app-links)
+- [Responsiveness](#responsiveness)
+- [Keyboard](#keyboard)
+- [Custom Components](#custom-components)
+- [Multi-mount apps](#multi-mount-apps)
+- [UI Without a View](#ui-without-a-view)
+- [Client Events](#client-events)
+- [Client Functions](#client-functions)
+- [Reactive Values](#reactive-values)
+- [App Messages](#app-messages)
+- [File Upload](#file-upload)
+- [Media](#media)
+- [Supported Crosswind Styles](#supported-crosswind-styles)
+- [Supported Components](#supported-components)
+- [CI/CD](#cicd)
 
 ## Overview
 
@@ -279,6 +305,8 @@ not `localhost`, and a plugged-in phone at the machine's LAN address, so it need
 network and joins as a guest (below). A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
 skips opening the web frontend in a browser tab; the web frontend still serves.
 
+On Linux, build and run prerequisites (GTK 3, libsecret, a display, and `pulseaudio-utils` for the microphone) are in "Linux Desktop" below.
+
 ### From Studio's Devices tab
 
 Studio's Devices tab runs the frontend on a phone or simulator of a connected computer without a
@@ -345,7 +373,9 @@ Audio on Linux needs a sound server (PulseAudio or PipeWire) or a sound card:
   the capture fails with `PlatformException(record, Cannot run parecord ...)`.
 - The SDK's Opus playback (`enableIkonAudioPlayback`) plays on Android, iOS and macOS only: its speaker
   output, `flutter_pcm_sound`, has no Linux, Windows or web build. On Linux it logs `Audio playback
-  failed to initialise`, and the app's audio plays only through WebRTC media.
+  failed to initialise`, and the app's audio plays only through WebRTC media. Pass your own
+  `AudioOutput` as `enableIkonAudioPlayback(client, output: ...)` to play the Opus audio on Linux
+  anyway.
 - `libpulse` is optional: without it the build warns `libpulse NOT found` and only system-audio
   loopback capture is off.
 
@@ -418,7 +448,7 @@ void main() {
 environment variables, which `Platform.environment` reads. The program needs no Flutter binding, and
 `TestWidgetsFlutterBinding.ensureInitialized()` would break it, because that binding answers every
 HTTP request with 400. Without a binding the platform plugins are not available, so the install id lasts
-for one run only, the client reports the timezone as `DateTime.timeZoneName` gives it rather than as
+for one run only (every client in the process shares it, so several guests in one process are one guest: give each local client its own `userId`, and use one process per deployed guest), the client reports the timezone as `DateTime.timeZoneName` gives it rather than as
 an IANA id (call `client.viewportUpdater.sendTimezone('Europe/Helsinki')` to give one), and the
 microphone, camera and speaker plugins do not work. Use `IkonAudioStreams` and `IkonVideoStreams` for
 media instead (see "Encoded frames without a device").
@@ -495,6 +525,8 @@ with 403.
 | --- | --- | --- |
 | Development | `<domain>.dev.ikonai.app` | `https://auth.dev.ikonai.com` |
 | Production | `<domain>.ikonai.app` | `https://auth.ikonai.com` |
+
+`IkonBackendType.development` (`api.dev.ikon.live`) is the backend that goes with the `auth.dev.ikonai.com` row. Use it for a `*.dev.ikonai.app` app in the API-key connect below.
 
 `https://<serverHost>/ikon/auth` reaches the same auth service through the app's own host, in either
 environment. `IkonNativeSignIn` below takes the same `serverHost` and `authUrl`.
@@ -659,7 +691,7 @@ The IKON tool hands out no session token for a person.
 A program, such as a test, a bot or a device without a person signing in, connects with its space's
 API key. The key is exchanged at the platform's backend, not at the app's host, so the call names
 the backend (`IkonBackendType.production` by default, or `development` for an app on
-`*.dev.ikonai.app`, which `ikon status` shows as the app's `environment`) and no app host:
+`*.dev.ikonai.app`, which `ikon status` shows as the app's `environment`; its sign-in is the `auth.dev.ikonai.com` row of the table above) and no app host:
 
 <!-- ikon-example: flutter-sdk-auth-api-key -->
 ```dart
@@ -667,13 +699,13 @@ final client = await IkonClient.connectWithApiKey(
   apiKey: 'my-api-key',
   spaceId: 'my-space-id',
   externalUserId: 'my-program-user', // the same id is the same user on every run
-  backendType: IkonBackendType.production,
+  backendType: IkonBackendType.development, // IkonBackendType.production (the default) for an app on *.ikonai.app
 );
 ```
 
 Like the other `connect*` helpers it signs in again when the cached tickets expire, registers the
 built-in client functions and sends `ClientReady`. A key the backend refuses throws
-`IkonAuthRejectedException`. It also takes `parameters`, `userType`, `joinOnly` and `surface`, as
+`IkonAuthRejectedException`; a key belongs to one platform, so the production backend refuses a development app's key with a 403 `Invalid key`, and the message then names the other backend to try. It also takes `parameters`, `userType`, `joinOnly` and `surface`, as
 `connectGuest` does.
 
 `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
@@ -1085,6 +1117,7 @@ stops it. Each `UiNode` has a `type`, an `id`, its `props` and its `children`. T
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
 | `std.file-upload`, `std.file-upload-zone` | `uploadActionId`, a prop holding the id an upload names | None: pass the id to the upload call |
+| `std.capture-button` | `label` or `aria-label`, `captureKind` (`audio` for a microphone), `captureMode` (`hold` or `toggle`) | None to call. A press is audio, not an action: the app's `onCaptureStart` and `onCaptureStop` run from a capture stream whose correlation id is the node's `onCaptureStartId` prop. A program without a microphone sends its Opus frames with `IkonAudioStreams.sendOpusFrame(..., correlationId: <that id>)` |
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The Flutter view moves the client to that path itself when the action is pressed, and back when the app refuses it; a client without the view calls the action with `sendAction`, and the app then moves it |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
@@ -1150,7 +1183,16 @@ client.sendAction(field.props['onValueChangeId'] as String, 'hello');
 // Read what a text shows
 final status = await waitForNode(ui, (node) => node.type == 'std.text' && '${node.props['content']}'.startsWith('Status:'));
 print(status.props['content']);
+
+// A node knows its parent, so a found node leads to the one around it: walk up to the tab it sits in
+UiNode? tab;
+
+for (var up = status.parent; up != null && tab == null; up = up.parent) {
+  tab = up.type == 'std.tabs-content' ? up : null;
+}
 ```
+
+`findNode` and `waitForNode` are this example's own helpers, not SDK members: copy them into the program. `UiNode.parent` is null for a root and for a node built with the plain constructor; the SDK sets it on every node of a tree it receives and keeps it up to date as updates arrive.
 
 Create the `IkonUiCore` right after the connect helper returns: the client keeps the UI messages that
 arrive before it exists and passes them to it, so the first tree is not lost. After a reconnect it asks
@@ -1446,6 +1488,8 @@ await capture.stop();
 
 // Opus playback (bundled OpusAudioDecoder + PcmStreamOutput)
 final playback = enableIkonAudioPlayback(client);
+// ... or through an output of your own; backgroundAudio then has no effect
+// final playback = enableIkonAudioPlayback(client, output: MySpeaker());
 
 // Live WebRTC A/V (peer connection to the server SFU via flutter_webrtc);
 // the Opus stack above remains the fallback when WebRTC is unavailable. The peer
@@ -1454,6 +1498,18 @@ final playback = enableIkonAudioPlayback(client);
 final webRtcMedia = enableIkonWebRtcMedia(client);
 await webRtcMedia.startCameraCapture();
 ```
+
+An `AudioOutput` is initialized once, when the first server audio stream begins (a failed attempt
+runs again when another stream begins), and is disposed with the playback handle. `writePcm` calls
+never overlap: the next frame is decoded and written only after the previous `writePcm` completes,
+so an output needs no locking and gets the frames in order. A backlog is capped at about 200 ms: when the
+output is slower than the audio, the oldest queued frames are dropped (`IkonAudioPlayback.framesDropped`
+counts them), frames that arrive while muted are dropped, and `dispose` waits for the frame being written,
+calls `stop` and drops the rest.
+
+In a program without a window (`flutter test`, no Flutter binding) the `enableIkon*` helpers and
+the plugins behind them fail with `Binding has not yet been initialized`; send and receive audio
+with `IkonAudioStreams` instead (see "Encoded frames without a device").
 
 `OpusAudioEncoder` and `OpusAudioDecoder` bring their own libopus on Android, iOS, Windows and the
 web. On Linux and macOS they open the system's, so a Linux machine needs the `libopus0` package
@@ -1503,8 +1559,10 @@ video.onKeyFrameRequested.listen((request) => print('next frame of ${request.str
 video.onStreamBegin.listen((info) => video.requestKeyFrame(info.streamId));
 ```
 
+When the camera stops, call `video.endStream('camera')`: `dispose` does not end the streams this client sends.
+
 What a client sends reaches only the app. A stream the client receives has the id
-`<sender session id>_<track id>`; `senderStreamId` on its info is the id the sender gave it.
+`<sender session id>_<track id>`; `senderStreamId` on its info is the id the sender gave it. `onFrame` is a `Stream<IkonAudioStreamFrame>` (`IkonVideoStreamFrame` for video), each with the `streamId` it belongs to and `data`, the encoded frame as a `Uint8List`, and `sourceType` on a stream's info is a `String` naming the kind of source, such as `'camera'`. An `onStreamBegin` can announce a stream whose frames this client never receives: what a client sends reaches only the app, and a picture or sound other clients should get comes from the app as a stream of its own, a relayed copy with a different id. Take frames from the `streamId` of the stream that delivers them, not from every id announced.
 `sendPcm` encodes 16-bit PCM to Opus in 20 ms frames, padding the last one when `isLast` is set;
 it throws `StateError` unless the streams were built with an encoder,
 `IkonAudioStreams(client, encoderFactory: OpusAudioEncoder.new)`.
@@ -1528,9 +1586,11 @@ SDK reports every 500 ms of playback for each stream, and at once when the state
 that plays the audio should do the same. The SDK's own Opus playback (`enableIkonAudioPlayback`)
 sends no reports.
 
-A headless client also reports its context: `IkonViewportUpdater.sendViewportSize`, `sendTheme`,
-`sendTimezone` and `sendVisibility` update what the app reads as the client's context, and
-`IkonNavigation.instance.navigateTo` changes the path the app sees. A timezone given with
+A headless client also reports its context: `IkonViewportUpdater.sendViewportSize(Size)`
+(`dart:ui`'s `Size`), `sendTheme(String)` (`'light'` or `'dark'`), `sendTimezone(String)` (an IANA
+id) and `sendVisibility(AppLifecycleState)` update what the app reads as the client's context, and
+`IkonNavigation.instance.navigateTo(String)` changes the path the app sees. `navigateTo` returns
+false before the client has connected, and the path is then not sent. A timezone given with
 `sendTimezone` is not replaced by the one the SDK looks up.
 
 ## Supported Crosswind Styles

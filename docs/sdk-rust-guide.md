@@ -1,4 +1,4 @@
-<!-- checked-against: 5e6f49d703919a30e3b0c442 -->
+<!-- checked-against: b61a6e51e53dba0ce3b0c442 -->
 
 # IKON Rust SDK
 
@@ -55,7 +55,7 @@ No mode acts as the person signed in with `ikon login`; only the .NET SDK's `Use
 
 ### API Key Authentication
 
-A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
+A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key. A key belongs to one platform: an app on `*.dev.ikonai.app` needs `BackendType::Development`, and the default `Production` backend refuses its key with a 403 `Invalid key` (or a 404 `not found`) whose error names the other backend to try.
 
 <!-- ikon-example: rust-sdk-connect -->
 ```rust
@@ -79,6 +79,21 @@ if let Ok(message) = messages.recv().await {
 }
 
 client.disconnect().await?;
+```
+
+The SDK logs through the `log` crate and prints nothing until the program installs a logger, so a failed connect shows only as the error `connect` returns (see "Logging" below for `env_logger` and `RUST_LOG`).
+
+A `main` that returns `Err` prints it with `{:?}`, as `Error: HttpStatus { status: 403, body: ... }`, which hides the message a person reads. Have `main` print the error with `{}` and exit instead, and the examples in this guide, which use `?` in a function returning `Result`, end there:
+
+<!-- example-skip: main wraps the run function of the examples around it -->
+```rust
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
+}
 ```
 
 `IkonClient::new` returns `Result<Arc<IkonClient>>`, and the client's methods take `self: &Arc<Self>`, so a function of the program's own takes the client as `fn f(client: &Arc<IkonClient>)`, and a spawned task gets `Arc::clone(&client)`.
@@ -158,7 +173,7 @@ A guest has no token to renew. The client asks for a new guest token on every `c
 
 A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token: `https://api.prod.ikon.live` (`BackendType::Production.base_url()`) for an app on `*.ikonai.app`, `https://api.dev.ikon.live` (`BackendType::Development.base_url()`) for one on `*.dev.ikonai.app`.
 
-An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
+An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`. A key client has no email either, so an app that gates a page by email or role may show it a no-permission page.
 
 <!-- ikon-example: rust-sdk-connect-user-token -->
 ```rust
@@ -205,7 +220,7 @@ A reconnect into a new session uses the same URL, so once its token has expired 
 
 | Event | When |
 |---|---|
-| `state_changed` | `Connecting`, `Connected`, `Reconnecting`, `Offline`, `Idle` |
+| `state_changed` | a `ConnectionState` (`use ikon_sdk::ConnectionState;`): `Connecting`, `Connected`, `Reconnecting`, `Offline` or `Idle` |
 | `ready` | each join, once the app knows the client: before `connect` returns, and after every reconnect |
 | `message_received` | every protocol message from the server |
 | `media` | audio and video from the app, and key frame requests (see Media) |
@@ -214,6 +229,8 @@ A reconnect into a new session uses the same URL, so once its token has expired 
 | `disconnected`, `stopping`, `error_occurred` | the link dropped, the server is stopping, a connect or reconnect failed |
 
 When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), or, for a client that is not local, the backend or the server refuses the credential (401), or the app refuses the user or the backend an unknown API key (403). `disconnect` leaves the session and goes `Idle`. From `Idle` or `Offline` a new `connect` starts a new join, so a program that must stay in the app calls `connect` again after `Offline`; on a client that is connecting or connected it fails with `SdkError::AlreadyConnected`. The HTTPS port is used only to get the session. The session itself runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees the session's traffic, and only that link dropping starts a reconnect.
+
+An API key is read once, at `IkonClient::new`. To rotate it, make a new `IkonClient` with the new key; the old client keeps signing in with the old one.
 
 `ikon stop` does not test a reconnect: the server says it is stopping (`stopping`) before it closes the link, so the client goes `Offline` and does not try again. The next `ikon run` can take another port, so a program that should keep going makes a new `IkonClient` with the port that run prints. The IKON tool has no command that drops one client's link on a local run.
 
@@ -485,6 +502,7 @@ A program can follow a value the app holds in a `Reactive<T>` (or `ClientReactiv
 
 <!-- ikon-example: rust-sdk-reactive -->
 ```rust
+// Attach before connect(), as with the function registry, so no update is missed
 let reactive = ReactiveRegistry::attach(&client, &functions).await?;
 
 // The app's `private readonly Reactive<int> _score`, found by its name
@@ -571,7 +589,7 @@ let status = ui
 println!("{:?}", status.text("content"));
 ```
 
-The first tree can arrive just after `connect` returns, so `page().root` may still be `None` then; `ui.wait_for_node(|_| true, timeout)` waits for it. `wait_for_node` returns at once when a node already matches, and otherwise waits for the update that adds one. `call_node_action` returns once the handler has run, which can be before the update it made reaches the client, so wait for the new value with `wait_for_node`, as the example above reads the status. `call_node_action` returns whether the app's handler completed; `false` means the app refused the call, for example for a control that has since been removed from the UI. A call made while the client reconnects waits for it, as a function call does.
+The first tree can arrive just after `connect` returns, so `page()` may still be `None`, or its `root` `None`, then. `page()` returns `Option<Arc<UiStream>>`, so read it with `if let Some(stream) = ui.page()` and `stream.root`, and not as a stream; `ui.wait_for_node(|_| true, timeout)` waits for it. `wait_for_node` returns at once when a node already matches, and otherwise waits for the update that adds one. `call_node_action` returns once the handler has run, which can be before the update it made reaches the client, so wait for the new value with `wait_for_node`, as the example above reads the status. `call_node_action` returns whether the app's handler completed; `false` means the app refused the call, for example for a control that has since been removed from the UI. A call made while the client reconnects waits for it, as a function call does. `SdkError::WaitTimeout` carries only what it waited for, not the tree it saw: to see why nothing matched, print `ui.describe_tree()`, which lists each stream's nodes with their type, id, `label` and `content`, or search with `stream.find_node(..)` on `ui.page()` or `ui.streams()`.
 
 The standard components put their text and labels in these props:
 
@@ -617,6 +635,8 @@ while let Ok(event) = ui_events.recv().await {
 }
 ```
 
+A node has no link to its parent: `UiStream::find_parent(child_id)` searches the stream's tree for the node whose children include the one with that id, and returns `None` for the root.
+
 Moving onto a new session ends every stream. `styles()` holds the CSS the nodes' `style_ids` refer to, and a stream's `payloads` the binary values its tree names, such as an image's bytes. A client that leaves `Opcode::GROUP_UI` out of `opcode_groups_from_server` gets no UI.
 
 ## File Uploads
@@ -628,7 +648,7 @@ Moving onto a new session ends every stream. `styles()` holds the CSS the nodes'
 let control = client
     .ui()
     .wait_for_node(
-        |node| node.text("aria-label").as_deref() == Some("Attach report"),
+        |node| node.text("uploadActionId").is_some(),
         Duration::from_secs(30),
     )
     .await?;
@@ -662,11 +682,11 @@ match client
 
 It returns once the app's `onUploadComplete` has run, with the SHA-256 the app checked. If the connection drops during an upload and the client reconnects within 45 seconds, the upload resumes from the last byte the server acknowledged. `UploadFailed::retriable` says whether sending the same file again is likely to work: true after a stall or a lost connection, false when the app refused the file or may already have stored it. At most 8 uploads per client run at once; later calls wait their turn.
 
-The id comes from an upload control the app shows that program's client, as above. It can show it to those clients alone, such as clients whose `UserType` is `Machine`, so people never see it. An app can instead register a fixed id in C# with `app.Uploads.Register("my-app.reports", onStart, onComplete)`, which the program passes as `upload_action_id` without reading the UI.
+The example matches the `uploadActionId` prop, which only an upload control has; matching a label would need the app's own wording. The control can be missing until the client acts on the UI, such as opening a screen or pressing a button that reveals it (`wait_for_node` times out with no control until then), so do that first. The id comes from an upload control the app shows to the program's client, as above. The app can show it only to some clients, such as those whose `UserType` is `Machine`, so that people never see it. An app can instead register a fixed id in C# with `app.Uploads.Register("my-app.reports", onStart, onComplete)`, which the program passes as `upload_action_id` without reading the UI.
 
 ## Media
 
-The SDK sends and receives encoded frames. The program does the encoding and decoding: for Opus, the `audiopus` crate builds its own libopus with `cmake` when the system has none, so it needs no system package. A client's audio and video reach the app only. Frames sent while the client is still joining are dropped.
+The SDK sends and receives encoded frames. The program does the encoding and decoding, and the sound device layer (capture and playback) is the program's job too: for Opus, the `audiopus` crate builds its own libopus with `cmake` when the system has none, so it needs no system package. A client's audio and video reach the app only. Frames sent while the client is still joining are dropped.
 
 ### Sending Audio
 
@@ -774,7 +794,7 @@ loop {
 
 ## App Messages
 
-An app can declare its own message types in `schema/*.tp` (see the [Teleport schema spec](teleport-schema-spec.md)) for data that does not fit a function call, such as a stream of positions. `ikon schema` generates Rust for them into `frontend-rust/src/generated/protocol/` when the app has a `frontend-rust/` folder, or into the folder a `language = "rust"` entry of the app's `schema/outputs.toml` names, such as one in the program's own crate. The generated files are modules of the program's crate: declare the folder (`mod generated { pub mod protocol; }` in `main.rs`) and depend on `ikon-protocol`, which the generated code names, at the same version as `ikon-sdk`:
+An app can declare its own message types in `schema/*.tp` (see the [Teleport schema spec](teleport-schema-spec.md)) for data that does not fit a function call, such as a stream of positions. `ikon schema` generates Rust for them into `frontend-rust/src/generated/protocol/` when the app has a `frontend-rust/` folder, or into the folder a `language = "rust"` entry of the app's `schema/outputs.toml` names, such as one in the program's own crate. If you cannot change the app, run `ikon teleport generate --input <app>/schema --type rust --output src/generated/protocol` in the program's own crate instead. It writes the same types with the same opcodes and changes nothing in the app. The generated files are modules of the program's crate: declare the folder (`mod generated { pub mod protocol; }` in `main.rs`) and depend on `ikon-protocol`, which the generated code names, at the same version as `ikon-sdk`:
 
 ```toml
 ikon-protocol = "<the ikon-sdk version>"

@@ -1,4 +1,4 @@
-<!-- checked-against: e4ec509821c2515dbf5f8677 -->
+<!-- checked-against: 9c1b44058a44335296a2f3df -->
 
 # IKON Audio & Video Guide
 
@@ -356,7 +356,7 @@ Audio and video reach only the clients of the app instance that plays them. Noth
 
 ### Surfaces
 
-A surface is a named place on clients where one picture shows. The client renders it with `view.VideoSurface(surface: "stage")`; the app plays onto the same name with `Video.Play` (a client's input, relayed) or `Video.PlayLive` (frames the app encodes). Both return a `VideoPlayback` at once. Surface names are app-wide.
+A surface is a named place on clients where one picture shows. The client renders it with `view.VideoSurface(surface: "stage")`; the app plays onto the same name with `Video.Play` (a client's input, relayed) or `Video.PlayLive` (frames the app encodes). Both return a `VideoPlayback` at once. `PlayLive` cannot read the size of frames it does not decode, so pass `width:`, `height:` and `framerate:` (default 30) for the values viewers are told; without a size they are told 0 by 0. Surface names are app-wide.
 
 A surface shows one playback at a time. A new playback on it **replaces** the current one for every viewer — even one played to fewer clients — the old one ends `Replaced`, and each viewer in the new playback's audience keeps its last picture until the new source's first keyframe, which the platform asks for at once; a viewer left out of that audience has its surface cleared at once. To show different clients different pictures, give each its own surface name. Rendering a surface never makes the app send to it: who sees a playback is its audience, the `MediaTargets` it was started with.
 
@@ -553,7 +553,7 @@ Each frame is one whole picture. For H.264 it is an Annex-B access unit with 4-b
 
 ### Raw output
 
-`Video.Raw`, a `RawVideoOutput`, is the escape hatch for an engine that manages its own streams, pacing and keyframes: `Video.Raw.SendFrameAsync(targets, streamId, data, isKey, timestamp, codec, width, height)` sends each frame at once on a stream id of the caller's choosing — no pacing, no keyframe gating, no replacing. The stream is announced to each targeted client before its first frame, `RawVideoOutput.KeyFrameRequestedAsync` reports viewers asking for a keyframe, and `CloseStreamAsync` ends it. Clients render a raw stream with `view.VideoStreamCanvas(streamId: …)`. A stream id must not be a surface name. Reach for it only with an engine that already numbers, paces and keyframes its own streams — a game streamer sending several views to a custom canvas; anything that plays to people, including an app's own encoder, is a surface.
+`Video.Raw`, a `RawVideoOutput`, is the escape hatch for an engine that manages its own streams, pacing and keyframes: `Video.Raw.SendFrameAsync(targets, streamId, data, isKey, timestamp, codec, width, height, framerate)` (`framerate` defaults to 30. It is announced to viewers and sets each frame's duration. A value that is not positive and finite throws `ArgumentOutOfRangeException`) sends each frame at once on a stream id of the caller's choosing — no pacing, no keyframe gating, no replacing. The stream is announced to each targeted client before its first frame, `RawVideoOutput.KeyFrameRequestedAsync` reports viewers asking for a keyframe, and `CloseStreamAsync` ends it. Clients render a raw stream with `view.VideoStreamCanvas(streamId: …)`. A stream id must not be a surface name. Reach for it only with an engine that already numbers, paces and keyframes its own streams — a game streamer sending several views to a custom canvas; anything that plays to people, including an app's own encoder, is a surface.
 
 ### Codecs and keyframes
 

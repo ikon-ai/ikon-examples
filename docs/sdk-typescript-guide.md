@@ -1,4 +1,4 @@
-<!-- checked-against: 71e2813fb4057cd9e3b0c442 -->
+<!-- checked-against: cd3b3a392abb7e56e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -66,17 +66,36 @@ A Node program needs no `webRtc` setting, because a runtime without `RTCPeerConn
 negotiates WebRTC; there is no `webRtc.enabled`, and `webRtc: { media: 'none' }` is the option that
 turns it off in a browser. `setLogLevel(LogLevel.WARN)` hides the SDK's info lines.
 
-Run a program that imports an app's generated message codec (`frontend-node/src/generated/protocol/*.ts`,
-see "App Messages" below) with `tsx` (`npx tsx client.ts`). `node client.ts` fails, because the codec
-imports its other files without a file extension and uses TypeScript enums, and Node's built-in
-TypeScript support handles neither. A program kept with an app goes in the app's `devices/<name>/`
-folder, with a `package.json` of its own, and imports the codec from
-`../../frontend-node/src/generated/protocol/`. A `tsconfig.json` there holding
-`{ "extends": "../../frontend-node/tsconfig.paths.json" }` makes `tsx` load the same SDK the app's
-frontend builds with, which is the platform's source when the app builds against a platform checkout.
+Run a program with `tsx`. `npx tsx client.ts` runs it in the foreground. A program started in the
+background or by a supervisor runs as `node --import tsx client.ts`, which is one process, so the
+process id you hold is the program's, where `npx` leaves a parent in between. A program that imports
+an app's generated message codec (`frontend-node/src/generated/protocol/*.ts`, see "App Messages"
+below) needs `tsx`: `node client.ts` fails, because the codec imports its other files without a file
+extension and uses TypeScript enums, and Node's built-in TypeScript support handles neither.
 
-`tsx` runs a program without type-checking it. Check it with `npx tsc --noEmit` (with `typescript`
-and `@types/node` installed) and these compiler options in that `tsconfig.json`:
+`tsx` runs a program without type-checking it. A program that uses the SDK from npm and imports no
+codec checks with `npx tsc --noEmit` (with `typescript` and `@types/node` installed) and this
+`tsconfig.json`, from `@ikonai/sdk` 1.19 on. Earlier packages' type declarations do not resolve
+under `NodeNext`, and every SDK type becomes `any` without an error:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  }
+}
+```
+
+A program kept with an app goes in the app's `devices/<name>/` folder, with a `package.json` of its
+own, and imports the codec from `../../frontend-node/src/generated/protocol/`. Its `tsconfig.json`
+extends the app's, which makes `tsx` and `tsc` load the same SDK the app's frontend builds with,
+which is the platform's source when the app builds against a platform checkout:
 
 ```json
 {
@@ -96,10 +115,53 @@ and `@types/node` installed) and these compiler options in that `tsconfig.json`:
 
 `"moduleResolution": "Bundler"` is needed for the generated codec, whose imports have no file
 extension. When the app builds against a platform checkout, the paths point at the SDK's sources,
-which read Vite's `import.meta.env`, so install `vite` too and add `"vite/client"` to `types`. A
-program that imports no codec and uses the SDK from npm can also use `"module": "NodeNext"` from
-`@ikonai/sdk` 1.19 on. Earlier packages' type declarations do not resolve under `NodeNext`, and
-every SDK type becomes `any` without an error.
+which read Vite's `import.meta.env`, so install `vite` too and add `"vite/client"` to `types`.
+
+A whole Node program: it joins with an API key, reports who joins and leaves, and prints the text of
+each screen the app sends it.
+
+<!-- ikon-example: ts-sdk-node-program -->
+```ts
+import { ContextType, IkonClient } from '@ikonai/sdk';
+import { IkonUiCore, type UiNode } from '@ikonai/sdk-ui';
+
+const client = new IkonClient({
+  apiKey: {
+    apiKey: process.env.IKON_API_KEY!, // From `ikon api-key create` in the app's folder
+    spaceId: 'your-app-id',
+    externalUserId: 'watcher-1',
+    backendType: 'production',
+  },
+});
+
+// Join, see who else is in the session, and read the screen the app sends this client
+client.onClientJoined((other) => console.log(`${other.SessionId} joined as ${ContextType[other.ContextType]}, user ${other.UserId}`));
+client.onClientLeft((other) => console.log(`${other.SessionId} left`));
+
+const uiCore = new IkonUiCore({ client });
+
+function textOf(node: UiNode): string {
+  const own = typeof node.props['content'] === 'string' ? node.props['content'] : '';
+  return [own, ...node.children.map(textOf)].filter(Boolean).join(' ');
+}
+
+uiCore.subscribeToUiUpdates(() => {
+  for (const snapshot of uiCore.uiStore.getSnapshots()) {
+    const root = snapshot.rootViewId ? snapshot.views.get(snapshot.rootViewId) : undefined;
+
+    if (root) {
+      console.log(`${snapshot.streamId}: ${textOf(root)}`);
+    }
+  }
+});
+
+try {
+  await client.connect();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}
+```
 
 ## Quick Start
 
@@ -183,9 +245,9 @@ const client = new IkonClient({
 });
 ```
 
-`userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. A local server is always running, so `local` has no `joinOnly`.
+`userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. An `apiKey` client that sets no `userType` is a `UserType.Human`, so it holds the session open. A local server is always running, so `local` has no `joinOnly`.
 
-A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with the key refused. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with the key refused. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in. A reconnect into a new session signs in with the key again, so a client built with an `apiKey` needs no renewal; to rotate the key, build a new client with the new one.
 
 ### Local Development
 
@@ -303,6 +365,8 @@ host through the `onCredentialRejected` callback. `useIkonApp` answers it by ren
 when the renewal is refused, by signing the person out and reloading the page. While the auth service
 cannot be reached, it tries the renewal again every 30 seconds.
 
+A deleted or wrong API key during a reconnect (HTTP 403) goes `offline` the same way and stops retrying: `client.lastError` and `onError` carry an `AccessDeniedError` (an `AuthenticationError`), but `onCredentialRejected` is not called, since it is only for a refused token (401). Only a new `IkonClient` with a working key connects again.
+
 To open a second session next to the app connection — a media leg to a cell room, say — use
 `createSibling`, which keeps the sibling's credential in step with this client's. A client can join
 a cell only when the cell is declared `[Cell(Access = CellAccess.Clients)]`, or was built before cells
@@ -329,7 +393,7 @@ The client tracks its connection state via the `connectionState` property:
 | `connecting` | Authentication and connection in progress, from the moment `connect()` is called; `onConnectionStateChange` reports it then |
 | `connected` | Protocol channels connected; the session is joined and ready (GlobalState received, ClientReady sent, `onReady` called) shortly after. Function calls, actions and uploads made before that wait for it |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
-| `offline` | Disconnected (timeout, server stopped, user-initiated, or a session that could not be resumed with `reconnectToNewSession: false`). An unsupported browser, an internal failure or a failed preview-mode connect leaves its error on `client.lastError`; a timeout or a failed `connect()` reports only through `onError` |
+| `offline` | Disconnected (timeout, server stopped, user-initiated, or a session that could not be resumed with `reconnectToNewSession: false`). An unsupported browser, an internal failure, a failed `connect()`, a timeout or a failed reconnect (a refused credential, no live session, a terminal answer) leaves its error on `client.lastError`, set before `onError` and the state callbacks run, and also reports it through `onError`. A client that was connected before moves to `reconnecting` after a failed `connect()` and keeps the error there until it connects. After your own `disconnect()`, `lastError` is `undefined`, so an `offline` with no `lastError` means you disconnected |
 
 Earlier than `@ikonai/sdk` 1.19, a new client is already `connecting` before `connect()`, so
 `onConnectionStateChange` is not called with `connecting` on its first connect.
@@ -580,7 +644,7 @@ it carries the message's opcode group, and the message is dropped.
 
 `sendActionCall` returns nothing and reports no failure. `sendActionCallWithResult(actionId, payload, timeoutMs)`
 returns a promise of `{ success, errorMessage }`, which resolves when the app's handler returns:
-`success` is false when it threw, and `errorMessage` is always empty. It rejects when no result
+`success` is false when it failed. `errorMessage` is empty when the handler threw, and `Unknown action` when the app has no such action for this client: one it was not given, or one the app has retired. It rejects when no result
 arrives within `timeoutMs`, 15000 by default, and the outcome is then unknown, not failed. A handler
 that waits on an AI call can take longer, so pass a longer timeout. Calling again after a rejection
 runs the handler a second time.
@@ -841,7 +905,7 @@ the app. At most 4096 calls wait, and later ones fail at once.
 A call fails at once with `Not connected` when the client is not trying to connect: before
 `connect()`, after `disconnect()`, after the server stopped, or when the reconnect has given up.
 A waiting call fails the same way when the client reaches one of those states. A call already sent when the
-connection drops fails with `Disconnected`.
+connection drops, or when the program calls `disconnect()`, fails with a `DisconnectedError` (message `Disconnected`, exported by `@ikonai/sdk`). Whether the app ran the function is unknown, so retry it after the client is connected again only when the function can safely run twice; a call that never got sent fails with `Not connected` or a timeout instead, and is safe to send again.
 `getRemoteFunctions()` is empty until the list arrives, and again from a dropped connection until
 the next join's list arrives, so await `waitForRemoteFunctions()` (`@ikonai/sdk` 1.17 or later)
 first, which waits the same 10 seconds at most. It resolves to true once the list has arrived, and to
@@ -992,11 +1056,15 @@ dropped connection, but when the server stops, the client goes `offline` and sta
 ```ts
 // A client that went offline cannot connect again, so a new client joins the app's next server 15 seconds later
 function watchVisitors(): void {
+  let retryScheduled = false;
+
   const client = new IkonClient({
     guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
     webRtc: { media: 'none' },
     onConnectionStateChange: (state) => {
-      if (state === 'offline') {
+      // A failed connect and a dropped server can both report offline: schedule the next client once
+      if (state === 'offline' && !retryScheduled) {
+        retryScheduled = true;
         setTimeout(() => {
           client.disconnect();
           watchVisitors();
@@ -1195,7 +1263,7 @@ const uiCore = new IkonUiCore({
 // Subscribe to UI updates
 const unsubscribe = uiCore.subscribeToUiUpdates((streamId, update) => {
   console.log(`UI update for stream: ${streamId}`);
-  // update.snapshot contains the parsed UI tree
+  // update.snapshot contains the parsed UI tree; uiCore.uiStore already holds this update
 });
 
 // Subscribe to style changes
@@ -1277,11 +1345,12 @@ The standard components put their text and labels in these props:
 | A control declared with a `path`: `std.button`, `std.nav-item` and others | `actionPaths`, a JSON object from the control's action id to the app path its press opens (`/stable/{value}` for a control that sends a value) | The renderer moves the page itself. To do the same, pass the path to `sendActionCall(actionId, payload, { path })`; without it the app moves the client |
 | `std.button` with an `href` (a link) | `href`, `target`, and the text as on a button | None unless the app also handles the press (`onInvokeId`, `{}`). A client follows the `href` itself |
 | `std.action-button` | `label`, `actionType` (`CopyToClipboard`, `DownloadFile`, `Share` and the others) and `actionOptionsJson`, the action's options as JSON | The action runs in the browser, so a client does it itself. `onActionCompleteId` reports it, `{"ActionType":"CopyToClipboard","Success":true}` |
+| `std.toast` | None itself: its title is a `std.text` inside a `std.toast-title` child and its description one inside a `std.toast-description` child. It sits in a `std.toast-provider` parent, and `open` is its prop | None |
 | `std.feed-scroller` | `activeIndex` when the app controls it, `slideCount`, `muted`. Each slide is a `std.feed-slide` with its `index` | `onActiveChangeId` when a slide becomes the active one and `onScrollNearEndId` near the end, the slide's index as a number (`3`); `onMuteChangeId`, `true` or `false` |
 
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
 
-A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `sendActionCallWithResult` resolves with `success: false` and an empty `errorMessage`, and the reason is only in the app's log (`ikon logs --level warn`).
+A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `sendActionCallWithResult` resolves with `success: false` and an empty `errorMessage` (not the `Unknown action` of a missing action), and the reason is only in the app's log (`ikon logs --level warn`).
 
 The `sdk-ui` library is designed to be framework-agnostic. For React integration, see `@ikonai/sdk-react-ui`.
 

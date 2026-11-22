@@ -1,4 +1,4 @@
-<!-- checked-against: 30055b4bf5418b80e3b0c442 -->
+<!-- checked-against: 2e965f159ddb9fdee3b0c442 -->
 
 # IKON C++ SDK
 
@@ -29,7 +29,7 @@ The IKON C++ SDK connects C++ applications to an IKON app. It is a header-only l
 
 ## Building a Program
 
-The SDK is headers only, with no library of its own to build. Each release is a zip on the [IKON SDK releases page](https://github.com/ikon-ai/ikon-sdk-releases/releases), under the tag `v-cpp-sdk-<version>`, and the zip is a CMake package with two targets:
+The SDK is headers only, with no library of its own to build. It is a zip on the [C++ SDK release](https://github.com/ikon-ai/ikon-releases/releases/tag/cpp-sdk), which holds only the newest version, and the zip is a CMake package with two targets:
 
 - `ikon::sdk`: the SDK's headers, C++17 and threads. A program that brings its own logger, HTTP client and network client needs only this.
 - `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLogger`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL, which `ExampleNetworkClient` needs. `ExampleHttpClient` uses WinHTTP on Windows, except for [post-quantum key exchange](#post-quantum-key-exchange); elsewhere it uses cpp-httplib over OpenSSL. The target exists only when CMake finds OpenSSL.
@@ -38,7 +38,7 @@ Compiling the SDK is slow: a translation unit that uses `IkonClient` can take se
 
 A program that adds the SDK's source folder with `add_subdirectory` or `FetchContent` gets a generated `ikon_version.h` that names the version `v0.0.0-source`. The platform accepts it, so connects work; only a release zip carries a real version.
 
-Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. A minimal `CMakeLists.txt` that downloads a release with `FetchContent`, with the zip's address and SHA-256 copied from the release:
+Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. The minimal `CMakeLists.txt` below downloads the SDK with `FetchContent`, from an address that always serves the newest version:
 
 ```cmake
 cmake_minimum_required(VERSION 3.18)
@@ -46,8 +46,7 @@ project(my_client CXX)
 
 include(FetchContent)
 FetchContent_Declare(ikon_sdk
-  URL https://github.com/ikon-ai/ikon-sdk-releases/releases/download/v-cpp-sdk-<version>/<zip name>
-  URL_HASH SHA256=<the zip's SHA-256>
+  URL https://github.com/ikon-ai/ikon-releases/releases/download/cpp-sdk/ikon-sdk-cpp.zip
 )
 FetchContent_MakeAvailable(ikon_sdk)
 
@@ -93,6 +92,7 @@ int main()
     apiKey.apiKey = "ikon-xxxxx";             // API key from portal
     apiKey.spaceId = "your-app-id";
     apiKey.externalUserId = "user-123";
+    apiKey.backendType = BackendType::Production;  // The default; Development for an app on *.dev.ikonai.app
 
     IkonClientConfig config;
     config.apiKey = apiKey;
@@ -125,7 +125,7 @@ The SDK supports five authentication modes: an API key, local development, a gue
 
 ### API Key Authentication
 
-Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
+Use this for programmatic access to an IKON app. `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key. A key belongs to one platform: an app on `*.dev.ikonai.app` needs `BackendType::Development`, and the default `Production` backend refuses its key with a 403 `Invalid key` (or a 404) whose error names the other backend to try.
 
 <!-- ikon-example: cpp-sdk-auth-api-key -->
 ```cpp
@@ -142,14 +142,17 @@ IkonClientConfig config;
 config.apiKey = apiKey;
 ```
 
+`UserType` is `Human` (the default) or `Machine` (`Unknown` is the unset value); a program that no person sits behind sets `Machine`. `IkonClientConfig::productId` (default `"ikon-sdk-cpp"`) and `description` (default `"Ikon SDK C++"`) name the program to the platform; the defaults say only that an SDK client joined, so set them to something that says what the program is. `ClientType` is `MobileWeb`, `MobileApp`, `DesktopWeb` or `DesktopApp`, which the app reads from the client's context.
+
 Set `joinOnly = true` on the `ApiKeyConfig` for a client that should join the app only while someone
 else has it running, and never start it: a device or agent that stays connected around the clock
 would otherwise keep a server running, billed to the app's organisation. When nothing is running,
-`Connect()` throws `NoLiveSessionException`, whose `retryAfter` (a `std::chrono::seconds`, empty when
+`Connect()` throws `NoLiveSessionException`, whose `retryAfter` (a `std::optional<std::chrono::seconds>`, empty when
 the backend named none) is how long the backend asks you to wait before trying again. If the server
 shuts down, the next reconnect reports that through `ErrorOccurred` and goes offline instead of
 retrying. Pair `joinOnly` with `UserType::Machine`, so the connection does not count as a person and
-does not keep the session open either.
+does not keep the session open either. `userType` defaults to `Human`, and a `Human` client holds the
+session open: a `joinOnly` client left on the default keeps the app's server running.
 
 While the app's server is starting, `Connect()` keeps retrying for up to `connectionTimeoutSec`. When
 the server refuses the connect token because it was issued for a server that has since been replaced,
@@ -464,7 +467,7 @@ if (registry.WaitForFunction("Add", std::chrono::seconds(15)))
 client.Disconnect();
 ```
 
-A call made while the client is connecting or reconnecting waits until the client is ready, then goes out after the messages that waited with it, in the order the calls were made. `CallRemote` counts that wait against its timeout and, if the client is not ready in time, throws `std::runtime_error` saying the call timed out and the client was not connected; the call is never sent. A future from `CallRemoteAsync` has no time limit. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or offline after its reconnects ran out), both throw `std::runtime_error` at once saying the client is not connected, and a call that was waiting fails the same way when the client stops trying. Once the client is ready, the function is looked up in the registry as it is at that moment, so a function the app no longer has throws "Function not found". At most 4096 calls wait at a time; more throw at once, with one warning in the log. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no reply, so it fails then with a `std::runtime_error` saying it was disconnected: `CallRemote` throws at once, and the future from `CallRemoteAsync` carries the error.
+A call made while the client is connecting or reconnecting waits until the client is ready, then goes out after the messages that waited with it, in the order the calls were made. `CallRemote(name, args, version, timeout)` takes a timeout, 30 seconds by default. It counts that wait against the timeout and, if the client is not ready in time, throws `std::runtime_error` saying the call timed out and the client was not connected; the call is never sent. A future from `CallRemoteAsync` has no time limit. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or offline after its reconnects ran out), both throw `std::runtime_error` at once saying the client is not connected, and a call that was waiting fails the same way when the client stops trying. Once the client is ready, the function is looked up in the registry as it is at that moment, so a function the app no longer has throws "Function not found". At most 4096 calls wait at a time; more throw at once, with one warning in the log. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no reply, so it fails then with a `std::runtime_error` saying it was disconnected: `CallRemote` throws at once, and the future from `CallRemoteAsync` carries the error.
 
 The app's functions belong to the app's own session, and a local run replaces that session each time the app hot reloads. When a session leaves, its functions leave the registry, and a call it has not answered fails at once with a `std::runtime_error` saying the session left. The new session registers the functions again moments later, and calls by name go to it. A call made between the two throws "Function not found", so after a hot reload wait with `WaitForFunction` before calling again.
 
@@ -508,6 +511,8 @@ if (result.is_binary())
     std::cout << "Got " << resultBytes.size() << " bytes" << std::endl;
 }
 ```
+
+A value the app sends arrives as the JSON of the C# value. A record or class keeps its C# property names, which are PascalCase (`{ "Name": ..., "Score": ... }`), so read it with `value["Name"]`. A list arrives as a JSON array and a dictionary as a JSON object keyed by the dictionary's keys.
 
 `Next()` throws `std::runtime_error` when the app's function throws, when the connection drops or the client disconnects, and when no item arrives within its timeout (30 seconds by default); a timeout leaves the stream open. Items that arrive faster than they are read wait in memory, and past 65536 unread items the stream fails and the call is cancelled on the app. A `RemoteStream` refers to the registry, so it must not outlive the `IkonClient`. Calling a function that returns a single value with `CallRemoteStream` ends the stream without an item. `CancelRemoteCall` returns false when the call had already completed. A handler this client registers takes a `byte[]` argument as a JSON binary value too, and a binary value it returns reaches the app as `byte[]`.
 
@@ -588,6 +593,16 @@ client.UpdateClientContext(update);
 ClientContextUpdate themeUpdate;
 themeUpdate.theme = "dark";
 client.UpdateClientContext(themeUpdate);
+
+// All five fields: viewport in CSS pixels, "light" or "dark", an IANA time zone id,
+// and "visible" or "hidden"
+ClientContextUpdate everything;
+everything.viewportWidth = 1920;
+everything.viewportHeight = 1080;
+everything.theme = "light";
+everything.timezone = "Europe/Helsinki";
+everything.visibility = "hidden";
+client.UpdateClientContext(everything);
 
 // Tell the app this client now shows another path, as a browser does when it navigates
 client.SetPath("/room/7");
@@ -683,7 +698,7 @@ int samplesPerChannel = opus_decode(decoder, frame.Samples.data(), static_cast<o
 
 ## Client Events
 
-Client events tell this client about the other clients in the session and about the app itself. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each handler gets the other client's `Context`: its `SessionId`, `UserId`, `ContextType`, and what it reports of its viewport, theme, timezone and visibility. `Context::ContextType` is an `int32_t` in `ikon_protocol.h`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
+Client events tell this client about the other clients in the session and about the app itself. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each handler gets the other client's `Context`: its `SessionId`, `UserId` (for a client that connected with an API key, an id the platform assigned, not its `externalUserId`; the app's own is `local`), `ContextType`, and what it reports of its viewport, theme, timezone and visibility (`ViewportWidth`, `ViewportHeight`, `Theme`, `Timezone`, `Visibility`). `SessionId` is an `int32_t` and `UserId` a `std::string`. `Context::ContextType` is an `int32_t` in `ikon_protocol.h`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
 
 <!-- ikon-example: cpp-sdk-client-events -->
 ```cpp
@@ -777,7 +792,7 @@ if (std::shared_ptr<const UIStream> page = ui.Page())
 }
 ```
 
-A `UIStream` is one mount at one moment: `category` is `"ikon-ui"` for the app's page (also `Page()`), `"ikon.platform"` for the platform's layer above it, or another mount the app declares. `Streams()` lists them all. A `UINode` has an `id`, a `type` naming the component (`"std.button"`, `"std.text-field"`), its `props` as JSON, its `children` and its `styleIds` into `Styles()`. Nodes are immutable: an update replaces the nodes on the changed path and keeps the rest, so a node read earlier stays as it was. `UINode::Find` and `UIStream::FindNode` search a tree depth first. `WaitForNode(match, timeout)` returns at once when a node already matches, else waits up to `timeout` (30 s when left out) and returns `nullptr` when none appeared.
+A `UIStream` is one mount at one moment: `category` is `"ikon-ui"` for the app's page (also `Page()`), `"ikon.platform"` for the platform's layer above it, or another mount the app declares. `Streams()` lists them all. A `UINode` has an `id`, a `type` naming the component (`"std.button"`, `"std.text-field"`), its `props` as JSON, its `children` and its `styleIds` into `Styles()`. Nodes are immutable: an update replaces the nodes on the changed path and keeps the rest, so a node read earlier stays as it was. `UINode::Find` and `UIStream::FindNode` search a tree depth first. `WaitForNode(match, timeout)` returns at once when a node already matches, else waits up to `timeout` (30 s when left out) and returns `nullptr` when none appeared. A node the screen does not have makes that wait last the whole timeout, so a program that only inspects the screen calls `WaitForFirstTree(timeout)` first: it returns the root of the first tree the app sends (`nullptr` when none arrived in time), and `UINode::Find` on it then answers at once.
 
 The standard components put their text and labels in these props:
 
@@ -785,10 +800,10 @@ The standard components put their text and labels in these props:
 |---|---|---|
 | `std.text` | `content` | |
 | `std.heading` | `content`, and `level` 1 to 6 | |
-| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label` | `onInvokeId`, `{}` |
-| `std.text-field`, `std.text-area` | `value`, `placeholder`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself |
-| `std.checkbox`, `std.switch` | `checked`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false` |
-| `std.select` | `value`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself |
+| `std.button` | `label` on a button with text only. A button with an icon or its own content has no `label`: its text is the `content` of a `std.text` child, and also its `aria-label`; `disabled` | `onInvokeId`, `{}`; absent while the button is disabled |
+| `std.text-field`, `std.text-area` | `value`, `placeholder`, `disabled`. A field label is a `std.text` node just before the field, and also the field's `aria-label` | `onValueChangeId`, the text itself; absent while the field is disabled |
+| `std.checkbox`, `std.switch` | `checked`, `disabled`. The label is a `std.text` node just after it, and also its `aria-label` | `onCheckedChangeId`, `true` or `false`; absent while disabled |
+| `std.select` | `value`, `disabled`. The label is a `std.text` node just before it, and also its `aria-label` (also on its `std.select-trigger` child). Each option is a `std.select-item` with the option's `value`, its text in a `std.text` below it | `onValueChangeId`, the option's value itself; absent while the select is disabled |
 | `std.slider` | `value`, a JSON array with one number per thumb, and `min`, `max`, `step` | `onValueChangeId` while it moves and `onValueCommitId` when it is let go, a JSON array with one number per thumb (`[0.8]`, `[0.2,0.8]`) |
 | `std.color-picker` | `value`, and `format` (`hex` by default) | `onValueChangeId` and `onValueCommitId`, the color as text in that format (`#ff0000`) |
 | `std.tabs` | `value` (`defaultValue` when the app does not control it). Each tab is a `std.tabs-trigger` with the tab's `value`, its label in a `std.text` below it. Every panel is in the tree as a `std.tabs-content`, and the open one's `value` equals the `std.tabs` node's `value` | `onValueChangeId`, the tab's `value` itself |
@@ -801,6 +816,8 @@ The standard components put their text and labels in these props:
 To find a control by its name, read its `aria-label` when it has one, else its `label`, else the text of its `std.text` children. To find a text whatever its style, match both `std.text` and `std.heading`.
 
 A payload the app cannot read, such as `0.8` for a slider instead of `[0.8]`, fails the call like a handler that throws: `CallAction` returns false, and the reason is only in the app's log (`ikon logs --level warn`).
+
+A disabled control has the `disabled` prop and no action: it is missing from `Actions()` and `GetActionId` returns empty, so `CallAction(node, prop)` on it throws `std::invalid_argument` and nothing reaches the app. A program that must press it waits for the app to enable it (`WaitForNode` with a match on `GetActionId`).
 
 `Actions()` lists a node's actions by prop: `"onInvokeId"` for a button's press, `"onValueChangeId"` for a text field's new value, `"onCheckedChangeId"` for a checkbox. `CallAction` sends `"{}"` by default; a text field's payload is the text itself, a checkbox's `"true"` or `"false"`. It blocks until the app answers and returns whether the handler completed, and throws `std::runtime_error` when not connected, on a timeout (30 s by default), and when the client moves to a new server session before the answer arrives. `StreamUpdated` and `StreamEnded` run on the receive thread, which delivers `CallAction`'s answer, so never call `CallAction` from them or from `MessageReceived`. A reconnect into the same session asks for every tree again; one into a new session ends every stream. `RequestResync(stream)` asks for a whole tree on demand.
 
