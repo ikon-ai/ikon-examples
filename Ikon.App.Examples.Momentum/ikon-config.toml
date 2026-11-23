@@ -24,7 +24,7 @@ MaxShards = 0  # The most shards one identity value runs; 0 sets no cap of the a
 # Who may enter the surface
 # [Surface.Auth]
 # Methods = ["google", "apple", "microsoft", "email", "passkey", "guest"]  # Sign-in providers from a fixed set ("google", "apple", "microsoft", "email", "passkey", "sso", "phone"; no GitHub or password), and "guest" (a user per visitor) or "global" (one shared user); neither requires sign-in, and a button calling ClientFunctions.LoginShowAsync(reason) lets a visitor sign in
-# Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; a role kept in the app's own table (profiles-and-roles guide, "App-wide roles of your own") is not checked here, so check it in the surface's code; `ikon profile role create` is for IKON platform administrators only. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
+# Roles = []  # Roles a signed-in person must hold at least one of, e.g. ["admin"]; empty admits every signed-in person. "user", "moderator" and "admin" exist in every space; a role kept in the app's own table (profiles-and-roles guide, "App-wide roles of your own") is not checked here, so check it in the surface's code; an admin of the app adds a role to the space with `ikon profile role create`. Checked when a client connects and on each [Surface("name")] call, not on a move inside the app to this surface's route, so a staff page checks the role when it renders. With Roles set, every external function needs [Surface("name")]. A local run admits your own sign-in without checking it; test a role with `ikon browse --as-user <name> --role <role>`
 # SignIn = ""  # The surface that draws this one's sign-in page in C#; empty shows the stock sign-in screen
 
 # The emailed sign-in code, how long a browser stays signed in, and the sign-in screen's text (app-structure guide)
@@ -80,6 +80,15 @@ UIActions = false  # Record each action a person runs, which a report filed from
 # Dest = ""  # Where the result goes inside the runtime folder; empty is the folder's root
 # Name = ""  # The written file's name when Archive is "none"; empty takes the URL's last segment
 
+# The app's client programs, one [[Frontend]] entry each. 'ikon frontend add <kind>' writes the entry. The source is in frontend-<Kind>/, or in frontend-<Kind>-<Name>/ when the name is not the kind, so an app can have several frontends of one kind. frontend-node and frontend-flutter are frontends without an entry (app-structure guide, "Frontends")
+# One client program of the app
+# [[Frontend]]
+# Name = ""  # Unique in the app, a lowercase label; 'ikon frontend build <Name>' and the other frontend commands take it
+# Kind = ""  # What builds it: a kind 'ikon frontend list --available' shows, such as "atech", "cpp" or "rust"
+# Connect = ""  # For a frontend installed on hardware: "local" connects it to 'ikon run' on this computer, and a target's name connects it to that target's deployed app. Empty means the target the install command runs for. 'ikon device install' takes --local and --target to override the setting for one install
+# Join = ""  # For a frontend installed on hardware and connected to a deployed app: "wake" (the default) starts the app when it is not running, "join" connects only while it runs
+# Surface = ""  # For a frontend installed on hardware: the [[Surface]] its hardware enters, by name; empty is the app's default surface. Give hardware a surface of its own with Presence = false, because a small device does not have the memory for the list of everyone else in the session
+
 # Commands the IKON tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
 [Scripts]
 PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'; a program that must run on every build (ikon build, run and deploy) is an MSBuild BeforeBuild target in the app's csproj instead (guide app-container)
@@ -95,6 +104,10 @@ AssociatedDomains = []  # Hostnames besides the app's own whose https links open
 # What activating a deployed version does
 [Activation]
 StopSessions = true  # Stop every session of the app, so every client reconnects to the new version; false stops only yours
+
+# What 'ikon deploy' checks before it builds
+[Deploy]
+RequireGates = false  # true: 'ikon deploy' deploys only if the check gates in .ikon/gates pass against the live local run, as --require-gates does; --no-require-gates skips them for one deploy, and an IKON tool older than this key deploys without running them (app-structure guide)
 
 # Where this file deploys to, written by 'ikon link'
 [Target]
