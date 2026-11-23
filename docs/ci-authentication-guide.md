@@ -1,4 +1,4 @@
-<!-- checked-against: ab1e568859a1df1ae3b0c442 -->
+<!-- checked-against: a22c274559a1df1ae3b0c442 -->
 
 # Authenticating the IKON tool in CI
 
@@ -146,7 +146,9 @@ A service token acts as **you**. It carries the same access to the platform your
 
 ## Troubleshooting
 
-**`The ... service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, has passed its expiry, or its account no longer exists. Create a new one and update the secret. The same warning follows a `429` from the exchange's rate limit (300 a minute per caller), which many runners behind one address can hit while the token is still valid; a new token does not help there.
+**`The ... service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, has passed its expiry, or its account no longer exists. Create a new one and update the secret. The same refusal follows a `429` from the exchange's rate limit (300 a minute per caller), which many runners behind one address can hit while the token is still valid; a new token does not help there. A command that needs a sign-in fails with this error, and the tool never falls back to a sign-in saved on the machine, so on your own computer a stale token in the variable stops your commands instead of running them as you: fix the variable, or unset it to use your own sign-in.
+
+**`Could not exchange the ... service token in IKON_SERVICE_TOKEN`** — the exchange did not answer (a network failure, a timeout or a `5xx`), so the token may well be fine. The command fails rather than running as another sign-in; run it again.
 
 **`The ... service token in IKON_SERVICE_TOKEN expires on ...`** — advisory, printed once per run inside the token's last 14 days. Nothing is wrong yet: create the replacement and update the secret before that date.
 

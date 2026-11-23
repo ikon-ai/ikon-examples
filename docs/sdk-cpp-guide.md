@@ -1,4 +1,4 @@
-<!-- checked-against: 2e965f159ddb9fdee3b0c442 -->
+<!-- checked-against: 79bf1e0ac1ec6daae3b0c442 -->
 
 # IKON C++ SDK
 
@@ -160,7 +160,7 @@ or because it has expired, `Connect()` stops retrying and asks `/init` for a new
 one is refused too, it throws `ServerChangedException`. The API key is still valid, so call `Connect()`
 again later. When a server answers that it is full, `Connect()` asks `/init` again up to three times,
 naming the full servers so a sharded app places the person on another shard, and then throws
-`ServerFullException`.
+`ServerFullException`. When no server answers (the network is down, the host does not resolve, a port refuses the connection), `Connect()` throws `ServerUnreachableException`, which says nothing about the credentials, so retry it later. A server that answers with an error status is never this: it is one of the exceptions above or below. The example HTTP client reports an unreachable server as `response_code` -1, and a custom `IHttpInterface` does the same with a `response_code` of 0 or less.
 
 When the platform no longer accepts the client, `Connect()` throws at once, and a reconnect reports it
 through `ErrorOccurred` and goes offline, because only a new build fixes it:
@@ -240,7 +240,7 @@ config.initialPath = "/menu";
 
 A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token: `https://api.prod.ikon.live` for an app on `*.ikonai.app`, `https://api.dev.ikon.live` for one on `*.dev.ikonai.app`.
 
-An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
+An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until then. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
 <!-- ikon-example: cpp-sdk-auth-user-token -->
 ```cpp
@@ -391,9 +391,11 @@ The app learns which user a client belongs to only when the client reports ready
 
 ### The App's Own Messages
 
-An app declares its own messages in `schema/*.tp`. `ikon schema` compiles them into one header per message, in namespace `ikon::app`: into `frontend-cpp/` when the app has one, and into every folder `schema/outputs.toml` names for `cpp`, such as a program in another repository (see `teleport-schema-spec.md`). A header includes `ikon_protocol.h`, so put the SDK's folder on the include path.
+An app declares its own messages in `schema/*.tp`. `ikon schema` compiles them into one header per message, in namespace `ikon::app`: into `frontend-cpp/` when the app has one, and into every folder `schema/outputs.toml` names for `cpp`, such as a program in another repository (see `teleport-schema-spec.md`). A header includes `ikon_protocol.h`, so put the SDK's folder on the include path. If you cannot change the app, run `ikon teleport generate --input <app>/schema --type cpp --output <folder>/generated/protocol` in the program's own repository instead. It writes the same headers with the same opcodes and changes nothing in the app.
 
 `SendMessage` sends one, and `OnMessage<T>` calls a handler with every message of type `T` the client receives, decoded, with the sender's session id. The opcode, payload version and flags come from the type, so the program never names them. The handler lasts across reconnects until `Unsubscribe()`; register it before `Connect()` to see the first message the app sends once the client is ready. It runs on the receive thread, so it should return quickly and must not wait for a remote call's result. A handler that throws, or a message that does not decode, is logged as an error; the other handlers still get the message.
+
+Code that cannot reach the client, such as a source file kept free of `ikon_client.h` so it compiles fast, encodes a message with `ProtocolMessage::Create(0, message)`. Code that has the client then sends it with `IkonClient::SendEncodedMessage`, which sets the client's session id as the sender.
 
 <!-- ikon-example: cpp-sdk-app-messages -->
 ```cpp
@@ -957,7 +959,7 @@ private:
 
 On Linux and macOS, a write to a connection the peer has reset raises `SIGPIPE`, which ends the program by default. A network client must turn it into a failed write: `ExampleNetworkClient` sets `SO_NOSIGPIPE` on the socket where it exists (macOS) and on Linux gives OpenSSL a socket BIO of its own (`ExampleSocketBio`) that writes with `send(..., MSG_NOSIGNAL)`. A client that writes with `send` itself passes `MSG_NOSIGNAL` the same way.
 
-The SDK calls `SetVerifyServerCertificate` before each `Connect`: `true` (the default) for the cloud, and `false` only when `IkonClientConfig::local` is set, because a local IKON server's certificate is self-signed. `ExampleNetworkClient` verifies the chain against the system's trusted roots (the Windows root store on Windows, OpenSSL's default paths elsewhere) and checks the host name or IP address; when verification fails, `Connect` throws `std::runtime_error` naming the host and the reason.
+The SDK calls `SetVerifyServerCertificate` before each `Connect`: `true` (the default) for the cloud, and `false` only for a local IKON server, whose certificate is self-signed: when `IkonClientConfig::local` is set, or when `externalConnectUrl` is on this computer (`localhost`, `127.0.0.0/8`, `::1`). `ExampleNetworkClient` verifies the chain against the system's trusted roots (the Windows root store on Windows, OpenSSL's default paths elsewhere) and checks the host name or IP address; when verification fails, `Connect` throws `std::runtime_error` naming the host and the reason.
 
 ## Advanced Configuration
 
@@ -984,6 +986,8 @@ An attempt that cannot open a connection at all, as while the network is down, c
 
 A resumed join ends the same way as a new one: the client announces its shared functions, reports ready, and `Ready` runs.
 
+To test the program's own recovery, call `IkonClient::DebugDropConnection()`. It closes the live connection as a network failure does, without telling the server the client is leaving, and the client goes `Reconnecting` and back to `Connected` as after any drop. It does nothing when there is no connection. It works with any `INetworkInterface`; `ExampleNetworkClient::ForceClose()` does the same on the example client. `SendMessage` delivers at most once: a message sent while the connection is down is lost, and one sent just before the drop may or may not have arrived, so resend after `Ready` runs again what the app needs.
+
 ### Post-Quantum Key Exchange
 
 <!-- ikon-example: cpp-sdk-require-post-quantum -->
@@ -1008,6 +1012,27 @@ bool OfferOnlyPostQuantum(SSL_CTX* context)
 ```
 
 `ExampleHttpClient` and `ExampleNetworkClient` honour the flag and need OpenSSL 3.5 or later for it. With an older OpenSSL their `SupportsPostQuantumOnly()` returns `false`, so `Connect()` refuses. WinHTTP has no setting for the key exchange group, so on Windows `ExampleHttpClient` sends a request that requires post-quantum key exchange through cpp-httplib over OpenSSL instead. That needs `CPPHTTPLIB_OPENSSL_SUPPORT`, which `ikon::sdk_examples` defines; without it, `SupportsPostQuantumOnly()` returns `false`.
+
+### Small Devices
+
+Two settings are for a microcontroller, where memory is counted in kilobytes.
+
+<!-- example-skip: the callback's body belongs to the microcontroller's own toolchain -->
+```cpp
+ikon::IkonClientConfig config;
+config.lowMemory = true;
+
+// Called on the calling thread just before the SDK starts one of its threads
+ikon::BeforeThreadStart() = [](const char* role) {
+    // role is "send", "receive", "dispatch" or "reconnect"
+};
+```
+
+With `lowMemory` set, the client releases the global state it holds before it decodes the next one, so the two are never in memory together. While the next one is being decoded, `GetGlobalState` and `SnapshotGlobalState` return an empty state.
+
+`ikon::BeforeThreadStart()` is for a platform where the thread that creates another sets its stack size, such as ESP-IDF's pthreads: set the size for the role there, so each thread takes only what it needs. Set it once, before the first `Connect()`.
+
+The global state lists every client of the session the device is told about, and the client decodes all of it. On an ESP32-S3 with 512 KB of memory, a client connects to a session with a few other clients and runs out of memory in one with twenty. So have a device enter a surface with `Presence = false` in the app's config: its global state then lists only the app's own clients, however many people are in the session.
 
 ### Protocol Options
 
@@ -1052,6 +1077,7 @@ config.parameters = {
 | `RemoteStream` | The items of a remote function that returns a stream, from `CallRemoteStream` |
 | `FunctionStreamWriter` | What a handler registered with `RegisterStreamFunction` writes its items to |
 | `FunctionCallCancelledException` | Thrown by the future of a call cancelled with `CancelRemoteCall` |
+| `ServerUnreachableException` | Thrown by `Connect()` when no server answers: no network, no DNS answer, a refused port |
 | `JoinTimeoutException` | Thrown by `Connect()` when the server does not finish the join within `joinTimeoutSec` |
 | `ClientContextUpdate` | The context values `UpdateClientContext` changes; empty fields keep their value |
 | `ReactiveRegistry` | Follows the app's reactive values, from `client.Reactives()` |

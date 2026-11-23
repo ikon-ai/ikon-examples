@@ -1,4 +1,4 @@
-<!-- checked-against: bf6267af9d0cbed8e3b0c442 -->
+<!-- checked-against: a8d32b109d0cbed8e3b0c442 -->
 
 # IKON Dev Channel Guide
 
@@ -56,6 +56,19 @@ needs to change.
 That line is safe to commit — it is a registry mapping, not a credential. The credential goes into your
 own `~/.npmrc` and is written by `ikon login`.
 
+**Flutter** — `ikon_sdk` in `frontend-flutter/pubspec.yaml` is pinned to one dev build, without a `^`:
+
+```yaml
+ikon_sdk: 1.21.1-dev.87
+```
+
+pub.dev has only released versions, so the dev builds are on the IKON package feed. The tool downloads
+the pinned build into `frontend-flutter/.ikon/ikon_sdk` and writes a `pubspec_overrides.yaml` that
+points pub at it. Both are gitignored, and every `ikon` command that runs pub (`ikon run --flutter`,
+`ikon distribute`, `ikon clone`, `ikon link`) downloads the build again when the copy is missing. A
+plain `flutter pub get` in a fresh clone fails with "doesn't match any versions" until one of those
+commands has run. `ikon link --flutter` on a dev-channel app pins the dev build from the start.
+
 ## Reading a dev version
 
 ```text
@@ -75,10 +88,10 @@ plain `ikon update` brings its TypeScript SDK back to the release as well.
 ## The seven-day window
 
 A new dev build is published on **every push to main that touches it** — the .NET libraries when the
-push changed .NET sources, the TypeScript SDK when it changed TypeScript sources — so a fix is on the
-feed as soon as it lands. The version counter counts every commit, including ones that change neither
-.NET nor TypeScript sources, so dev ordinals skip numbers. The newest .NET or TypeScript version on
-the feed is still the newest build of those sources, whatever its ordinal.
+push changed .NET sources, the TypeScript SDK when it changed TypeScript sources, the Dart SDK when it
+changed Dart sources — so a fix is on the feed as soon as it lands. The version counter counts every
+commit, including ones that change none of those sources, so dev ordinals skip numbers. The newest
+version of each SDK on the feed is still the newest build of its sources, whatever its ordinal.
 
 A nightly retention job then deletes dev versions older than seven days, always keeping the newest few
 whatever their age, so the channel can never be emptied even if nothing is pushed for a while. There
@@ -95,7 +108,8 @@ What this means in practice:
 - **An npm install failing with a 404 on an `@ikon-ai/*` package almost always means an expired dev pin.**
   The npm alias names one exact version; the .NET pin is a minimum, so its restore takes the next
   newer build with warning NU1603 instead of failing. Run `ikon update` to move to a current build, or
-  `ikon update stable` to leave the channel.
+  `ikon update stable` to leave the channel. The Flutter pin names one exact build too, and the tool
+  says when the build it names has been deleted.
 
 ## The IKON tool on the dev channel
 
@@ -139,12 +153,14 @@ nuget.org or npmjs. `ikon login` configures a developer machine; for CI, set the
 token in `IKON_GITHUB_IKON_PACKAGES_READ_ACCESS_TOKEN` (or set `IKON_SERVICE_TOKEN` so the tool fetches
 it) and make sure the `@ikon-ai` scope mapping in `frontend-node/.npmrc` is committed. The IKON tool
 passes that token only to the `dotnet` and `npm` processes it starts itself, so restore through
-`ikon build` rather than a bare `dotnet restore` or `npm ci`.
+`ikon build` rather than a bare `dotnet restore` or `npm ci`. Build a Flutter frontend with
+`ikon distribute`, which downloads the pinned `ikon_sdk` with the same token, rather than with a
+bare `flutter build`.
 
 ## What the dev channel cannot fix
 
-It carries **libraries** — the .NET packages and the TypeScript SDK, which ship together so their
-protocol bindings stay in step — and the IKON tool. It does **not** carry the backend, Canvas, or the servers, all of which
+It carries **libraries** — the .NET packages and the TypeScript and Dart SDKs, which ship together so
+their protocol bindings stay in step — and the IKON tool. It does **not** carry the backend, Canvas, or the servers, all of which
 release on their own schedule. A fix that needs a change on those still waits for that component's
 release, and a dev library that depends on such a change will not work against production until then.
 

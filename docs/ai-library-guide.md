@@ -1,4 +1,4 @@
-<!-- checked-against: 6c36516e86c5f0258ba033ba -->
+<!-- checked-against: 0fa13f153a3d450c8ba033ba -->
 
 # Ikon.AI Library Overview
 
@@ -102,7 +102,7 @@ failure means for the model:
 | `Unavailable` | The provider no longer serves the model, the model is retired (`ModelRetiredException`), or it has no route in the regions the call names (`RegionNotSupportedException`) | Move to another model; the message names the successor of a retired one |
 | `AccessDenied` | The key was missing, refused or not allowed to call the model | Another vendor's model, or tell whoever holds the key |
 | `CreditExhausted` | The provider account behind the key has no credit left | Another vendor's model, or tell whoever pays the account |
-| `NotAllowed` | The organisation's plan, its admin or a monthly cap refuses this model, or its EU-only region policy allows none of the model's routes (`AIRegionPolicyViolationException`) | Another model may be allowed; the `AIAccessDeniedException` message is safe to show |
+| `NotAllowed` | The organisation's admin or a monthly cap refuses this model, or its EU-only region policy allows none of the model's routes (`AIRegionPolicyViolationException`) | Another model may be allowed; the `AIAccessDeniedException` message is safe to show |
 | `Quality` | The model answered, and the answer broke the contract (no content, a refusal to answer, an unusable tool call, a reply that failed validation) | Try again or reword; another vendor mostly gives another rejected answer |
 | `Unknown` | Nothing identified the cause | Treat it as a real failure: show it, do not loop |
 

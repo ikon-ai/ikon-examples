@@ -1,4 +1,4 @@
-<!-- checked-against: b15d6b94682288f3e3b0c442 -->
+<!-- checked-against: 8a9d0419682288f3e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -190,6 +190,8 @@ dependencies:
 flutter:
   uses-material-design: true
 ```
+
+`ikon_sdk` depends on `flutter_secure_storage ^11` (it keeps the install id and the native sign-in), so an app that lists the package itself uses a compatible version.
 
 ### 3. lib/main.dart
 
@@ -516,6 +518,8 @@ final client = await IkonClient.connectGuest(
 );
 ```
 
+If the app's default surface requires sign-in, the connect fails with 403 `Surface 'desk' requires sign-in with one of: ...`, which also lists the surfaces that admit guests; pass `surface:` with one of them (see Entering a surface).
+
 `serverHost` is the host of the app's `url` that `ikon app show <app-id>` prints from any folder (`ikon status`
 shows it as `cloudUrl` only in a folder linked to the app), and `authUrl` is the
 auth service of the app's environment. The auth service of the other environment refuses the app
@@ -688,6 +692,8 @@ The IKON tool hands out no session token for a person.
 
 ### Deployed Apps — API Key
 
+A program with no window that joins with an API key combines this section with "A program without a window" above: run it as a test file under `flutter test`, make the key with `ikon api-key create --app-id <id> --format json --output key.json`, and call `IkonClient.connectWithApiKey` below.
+
 A program, such as a test, a bot or a device without a person signing in, connects with its space's
 API key. The key is exchanged at the platform's backend, not at the app's host, so the call names
 the backend (`IkonBackendType.production` by default, or `development` for an app on
@@ -711,7 +717,9 @@ built-in client functions and sends `ClientReady`. A key the backend refuses thr
 `ikon api-key create` in the app's folder makes an API key and prints it once. `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key.
 
 The user an API key connects as is the program's own: it is never one of the app's existing people
-and has no email, so a role the app gives by email does not reach it. A program that acts as a person signs them in instead, as the next section shows.
+and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the
+app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does,
+refuses it until then. A program that acts as a person signs them in instead, as the next section shows.
 
 A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, throws `IkonAuthRejectedException` with `statusCode` 403 and `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
@@ -754,13 +762,19 @@ The `connect*` helpers send `ClientReady` before they return, and so does `IkonC
 client built from an auth result (see "A client built from an auth result"). Every reconnect sends it
 again, also one that resumes the same session.
 
-`IkonClient.state` says where the connection is, and `onStateChange` reports each change: `idle`
-before the first connect, `connecting` during it, `connected`, `reconnecting` from the moment a drop
-is seen until a reconnect's connection opens, and `offline` or `offlineError` once the client has
-stopped trying. `dispose()` sets `idle` again, and that change is the last `onStateChange` reports. A UI that shows the connection watches `onStateChange`. Work that must not send while the app
+`IkonClient.state` says where the connection is, and `onStateChange` reports each change. The `IkonConnectionState` values are:
+
+- `idle`: before the first connect, and after `dispose()`.
+- `connecting`: during the first connect.
+- `connected`: the connection is open.
+- `reconnecting`: from the moment a drop is seen until a reconnect's connection opens.
+- `offline`: the connection closed and the client is not reconnecting.
+- `offlineError`: the connection failed and the client has stopped trying; `lastError` says why when no later attempt can fix it.
+
+The client reaches `offline` or `offlineError` once it has stopped trying. `dispose()` sets `idle` again, and that change is the last `onStateChange` reports. A UI that shows the connection watches `onStateChange`. Work that must not send while the app
 cannot be reached watches readiness instead, below.
 
-`IkonClient.debugDropConnection()` closes the connection as a network failure does, without telling the server the client is leaving, and the client reconnects as after any drop. It does nothing unless the client is connected. It is for tests: a test calls it to simulate a drop and check the program's own recovery against a deployed app, whose socket a test cannot reach.
+`IkonClient.debugDropConnection()` closes the connection as a network failure does, without telling the server the client is leaving, and the client reconnects as after any drop. It does nothing unless the client is connected. It is for tests: a test calls it to simulate a drop and check the program's own recovery against a deployed app, whose socket a test cannot reach. It is marked `@visibleForTesting`, so the analyzer warns outside a test file. A recovery check in a program's own tool puts `// ignore: invalid_use_of_visible_for_testing_member` on the line before the call.
 
 A connect that reaches no server (no network, no DNS answer, a refused port) throws `IkonServerUnreachableException` from `connectGuest`, `connectWithToken`, `connectWithApiKey`, `connectWithUrl` and `connectLocal`, and says nothing about the credentials, so the program retries it later. A refusal is an `IkonAuthRejectedException`.
 
@@ -1274,6 +1288,7 @@ Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and 
 - `ikon.client.scrollTo` — a no-op that returns true
 - `ikon.client.getUrl` / `setUrl` — a URL stack that `setUrl` pushes or replaces; the back gesture pops it and reports the path underneath
 - `ikon.client.goBack` — the server's `Navigation.BackAsync`: `IkonNavigation.instance.goBackOr(fallbackPath)` pops one entry as the back gesture does, or, with nothing to pop, replaces the current entry with the fallback path; either way the new path is reported, except that a client already on the fallback path reports nothing and returns true
+- `ikon.client.openExternalUrl` — the server's `ClientFunctions.OpenExternalUrlAsync`: opens a URL in the app the system picks (via `url_launcher`, as a link does), such as the browser for a web page or the mail app for a `mailto:` address; returns false when no app opens it, and for a URL without a scheme or a `javascript:` one
 - `ikon.client.getLocation` — geolocation (via `geolocator`)
 - `ikon.client.getNotificationPermission` / `showNotification` — local notifications (via `flutter_local_notifications`, permission requested lazily on first send)
 - `ikon.client.getPushSubscription` — FCM token for offline push (returns null unless the app wires `ikonFcmTokenProvider`; Firebase stays opt-in)
@@ -1376,7 +1391,7 @@ An app can declare its own messages in `schema/*.tp` and exchange them with clie
 for data that changes too often for the UI or a function call, such as cursors or game input. `ikon
 schema` (also run by `ikon build` and `ikon run`) generates a Dart class for each into
 `frontend-flutter/lib/generated/protocol/`; a client outside the app's folder gets them from the
-folder `schema/outputs.toml` names (see the Teleport schema spec). Each class implements
+folder `schema/outputs.toml` names (see the Teleport schema spec). If you cannot change the app, run `ikon teleport generate --input <app>/schema --type dart --output lib/generated/protocol` in the program's own package instead; it writes the same classes with the same opcodes and changes nothing in the app. Each class implements
 `TeleportMessage`, and its static `teleportMessageType` carries its opcode, payload version and
 decoder, so a client never names an opcode:
 
@@ -1499,6 +1514,15 @@ final webRtcMedia = enableIkonWebRtcMedia(client);
 await webRtcMedia.startCameraCapture();
 ```
 
+| Member | Signature | Notes |
+| --- | --- | --- |
+| `AudioOutput.initialize` | `Future<void> initialize({int sampleRate = 48000, int channels = 2})` | Called once with the stream's format, 48000 Hz and 2 channels unless the stream says otherwise |
+| `AudioOutput.writePcm` | `Future<void> writePcm(Uint8List pcmSamples)` | 16-bit interleaved PCM |
+| `AudioOutput.stop`, `dispose` | `Future<void> stop()`, `Future<void> dispose()` | |
+| `AudioOutput.volume`, `muted` | `set volume(double)`, `set muted(bool)` | |
+| `MicSource.start` | `Future<bool> start({required int sampleRate, required int channels, required int frameSizeInSamples, bool autoGain, bool echoCancel, bool noiseSuppress, String? deviceId, required Future<void> Function(Uint8List pcmFrame) onFrame})` | `IkonAudioCapture` passes `frameSizeInSamples` 960, a 20 ms Opus frame per channel at 48 kHz; `onFrame` gets one interleaved 16-bit frame of that size; false when the recorder did not start |
+| `MicSource.stop`, `dispose` | `Future<void> stop()`, `Future<void> dispose()` | |
+
 An `AudioOutput` is initialized once, when the first server audio stream begins (a failed attempt
 runs again when another stream begins), and is disposed with the playback handle. `writePcm` calls
 never overlap: the next frame is decoded and written only after the previous `writePcm` completes,
@@ -1529,6 +1553,20 @@ shape values an `IAudioAnalyzer` sends with it, so lip-sync avatars and level me
 share/clipboard actions through `IkonShare`) and can be passed to
 `IkonParallaxView(mediaManager: ...)`.
 
+To draw the app's video yourself instead of through `IkonParallaxView`, bind the track `videoStreamForStreamId` returns to a `RTCVideoRenderer` from `flutter_webrtc`:
+
+<!-- ikon-example: flutter-sdk-receive-video -->
+```dart
+// The app's video arrives as a WebRTC track named by the stream id the app gave it.
+// The stream is null until it exists, and the media object notifies when that changes
+final renderer = RTCVideoRenderer();
+await renderer.initialize();
+void bind() => renderer.srcObject = webRtcMedia.videoStreamForStreamId(streamId);
+webRtcMedia.addListener(bind);
+bind();
+return RTCVideoView(renderer);
+```
+
 ### Encoded frames without a device
 
 A program without a microphone, camera or Flutter view, such as a test or a bridge from another
@@ -1558,6 +1596,8 @@ video.sendFrame(
 video.onKeyFrameRequested.listen((request) => print('next frame of ${request.streamId}: a keyframe'));
 video.onStreamBegin.listen((info) => video.requestKeyFrame(info.streamId));
 ```
+
+`sendFrame` is fire-and-forget: it returns nothing and throws nothing when the app does not take the frame, so check that frames arrive in the app with `ikon logs`.
 
 When the camera stops, call `video.endStream('camera')`: `dispose` does not end the streams this client sends.
 

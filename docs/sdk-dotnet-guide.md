@@ -1,4 +1,4 @@
-<!-- checked-against: 46c5d4d64b73d1fd46567480 -->
+<!-- checked-against: a37134ab4b73d1fd46567480 -->
 
 # IKON C# SDK
 
@@ -58,7 +58,15 @@ client.MessageReceivedAsync += async e =>
     Console.WriteLine($"Received: {e.Message.Opcode}");
 };
 
-await client.ConnectAsync();
+try
+{
+    await client.ConnectAsync();
+}
+catch (HttpRequestException ex)
+{
+    // A first connect that is refused throws, such as 403 Invalid key for a deleted key
+    Console.WriteLine($"Connect refused: {ex.Message}");
+}
 ```
 
 `ContextType` defaults to `ContextType.Plugin`, for a program. A client a person uses sets
@@ -156,6 +164,8 @@ var config = new IkonClientConfig
     }
 };
 ```
+
+The key signs in as the app's own user `ExternalUserId`: the same id is the same user on every connect, and it has no email, so it holds only the app's default role. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one. That works even before its first connect.
 
 A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with 403 `Invalid key`, the backend's answer to a key it does not know. That 403 is about the key, not the app refusing the user; a key of another app gets 403 `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
@@ -272,7 +282,8 @@ device id is a new guest. If the app's guest entries include "global", the devic
 all guests share one user. If the app lets no guests in, or the surface the program enters
 (`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left or the one with
 neither `Routes` nor `Host`, else the first declared) does not, the connect
-fails with a 403. `Environment` (`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the
+fails with a 403. The 403 message names the surfaces that admit guests; pass `surface:` (`IkonClientConfig.Surface`)
+when the default surface refuses guests. `Environment` (`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the
 platform the app is on, Development or Production. Null uses the platform this process signed in to.
 A standalone program has not signed in, so it must set `Environment`; otherwise `ConnectAsync` throws
 `ArgumentException` ("Guest authentication needs the Development or Production platform, not
@@ -298,7 +309,7 @@ deploy or by `ikon run`. Create it from the app's folder with `dotnet new consol
 which puts `<Name>.csproj` directly in `devices/<name>/` (the `device-typed-messages` pattern's
 csproj lines expect it there), and add the package from inside `devices/<name>/` with
 `dotnet add package Ikon.Sdk --version <version>`, taking the `Ikon.Sdk` version the app's csproj
-lists in its `PackageReference`. The SDK is released on its own version line, apart from the app's
+lists in its `PackageReference`, exactly the version shown there. The SDK is released on its own version line, apart from the app's
 other `Ikon.*` libraries, and is on nuget.org. That published package also works against an app
 that this machine builds from platform sources, locally and deployed, so the program needs no
 source build of its own. When `ikon update` raises the versions in the app's csproj, raise the
@@ -326,7 +337,7 @@ Which authentication mode to use depends on where the app runs:
 | A local `ikon run` | `Local` | `HttpsPort`: the port of the Server URL the run prints (the project's port from its last run while that is free, else the first free one from 8443), also in `serverUrl` of `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. `SpaceId`: the app id, so a connect to a server that runs another app throws instead of joining it. Without it the program joins whatever app holds the port |
 | Deployed | `Guest` | `SpaceId`: the app id (`[Target] SpaceId` in `ikon-config.<environment>.toml`). `Environment`: `Development` for an app on the development platform (`*.dev.ikonai.app`), otherwise `Production`. The surface the program enters (`IkonClientConfig.Surface`, else the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared) must list `guest` or `global` in its `Methods`; a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`, and `ikon new --private` writes `email` and `passkey` only, so a program of a private app needs an API key |
 | Deployed, as the developer signed in on this machine | `UserLogin` | `SpaceId`, and `Environment` when the app is on another platform than the process's own sign-in (`IkonBackend.EnvironmentType.Development` for `*.dev.ikonai.app`). It uses the `ikon` CLI's stored sign-in, so it is for dev tooling and spikes, not a program deployed elsewhere, and it joins the app as that person. `JoinOnly = true` with `UserType.Machine` watches without holding the session open |
-| Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
+| Deployed, for users of your own service | `ApiKey` | A space API key, made with `ikon api-key create` (or in the Portal under the app's API keys); `ExternalUserId` names the user it connects as, and `BackendType` the platform as for `Guest`. The surface needs no `guest` or `global` entry in `Methods`; one that lists `Roles` (every surface of an `ikon new --private` app) needs `ikon profile role add <role> --external-user <id>` first. Any holder of the key can join as any `ExternalUserId`, so it stays in the program's secret store. `ikon auth token create` makes a service token for CI, not an API key |
 
 <!-- ikon-example: sdk-console-client -->
 ```csharp
@@ -764,7 +775,7 @@ only the program.
 
 The types an app sends and receives come from its `schema/*.tp`, and the app's build writes their C#
 to `app/<App>/Generated/Protocol/` only. A standalone program compiles those same files, linked from
-its csproj, never copied: a copy keeps the old classes when a schema changes. The `device-typed-messages` pattern
+its csproj, never copied: a copy keeps the old classes when a schema changes. If you cannot change the app, `ikon teleport generate --input <app>/schema --type csharp --output Generated/Protocol` in the program's folder writes the same classes with the same opcodes and changes nothing in the app. The `device-typed-messages` pattern
 (`docs/Ikon.Agent.Docs/patterns/device-typed-messages.md` in an app) has the csproj lines and a
 program that sends a reading and waits for the app's ack.
 

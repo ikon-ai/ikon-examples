@@ -1,4 +1,4 @@
-<!-- checked-against: 894774f4cbfd36914fb1f942 -->
+<!-- checked-against: a6aed040ea357634b31a15d4 -->
 
 # IKON Platform Events
 
@@ -445,9 +445,9 @@ otherwise carries `statusCode`, the provider's HTTP status as an integer, when t
 `failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
 `AccessDenied`, `CreditExhausted`, `NotAllowed`, `Quality` or `Unknown`. It is finer than `class`, and
 it tells a provider that is down from one whose account has no credit left. Both stop the call, but
-only the first is fixed by waiting. `NotAllowed` is a model your organisation may not call: its plan
-does not include the model, its admin blocked the model, or the model reached the monthly credit cap
-the admin set for it. Another model may be allowed. A `NotAllowed` failure has the class `expected`.
+only the first is fixed by waiting. `NotAllowed` is a model your organisation may not call: its admin
+blocked the model, or the model reached the monthly credit cap the admin set for it. Another model
+may be allowed. A `NotAllowed` failure has the class `expected`.
 
 **A persisting failure is logged once, not once per call.** Every failed call still writes its `_failed`
 row, so event counts stay correct. The log line that goes with them drops to debug after the first

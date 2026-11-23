@@ -1,4 +1,4 @@
-<!-- checked-against: b61a6e51e53dba0ce3b0c442 -->
+<!-- checked-against: 9ec240407a69d3b6e3b0c442 -->
 
 # IKON Rust SDK
 
@@ -141,15 +141,15 @@ The app sees a local client as `user_id` (`"local"` when it is `None`), `user_ty
 
 ### Guests
 
-A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. The app must let guests in; otherwise the connect fails with `SdkError::HttpStatus` 403. `client_type` says what kind of device the program runs on, not that it is a visitor: `DesktopApp` for a program on a computer, `MobileApp` for one on a phone; `DesktopWeb` and `MobileWeb` are for a page in a browser.
+A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. `*.dev.ikonai.app` apps need `BackendType::Development`, `*.ikonai.app` ones `BackendType::Production`. The app must let guests in; otherwise the connect fails with `SdkError::HttpStatus` 403. `client_type` says what kind of device the program runs on, not that it is a visitor: `DesktopApp` for a program on a computer, `MobileApp` for one on a phone; `DesktopWeb` and `MobileWeb` are for a page in a browser.
 
 <!-- ikon-example: rust-sdk-connect-guest -->
 ```rust
-let mut config = IkonClientConfig::with_guest(GuestConfig {
+let mut config = IkonClientConfig::with_guest(GuestConfig::new(
     space_id,
-    backend: BackendType::Production,
-    client_type: ClientType::DesktopApp,
-});
+    BackendType::Production,
+    ClientType::DesktopApp,
+));
 // The guest user belongs to the device id, so keep it to come back as the same guest
 config.device_id = Some(saved_device_id());
 
@@ -157,7 +157,7 @@ let client = IkonClient::new(config)?;
 client.connect().await?;
 ```
 
-Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. The app sees a guest as `UserType::Human`.
+Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. `GuestConfig::new` sets `GuestConfig::user_type`, which is what the app sees a guest as, to `UserType::Human`, a visitor.
 
 A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; with `None` the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods` (a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only), or the connect fails with `SdkError::HttpStatus` 403, even when another surface admits guests. `IkonClientConfig::initial_path` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
 
@@ -173,7 +173,7 @@ A guest has no token to renew. The client asks for a new guest token on every `c
 
 A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token: `https://api.prod.ikon.live` (`BackendType::Production.base_url()`) for an app on `*.ikonai.app`, `https://api.dev.ikon.live` (`BackendType::Development.base_url()`) for one on `*.dev.ikonai.app`.
 
-An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`. A key client has no email either, so an app that gates a page by email or role may show it a no-permission page.
+An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until then. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`. A key client has no email either, so an app that gates a page by email or role may show it a no-permission page.
 
 <!-- ikon-example: rust-sdk-connect-user-token -->
 ```rust
@@ -198,7 +198,7 @@ match client.connect().await {
 }
 ```
 
-`SdkError` is `#[non_exhaustive]` because a later release can add variants. A `match` on it therefore needs a catch-all arm, such as the `other` arm here.
+`SdkError` is `#[non_exhaustive]` because a later release can add variants. A `match` on it therefore needs a catch-all arm, such as the `other` arm here. `ClientEvent` is not `#[non_exhaustive]`, so a `match` that names every variant stops compiling when a release adds one: give it a catch-all arm.
 
 The client cannot renew the token itself. When the backend refuses it (401) or the app refuses the user (403), `connect` fails. A 401 from `/init` means the backend did not take the token as a valid session token for the app's space: it expired, was revoked, or is of another kind, such as the IKON tool's tokens (`ikon mcp token`, `ikon auth token create`). Its error says so: the SDK appends that note to the error's `body`, after the backend's answer. During a reconnect, the client stops reconnecting at once, goes `Offline` and reports the refusal on `error_occurred`. `update_auth_token` sets the token that every later connect and reconnect uses. It fails for a client that was not configured with a user token.
 
@@ -548,7 +548,7 @@ client
 client.set_path("/rooms/7").await?;
 ```
 
-A value left `None` keeps the one last sent. The app's client-updated and path handlers run. Once the call returns, `client.client_context()` and this client's entry in `clients()` show the values sent. Both are sent again after every reconnect.
+A value left `None` keeps the one last sent. The app's client-updated and path handlers run. Once the call returns, `client.client_context()` and this client's entry in `clients()` show the values sent. Both are sent again after every reconnect. `clients()` is synchronous and reads the client's current list; `state()` and `client_context()` are `async`. The viewport fields are `i32`. The SDK does not detect the timezone or the viewport, so a program that wants the app to see them sends them. Until it does, the first `Joined` for a client can carry default values for the fields it has not reported.
 
 ## UI
 
@@ -824,7 +824,7 @@ while let Some(received) = pongs.next().await {
 }
 ```
 
-The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendMessageAsync`. A stream yields only its own type, with the sender's session id, lasts across reconnects until it is dropped, and is also a `futures_core::Stream`. A stream holds at most 4096 unread messages and drops newer ones, with a warning. A message that does not decode as its type is logged as an error and skipped. A message sent while the client is still joining goes out right after the join, or is discarded if the link drops first. `send_message` fails with `SdkError::NotConnected` when the client has no link, as between a drop and the reconnect. The client receives an app's own types only while `opcode_groups_from_server` includes `Opcode::GROUP_APP_LOCAL`, as the default does.
+Generated fields are snake_case in Rust (`Sequence` in the schema is `sequence`). To stop waiting for a reply that never comes, wrap the read: `tokio::time::timeout(Duration::from_secs(5), pongs.next()).await`, which is `Err` on timeout. The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendMessageAsync`. A stream yields only its own type, with the sender's session id, lasts across reconnects until it is dropped, and is also a `futures_core::Stream`. A stream holds at most 4096 unread messages and drops newer ones, with a warning. A message that does not decode as its type is logged as an error and skipped. A message sent while the client is still joining goes out right after the join, or is discarded if the link drops first. `send_message` fails with `SdkError::NotConnected` when the client has no link, as between a drop and the reconnect. The client receives an app's own types only while `opcode_groups_from_server` includes `Opcode::GROUP_APP_LOCAL`, as the default does.
 
 `message_received` delivers every message from the server as a `ProtocolMessage`; `is::<T>()` and `decode::<T>()` read one as a generated type.
 

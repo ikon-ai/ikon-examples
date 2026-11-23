@@ -1,4 +1,4 @@
-<!-- checked-against: cd3b3a392abb7e56e3b0c442 -->
+<!-- checked-against: f6e6e2c876a45e87e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -207,7 +207,7 @@ lists `guest` or `global` in its `Methods`, and with 403 "Surface 'name' require
 when the surface the client enters does not list one. A surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only. `guest` listed on another surface does not let the
 client in. Leaving out sign-in pages (surfaces another surface names as its sign-in page), the client
 enters the only surface left, else the one with neither `Routes` nor `Host`, else the first declared,
-unless `surface` names another, in the `guest` (or other connection) block or at the top of the config, where it applies to that block when it names none. A client with no `surface` joins that catch-all surface, and its `Presence` decides which other clients the client sees. A program connects to such a private app with an API key. The app must have been deployed once
+unless `surface` names another (it controls admission only; it does not set the page path, which `setPath` does), in the `guest` (or other connection) block or at the top of the config, where it applies to that block when it names none. A client with no `surface` joins that catch-all surface, and its `Presence` decides which other clients the client sees. A program connects to such a private app with an API key. The app must have been deployed once
 (`ikon deploy`) before a Node or other outside client can connect to it by app id; a run that was only
 ever local is reached with the `local` mode below.
 
@@ -331,7 +331,7 @@ Use this when the session token was obtained from OAuth flow or anonymous authen
 
 A program without a page (Node) joins in this mode as a `ContextType.Plugin` client and a page as `ContextType.Browser`, as in the `local` mode. Earlier than `@ikonai/sdk` 1.21, a `sessionToken` client is always a `Browser` client, which the app counts as a person on a page.
 
-An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
+An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until then. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
 <!-- ikon-example: ts-sdk-auth-session-token -->
 ```ts
@@ -659,7 +659,7 @@ folder, compiles each schema file into a module in `frontend-node/src/generated/
 names, which is how a program outside the app's folder gets them (the Teleport schema spec,
 `teleport-schema-spec.md`). Each module exports the message's interface and `<Name>Message`, which
 `send` and `on` take as it is, so the program never names an opcode. A module that an older `ikon` generated has no
-`<Name>Message`. Build the app again with a current `ikon` to add it.
+`<Name>Message`. Build the app again with a current `ikon` to add it. If you cannot change the app, run `ikon teleport generate --input <app>/schema --type typescript --output src/generated/protocol` in the program's own folder instead. It writes the same modules with the same opcodes and changes nothing in the app. An `int64` field arrives as a `bigint` (`line.Id` is `12n`, not `12`), and a `bigint` goes in when sending.
 
 <!-- ikon-example: ts-sdk-app-messages -->
 ```ts
@@ -1199,7 +1199,7 @@ pads the last frame. `sendOpusFrame` sends a frame already encoded. The app's sp
 skips audio without a `correlationId`, so give one to audio meant for it. `sendVideoFrame` sends one encoded frame: for H.264 one access unit (every slice of one
 picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver
 decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS. It announces the stream first and again when its size, codec, source type, correlation id or frame rate changes; the
-SDK does not encode video. A reconnect into a new session announces every stream again before its
+SDK does not encode video. `sendVideoFrame` is fire-and-forget: it reports no result, so check on the app's side that frames arrive (`ikon logs`). In `local` mode a Node program shows as a Plugin client to the app, under the `userId` it gave, else the id the anonymous sign-in or the device id supplies. A reconnect into a new session announces every stream again before its
 next frame. Sending throws when the client is not connected. Received streams are named
 `"{senderId}_{trackId}"`, and `senderStreamId` is the id the sender gave; `requestVideoKeyFrame`
 takes the received id. A dropped connection ends every received stream, and the app begins those
