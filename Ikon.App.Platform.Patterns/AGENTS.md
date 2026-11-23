@@ -4,10 +4,10 @@
 
 ## Quick start
 
-1. New app: the word table's six `###` parts (`ikon docs _start --outline`), read those the request touches (`--section "<subsection>"`) or `--search` each feature word, then your kind of app's part, their patterns and `ikon docs product-design --section "First build checklist"`. Write it, `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Any guide: `ikon docs <name>`; changing an app: `--search` each feature word.
+1. New app: `ikon docs _start --section "Index"` and `--search "<words>"`; then your kind of app's part, their patterns and `ikon docs product-design --section "First build checklist"`. Write it, `ikon run --ai mock --messages capture --cron manual --detach`, then `ikon browse --steps "observe"`. Any guide: `ikon docs <name>`; changing an app: `--search` each feature word.
 2. Pick the language (not English: translate all `frontend-fundamentals` "Internationalization (i18n)" lists, `emails/*.html` and `en.ts` too) and who shares an instance (`app-structure`): the scaffold's `SessionIdentity(string? UserId)` gives each user their own; one room for everyone is `SessionIdentity()` with `guest`, `SessionIdentity(string? Room)` one per `?room=`; `global` is not a room: it makes all signed-out visitors one user.
    Private app (`ikon new --private`): no `guest` or `global` in `[Surface.Auth] Methods`; a public site with staff keeps `guest` (`public-site-staff-area`); staff screens check a role; nobody is `admin` until `ikon profile role add admin --me` or `first-user-becomes-admin`.
-3. Instances share nothing but `Global*` reactives, so a local run and a deployed one differ; `[Cron]` (hourly at most), MCP tools and endpoints (`[HttpGet("/x")]` serves `/api/x`) run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`). Any client, guests too, reads every `[App]` reactive: personal data goes in `User*` reactives or a database.
+3. Instances share nothing but `Global*` reactives, so a local run and a deployed one differ; `[Cron]` (hourly at most), MCP tools and endpoints (`[HttpGet("/x")]` serves `/api/x`) run in the empty-identity one unless a minted URL or a user bearer token (`[Mcp]` default; needs `UserId` in `SessionIdentity`) picks another. Records go in a database; an open screen shows another instance's new row only when told (`reactive-state`). Any client, guests too, reads every `[App]` and `Global*` reactive: personal data goes in `User*` reactives or a database.
 4. A local run uses the app's cloud data, and a deploy then serves those rows, mock answers too (`databases`; once deployed, `--ai mock` needs `--yes`). Delete test data: `ikon db query "delete ..." --yes` (restart a running app), `ikon file delete`; `db state reset` keeps `PersistentGlobal*`. Required rows go in `OnStarting`.
 5. Database commands act on the linked app unless `--target` names another. A program outside the app: `docs/Ikon.Sdk/`.
    `--ai mock` calls no tools; `--ai-script turns.json` scripts them (`ai-models`).
@@ -25,13 +25,12 @@ A deployed instance has 1 CPU and 256 MB by default (`scaling`); the image has .
 
 Test locally, not deployed. `ikon run --format text` blocks.
 Builds take minutes: no short timeouts or `| tail`. Use `--detach` on `run`, `link`
-and `deploy` (not `bundle`), then `ikon status --wait --timeout 80` (at most 100; exit 3 = wait again). After a run starts, only
+and `deploy` (not `bundle`), then `ikon status --wait --timeout 80` (max 100; exit 3 = wait again). After a run starts, only
 `ikon build` type-checks edits. `build/app/artifacts/bin/<App>/debug/ikon-server-info.json`
-has the URLs: share the local one after a UI change. `ikon stop` saves persistent state, ends the run. A `.cs` edit under `app/<App>/` hot-reloads
-the run (a compile error keeps the old build, a throwing `OnStarting` leaves
-none, a `Main` edit outside its lambdas restarts, and `browse` prints the error;
-`ikon status --wait` waits for it, exits 1 if failed; wait after the last save); a `.csproj`
-or `ikon-config*.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text first (`--text-only` needs no browser):
+has the URLs: share the local one after UI changes. `ikon stop` saves persistent state. A `.cs` edit under `app/<App>/` hot-reloads
+the run (a compile error keeps the old build, a throwing `OnStarting` none, an edit that cannot apply live (a `Main` edit outside lambdas) restarts (start-built reactives keep values; fields, caches, rooms reset); `browse` prints the error;
+`ikon status --wait` waits for it, exit 1 if failed; wait after the last save); a `.csproj`
+or `ikon-config*.toml` change needs `ikon stop` and a new run, and a `schema/*.tp` change `ikon schema` or a new run. Check the app as text (`--text-only` needs no browser):
 
 ```bash
 ikon browse --text-only --steps "observe"  # text + [id] handles
@@ -85,7 +84,7 @@ files, not `/tmp`), `reference/`, `test/`, `release-notes/`, `.ikon/gates/`, gen
 ## What the app must contain
 
 From the first build, build only what the KIND of product's ordinary workflow needs.
-Every control works or is disabled with a visible reason; changes, AI-made too, can be undone; a filter never loses records; anything reaching outside the app (`app.Payments`/`Email`/`Telephony`/`Notifications`, a publish, a permanent delete) needs a person to use a control or setting naming it, never an AI turn alone.
+Every control works or is disabled with a visible reason (`disabledReason:`, a helper line); changes, AI-made too, can be undone; a filter never loses records; anything reaching outside the app (`app.Payments`/`Email`/`Telephony`/`Notifications`, a publish, a permanent delete) needs a person to use a control or setting naming it, never an AI turn alone.
 
 ## How the app must look
 
