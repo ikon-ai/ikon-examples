@@ -1,4 +1,4 @@
-<!-- checked-against: 5d9bc93a675f26b80af72354 -->
+<!-- checked-against: 04806067294a56061782c27d -->
 
 # Teleport message schema specification
 
@@ -161,7 +161,7 @@ sparse = true
 
 Readers need no change: every generated reader starts from a defaulted instance and applies only the fields present, so an absent field keeps its starting value. That is why the key is safe to turn on without updating readers: readers built before the flag existed decode a sparse writer's output correctly, and dense payloads still decode afterwards.
 
-**Fields whose declared default is not the zero value are always written**, whatever they hold, because omitting them would give a wrong value: the C++ reader value-initializes its struct and the Rust reader derives `Default`, so neither fills in a declared default. An omitted `bool = true` would read back as `false` there, with no decode error. The rule is in `Ikon.Teleport.CodeGen\TeleportSparse.cs`, and it errs in the same direction on purpose: a field it cannot prove safe to omit is written, because a wrong guess that way costs only bytes, while a wrong guess the other way corrupts a value.
+**Fields whose declared default is not the zero value are always written**, whatever they hold, because omitting them would give a wrong value. The Rust reader derives `Default`, so it does not fill in a declared default. The C++ reader fills in every declared default except an external enum's (`X:enum = Member`), which it holds as its int32 value and starts at zero. An omitted `bool = true` would read back as `false` in Rust, with no decode error. The rule is in `Ikon.Teleport.CodeGen\TeleportSparse.cs`, and it errs in the same direction on purpose: a field it cannot prove safe to omit is written, because a wrong guess that way costs only bytes, while a wrong guess the other way corrupts a value.
 
 Optional fields are unaffected — they already write nothing when null. The key is only valid when `type` is present, and it is opt-in per type, so no existing message changes shape until its schema asks for it.
 
@@ -195,7 +195,7 @@ BitDepth    = "int32 = 16"
 
 ### Namespaces
 
-Set the root namespace with the top-level `namespace` field. The C# and TypeScript generators use this value unless a language specific override is provided; the platform's own C++ protocol build uses `cpp`, then `namespace`, then `ikon`, an app's C++ output uses `cpp`, else `ikon::app`, and the Dart and Rust generators ignore both. Leaving `namespace` empty or omitting it entirely removes the C# and TypeScript namespace, except in an app's own schemas: there C# without a `[namespaces] csharp` entry goes into `<AppName>.Protocol`.
+Set the root namespace with the top-level `namespace` field. The C# and TypeScript generators use this value unless a language specific override is provided; the platform's own C++ protocol build uses `cpp`, then `namespace`, then `ikon`, an app's C++ output and `ikon teleport generate --type cpp` use `cpp`, else `ikon::app`, and the Dart and Rust generators ignore both. Leaving `namespace` empty or omitting it entirely removes the C# and TypeScript namespace, except in an app's own schemas: there C# without a `[namespaces] csharp` entry goes into `<AppName>.Protocol`.
 
 ```toml
 namespace = "Example.Namespace"
@@ -331,7 +331,7 @@ Every SDK carries the same bag on wire messages, shaped to the language:
 |------------|-------------------------------------------------------|---------|---------|
 | C#         | private field, `GetRetiredFields()` / `GetOrCreate...` | yes     | yes     |
 | TypeScript | `retiredFields?: {Name}RetiredFields`                  | yes     | yes     |
-| C++        | `std::optional<RetiredFields> Retired`                 | yes     | yes     |
+| C++        | `std::optional<RetiredFields> Retired`; `Retired<Name>` on the View | yes | yes |
 | Rust       | `retired_fields: Option<{Name}RetiredFields>`          | yes     | yes     |
 | Dart       | `{Name}RetiredFields? retiredFields`                   | yes     | yes     |
 
@@ -487,7 +487,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 
 | Rule           | Description                                |
 |----------------|--------------------------------------------|
-| Field names    | Not checked; any TOML key is taken as written |
+| Field names    | Taken as written, with two exceptions: the C++ generator refuses a field, retired field, nested type or enum named `View`, `Parse`, `From`, `WriteFields`, `Retired`, `RetiredFields`, `IsTeleportView`, `TeleportMessage`, `TeleportVersion`, `TeleportOpcode`, `TeleportDefaultFlags` or `TeleportLayoutHash`, which its generated structs declare themselves; the TypeScript generator refuses a field named `retiredFields` in a message with an `[obsolete]` ledger |
 | Duplicates     | Forbidden per scope                        |
 | Enum values    | Integers or strings (single kind per enum) |
 | Version        | Required with `type`; never compared to a previous version |
@@ -542,7 +542,7 @@ Every message with an opcode carries its opcode, payload version and default fla
 - **Rust**: `impl TeleportMessage for X` (`ikon_protocol::TeleportMessage`, with `OPCODE`, `VERSION` and `DEFAULT_FLAGS`), which `ProtocolMessage::from_message` and `ProtocolMessage::decode` take. An app's files are modules of its crate, which depends on `ikon-protocol`: each starts with `use super::*;`, and `frontend-rust/src/generated/protocol/mod.rs` declares and re-exports them.
 - **Dart**: `X implements TeleportMessage` (its `toProtocolMessage`), and `X.teleportMessageType`, a `TeleportMessageType<X>` with the opcode, version and decoder.
 - **TypeScript** (an app's output only): `export const XMessage`, which the SDK's `appMessaging(client).send` and `.on` take as an `AppMessageType<X>`.
-- **C++**: `X::TeleportOpcode`, `X::TeleportVersion` and `X::TeleportDefaultFlags`, which `ProtocolMessage::Create` reads. An app's header compiles on its own next to the SDK: it has `#pragma once` and includes `ikon_protocol.h` and the headers of the app's other types it names.
+- **C++**: `X::TeleportOpcode`, `X::TeleportVersion` and `X::TeleportDefaultFlags`, which the SDK's `IkonClient::Send` and `IkonClient::On` read. `X::View` reads a received message where its bytes are, without copying, and `X::From(view, x)` copies it into the owning struct. An app's header compiles on its own next to the SDK: it has `#pragma once` and includes `ikon_teleport.h` and the headers of the app's other types it names.
 
 An app schema without an `opcode` gets `0x40000000` (the `GROUP_APP_LOCAL` flag) plus a 16-bit hash of its type name: the xxHash32 of the name's UTF-8 bytes, its two halves XORed, with 0 taken as 1. Every language's bindings get that same number. It depends on the name alone, so adding, removing, moving or renaming another schema file leaves it as it was, and a client built from older bindings keeps working; renaming the type gives it a new opcode. When two messages of one app end up with the same opcode, hashed or explicit, the build fails and names both; give one of them an explicit `opcode` of `0x40000000` plus a number from 1 to 65535 that no other message of the app has, and keep it once clients use it.
 

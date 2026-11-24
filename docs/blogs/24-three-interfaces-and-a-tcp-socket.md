@@ -17,30 +17,35 @@ The SDK needs three things from you: a way to log messages, a way to make one HT
 Here is the sensor board connecting:
 
 ```cpp
-#include "ikon_sdk.h"
+#include "ikon_client.h"
 
-auto log = std::make_shared<SerialLogger>();
-auto http = std::make_shared<ESP32HttpClient>();
-auto tcp = std::make_shared<ESP32TcpClient>();
+ESP32Network network;  // TLS over the ESP32's Wi-Fi
+ESP32Http http;
+ESP32System system;    // Its clock and random numbers
 
-ikon::IkonClientConfig config;
 ikon::ApiKeyConfig apiKeyConfig;
 apiKeyConfig.apiKey = "ikon-xxxxx";
 apiKeyConfig.spaceId = "my-balcony";
 apiKeyConfig.externalUserId = "weather-sensor";
 apiKeyConfig.userType = ikon::UserType::Machine;
+
+ikon::ClientConfig config;
 config.apiKey = apiKeyConfig;
 config.description = "Balcony Weather Station";
 
-ikon::IkonClient client(config, log, http, tcp);
+ikon::IkonClient client(config, network, http, system, ikon::Log{&SerialLogSink, nullptr});
 
-client.Ready = [&]()
+client.Ready = []()
 {
-    log->Info("Connected");
-    client.SignalReady();
+    printf("Connected\n");
 };
 
 client.Connect();
+
+while (true)
+{
+    client.Poll(50);
+}
 ```
 
 After this code runs, the sensor is connected. The server can ask it for readings, and the browser on your phone can show the results. The only credential on the device, `ikon-xxxxx`, is an IKON session key that you can revoke. It is not an OpenAI key or any other cloud provider secret. Those secrets stay on the server.
@@ -52,15 +57,13 @@ The SDK defines three interfaces. Each has only a few methods, which say what th
 The TCP interface is the most important one. It is also the simplest:
 
 ```cpp
-class INetworkInterface
+class INetwork
 {
 public:
-    virtual bool Connect(const std::string& host, int port) = 0;
-    virtual void Disconnect() = 0;
-    virtual void Write(const uint8_t* data, size_t size) = 0;
-    virtual size_t Read(uint8_t* buffer, size_t maxSize) = 0;
-    virtual bool IsConnected() const = 0;
-    virtual void SetConnectionClosedCallback(std::function<void()> callback) = 0;
+    virtual bool Connect(const char* host, int port, const ConnectOptions& options) = 0;
+    virtual void Close() = 0;
+    virtual bool Write(const uint8_t* data, size_t size) = 0;
+    virtual int Read(uint8_t* buffer, size_t capacity, int timeoutMs) = 0;
 };
 ```
 
