@@ -1,4 +1,4 @@
-<!-- checked-against: 9c1b4405b23bfcc5e4c4afaf -->
+<!-- checked-against: 68658670afb9cc98d051491b -->
 
 # IKON Audio & Video Guide
 
@@ -228,7 +228,7 @@ per detected turn: a turn that produced no transcript reaches `SpeechNotRecogniz
 
 `UseSpeechRecognition(model, silenceThresholdRms: 0.01f, requireCorrelatedStream: true, language: "", timestamps: SpeechTimestamps.None, timeout: null)`
 
-`language` is checked at setup: a named model that publishes its languages (`SpeechRecognizerCapabilities.Languages`, e.g. Voxtral has no Finnish) makes both `UseSpeechRecognition` and `UseTurnDetection` throw `ArgumentException` for one outside that list.
+`language` is checked at setup: a named model that publishes its languages (`SpeechRecognizerCapabilities.Languages`, e.g. `VoxtralMiniTranscribe2` has no Finnish) makes both `UseSpeechRecognition` and `UseTurnDetection` throw `ArgumentException` for one outside that list.
 
 `requireCorrelatedStream` defaults to **true**: recognition fires only for streams that carry a `CorrelationId`. Parallax capture buttons (`PushToTalkButton`, `MicToggleButton`, `CaptureButton`) stamp one, and `ClientFunctions.StartAudioCaptureAsync` generates one when `ClientAudioCaptureOptions.CorrelationId` is null, so both are transcribed. A stream with no correlation id — one an SDK client sends on its own — is **silently ignored**; the classic symptom is "the mic streams but `SpeechRecognizedAsync` never fires". Pass `requireCorrelatedStream: false` to transcribe every audio stream, including ad-hoc ones. `UseTurnDetection` has the same flag with the same default.
 

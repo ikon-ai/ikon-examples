@@ -1,4 +1,4 @@
-<!-- checked-against: 480b762aea357634b31a15d4 -->
+<!-- checked-against: 94e9ca7aea357634b31a15d4 -->
 
 # IKON Platform Events
 
@@ -335,8 +335,8 @@ trace id, so a connect without a trace id produces no rows at all.
 | `backend_connect_timeline` | Backend `/init`, one row per request, a failed one included, except a join-only request that finds no live session | `connectTraceId`, `status` (`success`, `abandoned`, `not_running`, `startup_failed`, `server_full`, `insufficient_credits`, `failure`), `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId`; `httpStatus` on a request that was answered with an error. A request that failed before it had a session has no `prestarted` or `serverSessionId` |
 | `provision_connect_timeline` | Backend, one row per cold start (a server started for the connect because no prestarted one was free) that reached running | `connectTraceId`, `serverSessionId`, `attempt` (`2` when the first attempt failed), and milliseconds since the attempt that succeeded began: `placedMs`, `hostAgentCalledMs`, `readsDoneMs`, `hostAgentReturnedMs`, `portsWrittenMs`, `databaseConnectionsMs`, `entrypointReadyMs`, `serverInitSentMs`, `runningWrittenMs`, `readyHandledMs`, `totalMs` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `totalMs`; a cold start also `releaseResolveMs`, `prepareMs`, `ikonToolMs`, `imageCheckMs`, `listenWaitMs` |
-| `server_connect_timeline` | `IkonServer` — the cost of starting the app, attributed to the connect it started for | `connectTraceId`, `serverSessionId`, `bootPath` (`warm` / `cold`), `serverInitBlockMs`, `backendReInitMs`, `bundleWriteMs`, `pluginInitMs`, `extensionsInitMs`, `jitMs`, `bundleOptimized` (`true` when the app was compiled ReadyToRun by `ikon deploy --optimize` or `ikon bundle --optimize`; absent for a bundle whose manifest does not record it); a cold start also `runtimeStartMs`, `listeningMs`, `listeningToServerInitMs` |
-| `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `protocolMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `saverStartMs`, `portsMs`, `onStartingMs`, `mainMs`, `seedMs`, `jitMs`. An app built on older libraries sends fewer of them |
+| `server_connect_timeline` | `IkonServer` — the cost of starting the app, attributed to the connect it started for | `connectTraceId`, `serverSessionId`, `bootPath` (`warm` / `cold`), `serverInitBlockMs`, `backendReInitMs`, `bundleWriteMs`, `pluginInitMs`, `extensionsInitMs`, `jitMs`, `bundleOptimized` (`true` when the app was compiled ReadyToRun by `ikon deploy --optimize` or `ikon bundle --optimize`; absent for a bundle whose manifest does not record it); `serverInitCpuMs`, `jitMethods`, `gcPauseMs`; a cold start also `runtimeStartMs`, `listeningMs`, `listeningToServerInitMs`, the CPU of each (`runtimeStartCpuMs`, `listeningCpuMs`, `listeningToServerInitCpuMs`), `runtimeStartJitMs`, `listeningJitMs`, the process's totals since it started (`processCpuMs`, `processJitMs`, `processJitMethods`, `processGcPauseMs`) and `containerCpuMs`, the CPU of everything in the server's container since the container started. The CPU, JIT and GC figures are process-wide |
+| `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `protocolMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `saverStartMs`, `portsMs`, `onStartingMs`, `mainMs`, `seedMs`, `jitMs`, `initCpuMs`, `appCreateCpuMs`, `storageLoadCpuMs`, `mainCpuMs`, `jitMethods`, `gcPauseMs`. An app built on older libraries sends fewer of them |
 
 These measure the platform's own startup path. `cdnHtmlMs` covers fetching the **HTML document**
 only.
@@ -365,6 +365,11 @@ never runs the code that reports it. See `app_page_served` for the count that in
 A warm connect has no `provision_connect_timeline`. `jitMs` is the JIT compile time of the whole
 server process during the step, so it also counts JIT compilation for other sessions' servers in
 the same process.
+
+While a crowd is arriving, the backend starts some shards before any client joins them. Such a
+shard's start has a trace id of its own: the id of the connect that led to it, cut to 48 characters, then `-ahead-` and 8 more characters. Its start sends
+the provision, host agent, server and app rows, and no client or `backend_connect_timeline` row
+has its id.
 
 ## RPC / function calls
 
@@ -486,8 +491,8 @@ Emitted by the backend, not by the server.
 | `user_removed` | A user account was removed | `user` |
 | `user_token_delegated` | A user token was delegated to another app | `authSession`, `user`, `role`, `sourceSpace` |
 | `login_email_request` | A magic-link sign-in email was requested. No payload — the address would be personal data. | — |
-| `anonymous_user_created` | An anonymous user was created | `user` |
-| `anonymous_user_login` | An anonymous user authenticated | `authSession`, `user` |
+| `anonymous_user_created` | An anonymous user was created, at its first join of an app: signing in as a guest creates no user until then | `user` |
+| `anonymous_user_login` | An anonymous user signed in. `user` may name a guest that never joins an app and so never has a record | `authSession`, `user` |
 | `anonymous_user_removed` | An anonymous user was removed | `user` |
 
 `provider` on `user_login`: `username`, `google`, `apple`, `microsoft`, `facebook`, `signicat`,

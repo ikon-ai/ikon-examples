@@ -1,4 +1,4 @@
-<!-- checked-against: 8a9d0419682288f3e3b0c442 -->
+<!-- checked-against: 9bb3195cad38ab14e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -499,6 +499,13 @@ as `ContextType.plugin` by default. So the app tells a program from a person's s
 `ContextType`. `UserType`, `ContextType` and the other protocol enums are `int`-backed extension types:
 compare them with `==`, and `.name` gives the member's name (`'browser'`) or the number for a value
 that names no member.
+
+The WebSocket goes to the server's own port first. When that port does not answer within 4 s, as on a
+network that lets only HTTPS through, the client connects through the platform's proxy on port 443
+instead. For the next 10 minutes, new connects and reconnects start with the proxy. A server that answers
+and refuses the connection is not tried again through the proxy. `client.channelType` is the type of the
+entrypoint the connection is on, `EntrypointType.webSocket` or `EntrypointType.webSocketProxy`, and null
+while no connection is open. A local run has no proxy.
 
 `localClientProof:` matters only for a local connect that does not look local to the run, such as one
 through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the
@@ -1415,6 +1422,13 @@ can add it before `connect()`, so it also gets what arrives with the connection.
 add it as soon as the helper returns: the app learns of the client only from the ClientReady the helper
 sends just before it returns. A message that does not decode, or whose handler throws, is logged and
 lost.
+
+A message type declared `unreliable = true` in the schema is sent flagged unreliable. While the data
+channel of the client's WebRTC peer ([Media](#media), `enableIkonWebRtcMedia`) is open, the client sends
+such messages on it, as the web client does: unordered and never resent, so some may be lost.
+`client.unreliableChannelOpen` says whether it is open. Before it opens, without WebRTC media, and for a
+message over 64 KiB, they go over the WebSocket, which delivers them in order. Messages the server sends
+on the data channel reach `onMessage` handlers like any other.
 
 ## File Upload
 

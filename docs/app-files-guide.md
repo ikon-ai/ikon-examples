@@ -1,4 +1,4 @@
-<!-- checked-against: cb93a7b2a403d7c52f31f637 -->
+<!-- checked-against: cfe877e9a7599fb21cc7a259 -->
 
 # App Files Guide
 
@@ -104,6 +104,14 @@ Offloading rewrites the repository, so it happens only for an app that owns its 
 app nested inside a larger one bundles and deploys its binaries as they are and leaves that
 repository's files alone.
 
+The pointers name the asset store of the folder's home app, the app whose repository the folder
+pushes to. Every target of the folder uses that store: a deploy with `--target staging` reads the
+same pointers and changes none of them. A target on the other environment cannot read that store
+from its backend, so a deploy to it also copies the bytes into the target app's own store, under the
+same names, and restores missing files from there when you are not signed in to the home's
+environment. For a copy that will change separately from its source, use `ikon duplicate`, which
+makes a separate app with its own folder and repository.
+
 `ikon save` and the save before a deploy commit every file in the app that git does not ignore, and
 offload the binaries among them, test fixtures included. Keep test files in `scratch/`, which the
 app's `.gitignore` lists, or list their folder (`testdata/`) there, to keep them out of the
@@ -190,6 +198,10 @@ pointer with conflict markers, a file that changed while it uploaded). `Material
 idempotent. It restores every file it can, then throws `AssetMaterializeException`, whose `Failures`
 lists `path: reason` for each file it could not restore: a blob missing from the store, stored bytes
 that do not match the pointer's hash, a pointer that does not parse, or a link where the file belongs.
+Given a `fallback` store, it downloads a blob that the pointer's own store cannot provide from the
+fallback instead, under the URI that `IAssetBackend.UriFor` gives the same bytes in that store. `CopyToAsync(target, repoDir)`
+uploads the bytes behind every pointer that another store does not hold yet, changes no pointer and
+returns the files it sent.
 `StoreMissingAsync(repoDir)` asks the store about each pointer that differs from the upstream branch
 and uploads again any whose bytes are gone, from the real file when that file still has those bytes.
 It returns an `AssetStoreCheck`. `Stored` lists the files it uploaded again, and `Missing` lists the
@@ -198,7 +210,8 @@ Storage is behind `IAssetBackend` (upload, download, delete, public URL, exists)
 platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private
 ones readable only by the app, everything content-addressed by SHA-256 plus file extension and keyed
 by space, so identical bytes of the same extension and class upload once per space and a pointer's
-URI is immutable.
+URI is immutable. Given an `IkonBackend`, it uses the store in that backend's environment instead
+of the process's own.
 
 Space is reclaimed by a reachability GC in two steps: plan, then execute. `PlanGcAsync(repoDir, scope)`
 returns an `AssetGcPlan` — the `RepoDir`, `Scope` and `WindowDays` it was made with, how many URIs

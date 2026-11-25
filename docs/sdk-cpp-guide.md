@@ -1,4 +1,4 @@
-<!-- checked-against: 7a42e82be4a61e33e3b0c442 -->
+<!-- checked-against: dc8f95524e96641ee3b0c442 -->
 
 # IKON C++ SDK
 
@@ -28,8 +28,9 @@ What it does:
   - `IHttp`: HTTPS requests
   - `ISystem`: a clock, random numbers and a way to wait
   - `Log`: where the SDK's log lines go (optional)
+- Optionally, an `IDatagramNetwork`: a DTLS connection over UDP, for the [UDP side channel](#channels-and-the-udp-side-channel)
 
-On a desktop or a server the SDK's own implementations cover all four: `StdSystem` and `StderrLogSink` in `ikon_platform_std.h`, the example clients in `example_network_client.h` and `example_http_client.h`, which need OpenSSL, and the console log in `example_logger.h`.
+On a desktop or a server the SDK's own implementations cover all four: `StdSystem` and `StderrLogSink` in `ikon_platform_std.h`, the example clients in `example_network_client.h` and `example_http_client.h`, which need OpenSSL, and the console log in `example_logger.h`. `ExampleDtlsClient` in `example_dtls_client.h` is the datagram connection on OpenSSL.
 
 ## Building a Program
 
@@ -43,18 +44,20 @@ A program that adds the SDK's source folder with `add_subdirectory` or `FetchCon
 Both targets add `/bigobj` on MSVC, because a Debug build of the SDK's headers has more sections than an object file holds by default. The minimal `CMakeLists.txt` below downloads the SDK with `FetchContent`, from an address that always serves the newest version:
 
 ```cmake
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.18...3.31)
 project(my_client CXX)
 
 include(FetchContent)
 FetchContent_Declare(ikon_sdk
-  URL https://github.com/ikon-ai/ikon-releases/releases/download/cpp-sdk/ikon-sdk-cpp.zip
+  URL https://api.prod.ikon.live/releases/ikon-sdk-cpp/latest/IKON-Cpp-SDK.zip
 )
 FetchContent_MakeAvailable(ikon_sdk)
 
 add_executable(my_client main.cpp)
 target_link_libraries(my_client PRIVATE ikon::sdk_examples)
 ```
+
+`FetchContent` downloads the SDK once per build folder, so an existing build keeps the version it first downloaded. To move the build to the newest version, delete the `_deps` folder in the build folder. The upper version in `cmake_minimum_required` turns on the newer CMake policies, as far as the CMake running the build has them. One of them is CMP0135. Without it, CMake 3.24 and later warn about a `URL` download.
 
 `add_subdirectory` on the unpacked zip works the same way. To install it instead, run `cmake -S <unpacked zip> -B build` and `cmake --install build --prefix <prefix>`, and find it with `find_package(ikon-sdk <major>.<minor> CONFIG REQUIRED)` and `-DCMAKE_PREFIX_PATH=<prefix>`. A minor release can change the API, so `find_package` accepts only the minor version it asks for.
 
@@ -471,7 +474,7 @@ client.Disconnect();
 
 Once the connection is open, `Connect()` waits for the server to send the session state and the app's functions, up to `timeouts.joinTimeoutMs` (30 seconds). If they do not arrive, it closes the connection and fails with `JoinTimeout`, and the client goes `Offline` without running `Ready`; call `Connect()` again to retry. A reconnect attempt that runs out of this time counts as a failed attempt.
 
-`Disconnect()` tells the server that the client is leaving, so the server ends the session at once instead of holding it for a reconnect, and closes the connection. It does not wait for the server, only for a connect or reconnect attempt running on another thread to stop. It is safe from any thread, and stops a connect or reconnect in progress; the client goes to `Idle`. The destructor calls it.
+`Disconnect()` tells the server that the client is leaving, so the server ends the session at once instead of holding it for a reconnect, and closes the connection. When the `INetwork` implements `ShutdownSend`, it first ends only the sending side and reads until the server closes the connection, for up to 1 second. Closing a connection while the server's messages are still arriving resets it, and a reset can discard the leave message before the server reads it. It also waits for a connect or reconnect attempt running on another thread to stop. It is safe from any thread, and stops a connect or reconnect in progress; the client goes to `Idle`. The destructor calls it.
 
 A program whose output goes to a file or a pipe (a log, a CI step) has its `std::cout` buffered, so lines that show a join in progress can appear long after it happened. Set `std::cout.setf(std::ios::unitbuf);` at the start of `main`, or end lines with `std::endl`, as the examples do.
 
@@ -1226,6 +1229,14 @@ public:
         return _connection < 0 ? -1 : board_tls_read(_connection, buffer, capacity, timeoutMs);
     }
 
+    // Optional: send close_notify and a TCP FIN (with mbedTLS, mbedtls_ssl_close_notify, then
+    // shutdown(socket, SHUT_WR)) and keep reading, so the server reads the client's leave message before
+    // the connection ends. Without it Disconnect closes at once.
+    bool ShutdownSend() override
+    {
+        return _connection >= 0 && board_tls_shutdown_send(_connection);
+    }
+
 private:
     int _connection = -1;
 };
@@ -1236,6 +1247,12 @@ With threads, `Read` and `Write` may run at the same time on two threads, a read
 `ConnectOptions::verifyCertificate` is true for the cloud, and false only for a local IKON server, whose certificate is self-signed: when `ClientConfig::local` is set, or when `externalConnectUrl` is on this computer (`localhost`, `127.0.0.0/8`, `::1`). A port that verifies certificates needs a bundle of trusted root certificates, as a browser has.
 
 On Linux and macOS, a write to a connection the peer has reset raises `SIGPIPE`, which ends the program by default. A network client must turn it into a failed write: `ExampleNetworkClient` sets `SO_NOSIGPIPE` on the socket where it exists (macOS) and on Linux gives OpenSSL a socket BIO of its own that writes with `send(..., MSG_NOSIGNAL)`. A client that writes with `send` itself passes `MSG_NOSIGNAL` the same way. `ExampleNetworkClient` verifies the chain against the system's trusted roots (the Windows root store on Windows, OpenSSL's default paths elsewhere) and checks the host name or IP address; a failed connect is logged as a warning with its reason, and `LastError()` returns it.
+
+#### IDatagramNetwork
+
+An optional DTLS 1.2 connection over UDP, for the [UDP side channel](#channels-and-the-udp-side-channel). A port without UDP leaves it out and does not include `ikon_udp.h`, and its image has none of this code. Each `Write` sends one datagram and each `Read` returns one, `0` when none arrived in time and `-1` once the connection is closed. The server offers the cipher suites ECDHE-ECDSA with AES-128-GCM, ChaCha20-Poly1305 or AES-256-GCM, and reads datagrams of up to 1200 bytes, DTLS record included, so the SDK writes at most 1163 bytes in one. The server fails a ClientHello that offers no RFC 5746 secure renegotiation, either the `renegotiation_info` extension or the `TLS_EMPTY_RENEGOTIATION_INFO_SCSV` cipher suite. OpenSSL sends the extension, and mbedTLS 3 sends the cipher suite in every first ClientHello, whether or not `MBEDTLS_SSL_RENEGOTIATION` is defined; leave `mbedtls_ssl_conf_legacy_renegotiation` at its default, which refuses a server that does not answer it.
+
+The server's certificate is self-signed, so `ConnectOptions::certificateHash`, the base64 of the SHA-256 of the server's leaf certificate in DER form, is the only check: the handshake fails unless the certificate matches it. It is empty only for a local run's server. `Connect` blocks the thread that polls the client for up to `ConnectOptions::timeoutMs`. `Close` sends `close_notify`, so the server drops the channel at once. `ExampleDtlsClient` in `example_dtls_client.h` implements it on OpenSSL and fails a connect whose server did not confirm secure renegotiation; with mbedTLS on a chip it is a client configured with `MBEDTLS_SSL_TRANSPORT_DATAGRAM` and timer callbacks, which checks the SHA-256 of the peer certificate against the pin in place of chain verification.
 
 #### IHttp
 
@@ -1364,11 +1381,11 @@ The table below is for a client that signs in and joins, with no add-ons, built 
 
 | Chip | Flash | Static RAM |
 |---|---:|---:|
-| Cortex-M0+ | 90 KB | 0.6 KB |
-| Cortex-M4F, Cortex-M33 | 79 KB | 0.5 KB |
-| RISC-V RV32IMAC | 100 KB | 0.9 KB |
-| ESP32-S3 | 85 KB | 0.6 KB |
-| ESP32-C3 | 98 KB | 0.6 KB |
+| Cortex-M0+ | 95 KB | 0.6 KB |
+| Cortex-M4F, Cortex-M33 | 84 KB | 0.5 KB |
+| RISC-V RV32IMAC | 105 KB | 0.9 KB |
+| ESP32-S3 | 90 KB | 0.6 KB |
+| ESP32-C3 | 104 KB | 0.6 KB |
 
 With `lowMemory`, a join takes about 10 KB of heap at its peak in a session of 2 clients and 25 KB in one of 20, and the client keeps about 10 KB once joined. Reading a message allocates nothing. The figures leave out the device's TLS library and network stack, which on an ESP32 with 16 KB TLS records take about 40 KB of heap for the connection.
 
@@ -1394,7 +1411,7 @@ The backend request that waits up to `provisioningTimeoutMs` for the app's serve
 config.requirePostQuantum = true;
 ```
 
-With `requirePostQuantum` set, every TLS connection the client makes (the sign-in, the session requests and the connection to the server) offers only the hybrid post-quantum key exchange group X25519MLKEM768, and only TLS 1.3. A server that cannot negotiate it fails the handshake, and the client never falls back to a classical key exchange. The deployed IKON servers and the load balancers negotiate it. A server on Windows (a local `ikon run` reached at a non-loopback address) has no ML-KEM in its TLS, so the handshake fails there. A connection to a loopback address (`localhost`, `127.0.0.0/8`, `::1`), such as a local `ikon run` on the same machine, crosses no network and is exempt. The client reaches a server only over TLS, so no other transport needs to be turned off. An app that sets `RequirePostQuantum` in its `ikon-config.toml` makes its server offer only transports that can use post-quantum key exchange, but only this flag makes the client refuse a classical key exchange.
+With `requirePostQuantum` set, every TLS connection the client makes (the sign-in, the session requests and the connection to the server) offers only the hybrid post-quantum key exchange group X25519MLKEM768, and only TLS 1.3. A server that cannot negotiate it fails the handshake, and the client never falls back to a classical key exchange. The deployed IKON servers and the load balancers negotiate it. A server on Windows (a local `ikon run` reached at a non-loopback address) has no ML-KEM in its TLS, so the handshake fails there. A connection to a loopback address (`localhost`, `127.0.0.0/8`, `::1`), such as a local `ikon run` on the same machine, crosses no network and is exempt. The client opens no UDP side channel with the flag set, since DTLS 1.2 has no post-quantum key exchange. An app that sets `RequirePostQuantum` in its `ikon-config.toml` makes its server offer only transports that can use post-quantum key exchange, but only this flag makes the client refuse a classical key exchange.
 
 The SDK passes the flag to your interface implementations: `HttpRequest::requirePostQuantum` on each request, and `ConnectOptions::requirePostQuantum` on each `Connect`. Both are `false` for a loopback host. An implementation says it honours them by overriding `SupportsPostQuantumOnly()` to return `true`. With the flag set, `Connect()` fails with `PostQuantumUnsupported` before sending anything when either interface returns `false`, the default, so an implementation written without the flag in mind cannot connect with a classical key exchange. With OpenSSL, the TLS setup is two calls:
 
@@ -1411,6 +1428,31 @@ bool OfferOnlyPostQuantum(SSL_CTX* context)
 ```
 
 `ExampleHttpClient` and `ExampleNetworkClient` honour the flag and need OpenSSL 3.5 or later for it. With an older OpenSSL their `SupportsPostQuantumOnly()` returns `false`, so `Connect()` refuses. WinHTTP has no setting for the key exchange group, so on Windows `ExampleHttpClient` sends a request that requires post-quantum key exchange over OpenSSL instead.
+
+### Channels and the UDP Side Channel
+
+The server offers the client several ways in, and a join tries them in this order: a TLS connection over TCP to the server's own port, then a WebSocket over TLS on the server's HTTPS port, then a WebSocket through IKON's proxy on port 443. A network that blocks the server's ports, as many company and hotel networks do, still reaches the proxy. Every attempt but the last is cut short after 4 seconds. An address that did not answer at all within that time is tried last for the next 10 minutes, so each reconnect does not wait for it again. A refused connection is not remembered, because a server that is restarting refuses connections for a moment. All of them go through the same `INetwork`, so a port needs nothing more for them.
+
+<!-- example-skip: two fields and two calls, each named in the text below -->
+```cpp
+config.webSocketOnly = true;     // Join over a WebSocket, never the server's TCP port
+config.enableUdpChannel = false; // Never open UDP, even with a UdpChannel constructed
+
+EntrypointType channel = client.ChannelType();  // TcpTls, WebSocket or WebSocketProxy; None when not connected
+bool isUdpOpen = client.UnreliableChannelOpen();
+```
+
+`webSocketOnly` makes the client try only the two WebSockets, for a network known to block everything else. `ChannelType()` says which one the client joined over.
+
+A message flagged `MessageFlag::Unreliable`, as an app's schema can declare for sensor readings or a controller's state, can travel beside the connection as a UDP datagram, where a lost one is not resent and a late one does not hold up the next. The client opens that side channel only when the program constructs a `UdpChannel` (`ikon_udp.h`) over an `IDatagramNetwork`, before `Connect()`:
+
+<!-- example-skip: needs an IDatagramNetwork, which the doc examples do not open -->
+```cpp
+ExampleDtlsClient datagrams(log);
+UdpChannel udp(client, datagrams);  // Adds itself to the client
+```
+
+After each join the channel connects to the server's UDP port over DTLS 1.2, sends the session's ticket up to 5 times, 2 seconds apart, and opens when the server answers. While it is open, `Send` puts each message flagged unreliable in datagrams, split into fragments when it is longer than one, and the server sends its unreliable messages to the client the same way; they arrive in the same `On<T>` handlers as everything else. Everything else, every unreliable message while the channel is closed, and one over 256 fragments (about 290 KB) go over the connection. The client opens no UDP channel when it is on a WebSocket, when `requirePostQuantum` is set or `enableUdpChannel` is off, when the server offers none, or, outside a local run, when the server sends no certificate hash to pin. A channel that does not open, or that fails later, is logged as a warning and the client stays connected. It closes when the connection drops and opens again after the next join.
 
 ### Protocol Options
 
@@ -1455,6 +1497,7 @@ config.parameters = {
 | `MessageOptions` | The track id and other header fields `Send` sets |
 | `ClientContextUpdate` | The context values `UpdateClientContext` changes; empty fields keep their value |
 | `ClientExtension` | The base of an add-on |
+| `EntrypointType` | Which channel the client joined over: `ChannelType()` returns `TcpTls`, `WebSocket`, `WebSocketProxy` or `None` |
 | `JsonValue` | A parsed JSON value, for function arguments, results and reactive values |
 | `TeleportGuid` | A GUID, such as a call's id |
 
@@ -1472,6 +1515,7 @@ config.parameters = {
 | `UIStream`, `UINode` | The tree of one mount, and one of its nodes |
 | `Uploads`, `UploadOptions`, `UploadResult`, `UploadProgress`, `UploadSource` | File uploads (`ikon_upload.h`) |
 | `Media`, `MediaResult`, `AudioPlaybackState` | Audio and video (`ikon_media.h`) |
+| `UdpChannel` | The UDP side channel for unreliable messages (`ikon_udp.h`) |
 
 ### Configuration Types
 
@@ -1489,11 +1533,12 @@ config.parameters = {
 | Type | Description |
 |------|-------------|
 | `INetwork` | A TLS connection over TCP (`ikon_platform.h`) |
+| `IDatagramNetwork` | A DTLS connection over UDP, optional |
 | `IHttp`, `HttpRequest`, `HttpResponse` | HTTPS requests |
 | `ISystem` | The clock, random numbers and waiting |
 | `Log`, `LogLevel` | Where log lines go |
 | `StdSystem`, `StderrLogSink` | `ISystem` and a log sink on the standard library (`ikon_platform_std.h`) |
-| `ExampleNetworkClient`, `ExampleHttpClient`, `ExampleLog` | Desktop implementations on OpenSSL (`example_*.h`) |
+| `ExampleNetworkClient`, `ExampleHttpClient`, `ExampleDtlsClient`, `ExampleLog` | Desktop implementations on OpenSSL (`example_*.h`) |
 
 ### Protocol Types
 

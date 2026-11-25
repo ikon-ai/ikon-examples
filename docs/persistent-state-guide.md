@@ -1,4 +1,4 @@
-<!-- checked-against: 8f1a8fd9fd32b06dc95cb3ff -->
+<!-- checked-against: 83e63376fd32b06dc95cb3ff -->
 
 # IKON Persistent State Guide
 
@@ -291,7 +291,8 @@ keeps backups and can be restored to any moment of the last seven days. The smal
 
 The app reaches a database through a connection pooler, which runs its queries on 2 server
 connections on `shared-dense`, 3 on `shared` and 48 on `dedicated-small`, shared by every instance
-of the app. Queries beyond that wait at the pooler for a free one, except on `shared-dense`: it runs two queries at a time, and a third concurrent query is refused with "too many connections" (SQLSTATE 53300) instead of waiting. Persistent state loads a joining
+of the app. Queries beyond that wait at the pooler for a free one, and a query that waits more than
+two minutes fails. Persistent state loads a joining
 user's values with one query per database, however many values the user has.
 
 A live database can move to another tier without redeploying:

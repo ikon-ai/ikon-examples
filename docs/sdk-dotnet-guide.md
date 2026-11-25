@@ -1,4 +1,4 @@
-<!-- checked-against: a37134ab4b73d1fd46567480 -->
+<!-- checked-against: cea4ab240ef74a32eae3997c -->
 
 # IKON C# SDK
 
@@ -92,6 +92,12 @@ connect would otherwise spend up to the 15-second DTLS handshake timeout on a ba
 cannot succeed. The other is when you connect many clients from one process and want each to cost as
 little server memory as possible: the side channel is a second socket, a DTLS session and a second
 pair of send queues per client on both ends.
+
+The WebSocket is tried on the server's HTTPS port first and then through the proxy on port 443, so a
+network that lets only HTTPS through still reaches the session. Set `WebSocketOnly = true` to skip the
+TCP attempts on such a network, where each would otherwise wait for its timeout first.
+`IkonClient.ChannelType` says which transport the connection took, and `IkonClient.UnreliableChannelOpen`
+whether the UDP side channel is open.
 
 <!-- ikon-example: sdk-disable-udp -->
 ```csharp

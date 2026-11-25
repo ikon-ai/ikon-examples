@@ -1,4 +1,4 @@
-<!-- checked-against: f6e6e2c876a45e87e3b0c442 -->
+<!-- checked-against: 2c6de39c9d6fb84ce3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -695,6 +695,12 @@ message that arrives with no `app.OnMessage<T>` handler. In the app, the `sender
 `senderId` an `AppMessaging.on` handler gets is the app's own session id, the `SessionId` of its
 `ContextType.Plugin` client (see "Other Clients"). It changes each time the app restarts or hot
 reloads, so a program should not keep it.
+
+A type the schema declares `unreliable = true` travels over the WebRTC data channel (unordered, no
+retransmits) while `client.unreliableChannelOpen` is true, so a message may arrive out of order or
+not at all. Otherwise, and for a message over 64 KiB, it goes over the session's channel. Node has no
+WebRTC, so there it always takes the session's channel. `client.activeEndpointType` says which
+transport carries the session.
 
 ### Uploading Files
 
