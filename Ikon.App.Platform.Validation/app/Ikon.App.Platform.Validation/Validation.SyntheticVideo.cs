@@ -107,7 +107,7 @@ public partial class Validation
 
         try
         {
-            frames = LoadSyntheticVideoFrames(codec);
+            frames = await LoadSyntheticVideoFramesAsync(codec);
         }
         catch (Exception ex)
         {
@@ -276,7 +276,7 @@ public partial class Validation
     /// The bridge packetizes every outbound track with that one codec, so a stream encoded in the
     /// other one arrives as bytes the browser cannot decode — plenty of traffic, a black canvas.
     /// </summary>
-    private IReadOnlyList<byte[]> LoadSyntheticVideoFrames(VideoCodec codec)
+    private async Task<IReadOnlyList<byte[]>> LoadSyntheticVideoFramesAsync(VideoCodec codec)
     {
         if (_syntheticVideoFramesByCodec.TryGetValue(codec, out var cached))
         {
@@ -284,13 +284,12 @@ public partial class Validation
         }
 
         var fileName = codec == VideoCodec.Vp8 ? "synthetic-video.ivf" : "synthetic-video.h264";
-        var path = Path.Combine(app.DataDirectory, fileName);
-        var data = File.ReadAllBytes(path);
+        var data = await app.Files.Data.ReadBytesAsync(fileName);
         var frames = codec == VideoCodec.Vp8 ? SplitIvfFrames(data) : SplitAnnexBAccessUnits(data);
 
         if (frames.Count == 0)
         {
-            throw new InvalidOperationException($"No frames found in {path}");
+            throw new InvalidOperationException($"No frames found in {fileName}");
         }
 
         _syntheticVideoFramesByCodec[codec] = frames;
