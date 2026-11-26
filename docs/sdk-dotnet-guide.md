@@ -1,4 +1,4 @@
-<!-- checked-against: cea4ab240ef74a32eae3997c -->
+<!-- checked-against: 12aa62e8e2f7ab6b2c88e916 -->
 
 # IKON C# SDK
 
@@ -28,7 +28,7 @@ dotnet add package Ikon.Sdk
 
 ## Quick Start
 
-Add `using Ikon.Sdk;` and `using Ikon.Common.Core.Protocol;` (the `UserType` and `ClientType` enums live there), and `using Ikon.Common.Core;` for `MediaTargets` in the media snippets below, then:
+Add `using Ikon.Sdk;` and `using Ikon.Common.Core.Protocol;` (the `UserType` and `ClientType` enums are in that namespace), then:
 
 <!-- ikon-example: sdk-quickstart -->
 ```csharp
@@ -62,7 +62,7 @@ try
 {
     await client.ConnectAsync();
 }
-catch (HttpRequestException ex)
+catch (CredentialRefusedException ex)
 {
     // A first connect that is refused throws, such as 403 Invalid key for a deleted key
     Console.WriteLine($"Connect refused: {ex.Message}");
@@ -199,6 +199,9 @@ Several local runs on one machine take 8443, 8444 and so on. The run's port is a
 `build/app/artifacts/bin/<project>/debug/ikon-server-info.json`. Without `SpaceId` the client joins
 whichever app holds the port. "A Console Program That Joins An App" below has the full setup.
 
+`LocalConfig.BackendToken` is sent to the run as `Authorization: Bearer`. On a run that other machines
+can reach, a client from another machine connects as the user that token proves, or else as a guest.
+
 A local connection is a machine user by default. A client acting for a signed-in person sets `UserType = UserType.Human` and `AuthSessionId` to the `authSession` claim of that person's backend token, as the browser SDK's local connect does, and `ClientType` to the kind of client it is.
 
 ### Backend Authentication
@@ -285,16 +288,19 @@ meaning as in `UserLogin`.
 browser SDK connects a user who has not signed in. It needs no sign-in. The platform picks the guest
 user by `IkonClientConfig.DeviceId`: two clients with the same device id are the same guest, and a new
 device id is a new guest. If the app's guest entries include "global", the device id is ignored and
-all guests share one user. If the app lets no guests in, or the surface the program enters
+all guests share one user. If the app lets no guests in, the connect fails with a
+`GuestRefusedException` (403). If the surface the program enters
 (`IkonClientConfig.Surface`, else, leaving out sign-in pages, the only surface left or the one with
-neither `Routes` nor `Host`, else the first declared) does not, the connect
-fails with a 403. The 403 message names the surfaces that admit guests; pass `surface:` (`IkonClientConfig.Surface`)
+neither `Routes` nor `Host`, else the first declared) does not, it fails with an
+`AccessDeniedException` (403) whose message names the surfaces that admit guests; pass `surface:` (`IkonClientConfig.Surface`)
 when the default surface refuses guests. `Environment` (`IkonBackend.EnvironmentType`, in `Ikon.Common.Core`) names the
 platform the app is on, Development or Production. Null uses the platform this process signed in to.
 A standalone program has not signed in, so it must set `Environment`; otherwise `ConnectAsync` throws
 `ArgumentException` ("Guest authentication needs the Development or Production platform, not
 Unknown"). For a local server, `LocalConfig.IsAnonymous = true` connects as a guest in the same way,
-under the `UserId` you give it.
+under the `UserId` you give it. `GuestConfig.UserType` (default `Human`) and `GuestConfig.JoinOnly`
+(join the live session, never start one) work as they do for the other sign-in modes; a guest program
+that must not keep the session open sets `UserType = UserType.Machine` and `JoinOnly = true`.
 
 A guest connect needs each of these, and a missing one is the usual cause of a 403 or an `ArgumentException`:
 
@@ -305,6 +311,24 @@ A guest connect needs each of these, and a missing one is the usual cause of a 4
 | `IkonClientConfig.DeviceId` | One id per guest; keep it to come back as the same guest. |
 | The surface's `Methods` | The surface the client enters (`IkonClientConfig.Surface`) lists `guest` or `global` in its `[Surface.Auth] Methods`. |
 | `IkonClientConfig.Parameters` | The same parameters a browser would carry, such as the room, when the app picks its instance by them. |
+
+### A Session Link or a Version Under Test
+
+Every cloud mode (`ApiKey`, `Backend`, `UserLogin`, `UserToken` and `Guest`) has two optional settings,
+which a browser takes from the page's address:
+
+- `SessionIdentityHash` joins the one live app session a session link names. It is the link's
+  `ikon-session` parameter (the app publishes the link as `GlobalState.SessionUrl`), and it takes precedence
+  over the instance `Parameters` would pick. When no live session has it, `ConnectAsync` throws
+  `SessionNotFoundException` (an `HttpRequestException` carrying 404, with the hash in
+  `SessionIdentityHash`) and starts no session in its place. Neither the connect nor a reconnect retries it.
+- `AppBundle` runs a deploy that is not live, uploaded with `ikon deploy --no-activate`, in a session of
+  its own. It is the bundle id, a link's `ikon-version` parameter. Only someone with `Update` rights on
+  the app's bundles is let in; anyone else gets a 403, and a bundle still processing or that failed to
+  build gets a 409.
+
+`Guest = new GuestConfig { SpaceId = "...", SessionIdentityHash = hash }` joins a shared session as a
+guest. Neither value reaches the app's client parameters.
 
 ## A Console Program That Joins An App
 
@@ -656,7 +680,24 @@ await client.DisconnectAsync();
 await client.DisposeAsync();
 ```
 
-A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the client on another shard; when none has room, `ConnectAsync` throws an `HttpRequestException` saying the app is full.
+A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the client on another shard. When no shard has room, the client first waits for room as described next, and after that `ConnectAsync` throws a `ServerFullException` (in `Ikon.Common.Core`). A full app may have room later, so a reconnect keeps trying.
+
+When the backend has no room for the client yet, because a server for it is being started or the app is
+full, /init says how long to wait. The client then sets `client.CapacityWait`. Its `Full` is true for a
+full app and false while a server is being started, and its `RetryAt` is when the client asks again, so a
+program can show a countdown. The client raises `CapacityWaitChangedAsync` and waits until `RetryAt`.
+Then it clears the wait, raises the event again with null and asks /init again. That /init no longer
+names the servers that refused the client as full, because they may have room by then. For each wait the
+client writes one info line. It names the space, says whether the app is full or a server is being
+started, how long until the client asks again, and how long this connect has already waited for room out
+of `TimeoutConfig.CapacityWaitTimeout`. While the client waits, `State` stays `Connecting`
+(`Reconnecting` on a reconnect, `Offline` in the background reconnect), and the waits do not count
+against the connect's attempts. The waits of one connect, of the quick reconnect attempts or of the
+background reconnect may take `TimeoutConfig.CapacityWaitTimeout` (10 minutes) in all. After that, the
+next answer that asks the client to wait writes one more info line and fails the connect. `ConnectAsync`
+then throws without another attempt: a `ServerFullException` for a full app, an
+`AppSessionNotRunningException` otherwise. A reconnect counts the failure as a failed attempt and goes
+on, without waiting for room again.
 
 When the platform no longer accepts the client, `ConnectAsync` throws, and the SDK neither retries nor reconnects, because only a new build fixes it:
 
@@ -667,7 +708,40 @@ When the platform no longer accepts the client, `ConnectAsync` throws, and the S
 
 Both are `HttpRequestException`s carrying 426. `Reason` is the platform's message and `Minimum` the oldest version it accepts. A reconnect that meets either one stops and raises `ErrorOccurredAsync` with it.
 
-When the app's server fails to start, `ConnectAsync` throws an `AppSessionNotRunningException`. Its `AppSessionId` names the session whose log says why.
+When the app fails to start, `ConnectAsync` throws an `AppStartException` (in `Ikon.Common.Core`) with
+`StartupFailed` true, at once and without retrying, because a retry starts the same broken app; its
+`AppSessionId` names the session whose log says why. When an app session is still starting as the
+backend's wait (`TimeoutConfig.WaitForRunningTimeout`, 60 seconds) runs out, that try fails with an
+`AppSessionNotRunningException`, and the connect tries again.
+
+#### Why a connect failed
+
+Every refusal has a type of its own, so a program can tell what to do from the type alone. The HTTP
+refusals are `HttpRequestException`s, so a `catch (HttpRequestException)` still catches them.
+`NoLiveSessionException`, `AppStartException` and `AppSessionNotRunningException` are not, so catch
+`Exception` to catch every failure.
+
+| Exception | Meaning | Retried |
+|---|---|---|
+| `CredentialRefusedException` (`Status` 401, or 401/403 for an API key) | The token expired or was revoked, or the API key is unknown | No: a new token (`UpdateAuthToken`) or key |
+| `GuestRefusedException` | The app lets no guests in, or its test link was refused | No |
+| `AccessDeniedException` (403) | The app or surface does not admit this user | No |
+| `AppNotAvailableException` (`Status` 404 or 410) | The app is suspended, unpublished or not deployed | No |
+| `SessionNotFoundException` | No live session has the `SessionIdentityHash` | No |
+| `NoLiveSessionException` | A `JoinOnly` client found no session to join | No |
+| `SdkUpgradeRequiredException`, `AppUpgradeRequiredException` | 426, below | No |
+| `AppStartException` with `StartupFailed` | The app failed to start | No |
+| `ServerFullException`, `ServerRateLimitedException`, `ServerNotReadyException`, `ServerChangedException` (in `Ikon.Common.Core`) | A server was full, busy, starting or replaced | Yes |
+| `AppSessionNotRunningException`, `TimeoutException`, network errors, 408, 500, 502, 503, 504, a 429 whose `Retry-After` is at most 30 seconds | Try again | Yes |
+
+The first `ConnectAsync` makes up to `TimeoutConfig.MaxConnectAttempts` (3) tries, 1 second and then 2
+seconds apart, and throws the last failure. Every request to the backend has its own deadline: 15
+seconds for a sign-in, and `WaitForRunningTimeout` plus 15 seconds for /init, which may start a server.
+
+A connected client's `client.AppSessionId` is the app session it joined, the id the Portal shows, and
+`client.IkonServerId` the IKON server process running it, the `senderId` of that server's log lines. A
+reconnect that signs in again can connect to another server. Both are empty before the first connect, and
+`AppSessionId` is `"local"` on a local run.
 
 ### Automatic Reconnection
 
@@ -691,12 +765,20 @@ var config = new IkonClientConfig
         MaxReconnectAttempts = 4,                                 // Max attempts (default)
         MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
         ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
+        CallTimeout = TimeSpan.FromSeconds(30),                   // Wait for a call's result, per item for a stream (default; Zero = none)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying from the `Offline` state after the fast reconnection attempts are exhausted. It waits 10 seconds, doubled after each failed attempt up to `MaxReconnectDelay` (5 minutes), and at least as long as a 429's `Retry-After`. It stops and stays `Offline` when retrying cannot help: a refused sign-in (401, 403), an app that is not available (404, 410: suspended, unpublished or not deployed), an SDK or app build the platform no longer runs (426), or a `JoinOnly` reconnect that finds the session ended.
+Each attempt first tries to resume the same session from the tickets the client holds, and keeps
+trying that on later attempts while the server may still hold the session; a link that is down for a
+while still comes back to the same session. When the server answers that it no longer has the session,
+the client goes straight on to a new one, without waiting out `ReconnectAttemptTimeout`. A client
+notices a dead link by the server's silence: it closes the connection when nothing has arrived for the
+receive timeout the server announces in its keepalives, at least 10 seconds.
+
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying from the `Offline` state after the fast reconnection attempts are exhausted. It waits 10 seconds, doubled after each failed attempt up to `MaxReconnectDelay` (5 minutes), and at least as long as a 429's `Retry-After`. It stops and stays `Offline` when retrying cannot help: a refused sign-in (401, 403), an app that is not available (404, 410: suspended, unpublished or not deployed), a `SessionIdentityHash` whose session is no longer live (`SessionNotFoundException`), an SDK or app build the platform no longer runs (426), an app that failed to start (`AppStartException` with `StartupFailed`), or a `JoinOnly` reconnect that finds the session ended.
 
 A function call made while the client is reconnecting waits for the reconnect and is sent once the
 client is ready again; see [Calling Functions](#calling-functions).
@@ -719,10 +801,12 @@ client.CredentialRejectedAsync += async e =>
 };
 ```
 
-`UpdateAuthToken` works only for a `UserToken` client, and a client waiting after a refusal starts
-reconnecting with the new token at once. Call it whenever the program renews the token, too; a
+`UpdateAuthToken` works for a `UserToken` client, and a client waiting after a refusal starts
+reconnecting with the new token at once. On a `Local` client it replaces `LocalConfig.BackendToken`
+for the next sign-in. Call it whenever the program renews the token, too; a
 connected client uses it the next time it signs in. A first `ConnectAsync` that is refused throws
-the `HttpRequestException` instead.
+the `CredentialRefusedException` or `AccessDeniedException` instead. An app server that refuses the
+connect token with 401 is treated the same way as the backend.
 
 An `ApiKey` client posts its key at every sign-in, so it has no token to renew. A key that was
 deleted is refused with 403: the client raises `ErrorOccurredAsync` and `DisconnectedAsync` and
@@ -774,6 +858,13 @@ var subscription = client.OnMessage<MyCustomPayload>(async (message, senderId) =
 subscription.Dispose();
 ```
 
+A handler with a third parameter, `(message, senderId, delivery)`, also learns how each message
+arrived: `MessageDelivery.ViaUnreliableChannel` is true when the UDP side channel carried it and false
+when the reliable connection did. A message the app sends unreliably can arrive either way, because
+the server sends it over the reliable connection when the UDP channel cannot take it, so this is the
+only way to tell them apart. A `MessageReceivedAsync` handler reads the same from
+`e.Message.ReceivedViaUnreliableChannel`.
+
 In the app, the `senderId` that `app.OnMessage<T>` gets for a message from this program is the
 program's `client.ClientContext.SessionId`, the same number as `ReactiveScope.ClientId` and
 `Context.SessionId` for the program's client, and `app.SendMessageAsync(reply, senderId)` answers
@@ -807,7 +898,6 @@ ReadOnlyMemory<float> samples = GetAudioSamples();
 
 // Send audio
 await client.SendAudioAsync(
-    MediaTargets.Everyone,
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -816,18 +906,17 @@ await client.SendAudioAsync(
 );
 
 // Send final chunk
-await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
+await client.SendAudioAsync(samples, 48000, 1, isFirst: false, isLast: true);
 
 // An app's speech recognition skips a stream with no correlation id unless the app turned
 // that off. Pass the id the app gave for the capture, or any id of your own. When a new
 // segment uses another id, the SDK announces the stream again with that id
-await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: true, isLast: true, correlationId: "question-1");
+await client.SendAudioAsync(samples, 48000, 1, isFirst: true, isLast: true, correlationId: "question-1");
 
 // Optional: specify stream ID, total duration and encoder options.
 // A stream's sample rate and channel count are fixed by its first send, and every call
 // without a streamId shares one stream, so audio in another format needs its own streamId
 await client.SendAudioAsync(
-    MediaTargets.Everyone,                    // A client's audio reaches the app
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -841,9 +930,24 @@ await client.SendAudioAsync(
     ));
 ```
 
+The stream goes to the app session, which passes it on to whoever the app routes it to. While the
+client reconnects its audio is dropped; the next join announces the stream again, and a segment the
+reconnect cut (a first chunk sent, no last one yet) starts again with the next chunk marked first, because
+the receiver never saw its start. `EndAudioStreamAsync(streamId)` ends a stream: the app sees it end,
+and a later send under the same id begins a new one. Audio that arrives already encoded with Opus
+(a phone line, a recording) goes out with `SendOpusFrameAsync(packet, frameSize, sampleRate,
+channelCount, isFirst, isLast, streamId)`, without being decoded and encoded again; `frameSize` is the
+packet's samples per channel, 960 for 20 ms at 48 kHz.
+
 ### Receiving Audio
 
-Subscribe to audio events to receive incoming audio streams:
+Subscribe to audio events to receive incoming audio streams. A received stream's `StreamId` is
+`{senderSessionId}_{trackId}`, which its frames and end carry too, because two senders may give their
+streams the same name; the sender's own name is `SenderStreamId`, and the sender `SenderSessionId`.
+`CorrelationId` names the capture the stream belongs to. A begin repeated with a new `CorrelationId`
+ends the stream and begins it again, so a consumer that keeps one transcript per capture sees each one.
+Frames are decoded only while an `AudioInputFrameAsync` handler is attached, so a program that only
+watches streams begin and end does not spend time decoding audio.
 
 <!-- ikon-example: sdk-receive-audio -->
 ```csharp
@@ -946,8 +1050,6 @@ Send each frame as you encode it. The first frame of a stream announces it, and 
 size or codec announces it again. Send a keyframe first and whenever `VideoKeyFrameRequestedAsync`
 fires, because the app shows nothing until it has one. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS.
 
-The snippet uses `MediaTargets` from `using Ikon.Common.Core;`.
-
 <!-- ikon-example: sdk-send-video -->
 ```csharp
 // The SDK sends frames you have already encoded (H.264 in Annex B form, VP8 or VP9); it
@@ -962,7 +1064,6 @@ for (int frameNumber = 0; frameNumber < 300; frameNumber++)
     keyFrameRequested = false;
 
     await client.SendVideoFrameAsync(
-        MediaTargets.Everyone,                // A client's video reaches the app
         streamId: "camera-1",
         data: data,
         isKey: isKey,
@@ -975,6 +1076,9 @@ for (int frameNumber = 0; frameNumber < 300; frameNumber++)
 
 await client.EndVideoStreamAsync("camera-1");
 ```
+
+Frames sent while the client reconnects are dropped, and the first frame after the join announces the
+stream again, so make that frame a keyframe.
 
 ### Receiving Video
 
@@ -1340,10 +1444,25 @@ await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>($"{t
 A call to the app waits while the client is connecting or reconnecting (soft, or into a new session)
 and is sent right after the client is ready, after the messages held until then, in the order the calls
 were made. The function is looked up then, so a function the app no longer has fails with
-"Function 'x' not found". The wait counts against the call's 30-minute timeout; if the client is not
-ready by then, the call fails with a `TimeoutException` saying the client was not connected, and it
-is never sent. Pass a `CancellationToken` to wait less. At most 4096 calls wait; later ones fail at
-once.
+"Function 'x' not found". The wait counts against the call's timeout; if the client is not ready by
+then, the call fails with a `TimeoutException` saying the client was not connected, and it is never
+sent. Pass a `CancellationToken` to wait less. At most 4096 calls wait; later ones fail at once.
+
+A call waits for its result for `TimeoutConfig.CallTimeout`, 30 seconds unless set, and then throws a
+`TimeoutException`. Earlier SDK versions waited 30 minutes, so a program that calls an app function
+that runs longer (an AI generation, a long job) sets a longer one. `TimeSpan.Zero` waits without limit.
+A streaming call gets the timeout for each item, so a long stream that keeps sending runs as long as it
+needs. A UI action (`client.UI.CallActionAsync`) waits as long too. `WithCallTimeout` sets another
+timeout for the calls made inside its scope:
+
+<!-- ikon-example: sdk-call-timeout -->
+```csharp
+using (client.WithCallTimeout(TimeSpan.FromMinutes(5)))
+{
+    var report = await client.FunctionRegistry.CallAsync<string>("BuildReport", args: new object?[] { "2026" });
+    Console.WriteLine(report);
+}
+```
 
 A call fails at once with a `FunctionCallException` saying the client is not connected when the
 client is not trying to connect: before `ConnectAsync`, after `DisconnectAsync` or `DisposeAsync`,
@@ -1351,6 +1470,10 @@ when the server is stopping, or `Offline` with no reconnect left (`BackgroundRec
 failure no retry can fix). A waiting call fails the same way when the client moves into one of those
 states. Calls to the program's own functions run at once whatever the connection state, and a call
 already sent when the connection drops fails, since the server will not answer it.
+
+A call the app made to one of the program's functions is stopped when the connection drops: its
+`CancellationToken` is cancelled. When the client resumes the same session, the app's call fails with
+a `System.IO.IOException`, so the app can call again rather than wait for its own timeout.
 
 Cancelling the token passed to `CallAsyncEnumerable` stops the app's stream: an app function that
 takes an `[EnumeratorCancellation] CancellationToken` sees it cancelled. The token is not one of the
@@ -1406,6 +1529,7 @@ var config = new IkonClientConfig
         MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
         MaxReconnectDelay = TimeSpan.FromMinutes(5),              // Background backoff delay cap (default)
         ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per reconnect tier (default)
+        CallTimeout = TimeSpan.FromSeconds(30),                   // Wait for a call's result, per item for a stream (default; Zero = none)
         BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };

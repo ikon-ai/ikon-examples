@@ -1,4 +1,4 @@
-<!-- checked-against: 04806067294a56061782c27d -->
+<!-- checked-against: abd678c22d1942a31782c27d -->
 
 # Teleport message schema specification
 
@@ -537,12 +537,14 @@ language = "rust"
 dir = "../robot-client/src/generated/protocol"
 ```
 
+An `[[output]]` can also set `header`, text written at the top of every file in that folder, such as the license header of the program that keeps the bindings. Every target language takes `//` comments.
+
 Every message with an opcode carries its opcode, payload version and default flags in a typed form an SDK takes, so a program sends and receives it without naming the opcode itself:
 
 - **Rust**: `impl TeleportMessage for X` (`ikon_protocol::TeleportMessage`, with `OPCODE`, `VERSION` and `DEFAULT_FLAGS`), which `ProtocolMessage::from_message` and `ProtocolMessage::decode` take. An app's files are modules of its crate, which depends on `ikon-protocol`: each starts with `use super::*;`, and `frontend-rust/src/generated/protocol/mod.rs` declares and re-exports them.
 - **Dart**: `X implements TeleportMessage` (its `toProtocolMessage`), and `X.teleportMessageType`, a `TeleportMessageType<X>` with the opcode, version and decoder.
 - **TypeScript** (an app's output only): `export const XMessage`, which the SDK's `appMessaging(client).send` and `.on` take as an `AppMessageType<X>`.
-- **C++**: `X::TeleportOpcode`, `X::TeleportVersion` and `X::TeleportDefaultFlags`, which the SDK's `IkonClient::Send` and `IkonClient::On` read. `X::View` reads a received message where its bytes are, without copying, and `X::From(view, x)` copies it into the owning struct. An app's header compiles on its own next to the SDK: it has `#pragma once` and includes `ikon_teleport.h` and the headers of the app's other types it names.
+- **C++**: `X::TeleportOpcode`, `X::TeleportVersion` and `X::TeleportDefaultFlags`, which the SDK's `IkonClient::Send` and `IkonClient::On` read. `X::View` reads a received message where its bytes are, without copying, and `X::From(view, x)` copies it into the owning struct. An app's header compiles on its own next to the SDK: it has `#pragma once` and includes `ikon-sdk/ikon_teleport.h` (the SDK's `include/` folder is on the include path) and the headers of the app's other types it names.
 
 An app schema without an `opcode` gets `0x40000000` (the `GROUP_APP_LOCAL` flag) plus a 16-bit hash of its type name: the xxHash32 of the name's UTF-8 bytes, its two halves XORed, with 0 taken as 1. Every language's bindings get that same number. It depends on the name alone, so adding, removing, moving or renaming another schema file leaves it as it was, and a client built from older bindings keeps working; renaming the type gives it a new opcode. When two messages of one app end up with the same opcode, hashed or explicit, the build fails and names both; give one of them an explicit `opcode` of `0x40000000` plus a number from 1 to 65535 that no other message of the app has, and keep it once clients use it.
 

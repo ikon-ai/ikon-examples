@@ -1,4 +1,4 @@
-<!-- checked-against: 5eaada8fce2cc2f7e3b0c442 -->
+<!-- checked-against: 1f27543682c28f27e3b0c442 -->
 
 # IKON Rust SDK
 
@@ -56,7 +56,7 @@ No mode acts as the person signed in with `ikon login`; only the .NET SDK's `Use
 
 ### API Key Authentication
 
-A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikon.live` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.prod.ikon.live`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key. A key belongs to one platform: an app on `*.dev.ikonai.app` needs `BackendType::Development`, and the default `Production` backend refuses its key with a 403 `Invalid key` (or a 404 `not found`) whose error names the other backend to try.
+A program joins a deployed app with an API key for the app's space. `BackendType::Development` is for an app served on `*.dev.ikonai.app`, and the client then calls the development backend, `https://api.dev.ikonai.com` (`BackendType::base_url`); `BackendType::Production` is for one on `*.ikonai.app` and calls `https://api.ikonai.com`. `ikon api-key create` in the app's folder makes an API key and prints it once; `ikon api-key create --app-id <id> --format json --output key.json` works from any folder and writes the key to `key.json` as its `apiKey` field, beside `spaceId`. The app's surface needs no `guest` or `global` entry in its `[Surface.Auth] Methods` for a key. A key belongs to one platform: an app on `*.dev.ikonai.app` needs `BackendType::Development`, and the default `Production` backend refuses its key with a 403 `Invalid key` (or a 404 `not found`) whose error names the other backend to try.
 
 <!-- ikon-example: rust-sdk-connect -->
 ```rust
@@ -64,7 +64,6 @@ let config = IkonClientConfig::with_api_key(ApiKeyConfig {
     api_key,
     space_id,
     external_user_id: "my-device".to_string(),
-    session_identity_hash: None,
     backend: BackendType::Production,
     user_type: UserType::Machine,
     join_only: false,
@@ -72,7 +71,7 @@ let config = IkonClientConfig::with_api_key(ApiKeyConfig {
 });
 
 let client = IkonClient::new(config)?;
-let mut messages = client.events().message_received.subscribe();
+let mut messages = client.events().message_received();
 client.connect().await?;
 
 if let Ok(message) = messages.recv().await {
@@ -84,7 +83,7 @@ client.disconnect().await?;
 
 The SDK logs through the `log` crate and prints nothing until the program installs a logger, so a failed connect shows only as the error `connect` returns (see "Logging" below for `env_logger` and `RUST_LOG`).
 
-A `main` that returns `Err` prints it with `{:?}`, as `Error: HttpStatus { status: 403, body: ... }`, which hides the message a person reads. Have `main` print the error with `{}` and exit instead, and the examples in this guide, which use `?` in a function returning `Result`, end there:
+A `main` that returns `Err` prints it with `{:?}`, as `Error: CredentialRefused { status: 403, body: ... }`, which hides the message a person reads. Have `main` print the error with `{}` and exit instead, and the examples in this guide, which use `?` in a function returning `Result`, end there:
 
 <!-- example-skip: main wraps the run function of the examples around it -->
 ```rust
@@ -101,7 +100,7 @@ async fn main() {
 
 `connect` returns once the client is in the session and the app knows it, so code after it can call the app at once. It does not wait for the app's `OnClientJoined` handler to finish, so a program that needs something that handler sets up waits for it to show, such as a function with `wait_for_function`. `join_only: true` with `UserType::Machine` joins only a session that is already running and does not keep it open; the connect then fails with `SdkError::NoLiveSession` when nothing runs.
 
-A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `SdkError::HttpStatus` 403 whose body is the backend's JSON error with the `message` `Invalid key` (`{"statusCode":403,...,"message":"Invalid key","error":"Forbidden",...}`), its answer to a key it does not know: match the `message`, not the whole body. That 403 is about the key, not the app refusing the user; a key of another app gets the `message` `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `SdkError::CredentialRefused` (status 403) whose body is the backend's JSON error with the `message` `Invalid key` (`{"statusCode":403,...,"message":"Invalid key","error":"Forbidden",...}`), its answer to a key it does not know: match the `message`, not the whole body. That 403 is about the key, not the app refusing the user; a key of another app gets the `message` `Invalid key: this key belongs to app <id>`. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in.
 
 ### Local Development
 
@@ -131,18 +130,18 @@ let client = IkonClient::new(config)?;
 client.connect().await?;
 println!(
     "joined as session {:?}",
-    client.client_context().await.map(|c| c.session_id)
+    client.client_context().map(|c| c.session_id)
 );
 client.disconnect().await?;
 ```
 
 `space_id` is the app's id (`[Target] SpaceId` in the app's `ikon-config.<environment>.toml`). With it set, a connect to a server that runs another app fails with `SdkError::WrongLocalApp`, which names both app ids, and the client does not join that app. Each reconnect checks again, so a client whose run was restarted on another port does not reconnect into the app that took the old one. Without `space_id` the client joins whatever app holds the port. A client keeps its port for its whole life; after a new `ikon run`, make a new `IkonClient` with the port the run printed.
 
-The app sees a local client as `user_id` (`"local"` when it is `None`), `user_type` (`UserType::Machine` unless set) and `client_type` (`ClientType::DesktopApp` unless set). Set `user_type: UserType::Human` for a client that acts for a person. The app's own connections also use the user `local`, so a program tells them apart by `is_internal` (see Other Clients), not by the user.
+The app sees a local client as `user_id` (`"local"` when it is `None`), `user_type` (`UserType::Machine` unless set), `client_type` (`ClientType::DesktopApp` unless set) and `context_type` (`ContextType::Plugin` unless set). Set `user_type: UserType::Human` for a client that acts for a person, and `context_type: ContextType::Native` for one a person uses, such as a player of a game. The app's own connections also use the user `local`, so a program tells them apart by `is_internal` (see Other Clients), not by the user.
 
 ### Guests
 
-A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. `*.dev.ikonai.app` apps need `BackendType::Development`, `*.ikonai.app` ones `BackendType::Production`. The app must let guests in; otherwise the connect fails with `SdkError::HttpStatus` 403. `client_type` says what kind of device the program runs on, not that it is a visitor: `DesktopApp` for a program on a computer, `MobileApp` for one on a phone; `DesktopWeb` and `MobileWeb` are for a page in a browser.
+A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. `*.dev.ikonai.app` apps need `BackendType::Development`, `*.ikonai.app` ones `BackendType::Production`. The app must let guests in; otherwise the connect fails with `SdkError::GuestRefused` when the guest sign-in refuses the guest (401 or 403), or `SdkError::AccessDenied` when the app does. `client_type` says what kind of device the program runs on, not that it is a visitor: `DesktopApp` for a program on a computer, `MobileApp` for one on a phone; `DesktopWeb` and `MobileWeb` are for a page in a browser.
 
 <!-- ikon-example: rust-sdk-connect-guest -->
 ```rust
@@ -158,9 +157,9 @@ let client = IkonClient::new(config)?;
 client.connect().await?;
 ```
 
-Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. `GuestConfig::new` sets `GuestConfig::user_type`, which is what the app sees a guest as, to `UserType::Human`, a visitor.
+Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. `GuestConfig::new` sets `GuestConfig::user_type`, which is what the app sees a guest as, to `UserType::Human`, a visitor, and `GuestConfig::join_only` to `false`; with `join_only: true` the guest joins only a session already running, and the connect fails with `SdkError::NoLiveSession` when none runs.
 
-A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; with `None` the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods` (a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only), or the connect fails with `SdkError::HttpStatus` 403, even when another surface admits guests. `IkonClientConfig::initial_path` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
+A client enters one of the app's surfaces. `IkonClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; with `None` the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods` (a surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only), or the connect fails with `SdkError::AccessDenied`, even when another surface admits guests. `IkonClientConfig::initial_path` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
 
 <!-- example-skip: two fields of the config above -->
 ```rust
@@ -168,11 +167,11 @@ config.surface = Some("kiosk".into()); // A surface whose Methods list guest
 config.initial_path = Some("/menu".into());
 ```
 
-A guest has no token to renew. The client asks for a new guest token on every `connect` and on every reconnect that joins a new session; a reconnect that resumes the dropped session needs none. When the backend or the app refuses the guest (401 or 403), a reconnect stops at once and the client goes `Offline` (see [Connection Lifecycle](#connection-lifecycle)); only a new `connect` tries again.
+A guest has no token to renew. The client asks for a new guest token on every `connect` and on every reconnect that joins a new session; a reconnect that resumes the dropped session needs none. When the backend or the app refuses the guest (`SdkError::GuestRefused`, `SdkError::AccessDenied`), a reconnect stops at once and the client goes `Offline` (see [Connection Lifecycle](#connection-lifecycle)); only a new `connect` tries again.
 
 ### User Tokens
 
-A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token: `https://api.prod.ikon.live` (`BackendType::Production.base_url()`) for an app on `*.ikonai.app`, `https://api.dev.ikon.live` (`BackendType::Development.base_url()`) for one on `*.dev.ikonai.app`.
+A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backend_url` is the backend that issued the token: `https://api.ikonai.com` (`BackendType::Production.base_url()`) for an app on `*.ikonai.app`, `https://api.dev.ikonai.com` (`BackendType::Development.base_url()`) for one on `*.dev.ikonai.app`.
 
 An API key's `external_user_id` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until then. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`. A key client has no email either, so an app that gates a page by email or role may show it a no-permission page.
 
@@ -190,10 +189,10 @@ let config = IkonClientConfig::with_user_token(UserTokenConfig {
 let client = IkonClient::new(config)?;
 
 match client.connect().await {
-    Err(ikon_sdk::SdkError::HttpStatus { status: 401, .. }) => {
-        // The token expired: get a new one where this one came from, then connect again
+    Err(ikon_sdk::SdkError::CredentialRejected { .. }) => {
+        // The token expired: the client waits, Offline, for a new one from where this one
+        // came from, and then connects with it on its own
         client.update_auth_token(fetch_new_token().await)?;
-        client.connect().await?;
     }
     other => other?,
 }
@@ -201,7 +200,7 @@ match client.connect().await {
 
 `SdkError` is `#[non_exhaustive]` because a later release can add variants. A `match` on it therefore needs a catch-all arm, such as the `other` arm here. `ClientEvent` is not `#[non_exhaustive]`, so a `match` that names every variant stops compiling when a release adds one: give it a catch-all arm.
 
-The client cannot renew the token itself. When the backend refuses it (401) or the app refuses the user (403), `connect` fails. A 401 from `/init` means the backend did not take the token as a valid session token for the app's space: it expired, was revoked, or is of another kind, such as the IKON tool's tokens (`ikon mcp token`, `ikon auth token create`). Its error says so: the SDK appends that note to the error's `body`, after the backend's answer. During a reconnect, the client stops reconnecting at once, goes `Offline` and reports the refusal on `error_occurred`. `update_auth_token` sets the token that every later connect and reconnect uses. It fails for a client that was not configured with a user token.
+The client cannot renew the token itself. When the backend or the server refuses it (a 401 from `/init` or `/connect`), `connect` fails with `SdkError::CredentialRejected`; a reconnect that meets it stops at once. Either way the client goes `Offline`, reports the refusal on `error_occurred` and fires `credential_rejected`, and it never asks again with the refused token. It waits for `update_auth_token`, and then reconnects with the new token on its own, as a reconnect does, without the program calling `connect`. A 401 from `/init` means the backend did not take the token as a valid session token for the app's space: it expired, was revoked, or is of another kind, such as the IKON tool's tokens (`ikon mcp token`, `ikon auth token create`). Its error says so: the SDK appends that note to the error's `body`, after the backend's answer. When the app refuses the user (403), the error is `SdkError::AccessDenied` and the client stays `Offline` until the program connects again. `update_auth_token` sets the token that every later connect and reconnect uses; a link that is up stays in the session it joined. On a local client it replaces `backend_token` (see [Configuration](#configuration)), which the next local sign-in sends. It fails for any other client.
 
 ### Connect URLs
 
@@ -215,9 +214,21 @@ client.connect().await?;
 
 A reconnect into a new session uses the same URL, so once its token has expired the server refuses it and the client goes `Offline`. Get a new URL and make a new `IkonClient`.
 
+### Session Links and Versions Under Test
+
+In every cloud mode (API key, guest, user token), `IkonClientConfig::session_identity_hash` joins one live app session: the `ikon-session` value of a session link, which the app publishes as `GlobalState.SessionUrl`. It takes precedence over the client's parameters and identity. When no live session has that hash, `connect` fails with `SdkError::SessionNotFound`, and the client never starts a fresh session in its place; a reconnect that meets it goes `Offline` at once. `IkonClientConfig::app_bundle` runs an app bundle that is not live, one `ikon deploy --no-activate` uploaded, in a session of its own; the principal needs Update rights on the space's app bundles, and anyone else gets `SdkError::AccessDenied`. A local or connect-URL config with either set fails `IkonClient::new` with `SdkError::Config`. `IkonClientConfig::test_link` is the secret of a test link, which the guest sign-in and `/init` receive, so the client opens the version under test the link names.
+
+<!-- example-skip: two fields of the config above -->
+```rust
+config.session_identity_hash = Some(hash_from_the_link);
+config.app_bundle = Some(bundle_id); // The id ikon deploy --no-activate printed
+```
+
+Once joined, `client.app_session_id()` is the app session the Portal shows and `client.ikon_server_id()` the IKON server running it, which its log lines name as `senderId`. Both are `None` before the first join, a reconnect into a new session changes them, and a local run reports `local` for both. `client.session_id()` is this client's own session id within that server.
+
 ### Connection Lifecycle
 
-`client.events()` is an `EventBus` of tokio broadcast channels. Subscribe before `connect` to see everything:
+`client.events()` is an `EventBus`. Each of its methods, named in the table, returns a new tokio broadcast receiver for one event. Subscribe before `connect` to see everything. An event's channel is made on its first subscribe, and the client builds no event that nobody subscribed to, so a program pays only for the events it reads. A receiver that falls too far behind loses the oldest events (`RecvError::Lagged`):
 
 | Event | When |
 |---|---|
@@ -227,9 +238,40 @@ A reconnect into a new session uses the same URL, so once its token has expired 
 | `media` | audio and video from the app, and key frame requests (see Media) |
 | `ui` | a UI stream changed or ended (see UI) |
 | `clients` | another client joined, changed its context or left (see Other Clients) |
-| `disconnected`, `stopping`, `error_occurred` | the link dropped, the server is stopping, a connect or reconnect failed |
+| `disconnected`, `stopping`, `error_occurred` | the link dropped, the server is stopping, a connect or reconnect failed; `error_occurred` carries the `SdkError` |
+| `credential_rejected` | the backend or the server refused a user token (see [User Tokens](#user-tokens)) |
+| `capacity_wait_changed` | an `Option<CapacityWait>`: `Some` when a connect or reconnect starts waiting for room in the app, `None` when that wait ends |
 
-When a joined link drops, the client reconnects on its own, `timeouts.max_reconnect_attempts` times (0 turns it off) with a doubling `timeouts.reconnect_backoff`, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. It goes `Offline` when the attempts run out or the server said it was stopping. It also goes `Offline` at once when retrying cannot help: a join-only client finds no live session, the release policy refuses the SDK's build (426), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), or, for a client that is not local, the backend or the server refuses the credential (401), or the app refuses the user or the backend an unknown API key (403). `disconnect` leaves the session and goes `Idle`. From `Idle` or `Offline` a new `connect` starts a new join, so a program that must stay in the app calls `connect` again after `Offline`; on a client that is connecting or connected it fails with `SdkError::AlreadyConnected`. The HTTPS port is used only to get the session, unless the session runs over a WebSocket (see Channels). Otherwise it runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees that traffic. Only the reliable link dropping starts a reconnect; the UDP channel failing does not.
+`connect` asks the backend's `/init` for the app's server up to three times when it gets no answer or a 408, 500, 502, 503 or 504, waiting 1 s and then 2 s, or a rate limiter's wait when that is longer. It then asks the server for a session on the server's own address and, when `/init` named one, through the IKON proxy on port 443, which reaches a server whose own port the network blocks. The first request to the server's own address gives up after 3 s and every later one after 10 s; the rounds start 100 ms apart, doubling to 2 s, the proxy is asked at most every 2 s, and they go on for 60 s. A rate limiter's 429 (`SdkError::RateLimited`) holds the next request for its `retry_after`, 10 s when it names none, at most 30 s, plus up to half as long again; a wait that would go past the 60 s ends the connect with that error. A full server (`SdkError::ServerFull`) and a server that is not the one the token was for (`SdkError::ServerChanged`) end the round at once. After a full server, the connect asks `/init` for another server up to three times, naming the servers that were full. After a refused token, it asks `/init` once more. When those asks run out, the connect fails with the server's error. `/init` itself may take the provisioning wait (`timeouts.provisioning`, 60 s) and 15 s more.
+
+When the app has no room for the client yet, `/init` answers at once with how long to wait. Either the app is full (at its shard limit, or not sharded), or a server is being started for it. The client then stays `Connecting` (`Reconnecting` on a reconnect), and `client.capacity_wait()` returns a `CapacityWait`. Its `full` says which of the two it is, and its `retry_at` (a `tokio::time::Instant`) is when the client asks again. At that time the client clears the wait and asks `/init` again. A task given `Arc::clone(&client)` can show the seconds left:
+
+<!-- ikon-example: rust-sdk-capacity-wait -->
+```rust
+let mut waits = client.events().capacity_wait_changed();
+
+while let Ok(wait) = waits.recv().await {
+    match wait {
+        Some(wait) => {
+            let seconds = wait
+                .retry_at
+                .saturating_duration_since(tokio::time::Instant::now())
+                .as_secs();
+
+            if wait.full {
+                println!("This app is full, trying again in {seconds} s");
+            } else {
+                println!("Getting the app ready, trying again in {seconds} s");
+            }
+        }
+        None => println!("Trying again..."),
+    }
+}
+```
+
+These waits count toward neither the three `/init` attempts nor the 60 s of `/connect` rounds. The `/init` after a wait names no full servers, since they may have room by then, and the count of three asks for another server starts again. The waits last at most `capacity_wait_timeout` (10 minutes) in all for one connect or reconnect attempt. After that, the next such answer fails the connect as it would have without waiting: `SdkError::ServerFull` for a full app, `SdkError::AppSessionNotRunning` while a server is still being started. `disconnect` ends a wait at once and clears it.
+
+When a joined link drops, the client reconnects on its own: first `timeouts.max_reconnect_attempts` quick attempts with a doubling `timeouts.reconnect_backoff`, then, while `timeouts.background_reconnect` is on (the default), background attempts for as long as the program keeps the client: 10 s after the last quick one, doubling after each failure up to 5 minutes. Each wait is shortened at random by up to a quarter so that the clients one server dropped do not all come back at once, and the client stays `Reconnecting` throughout. When the backend answers an attempt with `SdkError::RateLimited`, the next attempt waits at least its `retry_after`, capped at 5 minutes, plus up to half as long again. A link the client has heard nothing on for the keepalive timeout the join negotiated (3 minutes when it named none) is taken as dropped and reconnected; the keepalive requests the server sends shorten that to the silence the server itself drops a client after, never below 10 s. The client goes `Offline` when the server said it was stopping, or, with `background_reconnect` off, when the quick attempts run out (0 attempts and `background_reconnect` off turn reconnecting off). It also goes `Offline` at once, on a first connect or any reconnect, when retrying cannot help, each case with its own error: a join-only client finds no live session (`SdkError::NoLiveSession`), the release policy refuses the SDK's build (`SdkError::SdkUpgradeRequired`) or the app's IKON libraries (`SdkError::AppUpgradeRequired`), the backend says the app is not available (`SdkError::SpaceNotFound`, a 404 or 410 from the sign-in or `/init`, as for a suspended app), no live session has the client's `session_identity_hash` (`SdkError::SessionNotFound`), the app failed to start (`SdkError::AppStartupFailed`), or, for a client that is not local, the sign-in refuses the API key (`SdkError::CredentialRefused`) or the guest (`SdkError::GuestRefused`), the backend or the server refuses the session token (`SdkError::CredentialRejected`), or the app refuses the principal (`SdkError::AccessDenied`). `disconnect` leaves the session and goes `Idle`. From `Idle` or `Offline` a new `connect` starts a new join, so a program that must stay in the app calls `connect` again after `Offline`; on a client that is connecting or connected it fails with `SdkError::AlreadyConnected`. The HTTPS port is used only to get the session, unless the session runs over a WebSocket (see Channels). Otherwise it runs over one TLS link to the TCP address the server gives when it grants the session, which on a local run is another port on the same machine. A proxy in front of the HTTPS port therefore never sees that traffic. Only the reliable link dropping starts a reconnect; the UDP channel failing does not.
 
 ### Channels
 
@@ -239,7 +281,7 @@ The server grants a session with a list of addresses to reach it on. The client 
 2. A WebSocket (`wss://`) on the server's HTTPS port.
 3. A WebSocket through the IKON proxy on port 443, for a network that lets only port 443 out.
 
-A local run on this machine can also offer plain TCP and `ws://`, which the client uses only to a loopback address. Each attempt but the last gives up after 4 seconds. An address that did not answer at all in that time, as behind a firewall that drops the packets, goes last for the next 10 minutes, for every client in the process, so a reconnect does not wait for it again. An address that refused the connection is tried first again next time, since a server restarting refuses for a moment. A TLS error, such as one from `require_post_quantum`, fails the connect rather than trying the next address. `websocket_only = true` on the config skips the TCP addresses, for a network known to let only HTTPS through. `client.channel_type()` says which kind of channel the client last opened (`EntrypointType::TcpTls`, `EntrypointType::WebSocket` or `EntrypointType::WebSocketProxy`, from `ikon_sdk::protocol`), or `None` before the first.
+A local run on this machine can also offer plain TCP and `ws://`, which the client uses only to a loopback address. Each attempt but the last gives up after 4 seconds. An address that did not answer at all in that time, as behind a firewall that drops the packets, goes last for the next 10 minutes, for every client in the process, so a reconnect does not wait for it again. An address that refused the connection is tried first again next time, since a server restarting refuses for a moment. A TLS error, such as one from `require_post_quantum`, fails the connect rather than trying the next address. `websocket_only = true` on the config skips the TCP addresses, for a network known to let only HTTPS through. `proxy_only = true` goes further: the session is asked for only through the proxy that `/init` names and the channel is only the proxy's WebSocket, for a network that lets through nothing but the proxy's host. Only the cloud modes take it, since a local run and a connect URL have no `/init`, and a connect fails with `SdkError::Config` when `/init` names no proxy. `client.channel_type()` says which kind of channel the client last opened (`EntrypointType::TcpTls`, `EntrypointType::WebSocket` or `EntrypointType::WebSocketProxy`, from `ikon_sdk::protocol`), or `None` before the first.
 
 Beside a TCP channel, the client opens a UDP channel, encrypted with DTLS, in the background once it has joined. It carries the messages flagged unreliable, such as an app's own types declared `unreliable = true` in their schema, as long as the message fits 256 datagrams (about 290 KB). Everything else stays on the TCP channel. Such messages may be lost or arrive out of order over UDP. `client.unreliable_channel_open()` says whether the channel is up; it turns true a moment after `connect` returns. Against a cloud server the client checks the server's certificate against the hash the server named when it granted the session, and opens no UDP channel when there is none. A channel that cannot open within 15 seconds, or fails later, is logged as a warning, and the unreliable messages then go over the TCP channel, so the program needs no fallback of its own. The client opens no UDP channel on a WebSocket, with `require_post_quantum` (DTLS here has no post-quantum key exchange), or with `enable_udp_channel = false` on the config.
 
@@ -249,11 +291,11 @@ An API key is read once, at `IkonClient::new`. To rotate it, make a new `IkonCli
 
 An app hot reload is not a reconnect either. The client stays in the session, and the app's own connection leaves and comes back under a new session id, which registers the app's functions again. A call the old connection had not answered fails with `SdkError::TargetLeft`, a call made in between fails with `SdkError::FunctionNotFound` (`wait_for_function` waits for the function to be back), and later calls go to the new connection. Reactive subscriptions and the functions the program registered keep working.
 
-`client.clients()` lists the session's clients as the server describes them, this one included, and `wait_for_client(ClientPredicate { user_id: Some(..), ..Default::default() }, timeout)` waits until the server lists one.
+`client.clients()` lists the session's clients as the server describes them, this one included, and `wait_for_client(ClientPredicate { user_id: Some(..), ..Default::default() }, timeout)` waits until the server lists one. `client.global_state()` is the newest `GlobalState` the server sent, on each join and whenever the app's sessions change (`None` before the first join), with the session link (`session_url`) among its fields. After the first one on a link, the server may list only the app's clients in it, so read the clients from `clients()`.
 
 ### Stopping a Program
 
-A program killed without `disconnect` stays in the session until the server's soft-retry window ends, so the other clients see it leave only minutes later. Start the stop listener before `connect`, so a Ctrl+C that arrives while the join is still running is not lost. Call `disconnect` when the listener fires, including during `connect`. `disconnect` stops a connect that is under way. If the server already accepted the join, it also tells the server the client is leaving and waits at most 1 s for that message:
+A program killed without `disconnect` stays in the session until the server's soft-retry window ends, so the other clients see it leave only minutes later. Start the stop listener before `connect`, so a Ctrl+C that arrives while the join is still running is not lost. Call `disconnect` when the listener fires, including during `connect`. `disconnect` stops a connect that is under way. If the server already accepted the join, it also tells the server the client is leaving, after everything sent before it, and waits at most 1 s for the server to read it and close the link:
 
 <!-- ikon-example: rust-sdk-stopping -->
 ```rust
@@ -284,7 +326,7 @@ client.disconnect().await?;
 
 <!-- ikon-example: rust-sdk-clients -->
 ```rust
-let mut events = client.events().clients.subscribe();
+let mut events = client.events().clients();
 
 while let Ok(event) = events.recv().await {
     // The app's own connections, which come back under a new session id when the app hot-reloads
@@ -317,7 +359,7 @@ Each event carries the other client's `ikon_sdk::protocol::Context`, which `even
 
 ## Functions
 
-A `FunctionRegistry` attached to the client knows the app's functions and the ones the program registers. Attach it before `connect`, so the join registers the program's functions before the app learns that the client joined.
+A `FunctionRegistry` attached to the client knows the app's functions and the ones the program registers. Attach it before `connect`, so the join registers the program's functions before the app learns that the client joined. It does not keep the client alive: a client the program drops leaves its session.
 
 ### Calling App Functions
 
@@ -331,14 +373,13 @@ let sum = functions
     .call_remote(
         "Add",
         serde_json::json!([2, 3]),
-        "",
-        Duration::from_secs(30),
+        CallOptions::with_timeout(Duration::from_secs(30)),
     )
     .await?;
 println!("2 + 3 = {sum}");
 ```
 
-The arguments are a JSON array. A call made before the client is ready waits for it, within the timeout. One still waiting when the timeout runs out fails with `SdkError::NotConnectedInTime` and is never sent. One made while the client is not connecting fails at once with `SdkError::NotConnected`. A function the app does not have fails with `SdkError::FunctionNotFound`, and an exception the app throws with `SdkError::RemoteFunctionError`. A sent call whose timeout runs out fails with `SdkError::CallTimeout`, which names the function and the session it went to, and the call is then cancelled on the app. A sent call fails at once with `SdkError::Disconnected` when its link closes before the answer arrives, and with `SdkError::TargetLeft` when the app connection it went to leaves first, as on a hot reload. Whether the call ran is then unknown. Dropping the call's future cancels it on the app too, which a C# function taking a `CancellationToken` sees.
+The arguments are a JSON array. `CallOptions` holds the call's `version` (the registration to resolve; empty for the newest), its `timeout` and its `instance_id`. `CallOptions::default()` waits the registry's default timeout, 30 s unless `functions.set_default_call_timeout` changed it; a timeout of `Duration::ZERO` waits without limit. The .NET SDK waits 30 seconds by default too, so a call to a long-running function gives it a longer timeout. A call made before the client is ready waits for it, within the timeout. One still waiting when the timeout runs out fails with `SdkError::NotConnectedInTime` and is never sent. One made while the client is not connecting fails at once with `SdkError::NotConnected`. A function the app does not have fails with `SdkError::FunctionNotFound`, and an exception the app throws with `SdkError::RemoteFunctionError`, which carries the exception's .NET `type_name`, its `message` and the `error_code` the app gave it (empty when it gave none); match on the type or the code, not the message. A sent call whose timeout runs out fails with `SdkError::CallTimeout`, which names the function and the session it went to, and the call is then cancelled on the app. A sent call fails at once with `SdkError::Disconnected` when its link closes before the answer arrives, and with `SdkError::TargetLeft` when the app connection it went to leaves first, as on a hot reload. Whether the call ran is then unknown. Dropping the call's future cancels it on the app too, which a C# function taking a `CancellationToken` sees.
 
 ### Streamed Results
 
@@ -350,8 +391,7 @@ let mut count = functions
     .call_remote_stream(
         "CountTo",
         vec![serde_json::json!(10).into()],
-        "",
-        Duration::from_secs(30),
+        CallOptions::with_timeout(Duration::from_secs(30)),
     )
     .await?;
 
@@ -378,8 +418,7 @@ let thumbnail = functions
     .call_remote_values(
         "MakeThumbnail",
         vec![FunctionValue::Bytes(image), serde_json::json!(128).into()],
-        "",
-        Duration::from_secs(30),
+        CallOptions::with_timeout(Duration::from_secs(30)),
     )
     .await?;
 
@@ -389,6 +428,20 @@ if let Some(png) = thumbnail.as_bytes() {
 ```
 
 `FunctionValue::Json` holds any other value. Read through `call_remote`, a `byte[]` result arrives as the base64 string C# would write.
+
+### Instance-Bound Functions
+
+An app function registered on an instance, such as a method of an object an earlier call returned, runs on the instance the call names in `CallOptions::instance_id`. `RegisteredFunction::requires_instance` says which functions need one, and a call to one without an instance fails with `SdkError::InvalidArgument` before anything is sent. A cancel goes to the same instance. When the program is done with the instance, `dispose_instance` tells the app to let it go:
+
+<!-- example-skip: an instance id the app handed out earlier -->
+```rust
+let total = functions
+    .call_remote("Cart.Add", serde_json::json!(["apple"]), CallOptions::default().instance(cart_id))
+    .await?;
+functions.dispose_instance(cart_id, None).await?;
+```
+
+`dispose_instance` takes the session the calls went to, which `RegisteredFunction::client_session_id` names, or `None` to send it without a target. A C# instance that is `IDisposable` is disposed.
 
 ### Functions the App Calls
 
@@ -422,8 +475,7 @@ functions
                     .call_remote(
                         "GetName",
                         serde_json::json!([user_id]),
-                        "",
-                        Duration::from_secs(30),
+                        CallOptions::with_timeout(Duration::from_secs(30)),
                     )
                     .await?;
                 Ok(serde_json::json!(format!(
@@ -444,7 +496,7 @@ functions
     .await?;
 ```
 
-The handler receives the arguments as a JSON array; a `byte[]` argument arrives as a base64 string. `remove_function` removes one, and `detach` removes the registry from the client.
+The handler receives the arguments as a JSON array; a `byte[]` argument arrives as a base64 string. `register_values_function` registers an async handler that takes and returns `FunctionValue`s instead, so a `byte[]` argument arrives as `FunctionValue::Bytes` and a `FunctionValue::Bytes` result reaches the app as a `byte[]`. A handler's error fails the app's call with its text, under the type `SdkError`; a handler that returns `SdkError::RemoteFunctionError` chooses the exception type, message and error code the app sees. The parameter list and its type names go to the app with the function. `remove_function` removes one, and `detach` removes the registry from the client.
 
 The app reads the result as the type its call names, such as `CallAsync<Reading>`. A JSON object binds to a C# record or class by member name, case-insensitively, so `{"celsius": 21.5}` and `{"Celsius": 21.5}` both fill `Reading.Celsius`; a member the JSON leaves out keeps its default, without an error. The result type name (`"System.Int32"`, `"System.String"` above) is advertised with the function, and the app records it as the function's return type when that type is loaded there, else as `object`. It does not change how a call reads the result.
 
@@ -511,7 +563,7 @@ The handler is called when the app calls the function and must return at once; t
 
 ## Reactive Values
 
-A program can follow a value the app holds in a `Reactive<T>` (or `ClientReactive<T>`, `UserReactive<T>`, `MountReactive<T>`) without rendering the app's UI. It follows the value by its stable id. The app's built-in function `Ikon.Reactive.GetStableIdByName` returns the stable id of a reactive field or auto-property of the app's `[App]` class, by its name in the source (`"_score"` for `private readonly Reactive<int> _score`), so the app needs no code of its own for it. For a reactive kept anywhere else, the app returns its `StableId` from an `External` function.
+A program can follow a value the app holds in a `Reactive<T>` (or `ClientReactive<T>`, `UserReactive<T>`, `MountReactive<T>`) without rendering the app's UI. `subscribe_by_name` follows a reactive field or auto-property of the app's `[App]` class by its name in the source (`"_score"` for `private readonly Reactive<int> _score`): the app's built-in `Ikon.Reactive.GetStableIdByName` looks up its stable id, so the app needs no code of its own for it, and the call fails with `SdkError::RemoteFunctionError` when the app has no reactive by that name, or more than one. For a reactive kept anywhere else, the app returns its `StableId` from an `External` function, and `subscribe` takes that id.
 
 <!-- ikon-example: rust-sdk-reactive -->
 ```rust
@@ -519,26 +571,15 @@ A program can follow a value the app holds in a `Reactive<T>` (or `ClientReactiv
 let reactive = ReactiveRegistry::attach(&client, &functions).await?;
 
 // The app's `private readonly Reactive<int> _score`, found by its name
-let stable_id = functions
-    .call_remote(
-        "Ikon.Reactive.GetStableIdByName",
-        serde_json::json!(["_score"]),
-        "",
-        Duration::from_secs(30),
-    )
-    .await?;
-
 let score = reactive
-    .subscribe(stable_id.as_str().unwrap_or_default(), "", |score: i64| {
-        println!("score is now {score}")
-    })
+    .subscribe_by_name("_score", |score: i64| println!("score is now {score}"))
     .await?;
 
 // Later, to stop following it
 score.unsubscribe().await;
 ```
 
-The callback gets the current value before `subscribe` returns, then the value after each change, in order. The app sends one value at a time. Changes made while a value is on its way arrive as one call with the latest value, so the last call always has the current value. After a reconnect the registry subscribes again and delivers the value as it is then. Pass the mount id for a `MountReactive<T>`, or `""`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it.
+The callback gets the current value before `subscribe` returns, then the value after each change, in order. A second subscription to a value whose first `subscribe` is still waiting for the app waits for that answer and gets the same value. The app sends one value at a time. Changes made while a value is on its way arrive as one call with the latest value, so the last call always has the current value. After a reconnect the registry subscribes again and delivers the value as it is then. Pass the mount id for a `MountReactive<T>`, or `""`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it.
 
 The value arrives as the JSON of the C# value. A record or class keeps its C# property names, which are PascalCase (`{ "Name": ..., "Score": ... }`), so derive the Rust struct with `#[serde(rename_all = "PascalCase")]`. A list arrives as a JSON array and a dictionary as a JSON object keyed by the dictionary's keys.
 
@@ -561,7 +602,7 @@ client
 client.set_path("/rooms/7").await?;
 ```
 
-A value left `None` keeps the one last sent. The app's client-updated and path handlers run. Once the call returns, `client.client_context()` and this client's entry in `clients()` show the values sent. Both are sent again after every reconnect. `clients()` is synchronous and reads the client's current list; `state()` and `client_context()` are `async`. The viewport fields are `i32`. The SDK does not detect the timezone or the viewport, so a program that wants the app to see them sends them. Until it does, the first `Joined` for a client can carry default values for the fields it has not reported.
+A value left `None` keeps the one last sent. The app's client-updated and path handlers run. Once the call returns, `client.client_context()` and this client's entry in `clients()` show the values sent. Both are sent again after every reconnect. `clients()` is synchronous and reads the client's current list; `state()` and `client_context()` are `async`. The viewport fields are `i32`. The client joins with `IkonClientConfig::timezone` as its timezone, an IANA name such as `"Europe/Helsinki"`; left `None`, it reads the machine's from `TZ`, then `/etc/localtime` or `/etc/timezone`, and sends none when those name no IANA zone, as on Windows without `TZ`. The SDK does not detect the viewport, so a program that wants the app to see it sends it. Until it does, the first `Joined` for a client can carry default values for the fields it has not reported.
 
 ## UI
 
@@ -631,7 +672,7 @@ Nodes never change: an update replaces the nodes on the changed path, so a node 
 
 <!-- ikon-example: rust-sdk-ui-events -->
 ```rust
-let mut ui_events = client.events().ui.subscribe();
+let mut ui_events = client.events().ui();
 
 while let Ok(event) = ui_events.recv().await {
     match event {
@@ -723,7 +764,7 @@ for (index, packet) in opus_packets.iter().enumerate() {
 }
 ```
 
-The first frame announces the stream; `is_first` starts a segment, which the app sees as a new utterance, and `is_last` marks the end of one. A new `correlation_id` on an `is_first` frame announces the stream again under that id; on any other frame it is ignored.
+The first frame announces the stream; `is_first` starts a segment, which the app sees as a new utterance, and `is_last` marks the end of one. A new `correlation_id` on an `is_first` frame announces the stream again under that id; on any other frame it is ignored. After a reconnect into a new session, which has heard none of the segment, the next frame of each stream starts a segment whatever its `is_first` says. `total_duration` gives the app the whole segment's length when the program knows it in advance. `client.end_audio_stream("microphone")` ends the stream, and the app's input for it; a later frame announces it again.
 
 ### Sending Video
 
@@ -755,7 +796,7 @@ The stream is announced before its first frame and again when its size, codec, s
 
 <!-- ikon-example: rust-sdk-receive-media -->
 ```rust
-let mut media = client.events().media.subscribe();
+let mut media = client.events().media();
 
 while let Ok(event) = media.recv().await {
     match event {
@@ -774,7 +815,9 @@ while let Ok(event) = media.recv().await {
 }
 ```
 
-A received stream's id is `"{sender session id}_{track id}"`. The sender's own name for the stream, such as the id the app passed to `Audio.Raw.SendFrameAsync`, is `begin.stream_id` in `AudioStreamBegan` and `VideoStreamBegan`. `request_video_key_frame` asks the sender of a video stream for a key frame, and returns `false` for a stream that has not begun or has ended.
+A received stream's id is `"{sender session id}_{track id}"`, an `Arc<str>`. A frame is an `Arc` too, so every receiver of the channel shares one copy. The sender's own name for the stream, such as the id the app passed to `Audio.Raw.SendFrameAsync`, is `begin.stream_id` in `AudioStreamBegan` and `VideoStreamBegan`. `request_video_key_frame` asks the sender of a video stream for a key frame, and returns `false` for a stream that has not begun or has ended. Frames of a stream whose begin has not arrived are dropped, since nothing says how to decode them. A begin that changes the stream's size, codec, source type, correlation id or frame rate comes again as `VideoStreamBegan`. After a reconnect, every received stream ends (`AudioStreamEnded`, `VideoStreamEnded`) and the server's begins for the streams it still has come again, so a stream that ended while the client was away does not stay open.
+
+`MediaEvent::AudioShapeFrame` carries the shape (viseme) values the app analysed from a stretch of one of its audio streams, for an avatar's mouth. Each `AudioShapeValues` names its set and its shapes as the stream's begin declared them (`name`, `shape_names`), with the `values` in that order and the `playback_id` and `slot` of the playback they came from; `AudioShapes::timestamp` is the frame's position in the stream in seconds.
 
 ### Playback Reports
 
@@ -837,7 +880,7 @@ while let Some(received) = pongs.next().await {
 }
 ```
 
-Generated fields are snake_case in Rust (`Sequence` in the schema is `sequence`). To stop waiting for a reply that never comes, wrap the read: `tokio::time::timeout(Duration::from_secs(5), pongs.next()).await`, which is `Err` on timeout. The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendMessageAsync`. A stream yields only its own type, with the sender's session id, lasts across reconnects until it is dropped, and is also a `futures_core::Stream`. A stream holds at most 4096 unread messages and drops newer ones, with a warning. A message that does not decode as its type is logged as an error and skipped. A message sent while the client is still joining goes out right after the join, or is discarded if the link drops first. `send_message` fails with `SdkError::NotConnected` when the client has no link, as between a drop and the reconnect. The client receives an app's own types only while `opcode_groups_from_server` includes `Opcode::GROUP_APP_LOCAL`, as the default does.
+Generated fields are snake_case in Rust (`Sequence` in the schema is `sequence`). To stop waiting for a reply that never comes, wrap the read: `tokio::time::timeout(Duration::from_secs(5), pongs.next()).await`, which is `Err` on timeout. The app receives a `Ping` with `app.OnMessage<Ping>` and answers with `app.SendMessageAsync`. A stream yields only its own type, with the sender's session id and `via_unreliable_channel`, which is true when the UDP channel carried the message. A type declared `unreliable = true` arrives either way, since it goes over the TCP channel whenever no UDP channel is open. A stream lasts across reconnects until it is dropped, and is also a `futures_core::Stream`. A stream holds at most 4096 unread messages and drops newer ones, with a warning. A message that does not decode as its type is logged as an error and skipped. A message sent while the client is still joining goes out right after the join, or is discarded if the link drops first. `send_message` returns once the message is queued, and waits only while 256 are queued unwritten; it fails with `SdkError::NotConnected` when the client has no link, as between a drop and the reconnect. The client receives an app's own types only while `opcode_groups_from_server` includes `Opcode::GROUP_APP_LOCAL`, as the default does.
 
 `message_received` delivers every message from the server as a `ProtocolMessage`; `is::<T>()` and `decode::<T>()` read one as a generated type.
 
@@ -845,12 +888,16 @@ Generated fields are snake_case in Rust (`Sequence` in the schema is `sequence`)
 
 `IkonClientConfig::with_local`, `with_api_key`, `with_guest`, `with_user_token` and `with_connect_url` fill in the defaults; change a field on the value before `IkonClient::new`.
 
-- `timeouts` is a `TimeoutConfig` holding `connection` (the join, a `Duration`, 30 s), `provisioning` (waiting for the app's server to start, 60 s), `max_reconnect_attempts` (`u32`, 6) and `reconnect_backoff` (`Duration`, 500 ms).
+- `timeouts` is a `TimeoutConfig` holding `connection` (the join, a `Duration`, 30 s), `provisioning` (waiting for the app's server to start, 60 s; the `/init` request itself gets 15 s more), `max_reconnect_attempts` (`u32`, 6), `reconnect_backoff` (`Duration`, 500 ms) and `background_reconnect` (`bool`, true; see [Connection Lifecycle](#connection-lifecycle)).
+- `capacity_wait_timeout` (`Duration`, 10 minutes) is how long one connect, or one reconnect attempt, may wait in all for room in the app; zero turns the waits off (see [Connection Lifecycle](#connection-lifecycle)).
+- `timezone` (`Option<String>`) is the IANA timezone the client joins with; `None` reads the machine's (see Client Context).
+- `test_link` (`Option<String>`) is a test link's secret (see [Session Links and Versions Under Test](#session-links-and-versions-under-test)).
 - `description` and `locale` (`String`, defaults `"Ikon SDK Rust"` and `"en-US"`) and `product_id`, `version_id`, `install_id` and `user_agent` (`Option<String>`) describe the client to the app.
 - `device_id` (`Option<String>`) names the device. Left `None`, `IkonClient::new` sets a random one, which every connect and reconnect of that client sends; `client.config().device_id` reads it.
 - `parameters` (`BTreeMap<String, String>`) are the app's client parameters. A program has no URL to carry them, so it picks the app instance here: `config.parameters.insert("room".into(), "harbour".into())` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). The key is the property name of the app's client-parameters record, as the URL query spells it: an app that reads `?guest=anna` takes `config.parameters.insert("guest".into(), "anna".into())`. Without it the client joins the instance with that field empty.
 - `opcode_groups_from_server` and `opcode_groups_to_server` (`u32`) choose the kinds of message the client receives and sends; the default is every group, `Opcode::GROUP_ALL | Opcode::GROUP_APP_LOCAL`.
 - `local_client_proof` (`Option<String>`) matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `LocalConfig::user_id`. A program on the same machine connecting to `localhost` needs none.
+- `backend_token` (`Option<String>`) is sent on a local connect as `Authorization: Bearer`. It is the person's IKON backend token. If the run refuses the token, the client connects as a guest. The token is sent again on each new session, so give a fresh one with `update_auth_token` before it expires.
 
 ### Post-Quantum Key Exchange
 
@@ -864,4 +911,4 @@ A program that calls the backend itself gets the same with `IkonApi::require_pos
 
 ### Logging
 
-The SDK logs through the `log` crate, under targets that start with `ikon_sdk`, and prints nothing until the program installs a logger. With `env_logger`, for example, call `env_logger::init()` at the start of `main` and run the program with `RUST_LOG=ikon_sdk=info`. `info` shows each session the client is granted and each reconnect, `warn` a dropped link, a failed reconnect attempt and messages the SDK had to drop, and `debug` the steps in between.
+The SDK logs through the `log` crate, under targets that start with `ikon_sdk`, and prints nothing until the program installs a logger. With `env_logger`, for example, call `env_logger::init()` at the start of `main` and run the program with `RUST_LOG=ikon_sdk=info`. `info` shows each session the client is granted, each reconnect and each wait for room in the app, `warn` a dropped link, a failed quick reconnect attempt, the switch to background reconnecting and messages the SDK had to drop, and `debug` the steps in between, each background attempt among them. The line for a wait for room names the space, says whether the app is full or a server is being started for it, and gives how long until the client asks again and how long this connect has waited so far out of `capacity_wait_timeout`. One more `info` line says when `capacity_wait_timeout` runs out.

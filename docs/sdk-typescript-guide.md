@@ -1,4 +1,4 @@
-<!-- checked-against: 2c6de39c9d6fb84ce3b0c442 -->
+<!-- checked-against: 757cbc4c93346561e3b0c442 -->
 
 # IKON TypeScript SDK
 
@@ -62,8 +62,8 @@ later update leaves out keeps the one sent before. The program tells the app the
 a file with `uploadFile` and a `File` made from a `Buffer` (`new File([buffer], 'report.pdf')`) or
 `fs.openAsBlob(path)` (see "Uploading Files" below). `rawMedia`, `setPath` and keeping the values an
 update leaves out need `@ikonai/sdk` 1.19 or later.
-A Node program needs no `webRtc` setting, because a runtime without `RTCPeerConnection` never
-negotiates WebRTC; there is no `webRtc.enabled`, and `webRtc: { media: 'none' }` is the option that
+A Node program needs no `webRTC` setting, because a runtime without `RTCPeerConnection` never
+negotiates WebRTC; there is no `webRTC.enabled`, and `webRTC: { media: 'none' }` is the option that
 turns it off in a browser. `setLogLevel(LogLevel.WARN)` hides the SDK's info lines.
 
 Run a program with `tsx`. `npx tsx client.ts` runs it in the foreground. A program started in the
@@ -223,6 +223,8 @@ const client = new IkonClient({
 });
 ```
 
+A refused guest sign-in (401 or 403 from the auth service, as for an app that lets no guests in) fails with `GuestRefusedError`, a `CredentialRefusedError` with the HTTP `status`. It is final: a reconnect that gets it goes `offline` and does not ask again. `testLink` (in `guest`, `apiKey` or `sessionToken`) carries a test link's secret, the `ikon-test` value of the link: a link that admits guests lets a guest into an app that lets no guests in, and a session opened with a test link may send feedback. A page reads `?ikon-test` when it is unset.
+
 `parameters` is a field of the connection config, so it works the same in the `guest`, `apiKey`, `sessionToken` and `local` modes. The app reads it as its client parameters. A program in Node has no page URL, so it picks the app instance here: `parameters: { room: 'harbour' }` joins the instance a browser joins at `?room=harbour`, for an app whose `SessionIdentity` has a `Room` field (the name's case does not matter). Without it the client joins the instance with that field empty.
 
 ### API Key Authentication
@@ -245,9 +247,9 @@ const client = new IkonClient({
 });
 ```
 
-`userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. An `apiKey` client that sets no `userType` is a `UserType.Human`, so it holds the session open. A local server is always running, so `local` has no `joinOnly`.
+`userType` and `clientType` apply to every mode, `local` included. The app reads them as the client's `Context.UserType` and `Context.ClientType`. Without `clientType`, a page reports its kind of device and a Node program `ClientType.DesktopApp`, as the .NET and Rust SDKs do (earlier versions report `ClientType.Unknown`). `joinOnly` applies to `apiKey`, `sessionToken` and `guest` alike. `joinOnly: true` joins the app's live session only and never starts one: the connect fails with `NoLiveSessionError` when nothing is running, and a reconnect after the server went away goes offline instead of retrying. Pair it with `userType: UserType.Machine` so the connection also does not hold the session open. An `apiKey` client that sets no `userType` is a `UserType.Human`, so it holds the session open. A local server is always running, so `local` has no `joinOnly`.
 
-A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with the key refused. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in. A reconnect into a new session signs in with the key again, so a client built with an `apiKey` needs no renewal; to rotate the key, build a new client with the new one.
+A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `CredentialRefusedError` (401 or 403 from `/auth/api-key`, `status` says which), and a reconnect that gets it goes `offline` and does not ask again. Deleting it does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session with the tickets the client holds needs no sign-in. A reconnect into a new session signs in with the key again, so a client built with an `apiKey` needs no renewal; to rotate the key, build a new client with the new one.
 
 ### Local Development
 
@@ -300,7 +302,8 @@ id the connect asks for. The SDK sends it in the `X-Ikon-Local-Client-Proof` hea
 
 A program without a page (Node) joins a local run as a `ContextType.Plugin` client, as it does in the
 `apiKey` and `guest` modes, so the app does not count it as a person on a page. A page joins as
-`ContextType.Browser`. `userType` and `clientType` work as in the other modes (`userType:
+`ContextType.Browser`. A program that joins in place of a person's app, such as a load test's client,
+sets `contextType: ContextType.Native` in `local`. `userType` and `clientType` work as in the other modes (`userType:
 UserType.Machine` for a program that acts for no person). Earlier than `@ikonai/sdk` 1.19, a local
 connect is always a `Browser` client of the `Human` user type.
 
@@ -365,7 +368,9 @@ host through the `onCredentialRejected` callback. `useIkonApp` answers it by ren
 when the renewal is refused, by signing the person out and reloading the page. While the auth service
 cannot be reached, it tries the renewal again every 30 seconds.
 
-A deleted or wrong API key during a reconnect (HTTP 403) goes `offline` the same way and stops retrying: `client.lastError` and `onError` carry an `AccessDeniedError` (an `AuthenticationError`), but `onCredentialRejected` is not called, since it is only for a refused token (401). Only a new `IkonClient` with a working key connects again.
+A plain 401 from the ikon server's `/connect` (`unauthorized`: a token it could not read, or the app refused the user) is a `CredentialRejectedError` too, raised on the first try without trying the other connect URLs; one it refuses as stale (`token_not_for_this_server`, `token_expired`) gets a fresh token from `/init` instead.
+
+A deleted or wrong API key, or a refused guest, during a reconnect goes `offline` and stops retrying: `client.lastError` and `onError` carry a `CredentialRefusedError` (`GuestRefusedError` for a guest), but `onCredentialRejected` is not called, since no new token helps. A 403 from `/init` (`AccessDeniedError`) does the same. Only a new `IkonClient` with a working key, or an app that lets the guest in, connects again.
 
 To open a second session next to the app connection — a media leg to a cell room, say — use
 `createSibling`, which keeps the sibling's credential in step with this client's. A client can join
@@ -488,9 +493,27 @@ if (client.lastError) {
 }
 ```
 
-A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the person on another shard; when none has room, `connect()` throws `ServerFullError`.
+A cloud connect that a full server refuses asks /init again up to three times, naming the servers that refused it, so a sharded app places the person on another shard.
 
-When the first connect fails, the client first goes `offline` (`onConnectionStateChange`), then calls `onError` with the error, and then `connect()` rejects with that same error. A credential the backend refuses, such as a deleted or wrong API key (HTTP 403 `Invalid key`), is an `AuthenticationError` whose message names the status; a sign-in for an app that is not available, or a guest sign-in for an app id that does not exist (the auth service answers 403 "Space … not found"), is a `SpaceNotFoundError`. Tell errors apart with `instanceof` or `error.name`; `error.constructor.name` is shortened in the published bundle. `onCredentialRejected` is not called for a first connect: it is only for a token refused while the client re-authenticates to reconnect.
+When the backend has no room for the client yet, because a server is still being started for it or the app is full, `/init` answers at once with how long to wait. The client waits and asks again by itself, staying `connecting` (or `reconnecting`). Meanwhile `client.capacityWait` holds `{ full, retryAt }`: `full` is true for a full app, and `retryAt` is when the client asks again, in `Date.now()` milliseconds. It is null again when the client asks. `client.subscribeToCapacityWait(listener)` calls the listener on each change and returns an unsubscribe function. At each wait the client logs at info level why it waits, with the space and how long it has waited so far, and it logs again when it stops waiting. The waits count toward neither the connection timeout nor the `/init` attempts. When the waits in one authentication add up to `timeouts.capacityWaitTimeoutMs` (10 minutes by default), the connect fails as it would have without waiting: `ServerFullError` for a full app, `ProvisioningTimeoutError` otherwise. In the React layer, `useIkonApp().capacityWait` carries the wait with a `secondsLeft` countdown, and `IkonApp`'s `capacityWaitOverlay` is shown in place of the connecting and reconnecting overlays while it is set.
+
+<!-- ikon-example: ts-sdk-capacity-wait -->
+```tsx
+import { IkonApp, type UseIkonAppResult } from '@ikonai/sdk-react-ui';
+
+export function App({ app }: { app: UseIkonAppResult }) {
+  return (
+    <IkonApp
+      {...app}
+      capacityWaitOverlay={(wait) => (
+        <p>{wait.secondsLeft === 0 ? 'Trying again...' : wait.full ? `This app is full, trying again in ${wait.secondsLeft} s` : `Getting the app ready, trying again in ${wait.secondsLeft} s`}</p>
+      )}
+    />
+  );
+}
+```
+
+When the first connect fails, the client first goes `offline` (`onConnectionStateChange`), then calls `onError` with the error, and then `connect()` rejects with that same error. A credential the backend refuses, such as a deleted or wrong API key (HTTP 403 `Invalid key`), is a `CredentialRefusedError` (an `AuthenticationError`) whose message names the status; a sign-in for an app that is not available, or a guest sign-in for an app id that does not exist (the auth service answers 403 "Space … not found"), is a `SpaceNotFoundError`. Tell errors apart with `instanceof` or `error.name`; `error.constructor.name` is shortened in the published bundle. `onCredentialRejected` is not called for a first connect: it is only for a token refused while the client re-authenticates to reconnect.
 
 ### Automatic Reconnection
 
@@ -511,7 +534,9 @@ const client = new IkonClient({
 
 The first reconnect attempt is immediate; each later one waits a fixed delay (2s by default).
 
-When the client cannot start a new session, it tries again after 10 seconds, doubling the wait after each failure up to 5 minutes. The wait goes back to 10 seconds once it connects. A 429 from the backend makes it wait at least its `Retry-After`. It stops and goes `offline` when retrying cannot help: a refused sign-in (401, 403), an app that is not available (404, 410: suspended, unpublished or not deployed, raised as `SpaceNotFoundError`), an SDK or app build the platform no longer runs (426), a full app or a failed app start.
+When the client cannot start a new session, it tries again after 10 seconds, doubling the wait after each failure up to 5 minutes, each wait shortened at random by up to a quarter. The wait goes back to 10 seconds once it connects. A 429 from the backend makes it wait at least its `Retry-After`. It stops and goes `offline` when retrying cannot help: a refused sign-in (401, 403, including a refused API key or guest), an app that is not available (404, 410: suspended, unpublished or not deployed, raised as `SpaceNotFoundError`), an SDK or app build the platform no longer runs (426), a full app or a failed app start. `backgroundReconnect: false` stops it sooner: once the quick reconnect (the channels' own retries, one resume of the session and one new authentication) has failed, the client goes `offline` and the caller decides when to connect again.
+
+Within one authentication, `/init` is asked up to three times, 1 s and then 2 s apart, but only after a failure another try can change: no answer (a network or TLS failure, a timeout), 408, 429, 500, 502, 503, 504, or an app that is not running yet (`ProvisioningTimeoutError`). Any other 4xx is raised at once. `/init` waits up to `provisioningTimeoutMs` (60 s by default) for the app to run, and the request itself may take 15 s longer.
 
 With `reconnectToNewSession: false` the client only ever resumes the session it has. Where it would authenticate a new one, it goes `offline` with `client.sessionLost` set, and the caller decides when to connect again. The React layer sets it for a surface with `Recovery = "seamless"`.
 
@@ -903,7 +928,7 @@ sent ClientReady and goes out then, in the order the calls were made. Earlier th
 in the list of functions the app sends on that join, after waiting up to 10 seconds for the list,
 so a name the list does not have fails with `Remote function not found`, and so does a function
 the app no longer has after a reconnect into a new session. The wait counts against the call's
-timeout, which is 30 seconds unless the call's `timeoutMs` option sets another (0 for none). A call
+timeout, which is 30 seconds unless the call's `timeoutMs` option sets another (0 for none); `timeouts.functionCallTimeoutMs` in the client config, or `client.functionRegistry.defaultCallTimeoutMs`, changes the default for every call. A call
 that could not be sent in time fails with
 `Function call '<name>' timed out after 30000ms: the client was not connected`, and one sent but
 not answered in time fails with `Function call '<name>' timed out after 30000ms` and is cancelled on
@@ -911,7 +936,7 @@ the app. At most 4096 calls wait, and later ones fail at once.
 A call fails at once with `Not connected` when the client is not trying to connect: before
 `connect()`, after `disconnect()`, after the server stopped, or when the reconnect has given up.
 A waiting call fails the same way when the client reaches one of those states. A call already sent when the
-connection drops, or when the program calls `disconnect()`, fails with a `DisconnectedError` (message `Disconnected`, exported by `@ikonai/sdk`). Whether the app ran the function is unknown, so retry it after the client is connected again only when the function can safely run twice; a call that never got sent fails with `Not connected` or a timeout instead, and is safe to send again.
+connection drops, or when the program calls `disconnect()`, fails with a `DisconnectedError` (message `Disconnected`, exported by `@ikonai/sdk`). One already sent to a session that leaves, as the app's session does when the app hot-reloads, fails at once with a `TargetLeftError` (`functionName`, `sessionId`), and so does a `callStream` loop reading from it. Whether the app ran the function is unknown, so retry it after the client is connected again only when the function can safely run twice; a call that never got sent fails with `Not connected` or a timeout instead, and is safe to send again.
 `getRemoteFunctions()` is empty until the list arrives, and again from a dropped connection until
 the next join's list arrives, so await `waitForRemoteFunctions()` (`@ikonai/sdk` 1.17 or later)
 first, which waits the same 10 seconds at most. It resolves to true once the list has arrived, and to
@@ -1000,7 +1025,7 @@ the .NET SDK's `ReactiveRegistry`:
 ```ts
 const client = new IkonClient({
   guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
-  webRtc: { media: 'none' },
+  webRTC: { media: 'none' },
 });
 
 await client.connect();
@@ -1066,7 +1091,7 @@ function watchVisitors(): void {
 
   const client = new IkonClient({
     guest: { spaceId: 'your-app-id', backendType: 'production', deviceId: 'lobby-screen' }, // 'development' for an app on *.dev.ikonai.app
-    webRtc: { media: 'none' },
+    webRTC: { media: 'none' },
     onConnectionStateChange: (state) => {
       // A failed connect and a dropped server can both report offline: schedule the next client once
       if (state === 'offline' && !retryScheduled) {
@@ -1153,7 +1178,7 @@ const client = new IkonClient({
   video: {
     performance: { preferOffscreenCanvas: true },
   },
-  webRtc: {
+  webRTC: {
     media: 'atConnect',  // negotiate the peer with the connection (the default), or 'none' for no WebRTC
   },
   mediaSession: {
@@ -1173,24 +1198,24 @@ The SDK carries audio and video over WebRTC. The surface's `Media` in `ikon-conf
 ```ts
 const client = new IkonClient({
   local: { host: 'localhost', httpsPort: 8443 },  // or apiKey / sessionToken / guest: exactly one
-  webRtc: { media: 'none' },  // never negotiate a peer; 'atConnect' (the default) negotiates it with the connection
+  webRTC: { media: 'none' },  // never negotiate a peer; 'atConnect' (the default) negotiates it with the connection
 });
 
 // Check if WebRTC is enabled by config (false if both audio and video are disabled, or media is 'none')
-console.log(client.isWebRtcEnabled);
+console.log(client.isWebRTCEnabled);
 
 // Check if WebRTC is actually carrying media (false after a fallback to the protocol channel)
-console.log(client.isWebRtcMediaActive);
+console.log(client.isWebRTCMediaActive);
 
 // Access video streams keyed by track index
-const streams: Map<number, MediaStream> = client.webRtcVideoStreams;
+const streams: Map<number, MediaStream> = client.webRTCVideoStreams;
 
 // Look up a video stream by app-level stream ID
-const stream = client.getWebRtcVideoStreamByStreamId('my-stream-id');
+const stream = client.getWebRTCVideoStreamByStreamId('my-stream-id');
 
 // Listen for track map changes from the server (any number of listeners; the single-slot
-// `onWebRtcTrackMapChanged` property is replaced by whoever assigns it last)
-const stopListening = client.addWebRtcTrackMapListener((info) => {
+// `onWebRTCTrackMapChanged` property is replaced by whoever assigns it last)
+const stopListening = client.addWebRTCTrackMapListener((info) => {
   console.log(`Track ${info.kind}:${info.trackIndex} active=${info.active}`);
 });
 ```
@@ -1218,6 +1243,8 @@ still open again when the client rejoins.
 `isLast` on its last frame, and the stream usually stays open for the next clip, so `onAudioStreamEnd`
 does not fire after a clip: wait for the frame with `isLast`.
 
+`totalDurationMs` in the send options gives the length of the whole segment when it is known before the first frame (0, the default, when it is not); an app that streams with `DelayUntilTotalDurationKnown` waits for it. A received frame carries the sender's value as `totalDurationMs`. `onAudioShapeFrame` raises the shape values (visemes and other blend shapes) an app sends alongside its speech: `epoch` names the segment, `timestampMs` is the time from the segment's start, and each set has the `name` and `shapeNames` its stream's begin declared (the stream's `shapeSets`), or empty ones for a set the begin did not declare. The SDK does not time them to playback, since it does not play the audio. A stream whose `wantsPlaybackReports` is true asks for `sendAudioPlaybackReport(streamId, playedMs, bufferedMs, state)`: how much of its current segment has been played (`null` when not known), how much is buffered, and `'playing'`, `'blocked'` or `'hidden'`. The app paces its speech by these, so send one about twice a second while playing, as a page does. It returns false, and sends nothing, for a stream that asks for none or is no longer open, or while not connected.
+
 <!-- ikon-example: ts-sdk-raw-media -->
 ```ts
 // Send PCM (interleaved floats in -1..1), encoded to Opus 20 ms frames; isFirst/isLast mark a segment
@@ -1237,6 +1264,21 @@ client.rawMedia.onVideoKeyFrameRequested(({ streamId }) => {
 client.rawMedia.onAudioFrame((frame) => console.log(`${frame.streamId}: ${frame.samples?.length} samples`), { decode: true });
 client.rawMedia.onVideoStreamBegin((info) => console.log(`${info.streamId} (${info.senderStreamId}): ${info.codec} ${info.width}x${info.height}`));
 client.rawMedia.onVideoFrame((frame) => console.log(`${frame.streamId}: ${frame.data.length} bytes, key ${frame.isKey}`));
+
+// Shape values the app sends with its speech (visemes, say), named from the stream's begin
+client.rawMedia.onAudioShapeFrame((frame) => {
+  for (const set of frame.sets) {
+    console.log(`${frame.streamId} at ${frame.timestampMs} ms: ${set.name} ${set.shapeNames.map((name, i) => `${name}=${set.values[i]}`).join(' ')}`);
+  }
+});
+
+// Tell the app how much of a stream that asks for playback reports has been played; it paces its speech by them
+for (const stream of client.rawMedia.audioStreams.filter((s) => s.wantsPlaybackReports)) {
+  client.rawMedia.sendAudioPlaybackReport(stream.streamId, playedMs, bufferedMs, 'playing');
+}
+
+// The length of a whole segment, when it is known before the first frame
+await client.rawMedia.sendAudio(pcm, { streamId: 'mic', sampleRate: 48000, channels: 1, isFirst: true, isLast: true, correlationId: 'press-2', totalDurationMs: 1500 });
 
 client.rawMedia.endVideoStream('camera');
 client.rawMedia.endAudioStream('mic');
@@ -1374,6 +1416,8 @@ const client = new IkonClient({
     reconnectBackoffMs: 2000,          // Default: 2000
     maxReconnectAttempts: 2,           // Default: 2
     actionAckTimeoutMs: 5000,          // Default: 5000 (server ACK window for action calls)
+    functionCallTimeoutMs: 30000,      // Default: 30000 (a call or callStream without its own timeoutMs; 0: no limit)
+    capacityWaitTimeoutMs: 600000,     // Default: 600000 (10 minutes of waiting for room in all; 0: no waiting)
   },
 });
 ```
@@ -1628,17 +1672,19 @@ The SDK has a typed error for each kind of failure:
 | `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
 | `SpaceNotFoundError` | The app is not available: suspended, unpublished, removed or never deployed (HTTP 404 or 410). Terminal, and the sign-in stays valid |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
-| `ServerFullError` | Every instance the connect may use is at its client limit, after asking /init for another up to three times (terminal) |
+| `ServerFullError` | Every instance the connect may use is at its client limit, after asking /init for another up to three times, and after waiting `timeouts.capacityWaitTimeoutMs` for room when the backend asked the client to wait (terminal) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
 | `NoMatchingEndpointTypeError` | `?ikon-transport` / `?ikon-proxy` pin a combination the server did not offer (terminal, exposes `pinnedTransport`, `pinnedTier`, `offeredTypes`) |
 | `AppStartupFailedError` | The app's server failed during startup (terminal) |
 | `SsoRequiredError` | The app requires signing in through the organisation's SSO (extends `AccessDeniedError`, exposes `connectionId`) |
-| `CredentialRejectedError` | Backend rejected the presented credential, HTTP 401 (terminal) |
+| `CredentialRejectedError` | Backend rejected the presented credential, HTTP 401, or the ikon server refused the connect token outright (401 `unauthorized`). Terminal until `updateAuthToken` |
+| `CredentialRefusedError` | `/auth/api-key` or `/anonymous` refused the sign-in, HTTP 401 or 403 (terminal, exposes `status`) |
+| `GuestRefusedError` | The guest sign-in was refused: the app lets no guests in (extends `CredentialRefusedError`) |
 | `SdkUpgradeRequiredError` | The platform no longer accepts this SDK version, HTTP 426: update the app's IKON packages with `ikon update` and deploy it again (terminal, exposes `reason`, the platform's message) |
 | `AppUpgradeRequiredError` | The platform no longer runs the app's deployed bundle, HTTP 426, because it was built on IKON libraries that are too old: the app's developer runs `ikon update` and deploys again (terminal, exposes `reason`) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal, exposes `sessionIdentityHash`) |
 | `NoLiveSessionError` | A `joinOnly` connect found no running session and started none (terminal; exposes `spaceId`, `retryAfterMs` (the backend's suggested wait), and the `externalUserId` and `sessionIdentityHash` it looked for, which the message also names. With a per-user `SessionIdentity`, a session running for another external user is not joined) |
-| `ServerUnavailableError` | Backend returned HTTP 5xx (retried, exposes `status`) |
+| `ServerUnavailableError` | Backend returned HTTP 5xx or 408 (retried, exposes `status`) |
 | `ServerRateLimitedError` | A rate limiter refused the request with HTTP 429: the ikon server's, which counts per address, or the backend's. The connect asks an ikon server again after the wait it named, 30 s at most, and raises this when its budget runs out while a rate limiter's refusal is the most telling answer it got. Says nothing about the sign-in (extends `ServerUnavailableError`, exposes `retryAfterMs`) |
 | `ServerNotReadyError` | The connect ran out of its budget on an ikon server that kept not answering, refusing the connection or answering 5xx. A credential refusal on any connect URL is raised as `AuthenticationError` instead, and a rate limiter's as `ServerRateLimitedError` (extends `ServerUnavailableError`, exposes `status`, 0 when the try got no answer) |
 | `ServerChangedError` | The ikon server refused the connect token as not its own or expired, usually because the server was replaced. A cloud connect gets a fresh token from `/init` once before raising it; a local or connect-URL connect, which has no `/init` to ask, raises `AuthenticationError` instead. Not an `AuthenticationError`: the sign-in is still valid (exposes `status`) |
@@ -1670,6 +1716,7 @@ const client = new IkonClient({
 | `IkonClient` | Main client class for connecting to IKON servers |
 | `IkonClientConfig` | Configuration for the client |
 | `ConnectionState` | Union type: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline` |
+| `CapacityWait` | `client.capacityWait`: `{ full, retryAt }`, a wait for room the backend asked for |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
 | `GlobalState` | Server state received after connection |
 | `Context` | A client as the server describes it, which the client events carry |
@@ -1686,7 +1733,7 @@ const client = new IkonClient({
 | `TimeoutConfig` | Timeout settings |
 | `AudioConfig` | Audio playback configuration |
 | `VideoConfig` | Video playback configuration |
-| `WebRtcConfig` | WebRTC configuration for audio/video transport |
+| `WebRTCConfig` | WebRTC configuration for audio/video transport |
 | `MediaSessionConfig` | OS-level media controls metadata |
 | `BackendType` | String union: `production`, `development` |
 
@@ -1700,6 +1747,7 @@ const client = new IkonClient({
 | `ValueDescriptor` | Type descriptor for parameters/returns |
 | `FunctionResultWithData` | Result type with binary data attachment |
 | `FunctionCallError` | Error from remote function call with `remoteErrorType` and `remoteStackTrace` |
+| `TargetLeftError` | A sent call whose target session left before it returned (`functionName`, `sessionId`); whether it ran is unknown |
 | `FunctionCallOptions` | `instanceId`, `signal` and `timeoutMs` of one `call` or `callStream` |
 | `RemoteFunction` | An app function the client can call, with `isEnumerable` for a streaming one |
 
@@ -1726,6 +1774,8 @@ const client = new IkonClient({
 | `IkonVideoCapture` | Video capture pipeline |
 | `IkonImageCapture` | Image capture pipeline |
 | `RawMedia` | Audio and video as frames for a program without a page (`client.rawMedia`) |
+| `RawAudioShapeFrame` | Shape values an app sends with its speech, as `onAudioShapeFrame` raises them (`RawAudioShapeValues` per set) |
+| `RawAudioPlaybackState` | `'playing'`, `'blocked'` or `'hidden'`, for `sendAudioPlaybackReport` |
 
 ### Error Types
 
@@ -1747,10 +1797,12 @@ const client = new IkonClient({
 | `AppStartupFailedError` | App server failed during startup (terminal) |
 | `SsoRequiredError` | Organisation SSO sign-in required |
 | `CredentialRejectedError` | Credential rejected, HTTP 401 (terminal) |
+| `CredentialRefusedError` | API key or guest sign-in refused, HTTP 401 or 403 (terminal) |
+| `GuestRefusedError` | Guest sign-in refused (a `CredentialRefusedError`) |
 | `SdkUpgradeRequiredError` | SDK version no longer accepted, HTTP 426 (terminal) |
 | `AppUpgradeRequiredError` | App bundle built on IKON libraries too old to run, HTTP 426 (terminal) |
 | `SessionNotFoundError` | `?ikon-session` names no live session (terminal) |
-| `ServerUnavailableError` | Backend HTTP 5xx (retried) |
+| `ServerUnavailableError` | Backend HTTP 5xx or 408 (retried) |
 | `ServerRateLimitedError` | HTTP 429 from a rate limiter (retried after its wait, 30 s at most) |
 | `ServerNotReadyError` | Connect budget ran out on a server that timed out, refused or answered 5xx |
 | `ServerChangedError` | Server refused a stale connect token (one fresh `/init` first; not an `AuthenticationError`) |

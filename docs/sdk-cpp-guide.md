@@ -1,4 +1,4 @@
-<!-- checked-against: dc8f95524e96641ee3b0c442 -->
+<!-- checked-against: 89f375b84906aa31e3b0c442 -->
 
 # IKON C++ SDK
 
@@ -34,10 +34,12 @@ On a desktop or a server the SDK's own implementations cover all four: `StdSyste
 
 ## Building a Program
 
-The SDK is headers only, with nothing of its own to compile. It is a zip on the [C++ SDK release](https://github.com/ikon-ai/ikon-releases/releases/tag/cpp-sdk), which holds only the newest version, and the zip is a CMake package with two targets:
+The SDK is headers only, with nothing of its own to compile. [Download it as a zip](https://api.ikonai.com/releases/ikon-sdk-cpp/latest/IKON-Cpp-SDK.zip). The link always serves the newest version. The zip is a CMake package with two targets:
 
 - `ikon::sdk`: the SDK's headers, C++17 and threads. A program that brings its own network and HTTP clients needs only this.
-- `ikon::sdk_examples`: the SDK and the example implementations in its folder (`ExampleLog`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL. On Windows `ExampleHttpClient` sends through WinHTTP, except for [post-quantum key exchange](#post-quantum-key-exchange); elsewhere it sends over OpenSSL. The target exists only when CMake finds OpenSSL.
+- `ikon::sdk_examples`: the SDK and the example implementations among its headers (`ExampleLog`, `ExampleHttpClient`, `ExampleNetworkClient`), linked with OpenSSL. On Windows `ExampleHttpClient` sends through WinHTTP, except for [post-quantum key exchange](#post-quantum-key-exchange); elsewhere it sends over OpenSSL. The target exists only when CMake finds OpenSSL.
+
+The headers are in the zip's `include/ikon-sdk/`, and both targets put `include/` on the include path, so a program includes each header with the `ikon-sdk/` prefix: `#include <ikon-sdk/ikon_sdk.h>`.
 
 A program that adds the SDK's source folder with `add_subdirectory` or `FetchContent` gets a generated `ikon_version.h` that names the version `v0.0.0-source`. The platform accepts it, so connects work; only a release zip carries a real version.
 
@@ -49,7 +51,7 @@ project(my_client CXX)
 
 include(FetchContent)
 FetchContent_Declare(ikon_sdk
-  URL https://api.prod.ikon.live/releases/ikon-sdk-cpp/latest/IKON-Cpp-SDK.zip
+  URL https://api.ikonai.com/releases/ikon-sdk-cpp/latest/IKON-Cpp-SDK.zip
 )
 FetchContent_MakeAvailable(ikon_sdk)
 
@@ -70,16 +72,16 @@ cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcp
 cmake --build build --config Release
 ```
 
-Firmware adds the SDK's folder to its include path in whatever build system its toolchain uses; [Microcontrollers](#microcontrollers) says what else it needs.
+Firmware adds the SDK's `include/` folder to its include path in whatever build system its toolchain uses; [Microcontrollers](#microcontrollers) says what else it needs.
 
 ## Quick Start
 
 <!-- ikon-example: cpp-sdk-quick-start -->
 ```cpp
-#include "ikon_sdk.h"
-#include "example_http_client.h"
-#include "example_logger.h"
-#include "example_network_client.h"
+#include <ikon-sdk/ikon_sdk.h>
+#include <ikon-sdk/example_http_client.h>
+#include <ikon-sdk/example_logger.h>
+#include <ikon-sdk/example_network_client.h>
 
 #include <iostream>
 
@@ -132,18 +134,18 @@ int main()
 }
 ```
 
-`ikon_sdk.h` includes the client and every add-on. A program that wants less includes `ikon_client.h` and the add-on headers it uses.
+`ikon-sdk/ikon_sdk.h` includes the client and every add-on. A program that wants less includes `ikon-sdk/ikon_client.h` and the add-on headers it uses.
 
 ## How the Client Runs
 
-The client does nothing between calls. `Connect()` signs in and joins on the calling thread, and returns when the client is connected or has failed. After that, everything the client does happens inside `Poll(timeoutMs)`: it reads what the server sent, runs the message handlers, the callbacks and the add-ons, keeps the connection alive and reconnects after a drop. `Poll` waits up to `timeoutMs` for input, and an add-on can make it wait less, so a loop that calls it with 50 or 100 ms keeps the client current. A program that stops calling `Poll` stops receiving, and the server drops a connection it hears nothing from.
+The client does nothing between calls. `Connect()` signs in and joins on the calling thread, and returns when the client is connected or has failed. After that, everything the client does happens inside `Poll(timeoutMs)`: it reads what the server sent, runs the message handlers, the callbacks and the add-ons, answers the server's keepalives, closes a connection the server has gone silent on, and reconnects after a drop. `Poll` waits up to `timeoutMs` for input, and an add-on can make it wait less, so a loop that calls it with 50 or 100 ms keeps the client current. A program that stops calling `Poll` stops receiving, and the server drops a connection it hears nothing from. Every timer the client keeps (the silence check, the reconnect schedule, the function calls' timeouts) runs on `ISystem::NowMs` inside `Poll`; the SDK starts no thread of its own.
 
 A device with one thread runs the whole connection in its own loop:
 
 <!-- ikon-example: cpp-sdk-poll-loop -->
 ```cpp
-// The device's whole connection, on the one thread it has. Returns once the client gives up: its
-// reconnect attempts ran out, or the server refused it for good. The caller may wait and call it again
+// The device's whole connection, on the one thread it has. Returns once the client goes Offline: the
+// platform refused it for good or the app's server stopped. The caller may wait and call it again
 void RunDevice(const ClientConfig& config, INetwork& network, IHttp& http, ISystem& system, Log log)
 {
     IkonClient client(config, network, http, system, log);
@@ -180,7 +182,7 @@ void RunDevice(const ClientConfig& config, INetwork& network, IHttp& http, ISyst
 }
 ```
 
-`Offline` means the client gave up: its reconnect attempts ran out, or the server refused it in a way no retry changes. Another `Connect()` starts again.
+`Offline` means the client stopped trying: the platform refused it in a way no retry changes, or the app's server announced that it is stopping. After a drop the client keeps reconnecting until it is back, so it is never `Offline` only because the network was down for a while. Another `Connect()` starts again. A `userToken` client whose token was refused is `Offline` until `UpdateAuthToken` gives it a new one, and then reconnects on its own (see [User Tokens](#user-tokens)).
 
 A program with threads can let the client poll on a thread of its own instead. `StartPolling(timeoutMs)` starts it, with 100 ms by default, and `StopPolling()` or the client's destructor stops it:
 
@@ -239,17 +241,21 @@ An `Error` has these fields:
 - `code`: an `ErrorCode`.
 - `message`: a short reason a person can read.
 - `detail`: often empty. For a refused or failed HTTP request it holds the request, its request id and the backend's answer, for a log. For a few codes it holds a value: the refusal marker of `ServerChanged`, the oldest accepted version of the upgrade codes, the app of `WrongLocalApp`, the error type of `FunctionFailed`.
+- `functionErrorCode`: for `FunctionFailed`, the error code the app's error carried, or empty.
 - `httpStatus`: the HTTP status behind the error, or 0.
 - `retryAfterSeconds`: the wait the backend asked for, or 0.
 
-`IsFinal()` is true for a failure that the same configuration will meet again, for `NoLiveSession` and for `Cancelled`, so a reconnect stops at it.
+`IsFinal()` is true for a failure that the same configuration will meet again (`AuthRefused`, `CredentialRejected`, `AccessDenied`, `AppStartupFailed`, `SpaceNotFound`, `SessionNotFound` and the upgrade codes among them), for `NoLiveSession` and for `Cancelled`, so neither a first connect nor a reconnect tries again after it. `ServerFull`, `RateLimited`, `ServerUnreachable` and `Timeout` are not final.
 
 | Code | What happened | What to do |
 |---|---|---|
 | `InvalidConfig` | The configuration is incomplete or contradicts itself, or `Connect()` was called while the client was connecting, connected or reconnecting | Fix what `message` names |
 | `ServerUnreachable` | No server answered: the network is down, the host does not resolve or the port refuses. It says nothing about the credentials | Try again later |
-| `AuthRefused` | The backend or the guest sign-in refused the credential or the user (401 or 403), or a server refused the token of a connect URL | A new credential, or a change in the app |
-| `ServerFull` | The app is at its client limit on every server the backend may place the client on. A local run or a connect URL has one server, so it fails at the first full answer | Try again later |
+| `AuthRefused` | The API key sign-in or the guest sign-in refused the credential (401 or 403), or a server refused the token of a connect URL | A new credential, or a change in the app |
+| `CredentialRejected` | The backend or the app's server refused the client's token (401): a `userToken` that expired or was revoked | `UpdateAuthToken` with a new token; the client reconnects on its own |
+| `AccessDenied` | The backend or the app's server refused the user (403): the user may not enter the app, its surface or the bundle it named | A change in the app's access settings |
+| `AppStartupFailed` | The app's server failed to start | The app's developer reads `ikon logs` and fixes the app |
+| `ServerFull` | The app is at its client limit on every server the backend may place the client on, after any wait the backend asked for, up to `timeouts.capacityWaitTimeoutMs`. A local run or a connect URL has one server, so it fails at the first full answer | Try again later |
 | `ServerChanged` | The server refused the connect token for good: it expired, or it was for a server that has since been replaced | Connect again |
 | `JoinClosed` | The connection to the app's server closed during the join, at any point before the client reported ready | Connect again |
 | `JoinTimeout` | The session state or the app's functions did not arrive within `timeouts.joinTimeoutMs` | Connect again |
@@ -257,6 +263,7 @@ An `Error` has these fields:
 | `SdkUpgradeRequired` | The platform no longer accepts this version of the C++ SDK | Update the SDK and rebuild |
 | `AppUpgradeRequired` | The platform no longer runs the app's server, built on IKON libraries it no longer accepts | The app's developer runs `ikon update` and deploys again |
 | `SpaceNotFound` | The backend answered 404 or 410: the app is suspended, unpublished, removed or not deployed, or it is on the other platform (`backendType`) | Check the app |
+| `SessionNotFound` | No live app session has the `sessionIdentityHash` the client named: the session the link points to has ended | Connect without it, or with a newer link |
 | `RateLimited` | The backend asked the client to slow down (429) | Wait `retryAfterSeconds` |
 | `WrongLocalApp` | The local run on the configured port runs another app than `LocalConfig::spaceId` | Use the port of the right run |
 | `PostQuantumUnsupported` | `requirePostQuantum` is set, but the HTTP or network interface cannot honour it | See [Post-Quantum Key Exchange](#post-quantum-key-exchange) |
@@ -265,8 +272,8 @@ An `Error` has these fields:
 | `NotConnected` | The client is not connected, so the operation was not sent: a function call or a subscription made while the client is idle or offline (one made while it connects waits), or a UI action called while it is not `Connected` | Connect first |
 | `Disconnected` | The connection dropped before the call could be sent or was answered, or the session that runs the function left before it answered | Try again once the client is ready |
 | `FunctionNotFound` | No function of that name (and version) is registered in the session | |
-| `FunctionFailed` | The function ran and failed: `message` is its error, `detail` its error type | |
-| `Timeout` | No answer came within the time the caller allowed | |
+| `FunctionFailed` | The function ran and failed: `message` is its error, `detail` its error type, `functionErrorCode` its code | |
+| `Timeout` | No answer came within the time the caller allowed: a function call past its timeout, an app whose server did not start within `timeouts.provisioningTimeoutMs`, or an app that had no room for the client within `timeouts.capacityWaitTimeoutMs` | |
 | `Failed` | Anything else; `message` says what | |
 
 `ToString(ErrorCode)` gives a code's name.
@@ -287,7 +294,6 @@ ApiKeyConfig apiKey;
 apiKey.apiKey = "ikon-xxxxx";                  // From ikon api-key create
 apiKey.spaceId = "...";                        // The app's id (ikon app list)
 apiKey.externalUserId = "user-123";            // Your own id for the user
-apiKey.sessionId = "session-xyz";              // Optional: join a precomputed session
 apiKey.backendType = BackendType::Production;  // The default; Development for an app on *.dev.ikonai.app
 apiKey.userType = UserType::Human;
 apiKey.clientType = ClientType::DesktopApp;
@@ -298,9 +304,11 @@ config.apiKey = apiKey;
 
 `UserType` is `Human` (the default) or `Machine` (`Unknown` is the unset value); a program that no person sits behind sets `Machine`. `ClientConfig::productId` (default `"ikon-sdk-cpp"`) and `description` (default `"Ikon SDK C++"`) name the program to the platform; the defaults say only that an SDK client joined, so set them to something that says what the program is. `ClientType` is `MobileWeb`, `MobileApp`, `DesktopWeb` or `DesktopApp`, which the app reads from the client's context.
 
-Set `joinOnly = true` on the `ApiKeyConfig` for a client that should join the app only while someone else has it running, and never start it: a device or agent that stays connected around the clock would otherwise keep a server running, billed to the app's organisation. When nothing is running, `Connect()` fails with `NoLiveSession`, and `retryAfterSeconds` is how long the backend asks you to wait before trying again (0 when it named no wait). If the server shuts down, the next reconnect reports that through `ErrorOccurred` and goes `Offline` instead of retrying. Pair `joinOnly` with `UserType::Machine`, so the connection does not count as a person and does not keep the session open either. A `Human` client, the default, holds the session open: a `joinOnly` client left on the default keeps the app's server running.
+Set `joinOnly = true` on the `ApiKeyConfig`, `GuestConfig` or `UserTokenConfig` for a client that should join the app only while someone else has it running, and never start it: a device or agent that stays connected around the clock would otherwise keep a server running, billed to the app's organisation. When nothing is running, `Connect()` fails with `NoLiveSession`, and `retryAfterSeconds` is how long the backend asks you to wait before trying again (0 when it named no wait). If the server shuts down, the next reconnect reports that through `ErrorOccurred` and goes `Offline` instead of retrying. Pair `joinOnly` with `UserType::Machine`, so the connection does not count as a person and does not keep the session open either. A `Human` client, the default, holds the session open: a `joinOnly` client left on the default keeps the app's server running.
 
-While the app's server is starting, `Connect()` keeps asking it for up to `timeouts.connectTimeoutMs`. When the server refuses the connect token because it was issued for a server that has since been replaced, or because it has expired, `Connect()` asks the backend for a new token once, and fails with `ServerChanged` if that one is refused too. The API key is still valid, so call `Connect()` again later. When a server answers that it is full, `Connect()` asks the backend up to three more times, naming the full servers so a sharded app places the client on another shard, and then fails with `ServerFull`. When no server answers at all, it fails with `ServerUnreachable`. A server that answers with an error status never causes `ServerUnreachable`. The example HTTP client reports an unreachable server as status 0, and an `IHttp` of your own does the same with a status of 0 or less. The example client also returns 0 for a request it could not finish, such as one whose certificate did not verify, that timed out or whose response was cut off, so those fail with `ServerUnreachable` too.
+A first `Connect()` asks the backend for the app's server up to three times, 1 and then 2 seconds apart, when the backend does not answer, times out, answers 408, 500, 502, 503 or 504, or asks it to wait (429) for 30 seconds or less; a longer wait fails at once with `RateLimited`. A refusal never gets a second try. When the backend says the app's server failed to start, `Connect()` fails with `AppStartupFailed`.
+
+While the app's server is starting, `Connect()` keeps asking it for a session for up to `timeouts.connectTimeoutMs` (60 seconds), first after 100 ms and then twice as long each time, up to 2 seconds apart. When the backend names a proxy URL for the server, each round asks the server's own URL first, for no more than 3 seconds the first time, and then the proxy, at most every 2 seconds, so a network that blocks the server's port still gets in. A server that asks the client to wait (429) is asked again after the wait it named, at most 30 seconds, plus up to half as long again. When the server refuses the connect token because it was issued for a server that has since been replaced, or because it has expired, `Connect()` asks the backend for a new token once, and fails with `ServerChanged` if that one is refused too. The API key is still valid, so call `Connect()` again later. When a server answers that it is full, `Connect()` asks the backend up to three more times, naming the full servers so a sharded app places the client on another shard, and then fails with `ServerFull`. When the backend answers that the app is full, or that a server is still being started for it, `Connect()` waits as long as the backend asks and asks again, for up to `timeouts.capacityWaitTimeoutMs` in all (see [Waiting for Room](#waiting-for-room)). When no server answers at all, it fails with `ServerUnreachable`. A server that answers with an error status never causes `ServerUnreachable`. The example HTTP client reports an unreachable server as status 0, and an `IHttp` of your own does the same with a status of 0 or less. The example client also returns 0 for a request it could not finish, such as one whose certificate did not verify, that timed out or whose response was cut off, so those fail with `ServerUnreachable` too.
 
 A deleted API key (`ikon api-key delete <id> --app-id <app-id> --yes`, or without `--app-id` in the app's folder) is refused from the next sign-in on: a new connect, or a reconnect that has to sign in again, fails with `AuthRefused`. Its `message` is a short reason with the backend's request id (`The API key was refused (403 Invalid key; request <id>)`), and its `detail` holds the request and the backend's whole answer. Deleting a key does not end any session: a client the key already connected keeps going, and a reconnect that resumes the same session needs no sign-in.
 
@@ -345,6 +353,8 @@ It takes the host and port from `serverUrl` in the `ikon-server-info.json` the r
 
 `localClientProof` matters only for a local connect that does not look local to the run, such as one through `ikon run --host-public`. Without it, such a connect joins as a guest, or is refused where the app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a program on the run's machine can read, the run keeps `userId`. `LocalConfigFromAppFolder` fills it in. A program on the same machine connecting to `localhost` needs none.
 
+`backendToken`, when set, is sent to the run as `Authorization: Bearer`. It is the person's IKON backend token. If the run refuses the token, the client connects as a guest. `UpdateAuthToken` replaces the token for the next new session.
+
 ### Guests
 
 A client can join a deployed app as a signed-out visitor, as a browser that has not signed in does. It needs no key.
@@ -360,9 +370,9 @@ config.guest = guest;
 config.deviceId = "device-1234";  // Keep it to come back as the same guest
 ```
 
-Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. Without `deviceId` the client picks a random one, which it keeps until it is destroyed. The app sees a guest as `UserType::Human`. When the app lets no guests in, `Connect()` fails with `AuthRefused` and `httpStatus` 403.
+Each device id gets a guest user of its own, unless the app's guest sign-in puts every guest in one shared user. Without `deviceId` the client picks a random one, which it keeps until it is destroyed. `GuestConfig::userType` is `Human` by default; a program that no person sits behind sets `Machine`. When the app lets no guests in, `Connect()` fails with `AuthRefused` and `httpStatus` 403.
 
-A client enters one of the app's surfaces. `ClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; left empty, the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods`, or `Connect()` fails with `AuthRefused` and `httpStatus` 403, even when another surface admits guests. A surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only. `ClientConfig::initialPath` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
+A client enters one of the app's surfaces. `ClientConfig::surface` names it, by its name in the app's `ikon-config.toml`; left empty, the client enters the only surface that is not a sign-in page, else the one with neither `Routes` nor `Host`, else the first declared. That surface must list `guest` or `global` in its `[Surface.Auth] Methods`, or `Connect()` fails with `AccessDenied` and `httpStatus` 403, even when another surface admits guests. A surface with no `[Surface.Auth]` keeps the default methods, which include `guest`; `ikon new --private` writes `email` and `passkey` only. `ClientConfig::initialPath` is the path the client opens, such as `/orders/42`, which the app reads from `Context.InitialPath`. Both apply in every mode:
 
 <!-- example-skip: two fields of the config above -->
 ```cpp
@@ -372,7 +382,7 @@ config.initialPath = "/menu";
 
 ### User Tokens
 
-A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token: `ProductionBackendUrl` (`https://api.prod.ikon.live`) for an app on `*.ikonai.app`, `DevelopmentBackendUrl` (`https://api.dev.ikon.live`) for one on `*.dev.ikonai.app`.
+A program that already holds a person's session token for the app, issued by another service, connects with it instead of an API key. `backendUrl` is the backend that issued the token: `ProductionBackendUrl` (`https://api.ikonai.com`) for an app on `*.ikonai.app`, `DevelopmentBackendUrl` (`https://api.dev.ikonai.com`) for one on `*.dev.ikonai.app`.
 
 An API key's `externalUserId` names a user of the program's own: the same id is the same user on every connect, but it is never one of the app's existing people and has no email, so a role the app gives by email does not reach it. `ikon profile role add <role> --external-user <id>`, run in the app's folder, gives it one, even before its first connect. A surface that lists `Roles`, as every surface of an `ikon new --private` app does, refuses it until then. Acting as an existing person needs that person's session token in this mode, and the IKON tool hands out none; only the .NET SDK's `UserLogin` connects as the person signed in with `ikon login`.
 
@@ -388,7 +398,7 @@ ClientConfig config;
 config.userToken = userToken;
 ```
 
-The client cannot renew the token. When the backend refuses it (401) or the app refuses the user (403), `Connect()` fails with `AuthRefused`. During a reconnect, the client stops reconnecting at once, reports the refusal through `ErrorOccurred` and goes `Offline`. Get a new token from the service that issued the old one, pass it to `IkonClient::UpdateAuthToken`, and call `Connect()` again. Every later connect and reconnect uses the new token. `UpdateAuthToken` returns `InvalidConfig` on a client configured without `userToken`.
+The client cannot renew the token. When the backend or the app's server refuses it (401), `Connect()` fails with `CredentialRejected`, and during a reconnect the client stops reconnecting at once. Either way it reports the refusal through `ErrorOccurred`, then runs the `CredentialRejected` callback, and stays `Offline`; `IsWaitingForToken()` is true. Get a new token from the service that issued the old one and pass it to `IkonClient::UpdateAuthToken`, from any thread: the next `Poll` reconnects with it, without a new `Connect()`. Every later connect and reconnect uses the new token. When the app refuses the user (403), the connect fails with `AccessDenied`, which a new token does not change. `UpdateAuthToken` returns `InvalidConfig` on a client configured with neither `userToken` nor `local`.
 
 ### Connect URLs
 
@@ -402,6 +412,22 @@ config.externalConnectUrl = "https://server.example/connect?token=...";
 
 When the server refuses the URL's token, `Connect()` fails at once: with `ServerChanged` for an expired token or one signed for another server, and with `AuthRefused` for any other 401 or 403. A reconnect into a new session uses the same URL, so once its token has expired the server refuses it, and the client reports that through `ErrorOccurred` and goes `Offline`. Make a new `IkonClient` with a new URL.
 
+### Session Links and Unreleased Versions
+
+Two settings on `ClientConfig` pick which app session a cloud client joins, in every mode that signs in (`apiKey`, `guest` and `userToken`). With `local` or `externalConnectUrl`, `Connect()` fails with `InvalidConfig` when either is set.
+
+<!-- example-skip: two fields of a cloud config -->
+```cpp
+config.sessionIdentityHash = "...";  // The ikon-session value of a session link
+config.appBundle = "...";            // The bundle id of ikon deploy --no-activate
+```
+
+`sessionIdentityHash` joins the live app session a session link names (the `ikon-session` value of the link the app publishes as `GlobalState.SessionUrl`), whatever `parameters` say. Only the backend computes the hash, so take it from a link. When that session has ended, `Connect()` fails with `SessionNotFound`, and a reconnect into a new session goes `Offline` with that error: the client never starts a fresh session in its place.
+
+`appBundle` runs a deploy that is not live, uploaded with `ikon deploy --no-activate`, in a session of its own. It needs `Update` rights on the app's bundles; anyone else gets `AccessDenied`. Neither value reaches the app's client parameters.
+
+`config.testLink` is the id of a test link (the `ikon-test` value in its URL), which lets the client into an app whose surface would refuse it otherwise, as the link does for a browser. It goes with the guest sign-in and the session request, and has the same rule: only in the modes that sign in.
+
 ## Connection Lifecycle
 
 ### Connection States
@@ -414,7 +440,7 @@ When the server refuses the URL's token, `Connect()` fails at once: with `Server
 | `Connecting` | Inside `Connect()`: signing in and joining |
 | `Connected` | Joined and ready; `Ready` runs right after |
 | `Reconnecting` | The connection dropped, and `Poll` is reconnecting |
-| `Offline` | The connect failed, or the client gave up reconnecting |
+| `Offline` | The connect failed, the platform refused a reconnect for good, or the app's server stopped |
 
 ### Callbacks
 
@@ -444,11 +470,30 @@ client.ErrorOccurred = [](const Error& error)
 {
     std::cerr << "Error " << ToString(error.code) << ": " << error.message << std::endl;
 };
+
+// The app has no room for the client yet, because it is full or a server is being started for it.
+// The client asks again by itself at retryAtMs and stays Connecting or Reconnecting until then
+client.CapacityWaitChanged = [&client](const std::optional<CapacityWait>& wait)
+{
+    if (wait)
+    {
+        uint64_t seconds = (wait->retryAtMs - client.System().NowMs()) / 1000;
+        std::cout << (wait->full ? "This app is full, trying again in " : "Getting the app ready, trying again in ") << seconds << " s" << std::endl;
+    }
+};
 ```
 
 The callbacks run on the driving thread: inside `Connect()` for a connect, inside `Poll()` for everything after, except that `Disconnect()` runs `StateChanged` on its caller's thread (see [Threading Rules](#threading-rules)). `StateChanged` runs after each change of state. `Ready` runs once the client is `Connected`, after each connect and each reconnect; the app knows the client's user from then on, and `Functions::Call` and `Reactives::Subscribe` go out at once. `Disconnected` runs when the connection drops without the program asking, never for `Disconnect()`.
 
-A failed `Connect()` reports its error twice, with the same message: first through `ErrorOccurred`, then as the `Error` it returns. Show the returned error for a connect your code called, and keep `ErrorOccurred` for failures that no call returns, such as a reconnect attempt that fails. `ErrorOccurred` runs for every failed reconnect attempt, not only the last, while the client stays `Reconnecting`; the client has given up when `StateChanged` reports `Offline`. `Disconnect()` during a connect makes `Connect()` return `Cancelled`, which `ErrorOccurred` does not report.
+Two more callbacks report why a client stopped. `CredentialRejected(const Error&)` runs after `ErrorOccurred` when the backend or the app's server refused the client's token (see [User Tokens](#user-tokens)). `ServerStopping()` runs when the app's server announces that it is shutting down: the client closes the connection and goes `Offline` without reconnecting, because a reconnect would only start the app again or find nothing.
+
+A failed `Connect()` reports its error twice, with the same message: first through `ErrorOccurred`, then as the `Error` it returns. Show the returned error for a connect your code called, and keep `ErrorOccurred` for failures that no call returns, such as a reconnect attempt that fails. `ErrorOccurred` runs for every failed reconnect attempt, not only the last, while the client stays `Reconnecting`; the client has stopped trying when `StateChanged` reports `Offline`. `Disconnect()` during a connect makes `Connect()` return `Cancelled`, which `ErrorOccurred` does not report.
+
+### Waiting for Room
+
+When the app has no room for the client yet, because it is full or because a server is being started for it, the backend says how long to wait. `GetCapacityWait()` then returns a `CapacityWait`, and the client runs `CapacityWaitChanged`. The wait's `full` says which of the two it is, and its `retryAtMs` is when the client asks again, on the `ISystem::NowMs()` clock. When the wait ends, it clears the value, runs `CapacityWaitChanged` with none, and asks the backend again by itself. The state stays `Connecting`, or `Reconnecting` for a reconnect, so a program shows the wait beside the state, as the callback above does.
+
+The waits count toward neither the backend tries nor `timeouts.connectTimeoutMs`. Once they add up to `timeouts.capacityWaitTimeoutMs` (10 minutes) in one connect or reconnect attempt, the attempt fails as it would have without them: `ServerFull` for a full app, `Timeout` otherwise. `Disconnect()` ends a wait at once. A reconnect attempt waits inside `Poll`, so on a device without threads `Poll` returns only when the wait is over. Set a shorter `capacityWaitTimeoutMs` when the program's loop has other work to do.
 
 ### Connecting and Disconnecting
 
@@ -507,9 +552,13 @@ if (hasState && TeleportDecode(TeleportBytes(bytes), copy))
 
 `WithGlobalState` reads the session state in place and holds the client's lock while the callback runs. The view is valid only inside the callback, and the callback must not call the client. `GlobalStateBytes()` copies it, and is empty before the first join and, with `lowMemory`, after each join. `HasReadyClient(productId, userId)` says whether a ready client of that product, and of that user when one is given, is in the session.
 
+`AppSessionId()` is the app session the client last joined, the id the Portal shows for it, and `IkonServerId()` the server that runs it, which a reconnect into a new session can change. Both are empty before the first join, and the client logs both at debug level when a server accepts it.
+
 ### Reconnection
 
-When a connection the client joined drops, `Poll` reconnects. It waits `reconnectBackoffMs` before the first attempt and twice as long before each next one, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `RateLimited`, the next attempt waits at least `retryAfterSeconds`, capped at 5 minutes, plus up to half as long again. After `maxReconnectAttempts` failed attempts the client goes `Offline`, and only a new `Connect()` connects it again. The client stops reconnecting at once and goes `Offline` when retrying cannot help: on any error whose `IsFinal()` is true (a `joinOnly` client finds no live session, the platform refuses the SDK or the app, the app is not available, the credential or the user is refused), and when a server refuses the token in an `externalConnectUrl`.
+When a connection the client joined drops, `Poll` reconnects. A connection can also die without closing, as when a network path stops carrying packets. The server tells the client in its join answer how long it may stay silent (`AuthResponse.KeepaliveTimeoutMs`), and may shorten that in its keepalives (`KeepaliveRequest.ReceiveTimeoutMs`, never below 10 seconds and never above the first value). When nothing arrives for that long, `Poll` closes the connection, logs a warning and reconnects as after any drop. A server that names no timeout is never dropped for silence.
+
+The client waits `reconnectBackoffMs` before the first attempt and twice as long before each next one, each wait shortened at random by up to a quarter so that the clients one server dropped do not all come back at once. When the backend answers an attempt with `RateLimited`, the next attempt waits at least `retryAfterSeconds`, capped at 5 minutes, plus up to half as long again. After `maxReconnectAttempts` quick attempts, the client goes on reconnecting in the background until it is back: 10 seconds after the last quick attempt, then twice as long each time up to 5 minutes, each wait shortened at random by up to a quarter. It logs one warning when it moves to the background and each background failure at debug level only, and it reports every failed attempt through `ErrorOccurred`. With `timeouts.backgroundReconnect = false` the client goes `Offline` after the quick attempts instead, and only a new `Connect()` connects it again. The client stops reconnecting at once and goes `Offline` when retrying cannot help: on any error whose `IsFinal()` is true (a `joinOnly` client finds no live session, the session a `sessionIdentityHash` names has ended, the platform refuses the SDK or the app, the app is not available or failed to start, the credential or the user is refused), when a server refuses the token in an `externalConnectUrl`, and when the app's server announced that it is stopping. `Disconnect()` ends it too.
 
 Each attempt first tries to resume the session the client had. It opens a new connection to the same server address with that session's auth ticket and does not ask for a new session, so the app still has the client's session and what it keeps for it. The server holds a dropped session for its soft-retry window, which it sends in `AuthResponse.SoftRetryWindowMs` and which is 5 minutes by default. The attempt starts a new session instead, as `Connect()` does, when the window has passed, or when the server closes the connection before the client has joined, which is how it refuses a session it no longer holds. The server then ends the old session. Once the server has answered a request for a new session, the later attempts start new sessions too.
 
@@ -523,7 +572,7 @@ To test the program's own recovery, call `IkonClient::DebugDropConnection()`. It
 
 ### The App's Own Messages
 
-An app declares its own messages in `schema/*.tp`. `ikon schema` compiles them into one header per message, in namespace `ikon::app`: into `frontend-cpp/` when the app has one, and into every folder `schema/outputs.toml` names for `cpp`, such as a program in another repository (see `teleport-schema-spec.md`). A header includes `ikon_teleport.h`, so put the SDK's folder on the include path. If you cannot change the app, run `ikon teleport generate --input <app>/schema --type cpp --output <folder>/generated/protocol` in the program's own repository instead. It writes the same headers with the same opcodes and changes nothing in the app.
+An app declares its own messages in `schema/*.tp`. `ikon schema` compiles them into one header per message, in namespace `ikon::app`: into `frontend-cpp/` when the app has one, and into every folder `schema/outputs.toml` names for `cpp`, such as a program in another repository (see `teleport-schema-spec.md`). A header includes `ikon-sdk/ikon_teleport.h`, which the SDK's CMake targets put on the include path; elsewhere, put the SDK's `include/` folder on it. If you cannot change the app, run `ikon teleport generate --input <app>/schema --type cpp --output <folder>/generated/protocol` in the program's own repository instead. It writes the same headers with the same opcodes and changes nothing in the app.
 
 `Send` sends one, and `On<T>` calls a handler with every message of type `T` the client receives, with the sender's session id. The opcode, payload version and flags come from the type, so the program never names them. The handler lasts across reconnects until `Off`; add it before `Connect()` to see the first message the app sends once the client is ready. A message that does not decode is logged as a warning and skipped.
 
@@ -580,11 +629,11 @@ client.OnAny([&kept](const MessageView& message)
 
 ### Platform Messages
 
-`Send` takes the platform's own generated messages from `ikon_protocol.h` the same way.
+`Send` takes the platform's own generated messages from `ikon-sdk/ikon_protocol.h` the same way.
 
 <!-- ikon-example: cpp-sdk-send-typed -->
 ```cpp
-// A generated message of the platform's, from protocol/action_custom_user_message.h
+// A generated message of the platform's, from ikon-sdk/protocol/action_custom_user_message.h
 ActionCustomUserMessage payload;
 payload.TypeName = "ChatMessage";
 payload.JsonPayload = R"({"text":"Hello"})";
@@ -651,7 +700,11 @@ functions.Call("Add", FunctionArgs{5, 3}, [](const Error& error, const FunctionR
 });
 ```
 
-`Call` returns at once, and its callback runs once, on the driving thread, with the result or the error. A call made while the client is connecting or reconnecting waits until the client is ready, then goes out to the functions that join brought, in the order the calls were made; at most `maxWaitingCalls` (1024) wait, and more fail at once. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or offline after its reconnects ran out), a call fails at once with `NotConnected`, before `Call` returns, and a waiting call fails the same way when the client stops trying. A name the app has not registered fails with `FunctionNotFound`. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no answer, so it fails then with `Disconnected`. `Call` has no time limit of its own; `Cancel` ends a call the program no longer wants. `CallOptions::version` asks for the registration that fits the version the program was built against.
+`Call` returns at once, and its callback runs once, on the driving thread, with the result or the error. A call made while the client is connecting or reconnecting waits until the client is ready, then goes out to the functions that join brought, in the order the calls were made; at most `maxWaitingCalls` (1024) wait, and more fail at once. When the client is not trying to connect (before `Connect()`, after `Disconnect()`, or `Offline`), a call fails at once with `NotConnected`, before `Call` returns, and a waiting call fails the same way when the client stops trying. A name the app has not registered fails with `FunctionNotFound`. A call already sent when the connection drops, or when the program calls `Disconnect()`, gets no answer, so it fails then with `Disconnected`. `Cancel` ends a call the program no longer wants. `CallOptions::version` asks for the registration that fits the version the program was built against.
+
+A call that gets no answer within 30 seconds of being made, the time it waited for a connect included, fails with `Timeout` and is cancelled on the app. For a stream the time counts from when the call went out and again from each item. `Functions::callTimeoutMs` sets it for every call and `CallOptions::timeoutMs` for one; 0 waits without a limit. When the app holds a call for someone to approve, the call gets the approval's time instead, if that is longer. The .NET SDK's default is 30 seconds too, so a C++ program that calls a function that takes longer sets its own.
+
+A C# app can register a class whose methods run on an object: the constructor function returns a new object, and its methods need that object. `FunctionResult::InstanceId()` is the id of the object a constructor made, and `FunctionResult::SenderId()` the session that holds it. Pass the id as `CallOptions::instanceId` to call the object's methods; a method that needs one fails at once with `InvalidConfig` without it. `Functions::DisposeInstance(instanceId, sessionId)` releases the object.
 
 The app's functions belong to the app's own session, and a local run replaces that session each time the app hot reloads. When a session leaves, its functions leave too, and a call it has not answered fails at once with `Disconnected`. The new session registers the functions again moments later, and calls by name go to it. A call made between the two fails with `FunctionNotFound`, so after a hot reload wait for the function (`FunctionRegistered`, or `WaitForFunction` from a thread that is not driving) before calling again.
 
@@ -762,7 +815,7 @@ void TickCountdowns(uint64_t nowMs)
 }
 ```
 
-`resultTypeName` is the C# type (`"System.Int32"`, `"System.String"`) that the app reads each item's JSON as. Each `Write` sends one item, and the stream ends when the handler returns, unless it called `Defer()`; then `End()` ends it, and `Fail` ends it with an error the app sees. When the app cancels the call or stops reading, `Write` returns false and sends nothing, and the program should stop; `IsCancelled()` gives the same answer without writing. A dropped connection or a new session cancels every running stream the same way. When every copy of a deferred reply is destroyed without `End()`, the stream ends.
+`resultTypeName` is the C# type (`"System.Int32"`, `"System.String"`) that the app reads each item's JSON as. Each `Write` sends one item, and the stream ends when the handler returns, unless it called `Defer()`; then `End()` ends it, and `Fail` ends it with an error the app sees. When the app cancels the call or stops reading, `Write` returns false and sends nothing, and the program should stop; `IsCancelled()` gives the same answer without writing. A dropped connection or a new session cancels every running stream the same way. Items written while the connection was down never reached the app, so when the client resumes the same session, the app's call of each stream the drop cut short fails with `System.IO.IOException` rather than ending as if the stream were whole. After a reconnect into a new session nobody waits for those calls, and nothing is sent. When every copy of a deferred reply is destroyed without `End()`, the stream ends.
 
 #### Built-In Client Functions
 
@@ -794,31 +847,31 @@ A reply of `true` means the client did what was asked, `false` that it declined 
 
 ### Reactive Subscriptions
 
-`Reactives` (`ikon_reactive.h`) follows values the app holds in a `Reactive<T>`, `ClientReactive<T>`, `UserReactive<T>` or `MountReactive<T>` without rendering its UI. It is made with the client and its `Functions`. It follows a value by its stable id. The app's built-in function `Ikon.Reactive.GetStableIdByName` returns the stable id of a reactive field or auto-property of the app's `[App]` class, by its name in the source (`"_score"` for `private readonly Reactive<int> _score`), so the app needs no code of its own for it. For a reactive kept anywhere else, the app returns its `StableId` from an `External` function.
+`Reactives` (`ikon_reactive.h`) follows values the app holds in a `Reactive<T>`, `ClientReactive<T>`, `UserReactive<T>` or `MountReactive<T>` without rendering its UI. It is made with the client and its `Functions`. `SubscribeByName` follows a reactive field or auto-property of the app's `[App]` class by its name in the source (`"_score"` for `private readonly Reactive<int> _score`): the app's built-in function `Ikon.Reactive.GetStableIdByName` looks up its stable id, so the app needs no code of its own for it. `Subscribe` follows a value by its stable id, for a reactive kept anywhere else, whose `StableId` the app returns from an `External` function.
 
 <!-- ikon-example: cpp-sdk-reactive -->
 ```cpp
-// The app looks up a reactive's stable id by the member's name in its [App] class
-functions.Call("Ikon.Reactive.GetStableIdByName", FunctionArgs{"_score"}, [&reactives, &subscriptions](const Error& error, const FunctionResult& result)
+// Follows a reactive field of the app's [App] class by its name in the source; the app looks up its stable id
+reactives.SubscribeByName("_score", [](const JsonValue& value)
+{
+    // The current value, then every change in order, on the polling thread
+    std::cout << "Score: " << value.AsInt() << std::endl;
+}, [&subscriptions](const Error& error, ReactiveSubscription subscription)
 {
     if (error)
     {
-        std::cerr << "No stable id: " << error.message << std::endl;
+        std::cerr << "Not following _score: " << error.message << std::endl;
         return;
     }
 
-    // The callback gets the current value, then every change in order, on the polling thread
-    subscriptions.push_back(reactives.Subscribe(result.Value().AsString(), [](const JsonValue& value)
-    {
-        std::cout << "Score: " << value.AsInt() << std::endl;
-    }));
+    subscriptions.push_back(subscription);
 });
 
 // Later, subscriptions[0].Unsubscribe() stops the callback. The last subscriber of a value also
 // stops the app sending it
 ```
 
-`Subscribe` returns at once. Its callback gets the current value, then every change in the order the app made it, on the driving thread; a reactive with no value yet is not delivered. A subscription made while the client connects waits until the client is ready, as a call does. The optional `subscribed` handler runs once with the outcome: no error when the app holds the subscription, or an error saying why not, and then the subscription is removed. Pass `mountId` for a `MountReactive<T>`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it. A value this client already follows is delivered from what it holds, without asking the app again.
+`SubscribeByName`'s last argument runs once with the outcome and the `ReactiveSubscription`: `FunctionFailed` when the app has no reactive of that name, or more than one, and then the subscription is not subscribed. `Subscribe` returns at once. Its callback gets the current value, then every change in the order the app made it, on the driving thread; a reactive with no value yet is not delivered. A subscription made while the client connects waits until the client is ready, as a call does. The optional `subscribed` handler runs once with the outcome: no error when the app holds the subscription, or an error saying why not, and then the subscription is removed. Pass `mountId` for a `MountReactive<T>`. A `ClientReactive<T>` is delivered only for the client that subscribes: another client's value never reaches it. A value this client already follows is delivered from what it holds, without asking the app again.
 
 Destroying a `ReactiveSubscription` keeps its callback; `Unsubscribe()` removes it, and the last subscriber of a value ends the app's subscription. A reconnect can end up in a new session that has none of the subscriptions, so each time the client is ready, the add-on subscribes every followed value again and delivers its current value; `Resubscribe()` does the same on demand. A `ReactiveSubscription` must not outlive the `Reactives` that made it.
 
@@ -1000,7 +1053,7 @@ for (size_t i = 0; i < opusPackets.size(); i++)
 media.EndAudioStream("mic");
 
 // Send H.264 (Annex B) frames at 30 fps; EncodeNextH264Frame stands for your encoder. A change
-// of size, codec or correlation id announces the stream again
+// of size, codec, framerate or correlation id announces the stream again
 for (int i = 0; i < 90; i++)
 {
     bool isKey = keyFrameWanted->exchange(false);
@@ -1010,11 +1063,13 @@ for (int i = 0; i < 90; i++)
 media.EndVideoStream("camera");
 ```
 
-`SendAudioFrame` takes a sample rate of 8000, 12000, 16000, 24000 or 48000 Hz and 1 or 2 channels, fixed by the stream's first packet; another format returns `MediaResult::InvalidArgument` with a warning in the log, so start a new stream id for it. `isFirst` and `isLast` mark a segment such as one utterance. The app's speech recognition ignores audio without a correlation id, and a new correlation id on a first packet announces the stream again. `SendVideoFrame`'s `sourceType` (`"camera"` by default, or `"screen"`) sets the kind of video input the app sees. Send a keyframe first, because a receiver shows nothing until one arrives. Both return `MediaResult::NotSent` when the client is not connected or not ready yet: a frame is never held for later, because it would play late. A reconnect announces every open stream again. The send methods are safe from any thread.
+`SendAudioFrame` takes a sample rate of 8000, 12000, 16000, 24000 or 48000 Hz and 1 or 2 channels, fixed by the stream's first packet; another format returns `MediaResult::InvalidArgument` with a warning in the log, so start a new stream id for it. `isFirst` and `isLast` mark a segment such as one utterance. The app's speech recognition ignores audio without a correlation id, and a new correlation id on a first packet announces the stream again. `totalDurationMs`, after the correlation id, is the whole segment's expected length when the program knows it. After a reconnect into a new session, the next packet of each stream starts a new segment (`IsFirst`) even when `isFirst` is false, because the new session's app drops the frames of a segment whose start it never saw. `SendVideoFrame`'s last argument, `durationUs`, is how long the frame shows, 0 when unknown. `SendVideoFrame`'s `sourceType` (`"camera"` by default, or `"screen"`) sets the kind of video input the app sees. Send a keyframe first, because a receiver shows nothing until one arrives. Both return `MediaResult::NotSent` when the client is not connected or not ready yet: a frame is never held for later, because it would play late. A reconnect announces every open stream again. The send methods are safe from any thread.
 
 Each incoming stream has two ids. The callbacks, `RequestVideoKeyFrame` and `SendAudioPlaybackReport` use `"{senderId}_{trackId}"`, such as `"1_3"`. `begin.StreamId` is the id the app gave the stream, such as the `streamId` it passed to `Audio.Raw.SendFrameAsync`; use it to tell the app which of its streams you mean. `begin.Description` names the kind of source, not the stream.
 
-Incoming streams end with `AudioStreamEnded` and `VideoStreamEnded`, which also run for every open stream on `Disconnect()`, on `Connect()` and on a reconnect into a new session. `RequestVideoKeyFrame(streamId)` asks the sender of an incoming video stream for a keyframe, and returns false when that stream is not open or the request did not go out.
+Incoming streams end with `AudioStreamEnded` and `VideoStreamEnded`, which also run for every open stream on `Disconnect()`, on `Connect()` and on every join after a lost connection, a resume of the same session included: a stream can end while the connection is down. After the join the server announces each stream that is still open again, and `AudioStreamBegan` or `VideoStreamBegan` runs for it as for a new one. A frame of a stream that has not begun is dropped. `RequestVideoKeyFrame(streamId)` asks the sender of an incoming video stream for a keyframe, and returns false when that stream is not open or the request did not go out.
+
+An app that animates an avatar sends shape values, such as visemes, alongside its audio. `AudioShapeFrameReceived(streamId, frame)` gets each frame of them. `frame.epoch` and `frame.sequence` name the audio frame they belong to, and `frame.timestampSeconds` is where they apply from the segment's start. Each entry of `frame.sets` holds one set's `values`, and its `declared` points at the set the stream's begin declared under its `setId` (its `name` and the `shapeNames` of the values), or is null when the begin declared none. Shape frames are sent best effort and arrive after their audio frame, so align them by `timestampSeconds`. Set the callback before `Connect()`: a stream keeps the shape sets its begin declared only while the callback is set. None arrive for a stream that has not begun or has ended.
 
 A program that plays the app's audio reports how far it has played each stream with `SendAudioPlaybackReport(streamId, playedSeconds, bufferedMs, state)`: every 500 ms of playback, and at once when the state changes, as the browser does. `playedSeconds` is the position from the start of the current segment (negative when unknown), `bufferedMs` is what the player holds that it has not played, and `state` is `AudioPlaybackState::Playing` (the default), `Blocked` or `Hidden`. The app reads the latest report with `Audio.Raw.GetPlaybackStatus` and `Audio.Raw.PlaybackReportReceivedAsync`, to pace what it says to what was heard. Only the streams the app sends with `Audio.Raw.SendFrameAsync` ask for reports: `WantsPlaybackReports(begin)` is true for them, and false for every other stream, such as the one that carries what `Audio.Play` plays. An app built on older IKON libraries, from before a stream could say whether it wants reports, asks for reports on every stream it sends. `SendAudioPlaybackReport` sends nothing and returns false for a stream that is not open or wants no reports, and when the report did not go out.
 
@@ -1037,7 +1092,7 @@ int samplesPerChannel = opus_decode(decoder, frame.Samples.data(), static_cast<o
 
 ## Client Events
 
-Client events tell this client about the other clients in the session and about the app itself. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each handler gets the other client's `Context`: its `SessionId`, `UserId` (for a client that connected with an API key, an id the platform assigned, not its `externalUserId`; the app's own is `local`), `ContextType`, and what it reports of its viewport, theme, time zone and visibility (`ViewportWidth`, `ViewportHeight`, `Theme`, `Timezone`, `Visibility`). `SessionId` is an `int32_t` and `UserId` a `std::string`. `Context::ContextType` is an `int32_t`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. The app is a `Plugin` with `IsInternal` true.
+Client events tell this client about the other clients in the session and about the app itself. Only clients in the same app instance, which the app's `SessionIdentity` decides, and on a surface with `Presence = true` are reported; a client on a surface without presence is reported to the app alone. Each handler gets the other client's `Context`: its `SessionId`, `UserId` (for a client that connected with an API key, an id the platform assigned, not its `externalUserId`; the app's own is `local`), `ContextType`, and what it reports of its viewport, theme, time zone and visibility (`ViewportWidth`, `ViewportHeight`, `Theme`, `Timezone`, `Visibility`). `SessionId` is an `int32_t` and `UserId` a `std::string`. `Context::ContextType` is an `int32_t`, so compare it through a cast: `static_cast<ContextType>(other.ContextType) == ContextType::Browser`. This program joins as `ContextType::Plugin`, as a program built with the .NET, Rust or TypeScript SDK without a page does; a page and a Flutter app join as `ContextType::Browser`. A local connect joins as another type with `LocalConfig::contextType`, such as `ContextType::Native` for a client a person uses. The app is a `Plugin` with `IsInternal` true.
 
 <!-- ikon-example: cpp-sdk-client-events -->
 ```cpp
@@ -1252,7 +1307,7 @@ On Linux and macOS, a write to a connection the peer has reset raises `SIGPIPE`,
 
 An optional DTLS 1.2 connection over UDP, for the [UDP side channel](#channels-and-the-udp-side-channel). A port without UDP leaves it out and does not include `ikon_udp.h`, and its image has none of this code. Each `Write` sends one datagram and each `Read` returns one, `0` when none arrived in time and `-1` once the connection is closed. The server offers the cipher suites ECDHE-ECDSA with AES-128-GCM, ChaCha20-Poly1305 or AES-256-GCM, and reads datagrams of up to 1200 bytes, DTLS record included, so the SDK writes at most 1163 bytes in one. The server fails a ClientHello that offers no RFC 5746 secure renegotiation, either the `renegotiation_info` extension or the `TLS_EMPTY_RENEGOTIATION_INFO_SCSV` cipher suite. OpenSSL sends the extension, and mbedTLS 3 sends the cipher suite in every first ClientHello, whether or not `MBEDTLS_SSL_RENEGOTIATION` is defined; leave `mbedtls_ssl_conf_legacy_renegotiation` at its default, which refuses a server that does not answer it.
 
-The server's certificate is self-signed, so `ConnectOptions::certificateHash`, the base64 of the SHA-256 of the server's leaf certificate in DER form, is the only check: the handshake fails unless the certificate matches it. It is empty only for a local run's server. `Connect` blocks the thread that polls the client for up to `ConnectOptions::timeoutMs`. `Close` sends `close_notify`, so the server drops the channel at once. `ExampleDtlsClient` in `example_dtls_client.h` implements it on OpenSSL and fails a connect whose server did not confirm secure renegotiation; with mbedTLS on a chip it is a client configured with `MBEDTLS_SSL_TRANSPORT_DATAGRAM` and timer callbacks, which checks the SHA-256 of the peer certificate against the pin in place of chain verification.
+The server's certificate is self-signed, so `ConnectOptions::certificateHash`, the base64 of the SHA-256 of the server's leaf certificate in DER form, is the only check: the handshake fails unless the certificate matches it. It is empty only for a local run's server, and empty means accept any certificate. The SDK cannot see what an implementation sends, so an implementation must use DTLS, never plain UDP, and must fail `Connect` when the certificate's hash does not match a non-empty `certificateHash`; one that skips the check lets anyone on the path read and forge the channel. `Connect` blocks the thread that polls the client for up to `ConnectOptions::timeoutMs`. `Close` sends `close_notify`, so the server drops the channel at once. `ExampleDtlsClient` in `example_dtls_client.h` implements it on OpenSSL and fails a connect whose server did not confirm secure renegotiation; with mbedTLS on a chip it is a client configured with `MBEDTLS_SSL_TRANSPORT_DATAGRAM` and timer callbacks, which checks the SHA-256 of the peer certificate against the pin in place of chain verification.
 
 #### IHttp
 
@@ -1395,14 +1450,17 @@ With `lowMemory`, a join takes about 10 KB of heap at its peak in a session of 2
 
 <!-- ikon-example: cpp-sdk-timeouts -->
 ```cpp
-config.timeouts.connectTimeoutMs = 30000;       // Each sign-in request, and the wait for a starting server
+config.timeouts.connectTimeoutMs = 60000;       // How long a join asks a server that is still starting
+config.timeouts.requestTimeoutMs = 10000;       // Each HTTP request but /init, and opening the link
 config.timeouts.provisioningTimeoutMs = 60000;  // How long /init waits for the app's server to start
 config.timeouts.joinTimeoutMs = 30000;          // The session state and the app's functions, once connected
-config.timeouts.maxReconnectAttempts = 6;
+config.timeouts.maxReconnectAttempts = 6;       // The quick attempts after a drop
 config.timeouts.reconnectBackoffMs = 500;       // Before the first attempt, doubled for each next one
+config.timeouts.backgroundReconnect = true;     // Then 10 s, doubled up to 5 minutes, until the app is back
+config.timeouts.capacityWaitTimeoutMs = 600000; // How long the client waits in all for room in the app
 ```
 
-The backend request that waits up to `provisioningTimeoutMs` for the app's server to start is itself sent with an HTTP timeout of `connectTimeoutMs`, so raise `connectTimeoutMs` to at least `provisioningTimeoutMs` for a longer provisioning wait to take effect. `maxReconnectAttempts = 0` makes the client go `Offline` at the first drop.
+Every HTTP request has a timeout of `requestTimeoutMs`, except the backend request that waits up to `provisioningTimeoutMs` for the app's server to start: that one gets `provisioningTimeoutMs` plus 15 seconds, so a longer provisioning wait takes effect on its own. `connectTimeoutMs` bounds the whole time a join asks a starting server for a session, not each request. `maxReconnectAttempts = 0` makes the client go `Offline` at the first drop. `capacityWaitTimeoutMs` limits the total time the client waits for room in the app (see [Waiting for Room](#waiting-for-room)). With 0, a connect or reconnect attempt fails at the first answer that asks it to wait.
 
 ### Post-Quantum Key Exchange
 
@@ -1442,7 +1500,7 @@ EntrypointType channel = client.ChannelType();  // TcpTls, WebSocket or WebSocke
 bool isUdpOpen = client.UnreliableChannelOpen();
 ```
 
-`webSocketOnly` makes the client try only the two WebSockets, for a network known to block everything else. `ChannelType()` says which one the client joined over.
+`webSocketOnly` makes the client try only the two WebSockets, for a network known to block everything else. `proxyOnly` goes further: the client asks for the session only through the proxy that `/init` names and opens only the proxy's WebSocket, for a network that lets through nothing but the proxy's host. Only the cloud modes take it, since a local run and `externalConnectUrl` have no `/init`; with either of them `Connect()` returns `InvalidConfig`, as it does when `/init` names no proxy. A client on either WebSocket opens no UDP channel. `ChannelType()` says which one the client joined over.
 
 A message flagged `MessageFlag::Unreliable`, as an app's schema can declare for sensor readings or a controller's state, can travel beside the connection as a UDP datagram, where a lost one is not resent and a late one does not hold up the next. The client opens that side channel only when the program constructs a `UdpChannel` (`ikon_udp.h`) over an `IDatagramNetwork`, before `Connect()`:
 
@@ -1452,7 +1510,7 @@ ExampleDtlsClient datagrams(log);
 UdpChannel udp(client, datagrams);  // Adds itself to the client
 ```
 
-After each join the channel connects to the server's UDP port over DTLS 1.2, sends the session's ticket up to 5 times, 2 seconds apart, and opens when the server answers. While it is open, `Send` puts each message flagged unreliable in datagrams, split into fragments when it is longer than one, and the server sends its unreliable messages to the client the same way; they arrive in the same `On<T>` handlers as everything else. Everything else, every unreliable message while the channel is closed, and one over 256 fragments (about 290 KB) go over the connection. The client opens no UDP channel when it is on a WebSocket, when `requirePostQuantum` is set or `enableUdpChannel` is off, when the server offers none, or, outside a local run, when the server sends no certificate hash to pin. A channel that does not open, or that fails later, is logged as a warning and the client stays connected. It closes when the connection drops and opens again after the next join.
+After each join the channel connects to the server's UDP port over DTLS 1.2, sends the session's ticket up to 5 times, 2 seconds apart, and opens when the server answers. While it is open, `Send` puts each message flagged unreliable in datagrams, split into fragments when it is longer than one, and the server sends its unreliable messages to the client the same way; they arrive in the same `On<T>` handlers as everything else. `MessageView::ViaUnreliableChannel()` is true for a message the UDP channel carried and false for one the connection carried, and it is the only way to tell them apart. Everything else, every unreliable message while the channel is closed, and one over 256 fragments (about 290 KB) go over the connection. The client opens no UDP channel when it is on a WebSocket, when `requirePostQuantum` is set or `enableUdpChannel` is off, when the server offers none, or, outside a local run, when the server sends no certificate hash to pin. A channel that does not open, or that fails later, is logged as a warning and the client stays connected. It closes when the connection drops and opens again after the next join.
 
 ### Protocol Options
 
@@ -1481,6 +1539,8 @@ config.parameters = {
 };
 ```
 
+`timezone` is an IANA id such as `"Europe/Helsinki"`, which the app reads from `Context.Timezone`. Left empty, the client sends `ISystem::TimeZone()`: `StdSystem` reads it from `TZ` or `/etc/localtime`, and has none on Windows, where a program sets it itself. `locale` is `"en-US"` unless the program sets it.
+
 `userAgent`, left empty, is the SDK's own, `ikon-sdk-cpp (<OS>; <architecture>)`, which the app reads with `ClientPlatform.FromContext`. It knows Windows, macOS, Linux, Android and iOS, and the x64, x86, Arm64 and Arm architectures; a program on ESP-IDF or another embedded target reads as `ClientOS.Unknown`, and an Xtensa or RISC-V chip as `ClientArchitecture.Unknown`.
 
 ## API Reference
@@ -1492,8 +1552,9 @@ config.parameters = {
 | `IkonClient` | Connects to an app, sends and receives messages, and runs the add-ons |
 | `ClientConfig` | The client's configuration |
 | `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline`; `ToString(state)` gives the name |
+| `CapacityWait` | The wait for room in the app that `GetCapacityWait()` returns: `full` and `retryAtMs`; see [Waiting for Room](#waiting-for-room) |
 | `Error`, `ErrorCode` | A failure as a value; see [Errors](#errors) |
-| `MessageView` | One received message, read in place: `SenderId()`, `OpcodeValue()`, `Read<T>`, `Decode<T>` |
+| `MessageView` | One received message, read in place: `SenderId()`, `OpcodeValue()`, `ViaUnreliableChannel()`, `Read<T>`, `Decode<T>` |
 | `MessageOptions` | The track id and other header fields `Send` sets |
 | `ClientContextUpdate` | The context values `UpdateClientContext` changes; empty fields keep their value |
 | `ClientExtension` | The base of an add-on |

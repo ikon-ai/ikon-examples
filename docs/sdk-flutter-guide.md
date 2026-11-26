@@ -1,4 +1,4 @@
-<!-- checked-against: 9bb3195cad38ab14e3b0c442 -->
+<!-- checked-against: 7efbd0ea62a62465e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -26,6 +26,7 @@
 - [Media](#media)
 - [Supported Crosswind Styles](#supported-crosswind-styles)
 - [Supported Components](#supported-components)
+- [Logs](#logs)
 - [CI/CD](#cicd)
 
 ## Overview
@@ -335,10 +336,12 @@ emulator that is not already running ("Boot the emulator first, then run the app
 flutter run -d chrome --dart-define=IKON_PORT=8443
 ```
 
-A Flutter web build plays no audio from the server, because the PCM speaker output
-(`flutter_pcm_sound`) has no web implementation. `Audio.Speak` and every other audio stream is
-silent, and the client logs `Audio playback failed to initialise`. For the web, ship the React frontend (`frontend-node`), which
-plays audio, and keep the Flutter frontend for Android and iOS.
+A Flutter web build has no audio. The PCM speaker output (`flutter_pcm_sound`) has no web
+implementation, so `Audio.Speak` and every other audio stream is silent and the client logs
+`Audio playback failed to initialise`. The SDK carries no browser build of libopus either, which
+would add 5.6 MB to every phone app, so microphone capture fails with an `UnsupportedError`. For the
+web, ship the React frontend (`frontend-node`), which plays and captures audio, and keep the Flutter
+frontend for Android and iOS.
 
 ### macOS Desktop
 
@@ -368,9 +371,9 @@ uses the install id kept in the app's support directory, or one for that run onl
 
 Audio on Linux needs a sound server (PulseAudio or PipeWire) or a sound card:
 
-- WebRTC media (`enableIkonWebRtcMedia`) aborts the process in native code with `Failed to initialize
+- WebRTC media (`enableIkonWebRTCMedia`) aborts the process in native code with `Failed to initialize
   the ADM` when the machine has no audio device, before any Dart code can catch it. On a machine with
-  no sound, leave `enableIkonWebRtcMedia` out.
+  no sound, leave `enableIkonWebRTCMedia` out.
 - The microphone runs `parecord`, so it needs `pulseaudio-utils` and a running sound server; without them
   the capture fails with `PlatformException(record, Cannot run parecord ...)`.
 - The SDK's Opus playback (`enableIkonAudioPlayback`) plays on Android, iOS and macOS only: its speaker
@@ -494,8 +497,9 @@ The app reads it as the client's `UserType`, and such a client does not hold the
 `UserType.human` by default.
 
 Every Flutter client, on the web, a phone or a desktop, joins with `ContextType.browser`, because it
-connects over WebSocket and renders the app's UI as a browser does. A .NET, C++ or Rust program joins
-as `ContextType.plugin` by default. So the app tells a program from a person's screen by `UserType`, not by
+connects over WebSocket and renders the app's UI as a browser does. A program that connects to a local
+run in place of a person's app, such as a load test's client, passes `contextType: ContextType.native` to
+`connectLocal`. A .NET, C++ or Rust program joins as `ContextType.plugin` by default. So the app tells a program from a person's screen by `UserType`, not by
 `ContextType`. `UserType`, `ContextType` and the other protocol enums are `int`-backed extension types:
 compare them with `==`, and `.name` gives the member's name (`'browser'`) or the number for a value
 that names no member.
@@ -512,6 +516,10 @@ through `ikon run --host-public`. Without it, such a connect joins as a guest, o
 app admits no guests. With the run's `localClientProof` from its `ikon-server-info.json`, which only a
 program on the run's machine can read, the run keeps the `userId:` the client gave. A simulator or an
 emulator connecting to the machine it runs on needs none.
+
+`backendToken:` is sent as an `Authorization: Bearer` header. It is the person's IKON backend
+token. If the run refuses the token, the client connects as a guest.
+`client.updateAuthToken` replaces the token for the next new session.
 
 ### Deployed Apps — Guest/Anonymous
 
@@ -537,7 +545,7 @@ with 403.
 | Development | `<domain>.dev.ikonai.app` | `https://auth.dev.ikonai.com` |
 | Production | `<domain>.ikonai.app` | `https://auth.ikonai.com` |
 
-`IkonBackendType.development` (`api.dev.ikon.live`) is the backend that goes with the `auth.dev.ikonai.com` row. Use it for a `*.dev.ikonai.app` app in the API-key connect below.
+`IkonBackendType.development` (`api.dev.ikonai.com`) is the backend that goes with the `auth.dev.ikonai.com` row. Use it for a `*.dev.ikonai.app` app in the API-key connect below.
 
 `https://<serverHost>/ikon/auth` reaches the same auth service through the app's own host, in either
 environment. `IkonNativeSignIn` below takes the same `serverHost` and `authUrl`.
@@ -692,7 +700,9 @@ backend refuses it during a reconnect, and hands each renewed session to `onSess
 can store its new refresh token (each renewal returns a new one). `IkonAuthenticator.refreshSignInSession`
 renews one by hand. When the session has ended, the client stays offline with an `IkonAuthRejectedException`
 in `lastError`. A wrong or expired code, or a refused address, throws `IkonAuthRejectedException` with
-`statusCode` 401 or 403; a service that cannot be reached throws a plain `Exception`.
+`statusCode` 401 or 403. Any other failed answer throws `IkonRequestFailedException` with the
+`statusCode`; a service that cannot be reached throws the `http` package's `ClientException`, and one
+that has not answered in 30 s a `TimeoutException`.
 These are instance methods that reach only the `authUrl` they are given, never the authenticator's
 host and port, so any authenticator works: `IkonAuthenticator(port: 443).startEmailLogin(...)`.
 The IKON tool hands out no session token for a person.
@@ -739,6 +749,30 @@ the first connect opens at counts too, as a browser's address does: `IkonNavigat
 or a launch link before the connect picks the same instance, and a name passed in `parameters` wins
 over the path's. Without either, the client joins the instance with that field empty.
 
+### Joining a shared session or a version under test
+
+A session link (`GlobalState.SessionUrl`, `?ikon-session=<hash>`) names one live app session, and the
+link of a version under test (`?ikon-version=<appBundleId>`) names a deploy that is not live
+(`ikon deploy --no-activate`). When such a link launches the app, as an app link on a phone or as the
+page's address on the web, `IkonDeepLinks` keeps both values for the connect, which joins that session
+or runs that bundle; neither reaches the app's parameters or its path. A program that has the values
+from elsewhere passes them itself, and they take precedence over the link's:
+
+<!-- ikon-example: flutter-sdk-join-shared-session -->
+```dart
+final client = await IkonClient.connectWithToken(
+  serverHost: 'my-app-1a2b3c4d.ikonai.app',
+  spaceId: 'my-space-id',
+  token: token,
+  sessionIdentityHash: hash, // the link's ikon-session value
+);
+```
+
+`sessionIdentityHash:` and `appBundle:` work the same on `connectGuest`, `connectWithSession`,
+`connectWithApiKey`, `IkonNativeSignIn.connect` and the `IkonAuthenticator.authenticate*` calls behind
+them. Running a bundle that is not live needs Update rights on the space's app bundles; anyone else
+gets an `IkonAuthRejectedException` with status 403.
+
 ### Joined and ready
 
 A client joins its session in two steps: it connects, then sends `ClientReady`. Only at
@@ -753,7 +787,7 @@ A `functionRegistry.call` made while the client is connecting or reconnecting wa
 `ClientReady`, through any number of dropped attempts, and goes out right after it, behind the messages
 held until then. A connection counts as open, and gets `ClientReady`, only once the server's first
 message shows that it accepted the client's ticket. So a waiting call never goes into a session the
-server no longer has, and goes out on the new session that replaces it instead. The wait counts against the call's 30 s timeout; a call that is never
+server no longer has, and goes out on the new session that replaces it instead. The wait counts against the call's timeout (30 s by default, see "Calling app functions"); a call that is never
 sent in that time fails with a `TimeoutException` that names the function and says the client was not
 connected. A call fails at once with `IkonNotConnectedException` when the client is not trying to
 connect: it never connected, it was disposed, or it gave up reconnecting (`IkonClient.lastError`). A
@@ -783,7 +817,28 @@ cannot be reached watches readiness instead, below.
 
 `IkonClient.debugDropConnection()` closes the connection as a network failure does, without telling the server the client is leaving, and the client reconnects as after any drop. It does nothing unless the client is connected. It is for tests: a test calls it to simulate a drop and check the program's own recovery against a deployed app, whose socket a test cannot reach. It is marked `@visibleForTesting`, so the analyzer warns outside a test file. A recovery check in a program's own tool puts `// ignore: invalid_use_of_visible_for_testing_member` on the line before the call.
 
-A connect that reaches no server (no network, no DNS answer, a refused port) throws `IkonServerUnreachableException` from `connectGuest`, `connectWithToken`, `connectWithApiKey`, `connectWithUrl` and `connectLocal`, and says nothing about the credentials, so the program retries it later. A refusal is an `IkonAuthRejectedException`.
+A connect that reaches no server (no network, no DNS answer, a refused port), or whose request gets no answer in time, throws `IkonServerUnreachableException` from `connectGuest`, `connectWithToken`, `connectWithApiKey`, `connectWithUrl` and `connectLocal`, and says nothing about the credentials, so the program retries it later. A refusal is an `IkonAuthRejectedException`. Any other failed answer is an `IkonRequestFailedException` with its `statusCode`.
+
+Every request a connect makes has a deadline, so a backend or a network that stops answering holds
+up a connect or a reconnect only until that deadline passes: `/init` gets the session wait it asks for plus 15 s,
+each `/connect` 10 s (3 s for the first try when a proxy address is there to try next), and the sign-in requests 30 s. A first connect
+asks `/init` up to three times, 1 s and then 2 s apart, when the answer was a network failure, a
+timeout, a 408, 500, 502, 503 or 504, a session that did not start within the wait, or a rate limiter
+asking for 30 s or less (it waits that long instead). A refusal is never retried.
+
+`options:` on `connectWithToken`, `connectWithSession`, `connectGuest` and `connectWithApiKey` takes an
+`IkonConnectOptions`, and `connectLocal` and `connectWithUrl` take one too:
+
+- `waitForRunningTimeout` (default 60 s): how long `/init` waits for the app's session to start. A
+  local run has no `/init`, so `connectLocal` ignores it.
+- `backgroundReconnect` (default true): whether the client keeps reconnecting after a drop until it
+  gets in. With false it goes `offlineError` once the drop is 30 s old and an attempt has failed, so
+  a phone does not keep its radio busy for a session the person has given up on; the app calls
+  `connect()` again when the person asks.
+- `capacityWaitTimeout` (default 10 minutes): how long one connect waits in all for the platform to
+  find room for the session (see "When the app is full or its server is starting").
+- `onCapacityWaitChange`: called with an `IkonCapacityWait` when a connect starts waiting for room,
+  and with null when the wait ends, for the first connect and every reconnect.
 
 Three members follow readiness, and they differ in timing:
 
@@ -811,6 +866,10 @@ failure up to 5 minutes and shortened at random by up to a quarter. After a
 The wait starts again from 10 s once the client has connected. A
 `joinOnly` client goes offline instead (see "Joining only a running session"). Function registrations
 and reactive subscriptions go to the new session by themselves.
+
+The client notices a dead connection by silence: the server sends a keepalive request every few
+seconds, and a connection that brings nothing for the receive timeout the server announces in it
+(at least 10 s, at most the window the server negotiated at connect) is closed and reconnected.
 
 A new session starts without the app's per-client reactive state for this client, because that state belongs to the
 session the app's server dropped. `client.sessionId` changes when the client joins a new session, so a program that
@@ -871,13 +930,66 @@ its people leave.
 
 ### When the server is starting or has been replaced
 
-While the app's server is starting, a connect retries for about 15 seconds. When the server refuses
+While the app's server is starting, a connect asks it again for up to 60 s: 100 ms after the first
+try, doubling to every 2 s, on the server's own address, and on its proxy address at most every 2 s.
+A 408, 502, 503 or 504, a network failure and a timeout are retried. A rate limiter's 429
+(`ServerRateLimitedException`) is retried after the `retryAfter` it names, at most 30 s (10 s when
+it names none). Once the 60 s are spent, the connect throws the last failure. When the server refuses
 the connect token because it was issued for a server that has since been replaced, or because it has
 expired, the connect stops retrying and asks `/init` for a new token once. If that one is refused
 too, it throws `ServerChangedException`. The sign-in is still valid, so keep the stored token and
-connect again later. A connect refused by a full server asks `/init` again up to three times, naming
+connect again later. Any other 401 or 403 from the server is an `IkonAuthRejectedException`, as from
+the backend. A connect refused by a full server asks `/init` again up to three times, naming
 the servers that refused it, so a sharded app places the person on another shard; then it throws
 `ServerFullException`.
+
+### When the app is full or its server is starting
+
+When the platform has no room for the session yet, because a server is being started for it or
+every server the app may use is full, `/init` answers at once with how long to wait. The connect
+then waits that long and asks `/init` again, and keeps doing so for up to
+`IkonConnectOptions.capacityWaitTimeout` (10 minutes by default). Each wait is an `IkonCapacityWait`:
+`full` says whether the app is full (true) or a server is being started for it (false), and
+`retryAt` is when the connect asks again. Each wait logs one info line naming the space, the seconds
+until then and how long the connect has waited so far out of `capacityWaitTimeout`. The `/init`
+after a wait names no full servers, since they may have room by then.
+
+The connection state stays `connecting`, or `reconnecting` on a reconnect. The wait is reported
+separately, so the app can show a countdown over its UI. `IkonClient.capacityWait` and
+`IkonClient.onCapacityWaitChange` report a reconnect's waits. To see the waits of the first connect
+too, pass `IkonConnectOptions.onCapacityWaitChange`, which reports those of the first connect and
+of every reconnect:
+
+<!-- ikon-example: flutter-sdk-capacity-wait -->
+```dart
+// The app shows a countdown to retryAt while capacityWait.value is set
+final client = await IkonClient.connectGuest(
+  serverHost: 'my-app-1a2b3c4d.dev.ikonai.app',
+  spaceId: 'my-space-id',
+  authUrl: 'https://auth.dev.ikonai.com',
+  options: IkonConnectOptions(onCapacityWaitChange: (wait) => capacityWait.value = wait),
+);
+```
+
+The waits count toward neither the three `/init` attempts nor any other deadline of the connect.
+Once `capacityWaitTimeout` has passed, the connect throws `ServerFullException` for a full app and
+`ProvisioningTimeoutException` otherwise. `IkonClient.dispose` ends a reconnect's wait, and
+`IkonAuthenticator.cancelCapacityWait` ends the waits of the connects an authenticator is running,
+which then throw `CapacityWaitCancelledException`.
+
+### When the app failed to start
+
+When the app's server failed to start, `/init` or the server says so, and the connect throws
+`AppStartupFailedException` at once: starting it again would run the same startup. A reconnect that
+gets this answer goes `offlineError` with the exception in `IkonClient.lastError`. The app's developer
+reads the server's log (`ikon logs`) and deploys a fix.
+
+### When the server shuts down
+
+A server that is shutting down, for a deploy or because the app's session ended, tells its clients
+first. The client then goes `offline` at once, without reconnecting, `IkonClient.serverStopping` turns
+true and `IkonClient.onServerStopping` fires. Calls still waiting for an answer fail as on any drop.
+`connect()` connects again, into a new session.
 
 ### When the backend refuses the sign-in
 
@@ -900,6 +1012,15 @@ A connect to an app that is suspended, unpublished, removed or not yet deployed 
 gets this answer, the client goes `offlineError` instead of retrying, with the exception in
 `IkonClient.lastError`. The sign-in is still valid, so keep the stored token and connect again later,
 for example when the person asks to.
+
+### When a session link's session has ended
+
+A connect with a `sessionIdentityHash` that no live session has throws `SessionNotFoundException`
+(HTTP 404), with the hash in `sessionIdentityHash`. It never starts a fresh session instead, because
+that would put the person somewhere other than where the link sends them. A reconnect after the
+session ended gets the same answer and goes `offlineError` with the exception in
+`IkonClient.lastError`. Tell the person the session is over, and connect without the hash if they
+want the app itself.
 
 ### When the platform no longer accepts the client
 
@@ -946,7 +1067,9 @@ current entry as the session's initial path, and that entry is `/` unless someth
   path before the first connect, so the app starts on that screen and `/` is never shown first. It
   then follows the links and notification taps that arrive while the app runs. It handles a link only
   when it is an https (or http) link to one of the app's hosts, which `ikon bundle` passes in. The SDK's own `ikon-`
-  query parameters are dropped from the path.
+  query parameters are dropped from the path. A launch link's `ikon-session` and `ikon-version` go to
+  the connect instead (see "Joining a shared session or a version under test"); a link that arrives
+  while the app runs only navigates, inside the session the app is in.
 
 The frontend that `ikon new --flutter` creates already does this. An older frontend adds an
 `IkonDeepLinks` to the state of the widget that connects, starts it before the first connect and
@@ -1270,10 +1393,14 @@ The server can call functions registered on the Flutter client:
 <!-- ikon-example: flutter-sdk-client-function -->
 ```dart
 client.functionRegistry.register(
-  FunctionDefinition(name: 'my.customAction', resultTypeName: 'System.String'),
+  FunctionDefinition(
+    name: 'my.customAction',
+    resultTypeName: IkonTypeNames.string,
+    parameters: [FunctionParameterDefinition('label', typeName: IkonTypeNames.string)],
+  ),
   (args) async {
-    // Handle the call from the server
-    return 'result';
+    // Handle the call from the server; args[0] is the label
+    return 'result for ${args[0]}';
   },
 );
 ```
@@ -1283,8 +1410,19 @@ client.functionRegistry.register(
 it as the function's declared return type. It does not change what a call returns: the app's
 `FunctionRegistry.CallAsync<T>` converts the JSON result to its own `T`. It is `System.Object` when
 left out, and a name the app cannot load, such as `string`, is taken as `System.Object` too.
+`IkonTypeNames` has the common names.
 
-Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and called by the server, include:
+`parameters` lists the function's parameters in the order the app passes them, each with its name
+and .NET type name (`System.Object` when left out), and optionally a description and the JSON of a
+default value. The app sees them in the registration, as it sees a TypeScript client's. The handler
+still gets the arguments the app sent, as a list. The registration keeps one function id for the
+life of the client, and is sent again with the same id on every reconnect into a new session.
+
+A handler that throws answers the app with the error's text, its Dart type (`runtimeType`, such as
+`StateError`) and its stack trace. Every answer (the acknowledgement, the result, the error and a
+stream's items and end) goes to the session that made the call.
+
+Built-in Flutter functions, registered by the `IkonClient.connect*` helpers and called by the server, declare their parameters and result with .NET type names, as the TypeScript SDK's do. They include:
 - `ikon.client.getTheme` / `setTheme` — `dark` or `light`; `setTheme` drives the renderer's light/dark token variants and returns false for an unrecognised name
 - `ikon.client.getLanguage` — device locale
 - `ikon.client.getTimezone` — device timezone
@@ -1347,13 +1485,62 @@ final thumbnail = await client.functionRegistry.call<Uint8List>('make_thumbnail'
 ```
 
 The call goes out when the stream is listened to. Cancelling the subscription before the stream ends
-sends the app a cancel, which cancels the function's `CancellationToken`. A stream fails with a
-`TimeoutException` and is cancelled when the app has neither acknowledged it nor sent an item within
-30 s; once it has, the stream has no time limit. An error the function throws ends the stream with
-that error. A value the app encodes as Teleport rather than JSON fails the call with a
-`FormatException`.
+sends the app a cancel, which cancels the function's `CancellationToken`. An error the function
+throws ends the stream with that error. A value the app encodes as Teleport rather than JSON fails the
+call with a `FormatException`.
 
-`callWithCancel<T>(name, args, cancel: future)` is `call` with a cancel. When the future completes
+A call goes to the function in the app's function list, which the server sends on every join:
+`getRemoteFunctions()` and `getRemoteFunction(name)` read it, and `waitForRemoteFunctions()` waits up
+to 10 s for it. The call carries the registration's function id, goes to the session that
+registered the function, and types its arguments as the registration's parameters (an argument past
+them is typed from its value). A call made before the list arrived waits for it, at most 10 s. A
+function the list does not have fails the call with `IkonFunctionNotFoundException`, and nothing is
+sent.
+
+`IkonCallOptions` sets a call's `timeout` and `instanceId`. The timeout counts from the call: the
+wait for the client to be ready and for the function list, then the wait for the answer. For
+`callStream` it bounds each wait after the call is sent: for the acknowledgement and for each next
+item. When it runs out the call fails with a `TimeoutException`, and a call that was sent is
+cancelled on the app. It is `functionRegistry.defaultCallTimeout` when left out, 30 s unless set, and
+`Duration.zero` waits without limit. An app function that throws fails the call with
+`IkonFunctionCallException`, which has the exception's `message`, its .NET `typeName`,
+`remoteStackTrace`, and the platform's `errorCode` and `errorDetails` for a known failure. A call
+sent to a session that leaves before answering, such as the app's when its session ends, fails at
+once with `IkonTargetLeftException`, an `IkonNotConnectedException`:
+
+<!-- ikon-example: flutter-sdk-call-options -->
+```dart
+// Waits up to 10 s for the app's function list of this join
+if (await client.functionRegistry.waitForRemoteFunctions()) {
+  print(client.functionRegistry.getRemoteFunctions().map((function) => function.name));
+}
+
+try {
+  final report = await client.functionRegistry.call<String>('build_report', [2026], const IkonCallOptions(timeout: Duration(minutes: 2)));
+  print(report);
+} on IkonFunctionCallException catch (e) {
+  // The app's function threw: e.typeName is its .NET exception type
+  print('${e.typeName}: ${e.message}');
+} on IkonNotConnectedException catch (e) {
+  // Not sent, or its answer was lost; IkonTargetLeftException when the app's session ended
+  print(e.message);
+}
+```
+
+A function of an app instance (`IkonRemoteFunction.requiresInstance`) needs the id the app's
+constructor function returned as `instanceId`; without one the call fails with an `ArgumentError`
+and is not sent. `disposeInstance(instanceId)` tells the instance's owner to free it:
+
+<!-- ikon-example: flutter-sdk-instance-call -->
+```dart
+// The app's constructor function ('<Type>..ctor') returns the new instance's id; its functions take it
+final counterId = await client.functionRegistry.call<String>('Counter..ctor');
+await client.functionRegistry.call<void>('Counter.Increment', [5], IkonCallOptions(instanceId: counterId));
+client.functionRegistry.disposeInstance(counterId);
+```
+
+`callWithCancel<T>(name, args, cancel: future)` is `call` with a cancel, and takes its
+`IkonCallOptions` as `options:`. When the future completes
 before the result arrives, the call fails with `IkonCallCancelledException` and the app is told to
 cancel it, which fires the function's `CancellationToken`. A call still waiting for the client to be
 ready is never sent, and a result that arrives after the cancel is dropped:
@@ -1424,11 +1611,14 @@ sends just before it returns. A message that does not decode, or whose handler t
 lost.
 
 A message type declared `unreliable = true` in the schema is sent flagged unreliable. While the data
-channel of the client's WebRTC peer ([Media](#media), `enableIkonWebRtcMedia`) is open, the client sends
+channel of the client's WebRTC peer ([Media](#media), `enableIkonWebRTCMedia`) is open, the client sends
 such messages on it, as the web client does: unordered and never resent, so some may be lost.
 `client.unreliableChannelOpen` says whether it is open. Before it opens, without WebRTC media, and for a
 message over 64 KiB, they go over the WebSocket, which delivers them in order. Messages the server sends
-on the data channel reach `onMessage` handlers like any other.
+on the data channel reach `onMessage` handlers like any other. A handler that needs to know which
+messages could have been lost, to drop a stale position or count gaps, uses
+`client.onMessageWithDelivery(type, (message, senderId, delivery) { ... })`:
+`delivery.viaUnreliableChannel` is true for a message that came on the data channel.
 
 ## File Upload
 
@@ -1523,45 +1713,57 @@ final playback = enableIkonAudioPlayback(client);
 // Live WebRTC A/V (peer connection to the server SFU via flutter_webrtc);
 // the Opus stack above remains the fallback when WebRTC is unavailable. The peer
 // comes up with the connection unless the surface's Media is none or the
-// server offered no WebRTC entrypoint (client.offersWebRtc is false).
-final webRtcMedia = enableIkonWebRtcMedia(client);
-await webRtcMedia.startCameraCapture();
+// server offered no WebRTC entrypoint (client.offersWebRTC is false).
+final webRTCMedia = enableIkonWebRTCMedia(client);
+await webRTCMedia.startCameraCapture();
 ```
 
 | Member | Signature | Notes |
 | --- | --- | --- |
-| `AudioOutput.initialize` | `Future<void> initialize({int sampleRate = 48000, int channels = 2})` | Called once with the stream's format, 48000 Hz and 2 channels unless the stream says otherwise |
-| `AudioOutput.writePcm` | `Future<void> writePcm(Uint8List pcmSamples)` | 16-bit interleaved PCM |
-| `AudioOutput.stop`, `dispose` | `Future<void> stop()`, `Future<void> dispose()` | |
-| `AudioOutput.volume`, `muted` | `set volume(double)`, `set muted(bool)` | |
+| `AudioOutput.start` | `Future<void> start({required int sampleRate, required int channels, required AudioPull pull})` | Called once, at 48000 Hz and 2 channels |
+| `AudioPull` | `int Function(Int16List into)` | Fills `into` with the next interleaved 16-bit samples of the mix; returns 0 when they are silence |
+| `AudioOutput.dispose` | `Future<void> dispose()` | |
 | `MicSource.start` | `Future<bool> start({required int sampleRate, required int channels, required int frameSizeInSamples, bool autoGain, bool echoCancel, bool noiseSuppress, String? deviceId, required Future<void> Function(Uint8List pcmFrame) onFrame})` | `IkonAudioCapture` passes `frameSizeInSamples` 960, a 20 ms Opus frame per channel at 48 kHz; `onFrame` gets one interleaved 16-bit frame of that size; false when the recorder did not start |
 | `MicSource.stop`, `dispose` | `Future<void> stop()`, `Future<void> dispose()` | |
 
-An `AudioOutput` is initialized once, when the first server audio stream begins (a failed attempt
-runs again when another stream begins), and is disposed with the playback handle. `writePcm` calls
-never overlap: the next frame is decoded and written only after the previous `writePcm` completes,
-so an output needs no locking and gets the frames in order. A backlog is capped at about 200 ms: when the
-output is slower than the audio, the oldest queued frames are dropped (`IkonAudioPlayback.framesDropped`
-counts them), frames that arrive while muted are dropped, and `dispose` waits for the frame being written,
-calls `stop` and drops the rest.
+An `AudioOutput` is started once, when the first server audio stream begins (a failed start runs
+again when another stream begins), and is disposed with the playback handle. It calls `pull` each
+time its device needs more audio, so the device's clock sets the pace, and gets silence while no
+stream plays. Each stream has its own `AudioDecoder` and buffer, and the streams playing at once are
+mixed. A stream starts playing once 120 ms of it is buffered, or sooner when its sender marks the
+end of a sound, so frames that arrive unevenly play without gaps. Frames are dropped, oldest first,
+when more than 64 wait to be decoded or a stream buffers more than 1.5 s, and
+`IkonAudioPlayback.framesDropped` counts them. `volume` and `muted` apply to the mix: audio that
+falls due while muted plays as silence. `dispose` waits for the frame being decoded, then disposes
+the output and every stream's decoder.
 
 In a program without a window (`flutter test`, no Flutter binding) the `enableIkon*` helpers and
 the plugins behind them fail with `Binding has not yet been initialized`; send and receive audio
 with `IkonAudioStreams` instead (see "Encoded frames without a device").
 
-`OpusAudioEncoder` and `OpusAudioDecoder` bring their own libopus on Android, iOS, Windows and the
-web. On Linux and macOS they open the system's, so a Linux machine needs the `libopus0` package
-(`apt install libopus0`) and a Mac `brew install opus`; without it their `initialize` throws an
-`UnsupportedError` that says so. This holds for a program without a window too.
+`OpusAudioEncoder` and `OpusAudioDecoder` bring their own libopus on Android and iOS. On Linux,
+macOS and Windows they open one installed with the app or on the system: a Linux machine needs the
+`libopus0` package (`apt install libopus0`), a Mac `brew install opus`, and a Windows app an
+`opus.dll` (`vcpkg install opus`) beside its `.exe`. Without it their `initialize` throws an
+`UnsupportedError` that says so. This holds for a program without a window too. A Flutter web build
+has no libopus, so its microphone capture fails the same way. `OpusAudioEncoder` encodes at the
+`bitrate` its `initialize` is given, which the capture passes from its `start` (32 kbit/s unless
+the caller or the server asks for another); a libopus that cannot set it logs a warning and encodes
+at the bitrate it picks itself.
 
 The capture `enableIkonAudioCapture` returns can also be started and stopped by the server, with
 `ClientFunctions.StartAudioCaptureAsync` and `StopCaptureAsync`, as on the web, for a microphone an
 app keeps open across pages. It is one microphone: a start while it captures, or while another
 start waits for the permission prompt, fails on the server and does nothing from a button.
 
-The SDK has no equivalent of the TypeScript SDK's `client.viseme`: it plays the audio but drops the
-shape values an `IAudioAnalyzer` sends with it, so lip-sync avatars and level meters driven by
-`VisemeAnalyzer` or your own analyzer work in the React frontend only.
+The shape values an `IAudioAnalyzer` such as `VisemeAnalyzer` sends beside the app's audio arrive on
+`IkonAudioStreams.onShapeFrame`, for a lip-sync avatar or a level meter. Each `IkonAudioShapeFrame`
+names its `streamId`, `epoch`, `sequence` and `timestamp` (from the start of the segment), and its
+`sets` hold one `IkonAudioShapeValues` per shape set: `setId`, the set's `name` and `shapeNames`
+from the stream's begin (`IkonAudioStreamInfo.shapeSets`), the `values` in that order, and the
+`playbackId` and `slot` they came from. A set the begin did not declare arrives with an empty name.
+Shape frames are sent best effort, so one can be missing; align them to the audio by their
+timestamp. Those of a stream that has not begun or has ended are dropped.
 
 `IkonMediaManager` combines audio capture, playback, and WebRTC media (and routes
 share/clipboard actions through `IkonShare`) and can be passed to
@@ -1575,8 +1777,8 @@ To draw the app's video yourself instead of through `IkonParallaxView`, bind the
 // The stream is null until it exists, and the media object notifies when that changes
 final renderer = RTCVideoRenderer();
 await renderer.initialize();
-void bind() => renderer.srcObject = webRtcMedia.videoStreamForStreamId(streamId);
-webRtcMedia.addListener(bind);
+void bind() => renderer.srcObject = webRTCMedia.videoStreamForStreamId(streamId);
+webRTCMedia.addListener(bind);
 bind();
 return RTCVideoView(renderer);
 ```
@@ -1613,7 +1815,7 @@ video.onStreamBegin.listen((info) => video.requestKeyFrame(info.streamId));
 
 `sendFrame` is fire-and-forget: it returns nothing and throws nothing when the app does not take the frame, so check that frames arrive in the app with `ikon logs`.
 
-When the camera stops, call `video.endStream('camera')`: `dispose` does not end the streams this client sends.
+When the camera stops, call `video.endStream('camera')`, so the app closes its decoder; `dispose` ends every stream this client still sends.
 
 What a client sends reaches only the app. A stream the client receives has the id
 `<sender session id>_<track id>`; `senderStreamId` on its info is the id the sender gave it. `onFrame` is a `Stream<IkonAudioStreamFrame>` (`IkonVideoStreamFrame` for video), each with the `streamId` it belongs to and `data`, the encoded frame as a `Uint8List`, and `sourceType` on a stream's info is a `String` naming the kind of source, such as `'camera'`. An `onStreamBegin` can announce a stream whose frames this client never receives: what a client sends reaches only the app, and a picture or sound other clients should get comes from the app as a stream of its own, a relayed copy with a different id. Take frames from the `streamId` of the stream that delivers them, not from every id announced.
@@ -1622,7 +1824,12 @@ it throws `StateError` unless the streams were built with an encoder,
 `IkonAudioStreams(client, encoderFactory: OpusAudioEncoder.new)`.
 Frames sent before `ClientReady` are dropped and the send returns false. After a reconnect the next
 frame announces the stream again. `isFirst` starts a new audio segment, and a new `correlationId`
-given with it announces the stream again. The app's speech recognition skips an audio stream without
+given with it announces the stream again. The app reads a segment only from its first frame, so a
+segment whose first frame was dropped, or that was in progress when the client rejoined into a new
+session, starts again: its next frame goes out as a first frame. A reconnect into the same session
+continues the segment. `totalDuration` on `sendOpusFrame` and `sendPcm` says how long the whole
+sound lasts when the program knows it; the app reads it as the audio event's estimated duration. A
+video stream is announced again when its codec, size, framerate or correlation id changes. The app's speech recognition skips an audio stream without
 a correlation id. `onKeyFrameRequested` fires when the app asks for a keyframe, and the
 next frame sent should be one. For H.264 each frame is one access unit (every slice of one picture) in Annex B form with start codes, each keyframe with its SPS and PPS before the IDR slice, because a receiver decodes from the parameters in the stream. ffmpeg's libx264 writes such a stream with `-c:v libx264 -x264-params aud=1:repeat-headers=1 -f h264`: an access unit delimiter starts each picture, so a reader of its output splits the frames there, and every keyframe repeats the SPS and PPS.
 
@@ -1638,7 +1845,10 @@ info is true for them, and false for every other stream, such as the one that ca
 is not open or wants no reports. The web
 SDK reports every 500 ms of playback for each stream, and at once when the state changes; a program
 that plays the audio should do the same. The SDK's own Opus playback (`enableIkonAudioPlayback`)
-sends no reports.
+reports by itself: every 500 ms of output, for each stream that asks and has played or has audio
+buffered, with its position in the current segment and what is buffered. It sends nothing while no
+audio plays. Do not also call `sendPlaybackReport` for a stream it plays. Audio that arrives over
+the WebRTC peer (`enableIkonWebRTCMedia`) plays outside it and is not reported.
 
 A headless client also reports its context: `IkonViewportUpdater.sendViewportSize(Size)`
 (`dart:ui`'s `Size`), `sendTheme(String)` (`'light'` or `'dark'`), `sendTimezone(String)` (an IANA
@@ -1688,6 +1898,22 @@ The Flutter SDK renders 160+ registered component types including:
 - **Overlays:** dialog, alert dialog, tooltip, popover, toast. A Sheet or Drawer is placed by its panel's classes, as on the web. `fixed inset-x-0 bottom-0` makes it a bottom sheet: full width, sized by its height classes (`h-[80vh]`, `max-h-[85vh]`), padded inside for the safe area, kept above the keyboard and closed by a downward drag when it has `onOpenChange`. A `flex-1 min-h-0` scroll area in it scrolls between the header and a footer that stays in view. With `snapPoints`, that scroll area scrolls at every snap point, as vaul's drawer does on the web; a pull down that starts with it at its top moves the sheet down (a pull that starts with it scrolled stops at its top and leaves the sheet), and a drag on the handle or anywhere else on the panel moves the sheet between snap points. A release settles on the next snap point in the direction of a flick, or on the nearest after a slow drag; a release below the lowest closes a sheet that has `onOpenChange`
 - **Media:** charts (bar/line/pie via fl_chart)
 - **Structure:** form, file upload zone, keyboard listener, sortable lists (column, sideways row, wrapping grid and `rows:` shelf, with handles and `longPressDelay:`; a `rows:` shelf spaces its columns by `gap-x` and its rows by `gap-y`, each column as wide as its widest item); a standalone `Draggable`/`Droppable` draws its content but does not drag
+
+## Logs
+
+The SDK logs through `IkonLog`: assign `IkonLog.handler` to send its records somewhere other than
+`debugPrint`, and `IkonLog.minimumLevel` to change the level (`debug` in a debug build, `info` in a
+release build).
+
+A client from a `connect*` helper with a backend sign-in (every one but `connectLocal`) also sends the
+records at `info` and above to the IKON backend with the user's token, as the web client does, so the
+app's developer finds a phone's connection trouble in the app's logs next to the server's. It sends
+nothing while nothing is logged. The first line starts a 5 s wait, and everything logged by then goes
+in one request. A failed send is tried again later, after a wait of up to a minute. When the app goes
+to the background, the client sends the waiting lines at once. A refused token holds the lines until the client gets a new one
+(`updateAuthToken`, or a reconnect's sign-in). At most 1000 lines wait. After each outage the client
+also sends one `client_connection_recovery` event with how it ended and how long it lasted. Lines
+below `IkonLog.minimumLevel` are neither printed nor sent.
 
 ## CI/CD
 
