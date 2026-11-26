@@ -75,8 +75,7 @@ export function decodeProbePing(data: ArrayBuffer | Uint8Array, destination?: Pr
 
 export function readFromTeleportProbePing(reader: TeleportObjectReader, destination?: ProbePing): ProbePing
 {
-    const instance = destination ?? createProbePing();
-    resetProbePing(instance);
+    const instance = destination ? resetProbePing(destination) : createProbePing();
     readIntoProbePing(reader, instance);
     return instance;
 }

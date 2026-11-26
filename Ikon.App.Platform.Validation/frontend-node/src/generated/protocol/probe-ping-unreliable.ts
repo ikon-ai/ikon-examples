@@ -76,8 +76,7 @@ export function decodeProbePingUnreliable(data: ArrayBuffer | Uint8Array, destin
 
 export function readFromTeleportProbePingUnreliable(reader: TeleportObjectReader, destination?: ProbePingUnreliable): ProbePingUnreliable
 {
-    const instance = destination ?? createProbePingUnreliable();
-    resetProbePingUnreliable(instance);
+    const instance = destination ? resetProbePingUnreliable(destination) : createProbePingUnreliable();
     readIntoProbePingUnreliable(reader, instance);
     return instance;
 }

@@ -80,6 +80,7 @@ class ProbePingUnreliable implements TeleportMessage {
         return writer.finish();
     }
 
+    @override
     void writeTo(TeleportObjectWriter scope) {
         scope.writeInt64Field(fieldIdSeq, seq);
         scope.writeStringField(fieldIdMode, mode);
@@ -93,9 +94,9 @@ class ProbePingUnreliable implements TeleportMessage {
 
     @override
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
-        createProtocolMessage(
+        writeProtocolMessage(
+            this,
             opcode: teleportOpcode,
-            payload: toTeleport(),
             payloadVersion: teleportVersion,
             senderId: senderId,
             overrides: ProtocolMessageOverrides.withAddedFlags(overrides, teleportDefaultFlags.value),

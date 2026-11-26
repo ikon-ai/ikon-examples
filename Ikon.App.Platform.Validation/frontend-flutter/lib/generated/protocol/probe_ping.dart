@@ -80,6 +80,7 @@ class ProbePing implements TeleportMessage {
         return writer.finish();
     }
 
+    @override
     void writeTo(TeleportObjectWriter scope) {
         scope.writeInt64Field(fieldIdSeq, seq);
         scope.writeStringField(fieldIdMode, mode);
@@ -92,9 +93,9 @@ class ProbePing implements TeleportMessage {
 
     @override
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
-        createProtocolMessage(
+        writeProtocolMessage(
+            this,
             opcode: teleportOpcode,
-            payload: toTeleport(),
             payloadVersion: teleportVersion,
             senderId: senderId,
             overrides: overrides,
