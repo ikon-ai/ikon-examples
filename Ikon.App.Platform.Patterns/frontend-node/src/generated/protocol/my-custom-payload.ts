@@ -60,8 +60,7 @@ export function decodeMyCustomPayload(data: ArrayBuffer | Uint8Array, destinatio
 
 export function readFromTeleportMyCustomPayload(reader: TeleportObjectReader, destination?: MyCustomPayload): MyCustomPayload
 {
-    const instance = destination ?? createMyCustomPayload();
-    resetMyCustomPayload(instance);
+    const instance = destination ? resetMyCustomPayload(destination) : createMyCustomPayload();
     readIntoMyCustomPayload(reader, instance);
     return instance;
 }

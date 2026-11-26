@@ -76,39 +76,49 @@ export function readFlags(message: ProtocolMessage | Uint8Array): number {
     return message.length >= MinimumHeaderLength ? message[26] : 0
 }
 
-export function readProtocolMessageHeaders(raw: ProtocolMessage | ArrayBuffer | Uint8Array): ProtocolMessageHeaders {
-  const bytes = toUint8Array(raw);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+function readUInt32Le(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
 
+// Runs the same checks as readProtocolMessageHeaders without building the headers, and returns the
+// header's size
+function checkProtocolHeader(bytes: Uint8Array): number {
   if (bytes.length < MinimumHeaderLength) {
     throw new Error('Protocol payload too short');
   }
 
-  const length = view.getUint32(0, true);
-  const opcode = view.getUint32(4, true);
-  const senderId = view.getUint32(8, true);
-  const trackId = view.getUint32(12, true);
-  const sequenceId = view.getUint32(16, true);
-  const targetCount = view.getUint32(20, true);
-  const payloadVersion = view.getUint8(24);
-  const payloadType = view.getUint8(25);
-  const flags = view.getUint8(26);
+  const length = readUInt32Le(bytes, 0);
 
   if (length > bytes.length) {
     throw new Error(`Protocol message declares ${length} bytes but carries ${bytes.length}`);
   }
 
-  const expectedHeaderSize = MinimumHeaderLength + targetCount * 4;
-  if (expectedHeaderSize > bytes.length) {
+  const headerSize = MinimumHeaderLength + readUInt32Le(bytes, 20) * 4;
+
+  if (headerSize > bytes.length) {
     throw new Error('Protocol header exceeds payload length');
   }
 
-  const targetIds: number[] = [];
-  let offset = MinimumHeaderLength;
+  return headerSize;
+}
 
-  for (let i = 0; i < targetCount; i++) {
-    targetIds.push(view.getUint32(offset, true));
-    offset += 4;
+export function readProtocolMessageHeaders(raw: ProtocolMessage | ArrayBuffer | Uint8Array): ProtocolMessageHeaders {
+  const bytes = toUint8Array(raw);
+  const headerSize = checkProtocolHeader(bytes);
+
+  const length = readUInt32Le(bytes, 0);
+  const opcode = readUInt32Le(bytes, 4);
+  const senderId = readUInt32Le(bytes, 8);
+  const trackId = readUInt32Le(bytes, 12);
+  const sequenceId = readUInt32Le(bytes, 16);
+  const payloadVersion = bytes[24];
+  const payloadType = bytes[25];
+  const flags = bytes[26];
+
+  const targetIds: number[] = [];
+
+  for (let offset = MinimumHeaderLength; offset < headerSize; offset += 4) {
+    targetIds.push(readUInt32Le(bytes, offset));
   }
 
   return {
@@ -130,10 +140,11 @@ export function readProtocolMessagePayload(
   _expectedVersion?: number,
 ): Uint8Array {
   const bytes = toUint8Array(raw);
-  const headers = readProtocolMessageHeaders(bytes);
+  const headerSize = checkProtocolHeader(bytes);
+  const opcode = readUInt32Le(bytes, 4);
 
-  if (expectedOpcode !== undefined && headers.opcode !== expectedOpcode) {
-    throw new Error(`Unexpected opcode ${headers.opcode}`);
+  if (expectedOpcode !== undefined && opcode !== expectedOpcode) {
+    throw new Error(`Unexpected opcode ${opcode}`);
   }
 
   // As teleport is our main payload now, the message version does not really need enforcing.
@@ -141,14 +152,11 @@ export function readProtocolMessagePayload(
   //   throw new Error(`Unexpected payload version ${headers.payloadVersion}`);
   // }
 
-  if (headers.payloadType !== PayloadType.Teleport) {
-    throw new Error(`Unexpected payload type ${headers.payloadType}`);
+  if (bytes[25] !== PayloadType.Teleport) {
+    throw new Error(`Unexpected payload type ${bytes[25]}`);
   }
 
-  const headerSize = MinimumHeaderLength + headers.targetIds.length * 4;
-  const payload = bytes.subarray(headerSize, headers.length);
-
-  return payload;
+  return bytes.subarray(headerSize, readUInt32Le(bytes, 0));
 }
 
 export async function readProtocolMessagePayloadAsync(
@@ -157,20 +165,20 @@ export async function readProtocolMessagePayloadAsync(
   _expectedVersion?: number,
 ): Promise<Uint8Array> {
   const bytes = toUint8Array(raw);
-  const headers = readProtocolMessageHeaders(bytes);
+  const headerSize = checkProtocolHeader(bytes);
+  const opcode = readUInt32Le(bytes, 4);
 
-  if (expectedOpcode !== undefined && headers.opcode !== expectedOpcode) {
-    throw new Error(`Unexpected opcode ${headers.opcode}`);
+  if (expectedOpcode !== undefined && opcode !== expectedOpcode) {
+    throw new Error(`Unexpected opcode ${opcode}`);
   }
 
-  if (headers.payloadType !== PayloadType.Teleport) {
-    throw new Error(`Unexpected payload type ${headers.payloadType}`);
+  if (bytes[25] !== PayloadType.Teleport) {
+    throw new Error(`Unexpected payload type ${bytes[25]}`);
   }
 
-  const headerSize = MinimumHeaderLength + headers.targetIds.length * 4;
-  let payload = bytes.subarray(headerSize, headers.length);
+  let payload = bytes.subarray(headerSize, readUInt32Le(bytes, 0));
 
-  if ((headers.flags & MessageFlag.Compressed) !== 0) {
+  if ((bytes[26] & MessageFlag.Compressed) !== 0) {
     payload = await decompressPayloadInternal(payload);
   }
 
@@ -190,29 +198,7 @@ export function createProtocolMessage(
   const targetIds = overrides?.targetIds ?? [];
   const payloadType = overrides?.payloadType ?? PayloadType.Teleport;
 
-  const headerSize = MinimumHeaderLength + targetIds.length * 4;
-  const totalSize = headerSize + payload.length;
-  const buffer = new Uint8Array(totalSize);
-  const view = new DataView(buffer.buffer);
-
-  view.setUint32(0, totalSize, true);
-  view.setUint32(4, opcode >>> 0, true);
-  view.setUint32(8, senderId >>> 0, true);
-  view.setUint32(12, trackId >>> 0, true);
-  view.setUint32(16, sequenceId >>> 0, true);
-  view.setUint32(20, targetIds.length >>> 0, true);
-  view.setUint8(24, payloadVersion & 0xff);
-  view.setUint8(25, payloadType & 0xff);
-  view.setUint8(26, flags & 0xff);
-
-  let offset = MinimumHeaderLength;
-  for (let i = 0; i < targetIds.length; i++) {
-    view.setUint32(offset, targetIds[i] >>> 0, true);
-    offset += 4;
-  }
-
-  buffer.set(payload, headerSize);
-  return asProtocolMessage(buffer);
+  return asProtocolMessage(writeProtocolMessage(opcode, payload, payloadVersion, senderId, trackId, sequenceId, flags, targetIds, payloadType));
 }
 
 export async function createProtocolMessageAsync(
@@ -242,29 +228,37 @@ export async function createProtocolMessageAsync(
     }
   }
 
+  return asProtocolMessage(writeProtocolMessage(opcode, finalPayload, payloadVersion, senderId, trackId, sequenceId, flags, targetIds, payloadType));
+}
+
+function writeProtocolMessage(opcode: number, payload: Uint8Array, payloadVersion: number, senderId: number, trackId: number, sequenceId: number, flags: number, targetIds: readonly number[], payloadType: number): Uint8Array {
   const headerSize = MinimumHeaderLength + targetIds.length * 4;
-  const totalSize = headerSize + finalPayload.length;
+  const totalSize = headerSize + payload.length;
   const buffer = new Uint8Array(totalSize);
-  const view = new DataView(buffer.buffer);
 
-  view.setUint32(0, totalSize, true);
-  view.setUint32(4, opcode >>> 0, true);
-  view.setUint32(8, senderId >>> 0, true);
-  view.setUint32(12, trackId >>> 0, true);
-  view.setUint32(16, sequenceId >>> 0, true);
-  view.setUint32(20, targetIds.length >>> 0, true);
-  view.setUint8(24, payloadVersion & 0xff);
-  view.setUint8(25, payloadType & 0xff);
-  view.setUint8(26, flags & 0xff);
+  writeUInt32Le(buffer, 0, totalSize);
+  writeUInt32Le(buffer, 4, opcode);
+  writeUInt32Le(buffer, 8, senderId);
+  writeUInt32Le(buffer, 12, trackId);
+  writeUInt32Le(buffer, 16, sequenceId);
+  writeUInt32Le(buffer, 20, targetIds.length);
+  buffer[24] = payloadVersion;
+  buffer[25] = payloadType;
+  buffer[26] = flags;
 
-  let offset = MinimumHeaderLength;
   for (let i = 0; i < targetIds.length; i++) {
-    view.setUint32(offset, targetIds[i] >>> 0, true);
-    offset += 4;
+    writeUInt32Le(buffer, MinimumHeaderLength + i * 4, targetIds[i]);
   }
 
-  buffer.set(finalPayload, headerSize);
-  return asProtocolMessage(buffer);
+  buffer.set(payload, headerSize);
+  return buffer;
+}
+
+function writeUInt32Le(bytes: Uint8Array, offset: number, value: number): void {
+  bytes[offset] = value;
+  bytes[offset + 1] = value >>> 8;
+  bytes[offset + 2] = value >>> 16;
+  bytes[offset + 3] = value >>> 24;
 }
 
 // Compression threshold in bytes
@@ -383,73 +377,278 @@ const OBJECT_END = 0xa2;
 const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
+// Strings up to this many UTF-16 units are tried as ASCII with a plain loop, which is faster than
+// calling the encoder. Anything longer, or not ASCII, goes through encodeInto.
+const ASCII_FAST_PATH_MAX = 64;
+// Longer strings go through encode(), which sizes the result exactly, because encodeInto would need
+// room for three bytes per unit.
+const ENCODE_INTO_MAX = 65536;
+
+/**
+ * The one buffer a message is written into. Nested objects, arrays and dictionaries are written in
+ * place: the length or count in front of each one gets one byte up front and is widened when it is
+ * written, so no container is built in a buffer of its own and copied into its parent.
+ *
+ * `owner` is the writer allowed to write next. A nested writer takes it over while its build runs
+ * and hands it back when it ends, so a write through a scope that has ended, or through a parent
+ * while a child is open, is refused rather than interleaved into the bytes.
+ */
+class ByteBuffer {
+  public bytes: Uint8Array;
+  public view: DataView;
+  public length = 0;
+  public owner: object | null = null;
+
+  constructor(capacity = 256) {
+    this.bytes = new Uint8Array(capacity);
+    this.view = new DataView(this.bytes.buffer);
+  }
+
+  public claim(writer: object): void {
+    if (this.owner !== writer) {
+      throw new Error('Teleport writer used outside its scope');
+    }
+  }
+
+  public ensureCapacity(additional: number): void {
+    const required = this.length + additional;
+    if (required <= this.bytes.length) {
+      return;
+    }
+
+    let capacity = this.bytes.length * 2;
+    while (capacity < required) {
+      capacity *= 2;
+    }
+
+    const bytes = new Uint8Array(capacity);
+    bytes.set(this.bytes.subarray(0, this.length));
+    this.bytes = bytes;
+    this.view = new DataView(bytes.buffer);
+  }
+
+  public writeByte(value: number): void {
+    this.ensureCapacity(1);
+    this.bytes[this.length++] = value & 0xff;
+  }
+
+  public writeBytes(value: Uint8Array): void {
+    this.ensureCapacity(value.length);
+    this.bytes.set(value, this.length);
+    this.length += value.length;
+  }
+
+  public writeUInt32(value: number): void {
+    this.ensureCapacity(4);
+    const bytes = this.bytes;
+    const at = this.length;
+    bytes[at] = value;
+    bytes[at + 1] = value >>> 8;
+    bytes[at + 2] = value >>> 16;
+    bytes[at + 3] = value >>> 24;
+    this.length = at + 4;
+  }
+
+  public writeInt32(value: number): void {
+    this.writeUInt32(value | 0);
+  }
+
+  public writeFloat32(value: number): void {
+    this.ensureCapacity(4);
+    this.view.setFloat32(this.length, value, true);
+    this.length += 4;
+  }
+
+  public writeFloat64(value: number): void {
+    this.ensureCapacity(8);
+    this.view.setFloat64(this.length, value, true);
+    this.length += 8;
+  }
+
+  public writeBigInt64(value: bigint): void {
+    this.ensureCapacity(8);
+    this.view.setBigInt64(this.length, value, true);
+    this.length += 8;
+  }
+
+  public writeBigUInt64(value: bigint): void {
+    this.ensureCapacity(8);
+    this.view.setBigUint64(this.length, value, true);
+    this.length += 8;
+  }
+
+  public writeVarUInt(value: number): void {
+    this.ensureCapacity(5);
+    this.length = writeVarUIntAt(this.bytes, this.length, value >>> 0);
+  }
+
+  /** A length-prefixed UTF-8 string, encoded straight into the buffer. */
+  public writeString(input: string): void {
+    // Untyped callers pass numbers and other non-strings, and the earlier encoder wrote their String()
+    // form, so this does too
+    const value = typeof input === 'string' ? input : input === undefined || input === null ? '' : String(input);
+    const units = value.length;
+
+    if (units <= ASCII_FAST_PATH_MAX) {
+      this.ensureCapacity(1 + units);
+      const bytes = this.bytes;
+      const start = this.length + 1;
+      let i = 0;
+
+      for (; i < units; i++) {
+        const unit = value.charCodeAt(i);
+        if (unit >= 0x80) {
+          break;
+        }
+
+        bytes[start + i] = unit;
+      }
+
+      if (i === units) {
+        bytes[this.length] = units;
+        this.length = start + units;
+        return;
+      }
+    }
+
+    if (units > ENCODE_INTO_MAX) {
+      const encoded = utf8Encoder.encode(value);
+      this.writeVarUInt(encoded.length);
+      this.writeBytes(encoded);
+      return;
+    }
+
+    const maxBytes = units * 3;
+    const reserved = getVarUIntLength(maxBytes);
+    this.ensureCapacity(reserved + maxBytes);
+
+    const at = this.length;
+    const written = utf8Encoder.encodeInto(value, this.bytes.subarray(at + reserved, at + reserved + maxBytes)).written;
+    const prefix = getVarUIntLength(written);
+
+    if (prefix < reserved) {
+      this.bytes.copyWithin(at + prefix, at + reserved, at + reserved + written);
+    }
+
+    writeVarUIntAt(this.bytes, at, written);
+    this.length = at + prefix + written;
+  }
+
+  /** Reserves one byte for a varuint that {@link patchVarUInt} writes later, and returns its offset. */
+  public reserveVarUInt(): number {
+    this.ensureCapacity(1);
+    return this.length++;
+  }
+
+  /** Writes `value` at `at`, moving everything after it when it needs more than the reserved byte. */
+  public patchVarUInt(at: number, value: number): void {
+    const size = getVarUIntLength(value);
+
+    if (size > 1) {
+      this.ensureCapacity(size - 1);
+      this.bytes.copyWithin(at + size, at + 1, this.length);
+      this.length += size - 1;
+    }
+
+    writeVarUIntAt(this.bytes, at, value);
+  }
+
+  /** Fills a reserved length with the number of bytes written after it. */
+  public patchLength(at: number): void {
+    this.patchVarUInt(at, this.length - at - 1);
+  }
+
+  public toUint8Array(): Uint8Array {
+    return this.bytes.slice(0, this.length);
+  }
+}
+
 export class TeleportObjectWriter {
-  private readonly buffer = new ByteBuffer();
+  private readonly out: ByteBuffer;
+  private readonly nested: boolean;
   private cached?: Uint8Array;
 
-  public constructor(version = 1) {
-    this.buffer.writeByte(OBJECT_START);
-    this.buffer.writeVarUInt(version >>> 0);
+  /** @param out - The buffer of the writer this object is nested in; only the runtime passes it. */
+  public constructor(version = 1, out?: ByteBuffer) {
+    this.nested = out !== undefined;
+    this.out = out ?? new ByteBuffer();
+    this.out.owner = this;
+    this.out.writeByte(OBJECT_START);
+    this.out.writeVarUInt(version >>> 0);
   }
 
   public writeInt32Field(fieldId: number, value: number): void {
-    this.writeFixedField(fieldId, TeleportType.Int32, () => this.buffer.writeInt32(value | 0));
+    this.writeFieldHeader(fieldId, TeleportType.Int32);
+    this.out.writeInt32(value);
   }
 
   public writeUInt32Field(fieldId: number, value: number): void {
-    this.writeFixedField(fieldId, TeleportType.UInt32, () => this.buffer.writeUInt32(value >>> 0));
+    this.writeFieldHeader(fieldId, TeleportType.UInt32);
+    this.out.writeUInt32(value >>> 0);
   }
 
   public writeInt64Field(fieldId: number, value: bigint): void {
-    this.writeFixedField(fieldId, TeleportType.Int64, () => this.buffer.writeBigInt64(value));
+    this.writeFieldHeader(fieldId, TeleportType.Int64);
+    this.out.writeBigInt64(value);
   }
 
   public writeUInt64Field(fieldId: number, value: bigint): void {
-    this.writeFixedField(fieldId, TeleportType.UInt64, () => this.buffer.writeBigUInt64(value));
+    this.writeFieldHeader(fieldId, TeleportType.UInt64);
+    this.out.writeBigUInt64(value);
   }
 
   public writeFloat32Field(fieldId: number, value: number): void {
-    this.writeFixedField(fieldId, TeleportType.Float32, () => this.buffer.writeFloat32(value));
+    this.writeFieldHeader(fieldId, TeleportType.Float32);
+    this.out.writeFloat32(value);
   }
 
   public writeFloat64Field(fieldId: number, value: number): void {
-    this.writeFixedField(fieldId, TeleportType.Float64, () => this.buffer.writeFloat64(value));
+    this.writeFieldHeader(fieldId, TeleportType.Float64);
+    this.out.writeFloat64(value);
   }
 
   public writeBoolField(fieldId: number, value: boolean): void {
-    this.writeFixedField(fieldId, TeleportType.Bool, () => this.buffer.writeByte(value ? 1 : 0));
+    this.writeFieldHeader(fieldId, TeleportType.Bool);
+    this.out.writeByte(value ? 1 : 0);
   }
 
   public writeGuidField(fieldId: number, guid: TeleportGuid | Uint8Array): void {
-    const bytes = guid instanceof TeleportGuid ? guid.asBytes() : guid;
-    if (bytes.length !== 16) {
-      throw new Error('Guid payload must be 16 bytes');
-    }
-
-    this.writeFixedField(fieldId, TeleportType.Guid, () => this.buffer.writeBytes(bytes));
+    const bytes = guidBytes(guid);
+    this.writeFieldHeader(fieldId, TeleportType.Guid);
+    this.out.writeBytes(bytes);
   }
 
   public writeStringField(fieldId: number, value: string): void {
-    const encoded = utf8Encoder.encode(value ?? '');
-    this.writeVariableField(fieldId, TeleportType.String, encoded);
+    this.writeFieldHeader(fieldId, TeleportType.String);
+    this.out.writeString(value ?? '');
   }
 
   public writeBinaryField(fieldId: number, value: Uint8Array): void {
-    this.writeVariableField(fieldId, TeleportType.Binary, value);
+    this.writeFieldHeader(fieldId, TeleportType.Binary);
+    this.out.writeVarUInt(value.length);
+    this.out.writeBytes(value);
   }
 
   public writeObjectField(fieldId: number, version: number, build: (scope: TeleportObjectWriter) => void): void {
-    const nested = new TeleportObjectWriter(version);
+    this.writeFieldHeader(fieldId, TeleportType.Object);
+    const out = this.out;
+    const length = out.reserveVarUInt();
+    const nested = new TeleportObjectWriter(version, out);
     build(nested);
-    const payload = nested.finish();
-    this.writeVariableField(fieldId, TeleportType.Object, payload);
+    nested.close();
+    out.owner = this;
+    out.patchLength(length);
   }
 
   public writeArrayField(fieldId: number, elementType: TeleportType, build: (scope: TeleportArrayWriter) => void): void {
-    const arrayWriter = new TeleportArrayWriter(elementType);
-    build(arrayWriter);
-    const payload = arrayWriter.finish();
-    this.writeVariableField(fieldId, TeleportType.Array, payload);
+    this.writeFieldHeader(fieldId, TeleportType.Array);
+    const out = this.out;
+    const length = out.reserveVarUInt();
+    const nested = new TeleportArrayWriter(elementType, out);
+    build(nested);
+    nested.close();
+    out.owner = this;
+    out.patchLength(length);
   }
 
   public writeDictionaryField(
@@ -458,166 +657,196 @@ export class TeleportObjectWriter {
     valueType: TeleportType,
     build: (scope: TeleportDictWriter) => void,
   ): void {
-    const dictWriter = new TeleportDictWriter(keyType, valueType);
-    build(dictWriter);
-    const payload = dictWriter.finish();
-    this.writeVariableField(fieldId, TeleportType.Dict, payload);
+    this.writeFieldHeader(fieldId, TeleportType.Dict);
+    const out = this.out;
+    const length = out.reserveVarUInt();
+    const nested = new TeleportDictWriter(keyType, valueType, out);
+    build(nested);
+    nested.close();
+    out.owner = this;
+    out.patchLength(length);
   }
 
+  /** The encoded object. Only the outermost writer is finished; a nested one ends when its build returns. */
   public finish(): Uint8Array {
+    if (this.nested) {
+      throw new Error('A nested Teleport object is finished by its parent');
+    }
+
     // The cached buffer is the closed signal: once it exists the object has been finished.
     if (!this.cached) {
-      this.buffer.writeByte(OBJECT_END);
-      this.cached = this.buffer.toUint8Array();
+      this.close();
+      this.cached = this.out.toUint8Array();
     }
 
     return this.cached;
   }
 
-  private writeFixedField(fieldId: number, type: TeleportType, emit: () => void): void {
-    this.writeFieldHeader(fieldId, type, 0);
-    emit();
+  /** @internal Ends the object. The parent then takes back ownership of the buffer. */
+  public close(): void {
+    this.out.claim(this);
+    this.out.writeByte(OBJECT_END);
+    this.out.owner = null;
   }
 
-  private writeVariableField(fieldId: number, type: TeleportType, payload: Uint8Array): void {
-    this.writeFieldHeader(fieldId, type, payload.length);
-    this.buffer.writeBytes(payload);
-  }
-
-  private writeFieldHeader(fieldId: number, type: TeleportType, payloadLength: number): void {
-    this.buffer.writeUInt32(fieldId >>> 0);
-    this.buffer.writeByte(composeDescriptor(type));
-
-    if (requiresLengthEncoding(type)) {
-      this.buffer.writeVarUInt(payloadLength >>> 0);
-    }
+  private writeFieldHeader(fieldId: number, type: TeleportType): void {
+    const out = this.out;
+    out.claim(this);
+    out.ensureCapacity(5);
+    const bytes = out.bytes;
+    const at = out.length;
+    bytes[at] = fieldId;
+    bytes[at + 1] = fieldId >>> 8;
+    bytes[at + 2] = fieldId >>> 16;
+    bytes[at + 3] = fieldId >>> 24;
+    bytes[at + 4] = type << 4;
+    out.length = at + 5;
   }
 }
 
 export class TeleportArrayWriter {
-  private readonly payload = new ByteBuffer();
+  private readonly out: ByteBuffer;
+  private readonly countAt: number;
+  private readonly nested: boolean;
   private count = 0;
+  private cached?: Uint8Array;
 
-  public constructor(private readonly elementType: TeleportType) {}
+  /** @param out - The buffer of the writer this array is nested in; only the runtime passes it. */
+  public constructor(private readonly elementType: TeleportType, out?: ByteBuffer) {
+    this.nested = out !== undefined;
+    this.out = out ?? new ByteBuffer();
+    this.out.owner = this;
+    this.out.writeByte(composeDescriptor(elementType));
+    this.countAt = this.out.reserveVarUInt();
+  }
 
   public writeInt32(value: number): void {
-    this.ensureElementType(TeleportType.Int32);
-    this.count++;
-    this.payload.writeInt32(value | 0);
+    this.begin(TeleportType.Int32);
+    this.out.writeInt32(value);
   }
 
   public writeUInt32(value: number): void {
-    this.ensureElementType(TeleportType.UInt32);
-    this.count++;
-    this.payload.writeUInt32(value >>> 0);
+    this.begin(TeleportType.UInt32);
+    this.out.writeUInt32(value >>> 0);
   }
 
   public writeInt64(value: bigint): void {
-    this.ensureElementType(TeleportType.Int64);
-    this.count++;
-    this.payload.writeBigInt64(value);
+    this.begin(TeleportType.Int64);
+    this.out.writeBigInt64(value);
   }
 
   public writeUInt64(value: bigint): void {
-    this.ensureElementType(TeleportType.UInt64);
-    this.count++;
-    this.payload.writeBigUInt64(value);
+    this.begin(TeleportType.UInt64);
+    this.out.writeBigUInt64(value);
   }
 
   public writeFloat32(value: number): void {
-    this.ensureElementType(TeleportType.Float32);
-    this.count++;
-    this.payload.writeFloat32(value);
+    this.begin(TeleportType.Float32);
+    this.out.writeFloat32(value);
   }
 
   public writeFloat64(value: number): void {
-    this.ensureElementType(TeleportType.Float64);
-    this.count++;
-    this.payload.writeFloat64(value);
+    this.begin(TeleportType.Float64);
+    this.out.writeFloat64(value);
   }
 
   public writeBool(value: boolean): void {
-    this.ensureElementType(TeleportType.Bool);
-    this.count++;
-    this.payload.writeByte(value ? 1 : 0);
+    this.begin(TeleportType.Bool);
+    this.out.writeByte(value ? 1 : 0);
   }
 
   public writeGuid(value: TeleportGuid | Uint8Array): void {
-    this.ensureElementType(TeleportType.Guid);
-    this.count++;
-    const bytes = value instanceof TeleportGuid ? value.asBytes() : value;
-    if (bytes.length !== 16) {
-      throw new Error('Guid payload must be 16 bytes');
-    }
-
-    this.payload.writeBytes(bytes);
+    const bytes = guidBytes(value);
+    this.begin(TeleportType.Guid);
+    this.out.writeBytes(bytes);
   }
 
   public writeString(value: string): void {
-    this.ensureElementType(TeleportType.String);
-    this.count++;
-    const encoded = utf8Encoder.encode(value ?? '');
-    this.payload.writeVarUInt(encoded.length);
-    this.payload.writeBytes(encoded);
+    this.begin(TeleportType.String);
+    this.out.writeString(value ?? '');
   }
 
   public writeBinary(value: Uint8Array): void {
-    this.ensureElementType(TeleportType.Binary);
-    this.count++;
-    this.payload.writeVarUInt(value.length);
-    this.payload.writeBytes(value);
+    this.begin(TeleportType.Binary);
+    this.out.writeVarUInt(value.length);
+    this.out.writeBytes(value);
   }
 
   public writeObject(version: number, build: (scope: TeleportObjectWriter) => void): void {
-    this.ensureElementType(TeleportType.Object);
-    this.count++;
-    const nested = new TeleportObjectWriter(version);
+    this.begin(TeleportType.Object);
+    const out = this.out;
+    const length = out.reserveVarUInt();
+    const nested = new TeleportObjectWriter(version, out);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeVarUInt(payload.length);
-    this.payload.writeBytes(payload);
+    nested.close();
+    out.owner = this;
+    out.patchLength(length);
   }
 
   public writeArray(elementType: TeleportType, build: (scope: TeleportArrayWriter) => void): void {
-    this.ensureElementType(TeleportType.Array);
-    this.count++;
-    const nested = new TeleportArrayWriter(elementType);
+    this.begin(TeleportType.Array);
+    const nested = new TeleportArrayWriter(elementType, this.out);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeBytes(payload);
+    nested.close();
+    this.out.owner = this;
   }
 
   public writeDictionary(keyType: TeleportType, valueType: TeleportType, build: (scope: TeleportDictWriter) => void): void {
-    this.ensureElementType(TeleportType.Dict);
-    this.count++;
-    const nested = new TeleportDictWriter(keyType, valueType);
+    this.begin(TeleportType.Dict);
+    const nested = new TeleportDictWriter(keyType, valueType, this.out);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeBytes(payload);
+    nested.close();
+    this.out.owner = this;
   }
 
+  /** The encoded array, for an array written on its own rather than as a field or element. */
   public finish(): Uint8Array {
-    const buffer = new ByteBuffer();
-    buffer.writeByte(composeDescriptor(this.elementType));
-    buffer.writeVarUInt(this.count);
-    buffer.writeBytes(this.payload.toUint8Array());
-    return buffer.toUint8Array();
+    if (this.nested) {
+      throw new Error('A nested Teleport container is finished by its parent');
+    }
+
+    if (!this.cached) {
+      this.close();
+      this.cached = this.out.toUint8Array();
+    }
+
+    return this.cached;
   }
 
-  private ensureElementType(expected: TeleportType): void {
+  /** @internal Writes the element count. The parent then takes back ownership of the buffer. */
+  public close(): void {
+    this.out.claim(this);
+    this.out.patchVarUInt(this.countAt, this.count);
+    this.out.owner = null;
+  }
+
+  private begin(expected: TeleportType): void {
     if (this.elementType !== expected) {
       throw new Error(`Array element type is ${TeleportType[this.elementType]}, expected ${TeleportType[expected]}`);
     }
+
+    this.out.claim(this);
+    this.count++;
   }
 }
 
 export class TeleportDictWriter {
-  private readonly payload = new ByteBuffer();
+  private readonly out: ByteBuffer;
+  private readonly countAt: number;
+  private readonly nested: boolean;
   private count = 0;
   private entryOpen = false;
+  private cached?: Uint8Array;
 
-  public constructor(private readonly keyType: TeleportType, private readonly valueType: TeleportType) {
+  /** @param out - The buffer of the writer this dictionary is nested in; only the runtime passes it. */
+  public constructor(private readonly keyType: TeleportType, private readonly valueType: TeleportType, out?: ByteBuffer) {
     ensurePrimitiveKey(keyType);
+    this.nested = out !== undefined;
+    this.out = out ?? new ByteBuffer();
+    this.out.owner = this;
+    this.out.writeByte(composeDescriptor(keyType));
+    this.out.writeByte(composeDescriptor(valueType));
+    this.countAt = this.out.reserveVarUInt();
   }
 
   public beginEntry(): TeleportDictEntryWriter {
@@ -625,24 +854,38 @@ export class TeleportDictWriter {
       throw new Error('Previous dictionary entry not completed');
     }
 
+    this.out.claim(this);
     this.count++;
     this.entryOpen = true;
-    return new TeleportDictEntryWriter(this.keyType, this.valueType, this.payload, () => {
+    return new TeleportDictEntryWriter(this.keyType, this.valueType, this.out, () => {
       this.entryOpen = false;
+      this.out.owner = this;
     });
   }
 
+  /** The encoded dictionary, for one written on its own rather than as a field or element. */
   public finish(): Uint8Array {
+    if (this.nested) {
+      throw new Error('A nested Teleport container is finished by its parent');
+    }
+
+    if (!this.cached) {
+      this.close();
+      this.cached = this.out.toUint8Array();
+    }
+
+    return this.cached;
+  }
+
+  /** @internal Writes the entry count. The parent then takes back ownership of the buffer. */
+  public close(): void {
     if (this.entryOpen) {
       throw new Error('Dictionary entry not completed');
     }
 
-    const buffer = new ByteBuffer();
-    buffer.writeByte(composeDescriptor(this.keyType));
-    buffer.writeByte(composeDescriptor(this.valueType));
-    buffer.writeVarUInt(this.count);
-    buffer.writeBytes(this.payload.toUint8Array());
-    return buffer.toUint8Array();
+    this.out.claim(this);
+    this.out.patchVarUInt(this.countAt, this.count);
+    this.out.owner = null;
   }
 }
 
@@ -656,175 +899,143 @@ export class TeleportDictEntryWriter {
     private readonly valueType: TeleportType,
     private readonly payload: ByteBuffer,
     private readonly onComplete: () => void,
-  ) {}
+  ) {
+    payload.owner = this;
+  }
 
   public writeKeyInt32(value: number): void {
-    this.ensureKeyType(TeleportType.Int32);
-    this.payload.writeInt32(value | 0);
-    this.keyWritten = true;
+    this.beginKey(TeleportType.Int32);
+    this.payload.writeInt32(value);
   }
 
   public writeKeyUInt32(value: number): void {
-    this.ensureKeyType(TeleportType.UInt32);
+    this.beginKey(TeleportType.UInt32);
     this.payload.writeUInt32(value >>> 0);
-    this.keyWritten = true;
   }
 
   public writeKeyInt64(value: bigint): void {
-    this.ensureKeyType(TeleportType.Int64);
+    this.beginKey(TeleportType.Int64);
     this.payload.writeBigInt64(value);
-    this.keyWritten = true;
   }
 
   public writeKeyUInt64(value: bigint): void {
-    this.ensureKeyType(TeleportType.UInt64);
+    this.beginKey(TeleportType.UInt64);
     this.payload.writeBigUInt64(value);
-    this.keyWritten = true;
   }
 
   public writeKeyFloat32(value: number): void {
-    this.ensureKeyType(TeleportType.Float32);
+    this.beginKey(TeleportType.Float32);
     this.payload.writeFloat32(value);
-    this.keyWritten = true;
   }
 
   public writeKeyFloat64(value: number): void {
-    this.ensureKeyType(TeleportType.Float64);
+    this.beginKey(TeleportType.Float64);
     this.payload.writeFloat64(value);
-    this.keyWritten = true;
   }
 
   public writeKeyBool(value: boolean): void {
-    this.ensureKeyType(TeleportType.Bool);
+    this.beginKey(TeleportType.Bool);
     this.payload.writeByte(value ? 1 : 0);
-    this.keyWritten = true;
   }
 
   public writeKeyGuid(value: TeleportGuid | Uint8Array): void {
-    this.ensureKeyType(TeleportType.Guid);
-    const bytes = value instanceof TeleportGuid ? value.asBytes() : value;
-    if (bytes.length !== 16) {
-      throw new Error('Guid payload must be 16 bytes');
-    }
-
+    const bytes = guidBytes(value);
+    this.beginKey(TeleportType.Guid);
     this.payload.writeBytes(bytes);
-    this.keyWritten = true;
   }
 
   public writeKeyString(value: string): void {
-    this.ensureKeyType(TeleportType.String);
-    const encoded = utf8Encoder.encode(value ?? '');
-    this.payload.writeVarUInt(encoded.length);
-    this.payload.writeBytes(encoded);
-    this.keyWritten = true;
+    this.beginKey(TeleportType.String);
+    this.payload.writeString(value ?? '');
   }
 
   public writeKeyBinary(value: Uint8Array): void {
-    this.ensureKeyType(TeleportType.Binary);
+    this.beginKey(TeleportType.Binary);
     this.payload.writeVarUInt(value.length);
     this.payload.writeBytes(value);
-    this.keyWritten = true;
   }
 
   public writeValueInt32(value: number): void {
-    this.ensureValueType(TeleportType.Int32);
-    this.payload.writeInt32(value | 0);
-    this.valueWritten = true;
+    this.beginValue(TeleportType.Int32);
+    this.payload.writeInt32(value);
   }
 
   public writeValueUInt32(value: number): void {
-    this.ensureValueType(TeleportType.UInt32);
+    this.beginValue(TeleportType.UInt32);
     this.payload.writeUInt32(value >>> 0);
-    this.valueWritten = true;
   }
 
   public writeValueInt64(value: bigint): void {
-    this.ensureValueType(TeleportType.Int64);
+    this.beginValue(TeleportType.Int64);
     this.payload.writeBigInt64(value);
-    this.valueWritten = true;
   }
 
   public writeValueUInt64(value: bigint): void {
-    this.ensureValueType(TeleportType.UInt64);
+    this.beginValue(TeleportType.UInt64);
     this.payload.writeBigUInt64(value);
-    this.valueWritten = true;
   }
 
   public writeValueFloat32(value: number): void {
-    this.ensureValueType(TeleportType.Float32);
+    this.beginValue(TeleportType.Float32);
     this.payload.writeFloat32(value);
-    this.valueWritten = true;
   }
 
   public writeValueFloat64(value: number): void {
-    this.ensureValueType(TeleportType.Float64);
+    this.beginValue(TeleportType.Float64);
     this.payload.writeFloat64(value);
-    this.valueWritten = true;
   }
 
   public writeValueBool(value: boolean): void {
-    this.ensureValueType(TeleportType.Bool);
+    this.beginValue(TeleportType.Bool);
     this.payload.writeByte(value ? 1 : 0);
-    this.valueWritten = true;
   }
 
   public writeValueGuid(value: TeleportGuid | Uint8Array): void {
-    this.ensureValueType(TeleportType.Guid);
-    const bytes = value instanceof TeleportGuid ? value.asBytes() : value;
-    if (bytes.length !== 16) {
-      throw new Error('Guid payload must be 16 bytes');
-    }
-
+    const bytes = guidBytes(value);
+    this.beginValue(TeleportType.Guid);
     this.payload.writeBytes(bytes);
-    this.valueWritten = true;
   }
 
   public writeNullValue(): void {
-    this.ensureValueType(TeleportType.Null);
-    this.valueWritten = true;
+    this.beginValue(TeleportType.Null);
   }
 
   public writeValueBinary(value: Uint8Array): void {
-    this.ensureValueType(TeleportType.Binary);
+    this.beginValue(TeleportType.Binary);
     this.payload.writeVarUInt(value.length);
     this.payload.writeBytes(value);
-    this.valueWritten = true;
   }
 
   public writeValueString(value: string): void {
-    this.ensureValueType(TeleportType.String);
-    const encoded = utf8Encoder.encode(value ?? '');
-    this.payload.writeVarUInt(encoded.length);
-    this.payload.writeBytes(encoded);
-    this.valueWritten = true;
+    this.beginValue(TeleportType.String);
+    this.payload.writeString(value ?? '');
   }
 
   public writeValueObject(version: number, build: (scope: TeleportObjectWriter) => void): void {
-    this.ensureValueType(TeleportType.Object);
-    const nested = new TeleportObjectWriter(version);
+    this.beginValue(TeleportType.Object);
+    const out = this.payload;
+    const length = out.reserveVarUInt();
+    const nested = new TeleportObjectWriter(version, out);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeVarUInt(payload.length);
-    this.payload.writeBytes(payload);
-    this.valueWritten = true;
+    nested.close();
+    out.owner = this;
+    out.patchLength(length);
   }
 
   public writeValueArray(elementType: TeleportType, build: (scope: TeleportArrayWriter) => void): void {
-    this.ensureValueType(TeleportType.Array);
-    const nested = new TeleportArrayWriter(elementType);
+    this.beginValue(TeleportType.Array);
+    const nested = new TeleportArrayWriter(elementType, this.payload);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeBytes(payload);
-    this.valueWritten = true;
+    nested.close();
+    this.payload.owner = this;
   }
 
   public writeValueDictionary(keyType: TeleportType, valueType: TeleportType, build: (scope: TeleportDictWriter) => void): void {
-    this.ensureValueType(TeleportType.Dict);
-    const nested = new TeleportDictWriter(keyType, valueType);
+    this.beginValue(TeleportType.Dict);
+    const nested = new TeleportDictWriter(keyType, valueType, this.payload);
     build(nested);
-    const payload = nested.finish();
-    this.payload.writeBytes(payload);
-    this.valueWritten = true;
+    nested.close();
+    this.payload.owner = this;
   }
 
   public complete(): void {
@@ -840,151 +1051,213 @@ export class TeleportDictEntryWriter {
     this.onComplete();
   }
 
-  private ensureKeyType(expected: TeleportType): void {
+  // The key comes before the value on the wire, so writing the value first, or a second key, would put
+  // bytes in the wrong place
+  private beginKey(expected: TeleportType): void {
     if (this.keyType !== expected) {
       throw new Error(`Dictionary key type is ${TeleportType[this.keyType]}, expected ${TeleportType[expected]}`);
     }
+
+    if (this.keyWritten) {
+      throw new Error('Dictionary entry key already written');
+    }
+
+    this.payload.claim(this);
+    this.keyWritten = true;
   }
 
-  private ensureValueType(expected: TeleportType): void {
+  private beginValue(expected: TeleportType): void {
     if (this.valueType !== expected) {
       throw new Error(`Dictionary value type is ${TeleportType[this.valueType]}, expected ${TeleportType[expected]}`);
     }
+
+    if (!this.keyWritten || this.valueWritten) {
+      throw new Error(this.keyWritten ? 'Dictionary entry value already written' : 'Dictionary entry key must be written before its value');
+    }
+
+    this.payload.claim(this);
+    this.valueWritten = true;
   }
 }
 
 export class TeleportObjectReader {
   private offset: number;
   private readonly end: number;
+  private field: TeleportField | undefined;
 
-  private constructor(private readonly buffer: Uint8Array, public readonly version: number, startOffset: number) {
+  private constructor(private readonly buffer: Uint8Array, private readonly view: DataView, public readonly version: number, startOffset: number, end: number) {
     this.offset = startOffset;
-    this.end = buffer.length - 1;
+    this.end = end;
   }
 
   public static create(data: ArrayBuffer | Uint8Array): TeleportObjectReader {
     const bytes = toUint8Array(data);
-    if (bytes.length < 2) {
+    return TeleportObjectReader.open(bytes, new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), 0, bytes.length);
+  }
+
+  /** @internal Reads the `size`-byte object at `start` without copying it out of `bytes`. */
+  public static open(bytes: Uint8Array, view: DataView, start: number, size: number): TeleportObjectReader {
+    if (size < 2) {
       throw new Error('Teleport payload too short');
     }
 
-    if (bytes[0] !== OBJECT_START || bytes[bytes.length - 1] !== OBJECT_END) {
+    const last = start + size - 1;
+
+    if (bytes[start] !== OBJECT_START || bytes[last] !== OBJECT_END) {
       throw new Error('Teleport object missing markers');
     }
 
-    const state: OffsetState = { offset: 1 };
-    const version = readVarUInt(bytes, state, 'InvalidLength');
-    return new TeleportObjectReader(bytes, version, state.offset);
+    const version = readVarUInt(bytes, start + 1, last, 'InvalidLength');
+    return new TeleportObjectReader(bytes, view, version, varUIntEnd, last);
   }
 
+  /** The next field, or null after the last. Every call returns the same object, updated to the next field, so read a field before calling `next` again. */
   public next(): TeleportField | null {
-    if (this.offset >= this.end) {
+    const buffer = this.buffer;
+    const end = this.end;
+    let offset = this.offset;
+
+    if (offset >= end) {
       return null;
     }
 
-    if (this.offset + 5 > this.buffer.length) {
+    if (offset + 5 > end) {
       throw new Error('Teleport object truncated');
     }
 
-    const fieldId = readUInt32(this.buffer, this.offset);
-    this.offset += 4;
-    const descriptor = this.buffer[this.offset++];
-    const type = ((descriptor >> 4) & 0x0f);
+    const fieldId = (buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24)) >>> 0;
+    const descriptor = buffer[offset + 4];
+    offset += 5;
 
     if ((descriptor & 0x0f) !== 0) {
       throw new Error('Teleport field flags must be zero');
     }
 
-    const fixedSize = getFixedSize(type);
-    let payload: Uint8Array;
+    const type = descriptor >> 4;
+    let size = getFixedSize(type);
 
-    if (fixedSize >= 0) {
-      ensureRange(this.buffer, this.offset, fixedSize);
-      payload = this.buffer.subarray(this.offset, this.offset + fixedSize);
-      this.offset += fixedSize;
-    } else {
-      const state: OffsetState = { offset: this.offset };
-      const length = readVarUInt(this.buffer, state, 'InvalidLength');
-      ensureRange(this.buffer, state.offset, length);
-      payload = this.buffer.subarray(state.offset, state.offset + length);
-      this.offset = state.offset + length;
+    if (size < 0) {
+      size = readVarUInt(buffer, offset, end, 'InvalidLength');
+      offset = varUIntEnd;
     }
 
-    return new TeleportField(fieldId, type, payload);
+    // The end marker is not part of any field, so a field running into it is malformed
+    if (offset + size > end) {
+      throw new Error('Teleport payload exceeds bounds');
+    }
+
+    this.offset = offset + size;
+    const field = this.field;
+
+    if (field === undefined) {
+      return (this.field = new TeleportField(fieldId, type, buffer, offset, size, this.view));
+    }
+
+    field.fieldId = fieldId;
+    field.moveTo(type, offset, size);
+    return field;
   }
 }
 
 export class TeleportValue {
-  public constructor(public readonly type: TeleportType, protected readonly payload: Uint8Array) {}
+  public type: TeleportType;
+  protected readonly bytes: Uint8Array;
+  protected start: number;
+  protected size: number;
+  private view: DataView | undefined;
+
+  /**
+   * @param payload - The value's bytes, or the buffer they sit in when `start` and `size` are given.
+   * @param view - A view over all of `payload`, shared by the values read from one buffer.
+   */
+  public constructor(type: TeleportType, payload: Uint8Array, start = 0, size = payload.length - start, view?: DataView) {
+    this.type = type;
+    this.bytes = payload;
+    this.start = start;
+    this.size = size;
+    this.view = view;
+  }
+
+  /** @internal Points this value at the next one in the same buffer. */
+  public moveTo(type: TeleportType, start: number, size: number): void {
+    this.type = type;
+    this.start = start;
+    this.size = size;
+  }
 
   public asInt32(): number {
     this.ensureType(TeleportType.Int32);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 4).getInt32(0, true);
+    const b = this.bytes;
+    const i = this.start;
+    return b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24);
   }
 
   public asUInt32(): number {
     this.ensureType(TeleportType.UInt32);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 4).getUint32(0, true);
+    const b = this.bytes;
+    const i = this.start;
+    return (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
   }
 
   public asInt64(): bigint {
     this.ensureType(TeleportType.Int64);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 8).getBigInt64(0, true);
+    return this.dataView().getBigInt64(this.start, true);
   }
 
   public asUInt64(): bigint {
     this.ensureType(TeleportType.UInt64);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 8).getBigUint64(0, true);
+    return this.dataView().getBigUint64(this.start, true);
   }
 
   public asFloat32(): number {
     this.ensureType(TeleportType.Float32);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 4).getFloat32(0, true);
+    return this.dataView().getFloat32(this.start, true);
   }
 
   public asFloat64(): number {
     this.ensureType(TeleportType.Float64);
-    return new DataView(this.payload.buffer, this.payload.byteOffset, 8).getFloat64(0, true);
+    return this.dataView().getFloat64(this.start, true);
   }
 
   public asBool(): boolean {
     this.ensureType(TeleportType.Bool);
-    return this.payload.length > 0 && this.payload[0] !== 0;
+    return this.size > 0 && this.bytes[this.start] !== 0;
   }
 
+  /** A view into the received bytes, not a copy. */
   public asBinary(): Uint8Array {
     this.ensureType(TeleportType.Binary);
-    return this.payload;
+    return this.bytes.subarray(this.start, this.start + this.size);
   }
 
   public asUtf8(): Uint8Array {
     this.ensureType(TeleportType.String);
-    return this.payload;
+    return this.bytes.subarray(this.start, this.start + this.size);
   }
 
   public asString(): string {
     this.ensureType(TeleportType.String);
-    return utf8Decoder.decode(this.payload);
+    return decodeUtf8(this.bytes, this.start, this.size);
   }
 
   public asGuid(): TeleportGuid {
     this.ensureType(TeleportType.Guid);
-    return TeleportGuid.fromBytes(this.payload);
+    return TeleportGuid.fromBytes(this.bytes.subarray(this.start, this.start + this.size));
   }
 
   public asObject(): TeleportObjectReader {
     this.ensureType(TeleportType.Object);
-    return TeleportObjectReader.create(this.payload);
+    return TeleportObjectReader.open(this.bytes, this.dataView(), this.start, this.size);
   }
 
   public asArray(): TeleportArrayReader {
     this.ensureType(TeleportType.Array);
-    return TeleportArrayReader.create(this.payload);
+    return TeleportArrayReader.open(this.bytes, this.dataView(), this.start, this.size);
   }
 
   public asDictionary(): TeleportDictReader {
     this.ensureType(TeleportType.Dict);
-    return TeleportDictReader.create(this.payload);
+    return TeleportDictReader.open(this.bytes, this.dataView(), this.start, this.size);
   }
 
   protected ensureType(expected: TeleportType): void {
@@ -992,11 +1265,19 @@ export class TeleportValue {
       throw new Error(`Teleport value has type ${TeleportType[this.type]}, expected ${TeleportType[expected]}`);
     }
   }
+
+  private dataView(): DataView {
+    this.view ??= new DataView(this.bytes.buffer, this.bytes.byteOffset, this.bytes.byteLength);
+    return this.view;
+  }
 }
 
 export class TeleportField extends TeleportValue {
-  public constructor(public readonly fieldId: number, type: TeleportType, payload: Uint8Array) {
-    super(type, payload);
+  public fieldId: number;
+
+  public constructor(fieldId: number, type: TeleportType, payload: Uint8Array, start?: number, size?: number, view?: DataView) {
+    super(type, payload, start, size, view);
+    this.fieldId = fieldId;
   }
 
   public get isNull(): boolean {
@@ -1005,233 +1286,132 @@ export class TeleportField extends TeleportValue {
 }
 
 export class TeleportArrayReader {
-  private readonly payload: Uint8Array;
   private readonly elementType: TeleportType;
   private readonly count: number;
   private offset: number;
   private index = 0;
+  private element: TeleportArrayElement | undefined;
 
-  private constructor(payload: Uint8Array) {
-    this.payload = payload;
-    if (payload.length === 0) {
+  private constructor(private readonly payload: Uint8Array, private readonly view: DataView, start: number, private readonly end: number) {
+    if (end <= start) {
       throw new Error('Array payload too short');
     }
 
-    const descriptor = payload[0];
-    this.elementType = ((descriptor >> 4) & 0x0f);
+    const descriptor = payload[start];
+    this.elementType = descriptor >> 4;
 
     if ((descriptor & 0x0f) !== 0) {
       throw new Error('Array flags must be zero');
     }
 
-    const state: OffsetState = { offset: 1 };
-    this.count = readVarUInt(payload, state, 'ArrayMalformed');
-    this.offset = state.offset;
+    this.count = readVarUInt(payload, start + 1, end, 'ArrayMalformed');
+    this.offset = varUIntEnd;
   }
 
   public static create(data: ArrayBuffer | Uint8Array): TeleportArrayReader {
-    return new TeleportArrayReader(toUint8Array(data));
+    const bytes = toUint8Array(data);
+    return new TeleportArrayReader(bytes, new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), 0, bytes.length);
   }
 
+  /** @internal Reads the `size`-byte array at `start` without copying it out of `bytes`. */
+  public static open(bytes: Uint8Array, view: DataView, start: number, size: number): TeleportArrayReader {
+    return new TeleportArrayReader(bytes, view, start, start + size);
+  }
+
+  /** The next element, or null after the last. Every call returns the same object, updated to the next element. */
   public next(): TeleportArrayElement | null {
     if (this.index >= this.count) {
-      if (this.offset !== this.payload.length) {
+      if (this.offset !== this.end) {
         throw new Error('Array payload contains trailing data');
       }
 
       return null;
     }
 
-    const value = this.readValue();
+    const type = this.elementType;
+    const start = readInlineValue(type, this.payload, this.offset, this.end, 'ArrayMalformed', 0);
+    this.offset = inlineValueEnd;
     this.index++;
-    return value;
-  }
+    const element = this.element;
 
-  private readValue(): TeleportArrayElement {
-    switch (this.elementType) {
-      case TeleportType.Int32:
-      case TeleportType.UInt32:
-      case TeleportType.Float32:
-      case TeleportType.Float64:
-      case TeleportType.Bool:
-      case TeleportType.Int64:
-      case TeleportType.UInt64:
-      case TeleportType.Guid: {
-        const size = getFixedSize(this.elementType);
-        ensureRange(this.payload, this.offset, size);
-        const slice = this.payload.subarray(this.offset, this.offset + size);
-        this.offset += size;
-        return new TeleportArrayElement(this.elementType, slice);
-      }
-
-      case TeleportType.String:
-      case TeleportType.Binary: {
-        const state: OffsetState = { offset: this.offset };
-        const length = readVarUInt(this.payload, state, 'ArrayMalformed');
-        ensureRange(this.payload, state.offset, length);
-        const slice = this.payload.subarray(state.offset, state.offset + length);
-        this.offset = state.offset + length;
-        return new TeleportArrayElement(this.elementType, slice);
-      }
-
-      case TeleportType.Object: {
-        const state: OffsetState = { offset: this.offset };
-        const length = readVarUInt(this.payload, state, 'ArrayMalformed');
-        ensureRange(this.payload, state.offset, length);
-        const slice = this.payload.subarray(state.offset, state.offset + length);
-        this.offset = state.offset + length;
-        return new TeleportArrayElement(TeleportType.Object, slice);
-      }
-
-      case TeleportType.Array: {
-        const length = consumeArrayPayload(this.payload, this.offset, 0);
-        const slice = this.payload.subarray(this.offset, this.offset + length);
-        this.offset += length;
-        return new TeleportArrayElement(TeleportType.Array, slice);
-      }
-
-      case TeleportType.Dict: {
-        const length = consumeDictPayload(this.payload, this.offset, 0);
-        const slice = this.payload.subarray(this.offset, this.offset + length);
-        this.offset += length;
-        return new TeleportArrayElement(TeleportType.Dict, slice);
-      }
-
-      default:
-        throw new Error(`Unsupported array element type ${TeleportType[this.elementType]}`);
+    if (element === undefined) {
+      return (this.element = new TeleportArrayElement(type, this.payload, start, inlineValueEnd - start, this.view));
     }
+
+    element.moveTo(type, start, inlineValueEnd - start);
+    return element;
   }
 }
 
 export class TeleportArrayElement extends TeleportValue {
-  public constructor(type: TeleportType, payload: Uint8Array) {
-    super(type, payload);
+  public constructor(type: TeleportType, payload: Uint8Array, start?: number, size?: number, view?: DataView) {
+    super(type, payload, start, size, view);
   }
 }
 
 export class TeleportDictReader {
-  private readonly payload: Uint8Array;
   private readonly keyType: TeleportType;
   private readonly valueType: TeleportType;
   private readonly count: number;
   private offset: number;
   private index = 0;
+  private entry: TeleportDictEntry | undefined;
 
-  private constructor(payload: Uint8Array) {
-    this.payload = payload;
-    if (payload.length < 2) {
+  private constructor(private readonly payload: Uint8Array, private readonly view: DataView, start: number, private readonly end: number) {
+    if (end - start < 2) {
       throw new Error('Dictionary payload too short');
     }
 
-    this.keyType = ((payload[0] >> 4) & 0x0f);
-    this.valueType = ((payload[1] >> 4) & 0x0f);
+    this.keyType = payload[start] >> 4;
+    this.valueType = payload[start + 1] >> 4;
 
-    if ((payload[0] & 0x0f) !== 0 || (payload[1] & 0x0f) !== 0) {
+    if ((payload[start] & 0x0f) !== 0 || (payload[start + 1] & 0x0f) !== 0) {
       throw new Error('Dictionary key/value flags must be zero');
     }
 
     ensurePrimitiveKey(this.keyType);
-
-    const state: OffsetState = { offset: 2 };
-    this.count = readVarUInt(payload, state, 'DictMalformed');
-    this.offset = state.offset;
+    this.count = readVarUInt(payload, start + 2, end, 'DictMalformed');
+    this.offset = varUIntEnd;
   }
 
   public static create(data: ArrayBuffer | Uint8Array): TeleportDictReader {
-    return new TeleportDictReader(toUint8Array(data));
+    const bytes = toUint8Array(data);
+    return new TeleportDictReader(bytes, new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), 0, bytes.length);
   }
 
+  /** @internal Reads the `size`-byte dictionary at `start` without copying it out of `bytes`. */
+  public static open(bytes: Uint8Array, view: DataView, start: number, size: number): TeleportDictReader {
+    return new TeleportDictReader(bytes, view, start, start + size);
+  }
+
+  /** The next entry, or null after the last. Every call returns the same entry, key and value objects, updated to the next entry. */
   public next(): TeleportDictEntry | null {
     if (this.index >= this.count) {
-      if (this.offset !== this.payload.length) {
+      if (this.offset !== this.end) {
         throw new Error('Dictionary payload contains trailing data');
       }
 
       return null;
     }
 
-    const key = this.readKey();
-    const value = this.readValue();
+    const keyStart = readInlineValue(this.keyType, this.payload, this.offset, this.end, 'DictMalformed', 0);
+    const keyEnd = inlineValueEnd;
+    const valueStart = readInlineValue(this.valueType, this.payload, keyEnd, this.end, 'DictMalformed', 0);
+    const valueEnd = inlineValueEnd;
+    this.offset = valueEnd;
     this.index++;
-    return new TeleportDictEntry(key, value);
-  }
+    const entry = this.entry;
 
-  private readKey(): TeleportValue {
-    const size = getFixedSize(this.keyType);
-
-    if (size >= 0) {
-      ensureRange(this.payload, this.offset, size);
-      const slice = this.payload.subarray(this.offset, this.offset + size);
-      this.offset += size;
-      return new TeleportValue(this.keyType, slice);
+    if (entry === undefined) {
+      return (this.entry = new TeleportDictEntry(
+        new TeleportValue(this.keyType, this.payload, keyStart, keyEnd - keyStart, this.view),
+        new TeleportValue(this.valueType, this.payload, valueStart, valueEnd - valueStart, this.view),
+      ));
     }
 
-    if (this.keyType === TeleportType.String || this.keyType === TeleportType.Binary) {
-      const state: OffsetState = { offset: this.offset };
-      const length = readVarUInt(this.payload, state, 'DictMalformed');
-      ensureRange(this.payload, state.offset, length);
-      const slice = this.payload.subarray(state.offset, state.offset + length);
-      this.offset = state.offset + length;
-      return new TeleportValue(this.keyType, slice);
-    }
-
-    throw new Error('Unsupported dictionary key type');
-  }
-
-  private readValue(): TeleportValue {
-    switch (this.valueType) {
-      case TeleportType.String:
-      case TeleportType.Binary: {
-        const state: OffsetState = { offset: this.offset };
-        const length = readVarUInt(this.payload, state, 'DictMalformed');
-        ensureRange(this.payload, state.offset, length);
-        const slice = this.payload.subarray(state.offset, state.offset + length);
-        this.offset = state.offset + length;
-        return new TeleportValue(this.valueType, slice);
-      }
-
-      case TeleportType.Object: {
-        const state: OffsetState = { offset: this.offset };
-        const length = readVarUInt(this.payload, state, 'DictMalformed');
-        ensureRange(this.payload, state.offset, length);
-        const slice = this.payload.subarray(state.offset, state.offset + length);
-        this.offset = state.offset + length;
-        return new TeleportValue(TeleportType.Object, slice);
-      }
-
-      case TeleportType.Array: {
-        const length = consumeArrayPayload(this.payload, this.offset, 0);
-        const slice = this.payload.subarray(this.offset, this.offset + length);
-        this.offset += length;
-        return new TeleportValue(TeleportType.Array, slice);
-      }
-
-      case TeleportType.Dict: {
-        const length = consumeDictPayload(this.payload, this.offset, 0);
-        const slice = this.payload.subarray(this.offset, this.offset + length);
-        this.offset += length;
-        return new TeleportValue(TeleportType.Dict, slice);
-      }
-
-      case TeleportType.Int32:
-      case TeleportType.UInt32:
-      case TeleportType.Float32:
-      case TeleportType.Float64:
-      case TeleportType.Bool:
-      case TeleportType.Int64:
-      case TeleportType.UInt64:
-      case TeleportType.Guid:
-      case TeleportType.Null: {
-        const size = getFixedSize(this.valueType);
-        ensureRange(this.payload, this.offset, size);
-        const slice = this.payload.subarray(this.offset, this.offset + size);
-        this.offset += size;
-        return new TeleportValue(this.valueType, slice);
-      }
-
-      default:
-        throw new Error(`Unsupported dictionary value type ${TeleportType[this.valueType]}`);
-    }
+    entry.key.moveTo(this.keyType, keyStart, keyEnd - keyStart);
+    entry.value.moveTo(this.valueType, valueStart, valueEnd - valueStart);
+    return entry;
   }
 }
 
@@ -1273,7 +1453,7 @@ export class TeleportGuid {
       throw new Error('Guid byte array must be 16 bytes');
     }
 
-    return new TeleportGuid(Uint8Array.from(bytes));
+    return new TeleportGuid(bytes instanceof Uint8Array ? bytes.slice() : Uint8Array.from(bytes));
   }
 
   public static createZero(): TeleportGuid {
@@ -1356,114 +1536,61 @@ export class TeleportGuid {
   }
 }
 
-class ByteBuffer {
-  private static readonly INITIAL_CAPACITY = 256;
 
-  private buffer: Uint8Array;
-  private dataView: DataView;
-  private length = 0;
+// Short ASCII strings, which include most ids and names, are built from their bytes with a loop,
+// because a browser's TextDecoder costs more per call than the loop does at this length.
+const ASCII_DECODE_MAX = 32;
+const asciiScratch: number[] = [];
 
-  constructor() {
-    this.buffer = new Uint8Array(ByteBuffer.INITIAL_CAPACITY);
-    this.dataView = new DataView(this.buffer.buffer);
+function decodeUtf8(bytes: Uint8Array, start: number, size: number): string {
+  if (size === 0) {
+    return '';
   }
 
-  private ensureCapacity(additional: number): void {
-    const required = this.length + additional;
-    if (required <= this.buffer.length) {
-      return;
+  if (size <= ASCII_DECODE_MAX) {
+    const units = asciiScratch;
+    units.length = size;
+
+    for (let i = 0; i < size; i++) {
+      const byte = bytes[start + i];
+
+      if (byte >= 0x80) {
+        return utf8Decoder.decode(bytes.subarray(start, start + size));
+      }
+
+      units[i] = byte;
     }
 
-    let newCapacity = this.buffer.length;
-    while (newCapacity < required) {
-      newCapacity *= 2;
-    }
-
-    const newBuffer = new Uint8Array(newCapacity);
-    newBuffer.set(this.buffer.subarray(0, this.length));
-    this.buffer = newBuffer;
-    this.dataView = new DataView(this.buffer.buffer);
+    return String.fromCharCode.apply(null, units);
   }
 
-  public writeByte(value: number): void {
-    this.ensureCapacity(1);
-    this.buffer[this.length++] = value & 0xff;
-  }
-
-  public writeBytes(value: Uint8Array): void {
-    this.ensureCapacity(value.length);
-    this.buffer.set(value, this.length);
-    this.length += value.length;
-  }
-
-  public writeUInt32(value: number): void {
-    this.ensureCapacity(4);
-    this.dataView.setUint32(this.length, value >>> 0, true);
-    this.length += 4;
-  }
-
-  public writeInt32(value: number): void {
-    this.ensureCapacity(4);
-    this.dataView.setInt32(this.length, value | 0, true);
-    this.length += 4;
-  }
-
-  public writeFloat32(value: number): void {
-    this.ensureCapacity(4);
-    this.dataView.setFloat32(this.length, value, true);
-    this.length += 4;
-  }
-
-  public writeFloat64(value: number): void {
-    this.ensureCapacity(8);
-    this.dataView.setFloat64(this.length, value, true);
-    this.length += 8;
-  }
-
-  public writeBigInt64(value: bigint): void {
-    this.ensureCapacity(8);
-    this.dataView.setBigInt64(this.length, value, true);
-    this.length += 8;
-  }
-
-  public writeBigUInt64(value: bigint): void {
-    this.ensureCapacity(8);
-    this.dataView.setBigUint64(this.length, value, true);
-    this.length += 8;
-  }
-
-  public writeVarUInt(value: number): void {
-    let current = value >>> 0;
-    while (current >= 0x80) {
-      this.ensureCapacity(1);
-      this.buffer[this.length++] = (current & 0x7f) | 0x80;
-      current >>>= 7;
-    }
-
-    this.ensureCapacity(1);
-    this.buffer[this.length++] = current & 0x7f;
-  }
-
-  public toUint8Array(): Uint8Array {
-    return this.buffer.slice(0, this.length);
-  }
+  return utf8Decoder.decode(bytes.subarray(start, start + size));
 }
 
-interface OffsetState {
-  offset: number;
-}
+// Where the last readVarUInt or readInlineValue call stopped. They return this second value here so
+// that no call allocates an object. The readers are synchronous, so nothing runs between a call and
+// the read of its end.
+let varUIntEnd = 0;
+let inlineValueEnd = 0;
 
-function readVarUInt(data: Uint8Array, state: OffsetState, error: string): number {
-  if (state.offset >= data.length) {
+function readVarUInt(data: Uint8Array, offset: number, limit: number, error: string): number {
+  if (offset >= limit) {
     throw new Error(error);
+  }
+
+  const first = data[offset];
+
+  if (first < 0x80) {
+    varUIntEnd = offset + 1;
+    return first;
   }
 
   let result = 0;
   let shift = 0;
   let bytesRead = 0;
 
-  while (state.offset < data.length) {
-    const current = data[state.offset++];
+  while (offset < limit) {
+    const current = data[offset++];
     bytesRead++;
 
     // Only the low four bits of a fifth byte fit in 32; C# refuses the rest, and silently dropping
@@ -1482,6 +1609,7 @@ function readVarUInt(data: Uint8Array, state: OffsetState, error: string): numbe
         throw new Error('Teleport VarUInt is not canonical');
       }
 
+      varUIntEnd = offset;
       return value;
     }
 
@@ -1493,6 +1621,18 @@ function readVarUInt(data: Uint8Array, state: OffsetState, error: string): numbe
   }
 
   throw new Error(error);
+}
+
+function writeVarUIntAt(bytes: Uint8Array, at: number, value: number): number {
+  let current = value >>> 0;
+
+  while (current >= 0x80) {
+    bytes[at++] = (current & 0x7f) | 0x80;
+    current >>>= 7;
+  }
+
+  bytes[at++] = current;
+  return at;
 }
 
 function getVarUIntLength(value: number): number {
@@ -1521,16 +1661,6 @@ function composeDescriptor(type: TeleportType, flags = 0): number {
   }
 
   return ((type & 0x0f) << 4) | (flags & 0x0f);
-}
-
-function requiresLengthEncoding(type: TeleportType): boolean {
-  return (
-    type === TeleportType.String ||
-    type === TeleportType.Binary ||
-    type === TeleportType.Array ||
-    type === TeleportType.Object ||
-    type === TeleportType.Dict
-  );
 }
 
 function getFixedSize(type: TeleportType): number {
@@ -1565,19 +1695,62 @@ function ensurePrimitiveKey(type: TeleportType): void {
   }
 }
 
-function ensureRange(data: Uint8Array, offset: number, length: number): void {
-  if (offset < 0 || length < 0 || offset + length > data.length) {
+function ensureRange(limit: number, offset: number, length: number): void {
+  if (offset < 0 || length < 0 || offset + length > limit) {
     throw new Error('Teleport payload exceeds bounds');
   }
 }
 
-function readUInt32(buffer: Uint8Array, offset: number): number {
-  return (
-    buffer[offset] |
-    (buffer[offset + 1] << 8) |
-    (buffer[offset + 2] << 16) |
-    (buffer[offset + 3] << 24)
-  ) >>> 0;
+function guidBytes(guid: TeleportGuid | Uint8Array): Uint8Array {
+  const bytes = guid instanceof TeleportGuid ? guid.asBytes() : guid;
+
+  if (bytes.length !== 16) {
+    throw new Error('Guid payload must be 16 bytes');
+  }
+
+  return bytes;
+}
+
+/**
+ * Finds the value of `type` at `offset` inside an array or dictionary. Inside them, a string, binary
+ * or object has a length prefix and a nested array or dictionary does not. Returns where the value's bytes
+ * start and sets {@link inlineValueEnd} to where they end.
+ */
+function readInlineValue(type: TeleportType, payload: Uint8Array, offset: number, limit: number, error: string, depth: number): number {
+  const fixed = getFixedSize(type);
+
+  if (fixed >= 0) {
+    ensureRange(limit, offset, fixed);
+    inlineValueEnd = offset + fixed;
+    return offset;
+  }
+
+  switch (type) {
+    case TeleportType.String:
+    case TeleportType.Binary:
+    case TeleportType.Object: {
+      const length = readVarUInt(payload, offset, limit, error);
+      const start = varUIntEnd;
+      ensureRange(limit, start, length);
+      inlineValueEnd = start + length;
+      return start;
+    }
+
+    case TeleportType.Array: {
+      const end = offset + consumeArrayPayload(payload, offset, limit, depth);
+      inlineValueEnd = end;
+      return offset;
+    }
+
+    case TeleportType.Dict: {
+      const end = offset + consumeDictPayload(payload, offset, limit, depth);
+      inlineValueEnd = end;
+      return offset;
+    }
+
+    default:
+      throw new Error(`Unsupported Teleport type ${TeleportType[type]}`);
+  }
 }
 
 // Mirrors TeleportDepth.MaxDepth in the C# runtime: containers nested deeper than this throw a
@@ -1586,108 +1759,79 @@ function readUInt32(buffer: Uint8Array, offset: number): number {
 // client bytes without parsing them), so the bound has to live here too.
 const MAX_CONTAINER_DEPTH = 128;
 
-function consumeArrayPayload(payload: Uint8Array, start: number, depth: number): number {
+function consumeArrayPayload(payload: Uint8Array, start: number, limit: number, depth: number): number {
   if (depth >= MAX_CONTAINER_DEPTH) {
     throw new Error('Teleport nesting depth exceeded');
   }
 
-  if (start >= payload.length) {
+  if (start >= limit) {
     throw new Error('Array payload exceeds bounds');
   }
 
   const descriptor = payload[start];
-  const elementType = ((descriptor >> 4) & 0x0f);
+  const elementType = descriptor >> 4;
+
   if ((descriptor & 0x0f) !== 0) {
     throw new Error('Array flags must be zero');
   }
 
-  const state: OffsetState = { offset: start + 1 };
-  const count = readVarUInt(payload, state, 'ArrayMalformed');
+  const count = readVarUInt(payload, start + 1, limit, 'ArrayMalformed');
+  let offset = varUIntEnd;
   const fixedSize = getFixedSize(elementType);
 
   if (fixedSize >= 0) {
     const total = fixedSize * count;
-    ensureRange(payload, state.offset, total);
-    return state.offset + total - start;
+    ensureRange(limit, offset, total);
+    return offset + total - start;
   }
 
-  let offset = state.offset;
   for (let i = 0; i < count; i++) {
-    offset = skipValue(elementType, payload, offset, 'ArrayMalformed', depth + 1);
+    readInlineValue(elementType, payload, offset, limit, 'ArrayMalformed', depth + 1);
+    offset = inlineValueEnd;
   }
 
   return offset - start;
 }
 
-function consumeDictPayload(payload: Uint8Array, start: number, depth: number): number {
+function consumeDictPayload(payload: Uint8Array, start: number, limit: number, depth: number): number {
   if (depth >= MAX_CONTAINER_DEPTH) {
     throw new Error('Teleport nesting depth exceeded');
   }
 
-  if (start + 2 > payload.length) {
+  if (start + 2 > limit) {
     throw new Error('Dictionary payload too short');
   }
 
-  const keyType = ((payload[start] >> 4) & 0x0f);
-  const valueType = ((payload[start + 1] >> 4) & 0x0f);
+  const keyType = payload[start] >> 4;
+  const valueType = payload[start + 1] >> 4;
 
   if ((payload[start] & 0x0f) !== 0 || (payload[start + 1] & 0x0f) !== 0) {
     throw new Error('Dictionary key/value flags must be zero');
   }
 
   ensurePrimitiveKey(keyType);
+  const count = readVarUInt(payload, start + 2, limit, 'DictMalformed');
+  let offset = varUIntEnd;
 
-  const state: OffsetState = { offset: start + 2 };
-  const count = readVarUInt(payload, state, 'DictMalformed');
-
-  let offset = state.offset;
   for (let i = 0; i < count; i++) {
-    offset = skipValue(keyType, payload, offset, 'DictMalformed', depth + 1);
-    offset = skipValue(valueType, payload, offset, 'DictMalformed', depth + 1);
+    readInlineValue(keyType, payload, offset, limit, 'DictMalformed', depth + 1);
+    readInlineValue(valueType, payload, inlineValueEnd, limit, 'DictMalformed', depth + 1);
+    offset = inlineValueEnd;
   }
 
   return offset - start;
 }
 
-function skipValue(type: TeleportType, payload: Uint8Array, offset: number, error: string, depth: number): number {
-  const fixed = getFixedSize(type);
-
-  if (fixed >= 0) {
-    ensureRange(payload, offset, fixed);
-    return offset + fixed;
-  }
-
-  switch (type) {
-    case TeleportType.String:
-    case TeleportType.Binary: {
-      const state: OffsetState = { offset };
-      const length = readVarUInt(payload, state, error);
-      ensureRange(payload, state.offset, length);
-      return state.offset + length;
-    }
-
-    case TeleportType.Object: {
-      const state: OffsetState = { offset };
-      const length = readVarUInt(payload, state, error);
-      ensureRange(payload, state.offset, length);
-      return state.offset + length;
-    }
-
-    case TeleportType.Array:
-      return offset + consumeArrayPayload(payload, offset, depth);
-
-    case TeleportType.Dict:
-      return offset + consumeDictPayload(payload, offset, depth);
-
-    default:
-      throw new Error(`Unsupported Teleport type ${TeleportType[type]}`);
-  }
-}
+const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
 
 function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  let hex = '';
+
+  for (let i = 0; i < bytes.length; i++) {
+    hex += HEX[bytes[i]];
+  }
+
+  return hex;
 }
 
 function toUint8Array(source: ProtocolMessage | ArrayBuffer | Uint8Array): Uint8Array {

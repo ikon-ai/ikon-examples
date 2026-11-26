@@ -87,15 +87,7 @@ file static class SdkReadmeExamples
             Console.WriteLine($"Received: {e.Message.Opcode}");
         };
 
-        try
-        {
-            await client.ConnectAsync();
-        }
-        catch (HttpRequestException ex)
-        {
-            // A first connect that is refused throws, such as 403 Invalid key for a deleted key
-            Console.WriteLine($"Connect refused: {ex.Message}");
-        }
+        await client.ConnectAsync();
         #endregion
     }
 

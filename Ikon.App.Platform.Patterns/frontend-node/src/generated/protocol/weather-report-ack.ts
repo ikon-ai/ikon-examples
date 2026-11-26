@@ -68,8 +68,7 @@ export function decodeWeatherReportAck(data: ArrayBuffer | Uint8Array, destinati
 
 export function readFromTeleportWeatherReportAck(reader: TeleportObjectReader, destination?: WeatherReportAck): WeatherReportAck
 {
-    const instance = destination ?? createWeatherReportAck();
-    resetWeatherReportAck(instance);
+    const instance = destination ? resetWeatherReportAck(destination) : createWeatherReportAck();
     readIntoWeatherReportAck(reader, instance);
     return instance;
 }

@@ -73,8 +73,7 @@ export function decodeWorkerPosition(data: ArrayBuffer | Uint8Array, destination
 
 export function readFromTeleportWorkerPosition(reader: TeleportObjectReader, destination?: WorkerPosition): WorkerPosition
 {
-    const instance = destination ?? createWorkerPosition();
-    resetWorkerPosition(instance);
+    const instance = destination ? resetWorkerPosition(destination) : createWorkerPosition();
     readIntoWorkerPosition(reader, instance);
     return instance;
 }

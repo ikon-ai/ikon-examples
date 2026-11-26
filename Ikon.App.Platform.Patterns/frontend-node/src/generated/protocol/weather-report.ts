@@ -72,8 +72,7 @@ export function decodeWeatherReport(data: ArrayBuffer | Uint8Array, destination?
 
 export function readFromTeleportWeatherReport(reader: TeleportObjectReader, destination?: WeatherReport): WeatherReport
 {
-    const instance = destination ?? createWeatherReport();
-    resetWeatherReport(instance);
+    const instance = destination ? resetWeatherReport(destination) : createWeatherReport();
     readIntoWeatherReport(reader, instance);
     return instance;
 }

@@ -101,8 +101,8 @@
     <!-- barcode-scan decodes with ZXing.Net's core reader, which needs no image library binding. -->
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
     <!-- rendered-video-feed draws its frames with Skia; the Linux assets are the ones a deployed app needs. -->
-    <PackageReference Include="SkiaSharp" Version="4.157.0" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.157.0" />
+    <PackageReference Include="SkiaSharp" Version="4.156.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.1" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Ikon.Agent.Test" />
