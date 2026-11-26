@@ -152,8 +152,6 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
     <main className="ikon-surface ikon-auth-screen">
       <section className="ikon-auth-container">
         <h1 className="ikon-auth-title">{config.signInText?.title ?? t('auth.welcome.title')}</h1>
-        {/* Whoever raised the prompt said why; that beats the generic welcome, which tells someone
-            sent here by another application nothing about what they are about to agree to. */}
         <p className="ikon-auth-subtitle">{loginPromptReason ?? config.signInText?.subtitle ?? t('auth.welcome.subtitle')}</p>
 
         {errorFor('primary')}

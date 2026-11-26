@@ -3,6 +3,8 @@ import type { Translations } from './i18n';
 export const en: Translations = {
   'connection.connecting': 'Connecting...',
   'connection.reconnecting': 'Reconnecting...',
+  'connection.capacityComing': 'Getting the app ready, trying again in {seconds} s',
+  'connection.capacityFull': 'This app is full, trying again in {seconds} s',
   'connection.offline.title': 'Refresh to continue',
   'connection.offline.message': '',
   'connection.offline.action': 'Refresh',
@@ -42,6 +44,8 @@ export const en: Translations = {
   'auth.button.guest': 'Continue as Guest',
   'auth.button.provider': 'Continue with {provider}',
   'auth.button.registerPasskey': 'Create a passkey',
+  'auth.provider.email': 'Email',
+  'auth.provider.passkey': 'Passkey',
   'auth.sso.placeholder': 'Enter your work email',
   'auth.sso.submit': 'Continue with your organisation',
   'auth.sso.submitting': 'Finding your organisation...',
