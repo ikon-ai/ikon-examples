@@ -89,6 +89,14 @@ UIActions = false  # Record each action a person runs, which a report filed from
 # Join = ""  # For a frontend installed on hardware and connected to a deployed app: "wake" (the default) starts the app when it is not running, "join" connects only while it runs
 # Surface = ""  # For a frontend installed on hardware: the [[Surface]] its hardware enters, by name; empty is the app's default surface. Give hardware a surface of its own with Presence = false, because a small device does not have the memory for the list of everyone else in the session
 
+# The app's native libraries, one [[Native]] entry each: code compiled for the machine, which the app's .NET code loads by name. 'ikon native add <kind>' writes the entry. The source is in native/<Name>/. An app with one runs in an instance of its own, never in a shared one
+# One native library of the app
+# [[Native]]
+# Name = ""  # Unique in the app, a lowercase label; the folder native/<Name>/ holds its source, and the app's code loads the library by this name with hyphens as underscores
+# Kind = ""  # What builds it: a kind a plugin brings, such as "rust"
+# Path = ""  # The folder of its source, relative to the app's folder, when it is not native/<Name>/: a library kept elsewhere in the same repository
+# BuildRoot = ""  # The folder its build needs to see, relative to the app's folder, when that is more than its own folder: the root of a workspace the library belongs to. It must contain the library's folder. The build for a deploy runs in a container that sees only this folder
+
 # Commands the IKON tool runs in the app root, each started without a shell (app-container guide). None runs on every build: for that, add an MSBuild target with BeforeTargets="BeforeBuild" to the app's csproj
 [Scripts]
 PrePackage = []  # Process the staged bundle after the build and before 'ikon bundle' or 'ikon deploy' zips it; 'ikon run' does not run it, and it runs only in a project that has allowed the commands with 'ikon scripts enable'; a program that must run on every build (ikon build, run and deploy) is an MSBuild BeforeBuild target in the app's csproj instead (guide app-container)
