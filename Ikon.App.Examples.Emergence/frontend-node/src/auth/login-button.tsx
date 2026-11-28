@@ -9,12 +9,16 @@ export interface LoginButtonProps {
   onClick?: () => void;
 }
 
-const PROVIDER_NAMES: Record<Exclude<LoginMethod, 'email' | 'passkey' | 'guest' | 'global'>, string> = {
+const PROVIDER_NAMES: Record<LoginMethod, string> = {
   google: 'Google',
   apple: 'Apple',
   facebook: 'Facebook',
   microsoft: 'Microsoft',
   signicat: 'eID',
+  email: 'Email',
+  passkey: 'Passkey',
+  guest: 'Guest',
+  global: 'Guest',
 };
 
 const PROVIDER_ICONS: Record<LoginMethod, ReactElement> = {
@@ -89,10 +93,7 @@ export function LoginButton({ provider, disabled, onAttempt, onClick }: LoginBut
     }
   };
 
-  const buttonText =
-    provider === 'guest' || provider === 'global'
-      ? t('auth.button.guest')
-      : t('auth.button.provider', { provider: provider === 'email' ? t('auth.provider.email') : provider === 'passkey' ? t('auth.provider.passkey') : PROVIDER_NAMES[provider] });
+  const buttonText = provider === 'guest' || provider === 'global' ? t('auth.button.guest') : t('auth.button.provider', { provider: PROVIDER_NAMES[provider] });
 
   return (
     <button type="button" className={`ikon-auth-login-button ikon-auth-login-button-${provider}`} onClick={handleClick} disabled={disabled}>
