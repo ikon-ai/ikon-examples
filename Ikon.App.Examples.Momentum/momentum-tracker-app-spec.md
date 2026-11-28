@@ -5,7 +5,7 @@ recorded from real background GPS. Read this before changing the app, the detect
 
 ## Why it exists
 
-`docs/private/specs/strategic-positioning-spec.md` states the category line: **conventional apps wait
+`docs/specs/strategic-positioning-spec.md` states the category line: **conventional apps wait
 to be asked; Live Apps are already running.** Momentum is the most literal demonstration of it the
 repo has. The phone sits in a pocket with the screen off and the browser tab closed, and the app keeps
 recording, keeps coaching out loud, and keeps finding highlights — because the app is not on the
