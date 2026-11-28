@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 export interface Translations {
   'connection.connecting': string;
   'connection.reconnecting': string;
-  'connection.capacityComing': string;
-  'connection.capacityFull': string;
   'connection.offline.title': string;
   'connection.offline.message': string;
   'connection.offline.action': string;
@@ -45,8 +43,6 @@ export interface Translations {
   'auth.button.guest': string;
   'auth.button.provider': string;
   'auth.button.registerPasskey': string;
-  'auth.provider.email': string;
-  'auth.provider.passkey': string;
   'auth.sso.placeholder': string;
   'auth.sso.submit': string;
   'auth.sso.submitting': string;
