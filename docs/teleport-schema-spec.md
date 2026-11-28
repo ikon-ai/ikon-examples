@@ -1,4 +1,4 @@
-<!-- checked-against: abd678c22d1942a31782c27d -->
+<!-- checked-against: 61ca5a426b24fb889a9c4272 -->
 
 # Teleport message schema specification
 
@@ -64,6 +64,7 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `[[transforms]]` | optional | Reserved for version upgrade logic; ignored by the parser and generators. See section 9. |
 | `[constraints]`  | optional | Reserved for numeric/string constraints; ignored by the parser and generators. See section 10. |
 | `[obsolete]`     | optional | Ledger of removed fields: name → the type the field had when it was live. See section 5. |
+| `[csharp_types]` | optional | C# property types for some fields; the wire format and other languages are unchanged. See section 5. |
 
 ### Data Schemas
 
@@ -345,6 +346,41 @@ type as `RetiredFields` and names the member `Retired` (a member cannot share it
 name); Dart and Rust prefix with the message name because neither nests. The JSON mirror of wire
 messages does not carry retired keys in any target. The bag exists only in the binary form, which is
 why the Rust member is `#[serde(skip)]`.
+
+### C# Field Types: `[csharp_types]`
+
+`[csharp_types]` maps a field name to the C# type its property is declared as. It changes only the
+generated C#: the wire format, the field ids and the other languages' bindings stay the same.
+
+```toml
+[csharp_types]
+Data = "ReadOnlyMemory<byte>"
+
+[fields]
+UploadId = "string"
+Data = "binary"
+```
+
+Two kinds of field take a type here:
+
+- **A dictionary field** takes a type that reads and writes like a `Dictionary<K, V>`, such as a
+  shared-entry map.
+- **A binary field of a top-level wire message** takes `ReadOnlyMemory<byte>`, which makes it
+  *borrowed*. Reading the message from memory, with `TeleportSerializer.DeserializeBorrowed<T>` or
+  the generated `ReadFromTeleportBorrowed(ReadOnlyMemory<byte>)`, gives a field that is a slice of
+  that memory instead of a copy of its bytes. `ProtocolMessage.GetPayload<T>()` reads every
+  uncompressed Teleport payload this way, so the receiver does not allocate a second buffer for a
+  large chunk. A compressed payload is decompressed into a pooled buffer, so its field is still a
+  copy. So is a field read from a `ReadOnlySpan<byte>` (`Deserialize<T>`, `ReadFromTeleport`),
+  because a span cannot be stored.
+
+A borrowed field keeps the whole buffer it was read from alive for as long as it is held, and it
+shows any later change to that buffer, so read from memory nothing writes to again.
+`ProtocolMessage` wraps the buffer it is created from without copying it, so a buffer that is reused
+later goes through `ProtocolMessage.CopyFrom` first. A borrowed field cannot be optional or have a default, and a
+nested message, a data schema (`data = true`), an array element or a dictionary value cannot have
+a borrowed field. The parser refuses these and names the field. Any other type given to a field that is not a
+dictionary is refused too.
 
 ## 6. Nested Messages
 

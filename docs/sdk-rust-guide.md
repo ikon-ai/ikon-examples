@@ -1,4 +1,4 @@
-<!-- checked-against: 1f27543682c28f27e3b0c442 -->
+<!-- checked-against: 2e9f40116c37ea3fe3b0c442 -->
 
 # IKON Rust SDK
 
@@ -244,7 +244,7 @@ Once joined, `client.app_session_id()` is the app session the Portal shows and `
 
 `connect` asks the backend's `/init` for the app's server up to three times when it gets no answer or a 408, 500, 502, 503 or 504, waiting 1 s and then 2 s, or a rate limiter's wait when that is longer. It then asks the server for a session on the server's own address and, when `/init` named one, through the IKON proxy on port 443, which reaches a server whose own port the network blocks. The first request to the server's own address gives up after 3 s and every later one after 10 s; the rounds start 100 ms apart, doubling to 2 s, the proxy is asked at most every 2 s, and they go on for 60 s. A rate limiter's 429 (`SdkError::RateLimited`) holds the next request for its `retry_after`, 10 s when it names none, at most 30 s, plus up to half as long again; a wait that would go past the 60 s ends the connect with that error. A full server (`SdkError::ServerFull`) and a server that is not the one the token was for (`SdkError::ServerChanged`) end the round at once. After a full server, the connect asks `/init` for another server up to three times, naming the servers that were full. After a refused token, it asks `/init` once more. When those asks run out, the connect fails with the server's error. `/init` itself may take the provisioning wait (`timeouts.provisioning`, 60 s) and 15 s more.
 
-When the app has no room for the client yet, `/init` answers at once with how long to wait. Either the app is full (at its shard limit, or not sharded), or a server is being started for it. The client then stays `Connecting` (`Reconnecting` on a reconnect), and `client.capacity_wait()` returns a `CapacityWait`. Its `full` says which of the two it is, and its `retry_at` (a `tokio::time::Instant`) is when the client asks again. At that time the client clears the wait and asks `/init` again. A task given `Arc::clone(&client)` can show the seconds left:
+When the app has no room for the client yet, `/init` answers with how long to wait. Either the app is full (at its shard limit, or not sharded), or a server is being started for it. When a server is due to start within about 25 s, `/init` first holds the request until it runs, for up to 30 s, and then answers that it runs. The client then stays `Connecting` (`Reconnecting` on a reconnect), and `client.capacity_wait()` returns a `CapacityWait`. Its `full` says which of the two it is, and its `retry_at` (a `tokio::time::Instant`) is when the client asks again. At that time the client clears the wait and asks `/init` again. A task given `Arc::clone(&client)` can show the seconds left:
 
 <!-- ikon-example: rust-sdk-capacity-wait -->
 ```rust

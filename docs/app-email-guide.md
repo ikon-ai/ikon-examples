@@ -1,4 +1,4 @@
-<!-- checked-against: 65438f3fd5c2d2636c5a4105 -->
+<!-- checked-against: 5dd009f0d5c2d2636c5a4105 -->
 
 # Ikon.App.Email Guide
 
@@ -124,7 +124,7 @@ chooses the identity:
   from. It must be a verified sending domain of the app.
 
 With no `SenderDomain`, the platform picks the app's sending domain in this order. The domain
-designated as the app's **email sender** (`ikon email sending primary <hostname>`) comes first, once
+designated as the app's **email sender** (`ikon email sending primary set <hostname>`) comes first, once
 its sending is verified. Without a designation, a domain of your own beats the platform-provided one,
 and then the earliest verified one wins. `ikon email sending status` shows which domain the app's mail
 goes from.

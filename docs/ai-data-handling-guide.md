@@ -1,4 +1,4 @@
-<!-- checked-against: 1280edc79499fd2b6ad102d1 -->
+<!-- checked-against: e0bdd4fba34011693d001258 -->
 
 # How IKON handles AI data
 
@@ -94,7 +94,7 @@ When a call fails, the provider's error message is logged and the call record ke
 A provider sometimes repeats part of the request in its error message. The rest of the provider's
 response is logged only as its error codes and the length of each longer text.
 
-`KernelContext.LogFullRequest` and `KernelContext.LogFullResponse` log a language model call's whole
+`LLMContext.LogFullRequest` and `LLMContext.LogFullResponse` log a language model call's whole
 request or answer, for debugging. IKON's AI host turns both off. They work only for a call that runs
 in your app's server, such as a call on your own key, and they write to your app's log.
 

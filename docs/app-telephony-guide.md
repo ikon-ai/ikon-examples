@@ -1,4 +1,4 @@
-<!-- checked-against: f7a76d23a284f3382a033ee6 -->
+<!-- checked-against: 04d7bac0a284f3382a033ee6 -->
 
 # Ikon.App.Telephony Guide
 
@@ -18,11 +18,11 @@ ikon phone buy
 It asks for the provider (46elks first), then shows the common markets with what each sells —
 `SMS + voice`, `SMS`, `voice`, `unknown` or `unavailable` — and `review` where a regulator has to
 approve you first, which takes days. You can pass over a market that does not suit before typing
-anything, and it sends you back to the list if one turns out not to. `ikon phone markets` prints the same list for every provider side
+anything, and it sends you back to the list if one turns out not to. `ikon phone market list` prints the same list for every provider side
 by side (`--provider` narrows it, `--format json` gives it to a script or an agent):
 
 ```bash
-ikon phone markets
+ikon phone market list
 ikon phone buy --country se --provider 46elks --yes
 ```
 
@@ -183,7 +183,7 @@ reaches the recipient as a stranger.
 To pin one number as the app's usual sender:
 
 ```bash
-ikon phone default +46766861234
+ikon phone default set +46766861234
 ```
 
 ## Place a call

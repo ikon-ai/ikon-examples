@@ -1,4 +1,4 @@
-<!-- checked-against: 0fa13f153a3d450c8ba033ba -->
+<!-- checked-against: 6493b26dab22375fc1480911 -->
 
 # Ikon.AI Library Overview
 
@@ -12,7 +12,7 @@ A service that submits a job to its provider and waits for it (video, mesh, musi
 
 | Service | Default `Timeout` |
 |---|---|
-| LLM calls (`KernelContext`) | 60 seconds; 10 minutes for a reasoning model when `Timeout` is not set |
+| LLM calls (`LLMContext`) | 60 seconds; 10 minutes for a reasoning model when `Timeout` is not set |
 | Embeddings, reranking | Embeddings 30 seconds and reranking 10 seconds per request; embeddings add one second per 5,000 characters sent, reranking adds 10 ms per document |
 | Speech recognition | 1 minute |
 | Web search (`WebSearcher.SearchAsync` also takes a `timeout`) | 20 seconds; the SerpApi models (Google, Bing, Amazon, YouTube) retry a timed-out request once, so up to 40 |
@@ -80,7 +80,7 @@ The routes of a model run the same model, but not always with the same features 
   string lengths, item counts over one or uncommon formats; they reach the model as description
   text, so check them in the reply. `Emerge.Run<T>` works on every model: where the route
   does not enforce the schema, it describes the shape in the prompt and checks the reply, retrying
-  one that does not parse. A direct `Emerge.Generate` whose `KernelContext` sets `UseJson` and a
+  one that does not parse. A direct `Emerge.Generate` whose `LLMContext` sets `UseJson` and a
   `JsonSchema` throws on such a route.
 - **Limits, reasoning, caching.** Context window, output limit, the reasoning setting a route reads
   (`AcceptedReasoningDial`) and whether it caches the prompt can differ per route, so the same calls
@@ -268,15 +268,15 @@ public static string MessageFor(Exception ex) => ex switch
 
 ## Emergence
 
-`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. Every run is both awaitable and enumerable: `await` it for the result (non-null; `EmergenceStoppedException` when the run stops without one), or `await foreach` its `EmergeEvent<T>` stream. `.FinalAsync()` returns a nullable result together with the updated `KernelContext` for conversation continuity. Emergence can target any model listed in the [LLM](#llm) section. See `ikon docs emergence` and the Emergence Guide (`ikon docs emergence-strategies`) for the full documentation.
+`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. Every run is both awaitable and enumerable: `await` it for the result (non-null; `EmergenceStoppedException` when the run stops without one), or `await foreach` its `EmergeEvent<T>` stream. `.FinalAsync()` returns a nullable result together with the updated `LLMContext` for conversation continuity. Emergence can target any model listed in the [LLM](#llm) section. See `ikon docs emergence` and the Emergence Guide (`ikon docs emergence-strategies`) for the full documentation.
 
 ### Object Generation
 
-Needs the `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
+Needs the `Ikon.AI.Emergence`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
 <!-- ikon-example: ai-object-generation -->
 ```csharp
-var context = new KernelContext();
+var context = new LLMContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
 
 // Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
@@ -321,15 +321,15 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt61Terra, pass =>
 
 `Ikon.AI.LLM` offers direct, streaming-level access to language models when higher-level orchestration is unnecessary.
 
-**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.Agent.Docs/api/Ikon.AI.LLM.md` in an app project).
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (the `docs/Ikon.Agent.Docs/api/Ikon.AI.LLM*.md` files in an app project).
 
 Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global`, which has no restriction: the platform picks the serving region. The exception is an organisation whose AI region policy is EU-only. There an omitted or `Global` region means the EU, and a requested non-EU region throws `AIRegionPolicyViolationException`. An organisation admin sets that policy in Studio's organisation settings, under "Where AI calls are served", or with `ikon org set --ai-region eu-only`. `ikon model list --eu` lists the models that have an EU region, and `Emerge.FindModels(c => c.SupportsInputAudio, [ModelRegion.Eu])` lists the LLMs with a capability on an EU route. The policy applies the same way in `ikon run` as in the deployed app, and a call that names no speech model gets one with an EU route. The `ModelRegion` values are `Global`, `Eu`, `EuNorth`, `EuWest`, `EuCentral`, `EuSouth`, `Us`, `UsEast` and `UsWest`; there is no Asia region and no app-wide pin (set `Regions` per call, per `EmergeScope`, or for the organisation with `ikon org set --ai-region`). An embedding model such as `OpenAIAda2` has only a `Global` route and is refused under eu-only.
 
-Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
+Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
 <!-- ikon-example: aid-llm -->
 ```csharp
-var context = new KernelContext();
+var context = new LLMContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Summarise the latest release highlights. Here are the notes: ..."));
 
@@ -346,7 +346,7 @@ Log.Instance.Info($"String result: {stringResult}");
 
 Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted. An endpoint custom model declares no region, so under an EU-only AI region policy calling it throws `AIRegionPolicyViolationException`:
 
-Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
+Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
 <!-- ikon-example: aid-custom-model-endpoints -->
 ```csharp
@@ -364,7 +364,7 @@ CustomModels.Instance.Register(new CustomLLMModel
 
 var reply = await Emerge.AskAsync("Hello", "my-model");
 
-await foreach (var llmEvent in Emerge.Generate("my-model", new KernelContext()))
+await foreach (var llmEvent in Emerge.Generate("my-model", new LLMContext()))
 {
     Log.Instance.Info($"{llmEvent}");
 }
@@ -376,7 +376,7 @@ Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbe
 
 When the model speaks none of those formats (a runtime in the app's own process, a private gateway, a vendor's SDK), implement the family's provider interface and register the object under a name with `CustomModels.Instance.Register(name, provider, region)`. The interfaces are `ILLMProvider`, `IEmbeddingProvider`, `IImageGenerationProvider`, `ISpeechGenerationProvider` and `ISpeechRecognitionProvider`. One class may implement several, and the name then works in each of those families (`Emerge`, `new EmbeddingGenerator(name)`, `new ImageGenerator(name)`, `new SpeechGenerator(name)`, `new SpeechRecognizer(name)`).
 
-Needs the `System.Runtime.CompilerServices`, `Ikon.AI.Kernel`, `Ikon.AI.LLM` using directives.
+Needs the `System.Runtime.CompilerServices`, `Ikon.AI.LLM` using directives.
 
 <!-- ikon-example: aid-custom-model-providers -->
 ```csharp
@@ -390,7 +390,7 @@ public sealed class MyLlamaProvider : ILLMProvider
         SupportsSingleToolCalling = true,
     };
 
-    public async IAsyncEnumerable<LLMProviderOutput> GenerateAsync(KernelContext context, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<LLMProviderOutput> GenerateAsync(LLMContext context, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var prompt = string.Join("\n", context.Messages.Select(message => $"{message.Role}: {message}"));
         int outputTokens = 0;
@@ -437,7 +437,7 @@ Key behaviors of every custom model:
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
 - **In an agent.** An `Ikon.Agent` persona's `Reasoning` names a built-in model (`Model`), or a capability and family each pass resolves to one. Set `Orchestrator.ModelNameHook` to have a thread's passes use a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to its `Reasoning`. That is how an app lets a person use a model they brought their own key for.
-- **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
+- **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `LLMContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration
 
@@ -1585,21 +1585,21 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
 
 `EmbeddingGeneratorConfig.OutputDimensions` asks for a vector of another length from a model that can produce one. `EmbeddingGenerator.GetCapabilities(model)` says which: `MinOutputDimensions` and `MaxOutputDimensions` bound the length (0 means it is fixed and any other value is refused), and a non-empty `OutputDimensionChoices` lists the only lengths allowed. The OpenAI 3, Jina and Google text models take any length up to their own; Gemini takes 128 to 3072; Cohere and Voyage take a few fixed lengths, and Voyage's go up to 2048, twice its default. A value the model cannot return throws a `NonRetryableAIException` before the call. A shorter vector costs storage and search time in proportion, and is only comparable with vectors of the same length.
 
-## Kernel
+## Messages and context
 
-`Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin Emergence passes and direct LLM calls.
+`LLMContext`, `MessageBlock` and `Instruction`, in `Ikon.AI.LLM`, hold the conversation that an Emergence pass or a direct LLM call sends to the model.
 
 ### Attaching media from the asset system
 
 For large media that lives in the IKON asset system, pass an `AssetUri` directly instead of reading the bytes yourself. `VideoAssetPart` lets you hand a video asset to a multimodal LLM without worrying about request-size limits:
 
-Needs the `Ikon.AI.Kernel`, `Ikon.Common.Core.Assets` using directives.
+Needs the `Ikon.AI.LLM`, `Ikon.Common.Core.Assets` using directives.
 
 <!-- ikon-example: ai-attaching-media-from-the-asset-system -->
 ```csharp
 var assetUri = new AssetUri("assets://space/abc123/cloud-file/clips/demo.mp4");
 
-var context = new KernelContext();
+var context = new LLMContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, new IMessagePart[]
 {
     new TextPart("Describe what happens in this clip."),
@@ -1611,11 +1611,11 @@ When the target model runs on Google Vertex (current Gemini models) and the asse
 
 ## Chat
 
-Multi-turn assistant conversations are built with the Emerge API in `Ikon.AI.Emergence`: carry the `KernelContext` returned by each `Emerge.Run` call (via `FinalAsync`) into the next turn and the model remembers the whole conversation — no manual history bookkeeping.
+Multi-turn assistant conversations are built with the Emerge API in `Ikon.AI.Emergence`: carry the `LLMContext` returned by each `Emerge.Run` call (via `FinalAsync`) into the next turn and the model remembers the whole conversation — no manual history bookkeeping.
 
 ## Retrieving
 
-`Ikon.AI.Retrieving.Retriever` provides retrieval-augmented generation primitives — vector-database-backed semantic search over indexed content, keyword extraction, an asset cache, and a set of built-in functions (`builtin.search`, `builtin.get_contents`, filter/sort helpers) that can be wired directly into a `KernelContext`.
+`Ikon.AI.Retrieving.Retriever` provides retrieval-augmented generation primitives — vector-database-backed semantic search over indexed content, keyword extraction, an asset cache, and a set of built-in functions (`builtin.search`, `builtin.get_contents`, filter/sort helpers) that can be wired directly into an `LLMContext`.
 
 ## Database
 

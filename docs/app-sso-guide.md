@@ -1,4 +1,4 @@
-<!-- checked-against: fdc138fd70abf92d4fb063e7 -->
+<!-- checked-against: e434f58f1e79ba2e067f087e -->
 
 # Ikon.App.Sso Guide
 
@@ -16,19 +16,34 @@ raise.
 
 Your own organisation can also have connections of its own, set up by its admins in Studio's
 Single sign-on settings. Such a connection signs its members in to every app of the organisation, so
-your app needs no connection of its own for the organisation's members. It changes these things for your app:
+your app needs no connection of its own for the organisation's members. The admins can also let it
+cover the apps of every workspace or of chosen ones. In a covered app it signs in people who are
+not members too, as the app's users, so one application in the company's identity provider serves
+all of its apps. It changes these things for your app:
 
 - An app connection cannot use an email domain that the app's organisation holds. People on that
   domain sign in through the organisation's connection.
+- Your app must list `sso` among its sign-in methods before the organisation's connection can sign
+  anyone in to it. In a covered app, the sign-in screen offers it as "Continue with …".
+- In an app the connection does not cover, it lets in members only. Anyone else who signs in through
+  it is refused with the code `SSO_MEMBERS_ONLY`.
 - When the organisation requires SSO, its members cannot enter your app with another sign-in
-  method. A session through the organisation's connection also meets your app's own requirement
-  (`SsoRequiredMode`) for a domain the organisation holds.
-- `Context.SsoConnectionId` can be the organisation's connection, which `SsoConnections` does not
-  list, so don't treat an unknown id as an error.
+  method. In an app the connection covers, the same applies to anyone else whose address is on a
+  domain the organisation holds. A session through the organisation's connection also meets your app's own
+  requirement (`SsoRequiredMode`) for a domain the organisation holds.
+- `Context.SsoConnectionId` can be the organisation's connection. `SsoConnections.ListAsync` and
+  `GetAsync` return it while it covers the app, with `SsoConnection.IsOrganisation` set, and every
+  call that would change it throws. In an app it does not cover, they don't return it, so don't
+  treat an unknown id as an error.
 - An address on a domain the organisation holds is routed to the organisation's connection, unless
   your app has its own connection for that domain.
 - A person who signs in to Studio through an organisation's connection can reach only that
   organisation, even when they are also a member of another one.
+
+An app is also for internal or external use. An internal app lets in only the organisation's own
+people (its members and people with a verified address on a domain it holds) and the people the
+app invited or the organisation shared it with. A guest or anyone else is refused. A new app made in
+a covered workspace starts internal; its makers change it in Studio's Deploy settings.
 
 ## Turn on the sign-in UI
 

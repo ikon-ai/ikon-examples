@@ -1,4 +1,4 @@
-<!-- checked-against: 2e9c21fb6b575d1866f6c071 -->
+<!-- checked-against: b18808d2cbb41b1d45666e0e -->
 
 # Ikon.AI.Emergence Guide
 
@@ -29,7 +29,7 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { pass.Command =
     }
 }
 
-// Get the (nullable) result plus the updated KernelContext
+// Get the (nullable) result plus the updated LLMContext
 var (withContext, context) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalAsync();
 
 // Get the result with trace info
@@ -123,11 +123,11 @@ Patterns handle context in two ways:
 
 ## Patterns
 
-The examples below that take a context pass `ctx` (or `context`), a `KernelContext`: the conversation the run starts from. Pass `new KernelContext()` for a fresh run.
+The examples below that take a context pass `ctx` (or `context`), an `LLMContext`: the conversation the run starts from. Pass `new LLMContext()` for a fresh run.
 
 ### AskAsync — One-Shot Shortcut
 
-The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Use `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
+The simplest entry point: a one-shot LLM call with no `LLMContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Use `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
 
 <!-- ikon-example: emergence-classification -->
 ```csharp
@@ -172,7 +172,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude55Sonnet, pass =>
 });
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns). Add `.FinalAsync()` when you need the updated context back for conversation continuity, or want a nullable result for a run that completes without one. A stopped run still throws `EmergenceStoppedException`, and so does a missing result for a non-nullable value-type `T` such as `int` or `bool`. Like `FinalWithTraceAsync`, `FinalAsync` is an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so it works on an `EmergeRun<T>`:
+A fresh `LLMContext` is created internally. Pass your own when you seed the call with input (images, prior turns). Add `.FinalAsync()` when you need the updated context back for conversation continuity, or want a nullable result for a run that completes without one. A stopped run still throws `EmergenceStoppedException`, and so does a missing result for a non-nullable value-type `T` such as `int` or `bool`. Like `FinalWithTraceAsync`, `FinalAsync` is an `EmergeEventExtensions` extension on any `IAsyncEnumerable<EmergeEvent<T>>`, so it works on an `EmergeRun<T>`:
 
 <!-- ikon-example: emergence-final -->
 ```csharp
@@ -228,7 +228,7 @@ Run N independent attempts (sequentially, one after another) and select the best
 
 <!-- ikon-example: emergence-bestof -->
 ```csharp
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.Count = 5;
     opt.Command = "Solve this problem step by step.";
@@ -263,7 +263,7 @@ var rubric = new ScoreBreakdownBuilder<Answer>()
     .Metric("correctness", 3, a => a.Correctness)
     .Metric("brevity", 1, a => a.Brevity);
 
-var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.Command = "Solve this problem step by step.";
     opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
@@ -288,7 +288,7 @@ Split input into chunks, process each in parallel, then reduce to a final result
 
 <!-- ikon-example: emergence-mapreduce -->
 ```csharp
-var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.Chunks = documents;
     opt.MaxParallel = 8;
@@ -324,7 +324,7 @@ Generate an initial result, then iteratively improve it based on feedback.
 
 <!-- ikon-example: emergence-refine -->
 ```csharp
-var final = await Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+var final = await Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -360,7 +360,7 @@ progress line on screen, then:
 
 <!-- ikon-example: emergence-refine-rounds -->
 ```csharp
-await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+await foreach (var ev in Emerge.Refine<Implementation>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.MaxRefinements = 3;
     opt.Initial(s => s.Command = "Write initial implementation of the feature.");
@@ -392,7 +392,7 @@ Run multiple diverse solvers in parallel, then merge their outputs into a cohere
 // Without s.Model every solver runs on opt.Model when that is set, else on the model passed here; so does the merger without m.Model
 LLMModel[] models = [LLMModel.Claude55Sonnet, LLMModel.Gpt54, LLMModel.Gemini31Pro];
 
-var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.SolverCount = models.Length;
     opt.MaxParallel = models.Length;
@@ -444,7 +444,7 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude55Sonnet, documentC
 }
 
 // Step 2: Search the tree
-TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude55Sonnet, new KernelContext(), opt =>
+TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude55Sonnet, new LLMContext(), opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";
@@ -583,9 +583,9 @@ string? text = StructuredTagParser.GetTagContent(content, "answer");
 
 ---
 
-## KernelContext Extensions
+## LLMContext Extensions
 
-Extension methods for inspecting tool call history in a `KernelContext`:
+Extension methods for inspecting tool call history in an `LLMContext`:
 
 <!-- ikon-example: emergence-context-helpers -->
 ```csharp
@@ -651,7 +651,7 @@ Returned with `Completed<T>` events:
 
 ## Testing with a substitute model
 
-Every pattern method except `AskAsync` has an overload taking a `ModelStream` — a delegate from a `KernelContext` to
+Every pattern method except `AskAsync` has an overload taking a `ModelStream` — a delegate from an `LLMContext` to
 the model's event stream — so a test can stand in for the provider. It carries no capabilities:
 those describe the model, which the same call already names.
 

@@ -1,4 +1,4 @@
-<!-- checked-against: 7efbd0ea62a62465e3b0c442 -->
+<!-- checked-against: ac202bd262a62465e3b0c442 -->
 
 # Flutter SDK Guide
 
@@ -13,6 +13,7 @@
 - [Post-quantum key exchange](#post-quantum-key-exchange)
 - [Links and Notification Taps](#links-and-notification-taps)
 - [Store Identity and App Links](#store-identity-and-app-links)
+- [Phones and Stores](#phones-and-stores)
 - [Responsiveness](#responsiveness)
 - [Keyboard](#keyboard)
 - [Custom Components](#custom-components)
@@ -946,8 +947,10 @@ the servers that refused it, so a sharded app places the person on another shard
 ### When the app is full or its server is starting
 
 When the platform has no room for the session yet, because a server is being started for it or
-every server the app may use is full, `/init` answers at once with how long to wait. The connect
-then waits that long and asks `/init` again, and keeps doing so for up to
+every server the app may use is full, `/init` answers with how long to wait. When a server is due
+to start within about 25 s, `/init` first holds the request until it runs, for up to 30 s, and
+then answers that it runs. Otherwise the connect waits as long as it was told and asks
+`/init` again, and keeps doing so for up to
 `IkonConnectOptions.capacityWaitTimeout` (10 minutes by default). Each wait is an `IkonCapacityWait`:
 `full` says whether the app is full (true) or a server is being started for it (false), and
 `retryAt` is when the connect asks again. Each wait logs one info line naming the space, the seconds
@@ -1146,6 +1149,42 @@ platform hostname, each custom hostname that serves the app (`www.` of one that 
 - A file the app's frontend ships itself under `public/.well-known/` is kept, and the deploy says so.
 - A build signed with IKON's identities (`ikon distribute`) is not the app the files name, so its
   links open in the browser.
+
+## Phones and Stores
+
+`ikon device install ios` (or `android`) builds the Flutter frontend in release mode for the app's
+deployment and installs it on the phone connected by cable. It does not install on simulators or
+emulators. With several phones connected, it lists them and `--device` picks one. On iOS the build is
+signed the way Xcode signs the `Runner` target: open `ios/Runner.xcworkspace` once, turn on "Automatically manage signing" and
+pick your team. If the app will not open, trust the developer profile on the phone (Settings →
+General → VPN & Device Management). On Android the build is signed with the debug keystore, and the phone needs USB debugging turned on.
+
+For your own App Store and Google Play accounts, build with your own signing identity:
+
+```bash
+ikon bundle --flutter-ios --flutter-android --signing self --store-ready \
+  --apple-team ABCDE12345 --keystore ./my-release.jks
+```
+
+This builds an App Store `.ipa` and a Play `.aab`, both ready to upload, as well as the APK you can
+install directly.
+Without `--apple-team` the team comes from `[Flutter] AppleTeamId`. `--keystore-password`,
+`--key-alias` and `--key-password` give the keystore's password, the key alias and the key password.
+
+What every native build gets:
+
+- **Version.** The marketing version is `1.0.0` and the build number is the Unix time of the build,
+  so each upload's number is higher than the last; the app's `pubspec.yaml` version is not used.
+- **Purpose strings and permissions.** The SDK links the camera, microphone, photo library and
+  location plugins, and Apple refuses an upload that lacks a purpose string for any API the binary
+  references. So the build adds a default purpose string for each, the `audio` background mode, and
+  the matching Android permissions. Background location is added only when the app's C# calls
+  `StartTrackingAsync` or `StartLocationUpdatesAsync`. A key the app's own `Info.plist` or
+  `AndroidManifest.xml` already sets is kept, so commit those files to word the strings yourself.
+- **Export compliance.** `ITSAppUsesNonExemptEncryption` is `false`, so App Store Connect does not
+  ask about encryption on each build.
+- **Android native code.** The APK carries 32- and 64-bit ARM only, so an x86_64 emulator cannot
+  install it; the `.aab` carries x86_64 as well, and Play sends each device only the code for its architecture.
 
 ## Responsiveness
 
